@@ -1,0 +1,8 @@
+{
+  "name": "model-railroad-skills",
+  "version": "0.1.0",
+  "description": "Skills and read-only live tools for JMRI, stock JMRI MQTT, CATS and STS.",
+  "author": { "name": "lnevo" },
+  "repository": "https://github.com/lnevo/model-railroad-skills",
+  "license": "MIT"
+}

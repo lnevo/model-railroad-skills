@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "jmri-json": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/jmri_json.py"]
+    },
+    "mqtt-layout": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mqtt_layout.py"]
+    }
+  }
+}
