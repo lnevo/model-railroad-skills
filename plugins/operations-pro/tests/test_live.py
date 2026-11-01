@@ -181,6 +181,23 @@ class Live(unittest.TestCase):
         after = ops_data.load(self.ops).cars[car.id]
         self.assertEqual((after.track_id, after.load), (car.track_id, car.load))
 
+    def test_schedule_refusal_undoes_the_move(self):
+        """The move is accepted, then the schedule refuses: this is the undo in set_car (not the move check)."""
+        rr = ops_data.load(self.ops)
+        mill = rr.find_track("Ashgrove Feed Mill")
+        car = next(c for c in rr.cars.values() if c.type == "Boxcar" and c.load == "L"
+                   and not c.kernel and not c.train_id and c.track_id != mill.id)
+        with self.assertRaisesRegex(Refused, "refused the schedule, so the car was put back"):
+            ops_live.ask(self.url, "set_car", car=car.id, location="Ashgrove", track=mill.name)
+        ops_live.ask(self.url, "save")
+        after = ops_data.load(self.ops)
+        self.assertEqual((after.cars[car.id].track_id, after.cars[car.id].load), (car.track_id, car.load))
+        # The spur holds no trace of the car: a car the schedule accepts still fits and loads.
+        grain = next(c for c in rr.cars.values() if c.type == "Boxcar" and c.load == "Grain"
+                     and not c.kernel and not c.train_id and c.track_id != mill.id)
+        result = ops_live.ask(self.url, "set_car", car=grain.id, location="Ashgrove", track=mill.name)
+        self.assertEqual(result["load"], "Feed")
+
     def test_save_writes_what_the_running_jmri_holds(self):
         self.build("BV1")
         ops_live.ask(self.url, "save")

@@ -353,6 +353,44 @@ class Chains(Case):
         self.assertTrue(result["changed"])
 
 
+class Chain5(Case):
+    """Convert a default-load spur to custom loads: the worked example in references/loads-and-schedules.md."""
+    PLAN = [
+        {"action": "add_schedule", "name": "Team Track Loads",
+         "lines": [{"type": "Boxcar", "receive": "Feed", "ship": "Mty", "count": 2}]},
+        {"action": "update_track", "track": "Brackwater Team Track", "location": "Brackwater",
+         "schedule": "Team Track Loads", "schedule_mode": "sequential"},
+    ]
+
+    def test_two_actions_in_one_plan_give_the_spur_a_schedule(self):
+        before = self.track("Brackwater Team Track")
+        self.assertEqual(before.schedule_id, "")
+        plan = self.plan(*self.PLAN)
+        self.assertFalse(plan["blocked"])
+        ops_store.apply(plan["plan_id"])
+        rr = self.rr()
+        after = rr.find_track("Brackwater Team Track")
+        schedule = next(s for s in rr.schedules.values() if s.name == "Team Track Loads")
+        self.assertEqual(after.schedule_id, schedule.id)
+        self.assertEqual(after.item_id, schedule.items[0].id)
+
+    def test_update_track_alone_cannot_name_a_schedule_that_does_not_exist_yet(self):
+        with self.assertRaises(Refused):
+            self.plan(self.PLAN[1])
+
+    @unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
+    def test_jmri_keeps_the_converted_spur(self):
+        self.edit(*self.PLAN)
+        keep = Path(self.temp.name) / "saved"
+        keep.mkdir()
+        result = ops_jmri.run_worker(self.ops, {"save": True}, keep)
+        self.assertEqual(result["log_errors"], [])
+        theirs = ops_data.load(keep).find_track("Brackwater Team Track")
+        mine = self.rr().find_track("Brackwater Team Track")
+        self.assertEqual((theirs.schedule_id, theirs.item_id), (mine.schedule_id, mine.item_id))
+        self.assertNotEqual(theirs.schedule_id, "")
+
+
 class ReviewFixes(Case):
     """Findings from the write-lane review, each held to the JMRI source it cites."""
 

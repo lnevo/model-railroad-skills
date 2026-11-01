@@ -12,7 +12,7 @@ OperationsPro moves cars by building trains. Almost every surprise is a gate in 
 Ask first: staging or a loop, default loads only or custom loads, and which trains should run in what order. Then build in this order. Each step is an `ops_plan` the user sees, then `ops_apply`, with JMRI exited. Point `ops_dir` at an empty Operations folder or at one JMRI has already made.
 
 1. **Car types and custom loads:** `add_car_type`, `add_load`. The default E and L loads already exist.
-2. **Locations and tracks:** `add_location`, then `add_track` for yards, interchanges and staging. An industry is `add_industry`, which makes the spur and its schedule in one step. Staging that should send custom loads is `setup_custom_staging`. An interchange between two trains is `setup_interchange`.
+2. **Locations and tracks:** `add_location`, then `add_track` for yards, interchanges and staging. An industry is `add_industry`, which makes the spur and its schedule in one step. Staging that should send custom loads is `setup_custom_staging`. An interchange between two trains is `setup_interchange`. Converting an existing default-load spur to custom loads has no single action: put `add_schedule` and then `update_track` (`schedule`, `schedule_mode`) in one plan; the worked example is in `references/loads-and-schedules.md`.
 3. **Routes:** `add_route`, one per train pattern, with each stop's direction, moves and train length.
 4. **Trains:** `add_train`, which also puts the train on the pick up and set out lists of the tracks along its route.
 5. **Cars:** `add_car`, then `place_car` on the starting track. Kernels with `set_kernel`.
