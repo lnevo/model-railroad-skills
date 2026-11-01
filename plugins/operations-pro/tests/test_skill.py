@@ -1,4 +1,5 @@
 """The skill's entry file must point at reference files that exist, and name every gate and finding the code has."""
+import os
 import re
 import sys
 import unittest
@@ -75,9 +76,16 @@ class SkillTest(unittest.TestCase):
             self.assertIn(f"`{tool.name}`", self.entry, tool.name)
 
     def test_no_private_content(self):
-        banned = re.compile(r"groups\.io|jmriusers|hart", re.I)
+        # Extra private terms come from the environment, so none are listed in the public tree.
+        extra = [t for t in os.environ.get("OPS_BANNED_TERMS", "").split(",") if t.strip()]
+        banned = re.compile("|".join([r"groups\.io", "jmriusers", *map(re.escape, extra)]), re.I)
         for path in [SKILL / "SKILL.md", *(SKILL / "references").glob("*.md"), AGENT, ROOT / "README.md"]:
             self.assertIsNone(banned.search(path.read_text()), path.name)
+
+    def test_readme_counts_match_code(self):
+        import ops_actions
+        text = (ROOT / "README.md").read_text()
+        self.assertIn(f"{len(ops_actions.ACTIONS)} actions", text)
 
 
 if __name__ == "__main__":

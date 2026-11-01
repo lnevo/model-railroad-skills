@@ -2,7 +2,7 @@
 
 Build, change, run and understand a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first. The skill carries the rules the program applies, and the tools do the work at the level of the railroad rather than one field at a time, with a change plan you see before anything is written.
 
-**Status: in development.** It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
+**Status: in development.** 43 actions and 20 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
