@@ -1,0 +1,8 @@
+{
+  "name": "operations-pro",
+  "version": "0.1.0",
+  "description": "Operations management for JMRI OperationsPro: a gates audit that explains why a car will not move. This release reads only; writes are to come.",
+  "author": { "name": "lnevo" },
+  "repository": "https://github.com/lnevo/model-railroad-skills",
+  "license": "MIT"
+}

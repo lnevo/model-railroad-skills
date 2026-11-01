@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-cars.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-cars.dtd">
+<operations-config>
+  <roads>
+    <road name="BV" />
+    <road name="BVR" />
+    <road name="QXR" />
+  </roads>
+  <types>
+    <type name="Boxcar" />
+    <type name="Caboose" />
+    <type name="Flatcar" />
+    <type name="Gondola" />
+    <type name="Hopper" />
+    <type name="Reefer" />
+    <type name="Tank" />
+  </types>
+  <colors>
+    <color name="Black" />
+    <color name="Red" />
+  </colors>
+  <lengths>
+    <length value="36" />
+    <length value="40" />
+    <length value="89" />
+  </lengths>
+  <owners>
+    <owner name="" />
+    <owner name="BV" />
+    <owner name="Lessor" />
+  </owners>
+  <loads>
+    <defaults empty="Mty" load="L" />
+    <load type="Boxcar">
+      <carLoad name="Grain" loadType="Load" />
+      <carLoad name="Feed" loadType="Load" />
+      <carLoad name="MTY" loadType="Load" />
+    </load>
+    <load type="Hopper">
+      <carLoad name="Coal" loadType="Load" />
+      <carLoad name="Cinders" loadType="Empty" />
+    </load>
+    <load type="Tank">
+      <carLoad name="Oil" loadType="Load" />
+      <carLoad name="Acid" loadType="Load" />
+    </load>
+    <load type="Gondola">
+      <carLoad name="Scrap" loadType="Load" />
+    </load>
+  </loads>
+  <options />
+  <newKernels>
+    <kernel name="Pair" />
+  </newKernels>
+  <cars>
+    <car id="BVR1001" roadName="BVR" roadNumber="1001" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1955" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="L" />
+    <car id="BVR1002" roadName="BVR" roadNumber="1002" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1956" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR1003" roadName="BVR" roadNumber="1003" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1957" locationId="1" secLocationId="1s2" moves="0" date="" selected="false" owner="BV" load="Grain" />
+    <car id="BVR1004" roadName="BVR" roadNumber="1004" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1958" locationId="2" secLocationId="2s1" moves="0" date="" selected="false" owner="BV" load="Feed" />
+    <car id="BVR2001" roadName="BVR" roadNumber="2001" type="Hopper" length="36" color="Red" weight="2.0" weightTons="40" built="1960" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Coal" />
+    <car id="BVR2002" roadName="BVR" roadNumber="2002" type="Hopper" length="36" color="Red" weight="2.0" weightTons="40" built="1960" locationId="3" secLocationId="3s2" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR1101" roadName="BVR" roadNumber="1101" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1959" locationId="4" secLocationId="4s1" moves="0" date="" selected="false" owner="BV" load="L" />
+    <car id="BVR1102" roadName="BVR" roadNumber="1102" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1959" locationId="4" secLocationId="4s1" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR1103" roadName="BVR" roadNumber="1103" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1961" locationId="5" secLocationId="5s1" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR1104" roadName="BVR" roadNumber="1104" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1961" locationId="5" secLocationId="5s1" moves="0" date="" selected="false" owner="BV" load="L" />
+    <car id="BVR3001" roadName="BVR" roadNumber="3001" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" outOfService="true" />
+    <car id="BVR3002" roadName="BVR" roadNumber="3002" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" locUnknown="true" />
+    <car id="BVR3003" roadName="BVR" roadNumber="3003" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR3004" roadName="BVR" roadNumber="3004" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR3005" roadName="BVR" roadNumber="3005" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1980" locationId="3" secLocationId="3s2" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR3006" roadName="BVR" roadNumber="3006" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s4" moves="0" date="" selected="false" owner="BV" load="Mty" lastRouteId="3" />
+    <car id="BVR3007" roadName="BVR" roadNumber="3007" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s3" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR3008" roadName="BVR" roadNumber="3008" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="Lessor" load="Mty" />
+    <car id="QXR3009" roadName="QXR" roadNumber="3009" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s2" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR3010" roadName="BVR" roadNumber="3010" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" fred="true" />
+    <car id="BVR3011" roadName="BVR" roadNumber="3011" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" wait="2" />
+    <car id="BVR3012" roadName="BVR" roadNumber="3012" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" pickupId="2" />
+    <car id="BVR3013" roadName="BVR" roadNumber="3013" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="7" secLocationId="7s2" moves="0" date="" selected="false" owner="BV" load="Mty" kernel="Pair" leadKernel="true" />
+    <car id="BVR3014" roadName="BVR" roadNumber="3014" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="7" secLocationId="7s1" moves="0" date="" selected="false" owner="BV" load="Mty" kernel="Pair" />
+    <car id="BVR3015" roadName="BVR" roadNumber="3015" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Feed" nextDestId="6" />
+    <car id="BVR3016" roadName="BVR" roadNumber="3016" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" rweDestId="1" rweDestTrackId="1s5" rweLoad="MTY" />
+    <car id="BVR3017" roadName="BVR" roadNumber="3017" type="Gondola" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR4001" roadName="BVR" roadNumber="4001" type="Flatcar" length="89" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" load="L" />
+    <car id="BVR4002" roadName="BVR" roadNumber="4002" type="Reefer" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s6" moves="0" date="" selected="false" owner="BV" load="L" />
+    <car id="BVR4003" roadName="BVR" roadNumber="4003" type="Tank" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s2" moves="0" date="" selected="false" owner="BV" load="Acid" />
+    <car id="BVR4004" roadName="BVR" roadNumber="4004" type="Gondola" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="3" secLocationId="3s3" moves="0" date="" selected="false" owner="BV" load="Scrap" />
+    <car id="BVR5001" roadName="BVR" roadNumber="5001" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR5002" roadName="BVR" roadNumber="5002" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" owner="BV" load="Mty" />
+    <car id="BVR6001" roadName="BVR" roadNumber="6001" type="Boxcar" length="40" color="Red" weight="2.0" weightTons="40" built="1962" locationId="6" secLocationId="6s1" moves="0" date="" selected="false" owner="BV" load="Mty" />
+  </cars>
+</operations-config>
