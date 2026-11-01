@@ -2,13 +2,13 @@
 
 Build, change, run and understand a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first. The skill carries the rules the program applies, and the tools do the work at the level of the railroad rather than one field at a time, with a change plan you see before anything is written.
 
-**Status: in development.** 43 actions and 20 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
+**Status: in development.** 61 actions and 20 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
 OperationsPro is powerful, and much of how it behaves isn't obvious from its screens. This plugin works across the whole job:
 
-- **Building a railroad:** locations, tracks, industries with their schedules, routes, trains, loads and rolling stock, in the order the program needs, with a change that spans many screens made in one step. Start from an empty Operations folder or from one you already have.
+- **Building a railroad:** locations, tracks, industries with their schedules, routes, trains, loads, cars, locomotives and consists, and divisions, in the order the program needs, with a change that spans many screens made in one step. Start from an empty Operations folder or from one you already have.
 - **Generating traffic:** custom loads, schedules, staging, interchanges and multi-train routing that send cars where you intend.
 - **Running sessions:** building and terminating trains, Set Car, manual corrections, and resetting between sessions.
 - **Finding out why:** explaining a failed build, a stuck car, a held car, drained spurs or full yards from the build report and the data, with the setting that changes it.
@@ -32,7 +32,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | Demo railroad | An invented railroad with deliberate faults, for tests | Done, builds in real JMRI 5.16 |
 | MCP server | Exposes the tools below to Claude | Done |
 
-Not written yet: engines, divisions, train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
+Not written yet: train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
 
 ## Skill
 
@@ -100,6 +100,7 @@ Unlike the read-only tools in `model-railroad-skills`, this plugin changes your 
 - **Move counts are preserved.** They steer the builder, so resetting them quietly changes your traffic. Only `set_track_moves` and `reset_moves` change them, and a final check refuses anything else that would.
 - **Derived fields are left alone.** A car's destination, for example, depends on where it sits in a train's route. Those changes go through JMRI.
 - **Settings JMRI ignores or drops are refused,** such as a pickup list on a yard or a schedule on a non-spur.
+- **A locomotive model holds one set of values.** JMRI keeps type, length, horsepower, weight and B unit on the model, not on the engine, so an engine that differs from the rest of its model is refused, and `update_engine_model` changes them on every engine of it. A railroad with no engine file gets the one JMRI would write, with its default models, types and lengths.
 - **New audit errors block a plan** until you accept them. Renaming something that already had a fault reports that fault under its new name, so a block isn't always a new problem.
 
 The builder makes random choices, so two identical builds can differ. The build check counts a train as changed only when none of its results after the plan appeared before it, and shows partial overlaps separately. A rare outcome can still be missed.
@@ -108,7 +109,7 @@ The builder makes random choices, so two identical builds can differ. The build 
 
 - It only ever works on the Operations folder you point it at, and JMRI's checks run on temporary copies.
 - `ops_build_check`, `ops_dry_run` and `ops_deliver_car` need JMRI installed. Set `JMRI_HOME` if it isn't found.
-- Not written yet: engines, divisions, train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
+- Not written yet: train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
 - JMRI's JSON server doesn't cover schedules, Operations routes, loads or divisions, so those are changed through the files.
 - A train's own build or terminate script runs as usual, and can still open a window or hang. So can a Message step in an automation.
 - `ops_explain_build` reads a file, so for a JMRI on another computer copy the report or paste its text. `ops_live_report` fetches only the end of it.

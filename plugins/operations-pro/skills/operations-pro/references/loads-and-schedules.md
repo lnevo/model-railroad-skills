@@ -69,6 +69,8 @@ Return when empty and return when loaded hold a load, a location and a track, ea
 
 A car with a home division behaves differently by load type: an empty cannot leave its division without a load first, and a car with a custom empty counts as empty. A car with no division is unchanged, so divisions can be left unused. Departure staging must be able to load divisional empties, or they stick and fail the build. The home division search runs before the load test and uses the router.
 
+`set_load_type` changes a custom load's Load or Empty type; `routing.md` has the division actions.
+
 ## Mirror schedules and storage spurs
 
 A storage spur with a schedule that receives what the industry spurs ship, and ships what they receive, gives every custom load a home. The `mirror_schedule` action builds that schedule. Set a large move count on such a spur so the builder tries it last. Whether this suits a layout is a modelling choice.

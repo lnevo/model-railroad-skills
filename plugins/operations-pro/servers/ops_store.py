@@ -39,10 +39,11 @@ class Refused(Exception):
 class Doc:
     """One XML file. Unedited content renders back byte for byte."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, new: bytes | None = None):
+        """With new, a file that does not exist yet: that text is the starting content."""
         self.path = path
-        raw = path.read_bytes()
-        self.original = raw
+        raw = path.read_bytes() if new is None else new
+        self.original = raw if new is None else b""
         text = raw.decode("utf-8")
         self.crlf = "\r\n" in text
         start = text.index(ROOT_TAG)
@@ -153,7 +154,8 @@ def plan(directory: str | Path, actions: list[dict], session: bool = False, prep
     (folder / "plan.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     diff: list[str] = []
     for name, data in changed.items():
-        diff += _diff(name, (base / name).read_bytes(), data)
+        old = (base / name).read_bytes() if (base / name).is_file() else b""
+        diff += _diff(name, old, data)
     return {"changed": True, "plan_id": plan_id, "summary": summary, "files": sorted(changed),
             "new_findings": new, "findings_resolved": fixed,
             "blocked": bool(manifest["new_errors"]), "warnings": _warnings(base),
@@ -252,6 +254,9 @@ def apply(plan_id: str, allow_new_errors: bool = False) -> dict:
     except BaseException as exc:  # A Ctrl-C here must restore too.
         try:
             _restore_set(base, set_name)
+            for name in replaced:  # A file the plan created has no copy in the set.
+                if name not in manifest["base"]:
+                    (base / name).unlink(missing_ok=True)
         except BaseException as failure:
             raise Refused(f"Change failed ({exc}) and restoring from backups/{set_name} failed too ({failure}). "
                           f"Already replaced: {', '.join(replaced) or 'none'}. Restore that set by hand before "

@@ -82,6 +82,17 @@ class SkillTest(unittest.TestCase):
         for path in [SKILL / "SKILL.md", *(SKILL / "references").glob("*.md"), AGENT, ROOT / "README.md"]:
             self.assertIsNone(banned.search(path.read_text()), path.name)
 
+    def test_engine_and_division_actions_are_in_the_references(self):
+        import ops_actions
+        source = (ROOT / "servers" / "ops_actions.py").read_text()
+        block = source[source.index("# ---- Engines"):source.index("# ---- End of engines and divisions")]
+        names = re.findall(r"@action\([^)]*\)\ndef ([a-z_]+)", block)
+        self.assertEqual(len(names), 18)
+        self.assertTrue(all(n in ops_actions.ACTIONS for n in names))
+        text = "".join(p.read_text() for p in (SKILL / "references").glob("*.md"))
+        self.assertEqual([n for n in names if f"`{n}`" not in text], [])
+        self.assertNotIn("does not write engines", text)
+
     def test_readme_counts_match_code(self):
         import ops_actions
         text = (ROOT / "README.md").read_text()
