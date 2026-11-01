@@ -264,6 +264,19 @@ class Findings(unittest.TestCase):
         self.assertEqual(gates, ["D2", "D13"])
         self.assertEqual(report["route"].get("notes", []), [])
 
+    def test_drop_refusals_inside_router_train_check_are_g8_else_d14_d15(self):  # Train:2007-2018 vs TBB:1657, 1683
+        direction = "Can't set out rolling stock (BVR 1001) using eastbound train, destination track (Ashgrove Cannery) does not service this direction"
+        listed = "Can't set out (BVR 1001) by train (BV1) to Spur (Ashgrove, Ashgrove Cannery)"
+        report = parsed(SEARCH, "7- Train (BV1) can pull car (BVR 1001) from (Brackwater, Brackwater Yard A) route id 1r1",
+                        "7- " + direction, "7- " + listed,
+                        "7- Can't send car (BVR 1001) to same track (Brackwater Yard A)",
+                        "7- " + direction, "7- " + listed)
+        car, attempts = only_story(report)
+        refused = [(e["key"], e.get("gate")) for e in attempts[0]["events"] if e["kind"] == "refused"]
+        self.assertEqual(refused, [("buildCanNotDropRsUsingTrain", "G8"), ("buildCanNotDropTrain", "G8"),
+                                   ("buildCanNotDropCarSameTrack", "D13"),
+                                   ("buildCanNotDropRsUsingTrain", "D14"), ("buildCanNotDropTrain", "D15")])
+
     def test_skipped_pickup_stop_is_a_stop_note(self):  # TBB:3065, gate C1
         report = parsed("1- Route location (Ashgrove) id 1r2 is skipped by train (BV1)")
         self.assertEqual(report["cars"], {})

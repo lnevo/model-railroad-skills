@@ -161,6 +161,7 @@ STATUS_RULES: list[tuple[str, str, str]] = [
     ("load (", "E8", "the track's load option excludes the load"),
 ]
 
+TRAIN_DROP_KEYS = ("buildCanNotDropRsUsingTrain", "buildCanNotDropTrain")
 STAGING_DEPARTURE = ("buildDepartStaging", "buildStagingHas", "buildTrainCanDepartTrack", "buildStagingNoCaboose",
                      "buildStagingNoCarFRED", "buildStagingNotEngines",
                      "buildStagingEmpty", "buildStagingTooManyCars", "buildStagingTrainTooLong", "buildStagingDepart",
@@ -384,6 +385,7 @@ class Walker:
         self.last_excluded: dict | None = None
         self.staging_side: str | None = None  # which staging check is open: the last of depart / terminate seen
         self.previous: Line | None = None
+        self.in_train_check = False  # inside Train.isServiceable, which only the router prints (Router:265)
 
     def run(self) -> dict:
         for line in self.lines:
@@ -417,6 +419,12 @@ class Walker:
 
     def _line(self, line: Line):
         key, r = line.key, self.report
+        # Train.isServiceable prints trainCanPickUpCar, then its own drop checks (Train:2007-2018). The builder's
+        # copies of those two lines (TBB:1657, 1683) are the normal search and stay D14/D15.
+        if key == "trainCanPickUpCar":
+            self.in_train_check = True
+        elif not (key.startswith("train") or key in TRAIN_DROP_KEYS):
+            self.in_train_check = False
         if key == "BuildReportMsg":
             r["train"], r["built_on"] = line.f(0), line.f(1)
         elif key == "BuildReportVersion":
@@ -658,6 +666,8 @@ class Walker:
     def _event(self, line: Line, kind: str, gate: str | None = None) -> dict:
         event = {"line": line.number, "key": line.key, "kind": kind, "text": line.text, "location": self.location}
         gate = gate or KEY_GATES.get(line.key or "")
+        if self.in_train_check and line.key in TRAIN_DROP_KEYS:
+            gate = "G8"
         if kind == "refused":
             event["short"] = _short(line, gate)
             if line.key in STATUS_TAILED:
