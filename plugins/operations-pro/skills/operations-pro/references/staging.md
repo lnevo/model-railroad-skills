@@ -1,0 +1,73 @@
+# Staging
+
+## The departure rule
+
+- Every car on the departure staging track must get a destination, or the build fails. The exception is on-time build mode, which only drops the count check.
+- The track is chosen by lowest move count among tracks this train may use, or the user is prompted when Prompt for Departure is on. `ops_train` builds with prompts off, so JMRI chooses.
+- A track is rejected (gate A8) if it is empty, its cars do not fit the route length or moves, the loco count or direction is wrong, or any car fails the train's type, road, load, owner, built, destination, caboose, FRED or pool checks. A car with location unknown or out of service on the departure track fails the build.
+- Departure track selection tests every car's load against the train, so the car list skips that test for staging cars. A default E is exempt from it only when a generate option is on; with none on, a train that does not carry E rejects the track.
+- In aggressive mode the departure staging adjustment runs on the first pass only. Normal mode from staging is on by default.
+- Staging can share a location only with staging in the GUI. The model allows mixed tracks; keep to the GUI rule.
+- Terminating a train into staging fills that track, so the next build of that train can fail. That is correct behaviour.
+
+## A default empty can leave staging
+
+With every generate option off, a default E goes straight to the ship check, then the default search along the route, and takes any accepting track. It is blocked only by:
+
+| Block | Where |
+|---|---|
+| Ship Load Options exclude E and no generator replaced it | Staging track, Ship Load Options |
+| The train does not carry E and no generate option is on | Edit Train, Loads |
+| No reachable track on the route accepts E: load option, schedule with no line, length, direction | Tracks ahead |
+| Through cars off and the only target is the terminal | Build Options |
+| The staging track's Destinations filter | Staging track, Track Destinations |
+
+Generators replace only a default E. A default L or a custom load is never given a generated load. When a generator fails, the car stays E and still tries the default search.
+
+## Generating custom loads
+
+Three options on a departure staging track:
+
+| Option | What it does |
+|---|---|
+| Generate custom loads for spurs serviced by this train | Loads for scheduled spurs at locations on this route |
+| Generate custom loads for any spur | Loads for scheduled spurs anywhere, which another train may deliver |
+| Generate custom loads for any staging track | Loads for a staging-to-staging move |
+
+For a car to get a load:
+
+- The car must carry the default E, have no destination and no final destination.
+- The car type must have at least one custom load.
+- Spurs are tried in lowest move count order across all locations, alternates excluded. Interchanges are never used by the generator.
+- The schedule line must match type and road, name a custom receive load (blank, E and L are rejected), and the train must carry that load and staging must ship it. The set out day must match and the random draw must pass.
+- Then the destination test ignoring length, the home division rule, room with the reservation factor, and the router.
+- Once a location is found unreachable through the filter or staging paths, it leaves the list. A router failure on one spur does not drop the location in the generator.
+
+Room at the spur: cars present plus cars en route, scaled by the track's "% from staging" reservation factor. Raising it to 200 or 300 lets more cars head for one spur. The alternate's length is **not** counted for staging cars; that only applies elsewhere. Pool minimum length counts, so raising it makes room.
+
+## Ship Load Options
+
+- Exist on staging only. The panel appears once a generate option is on and saved.
+- They are the gate after generation. Excluding E means any E that failed to get a load fails the build. That is the price of a strict all-custom setup.
+- The audit reports `staging-ship-excludes-empty` and `generator-no-target`.
+
+The `setup_custom_staging` action sets a track for all-custom loads: convert arrivals to empty, generate for any spur and any staging, and ship only the custom loads.
+
+## Arrivals
+
+- "Empty cars with custom loads" converts a car on arrival to its RWE load, or default E. Downstream tracks must then accept E, and staging must accept arriving loads.
+- The terminal track must be empty, have set outs for this train, and have no drops pending (gate A7). The builder uses only the assigned track.
+- Return to staging at the same location needs the train or Settings option.
+
+## Staging as a destination
+
+- For a custom-load car, staging is tried after the scheduled spurs, chosen at random among tracks, so bigger staging locations take more cars. The final destination is the location only.
+- The staging track's Destinations filter stops staging-to-staging moves when it excludes the other staging.
+- The router uses staging as a hop only when routing via staging is on, default off, and the track has no load-changing option.
+- A staging track as a schedule destination is not offered.
+
+## Alternatives to staging
+
+Spurs in a fiddle yard do not carry the all-cars-must-leave rule. A storage spur with a mirror schedule, or an Out of Service flag to park part of the fleet, are modelling choices the builder supports.
+
+Checked against JMRI 5.16 source, tag v5.16.

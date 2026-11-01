@@ -2,7 +2,7 @@
 
 Tools for setting up, checking and running JMRI OperationsPro with Claude. The aim is full management of an Operations railroad by an AI agent, with a change plan you can see first.
 
-**Status: in development.** It can read and audit a railroad, change its files with JMRI exited, and run trains in a running JMRI. The skill and the diagnosis agent are still to come. This page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
+**Status: in development.** It can read and audit a railroad, change its files with JMRI exited, and run trains in a running JMRI, and the skill tells Claude how the builder decides. The diagnosis agent is still to come. This page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
@@ -28,8 +28,12 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | Build check | Runs JMRI's own builder on copies, several times each side, and compares the results | Done |
 | Dry run | Builds and terminates every enabled train on a copy and reports | Done |
 | Session control | Build, move, terminate and reset trains in a running JMRI | Done |
-| Skill | Verified rules for setup, routing, staging, schedules and sessions | Planned |
+| Skill | Verified rules for setup, routing, staging, schedules and sessions | Done |
 | Diagnosis agent | Reads long build reports without changing anything | Planned |
+
+## Skill
+
+`skills/operations-pro/` is the guidance. The entry file says how to work, which tool to reach for and the dozen facts that trip most people. Nine reference files hold the detail, one per question: the builder's gate order (the ids `ops_why_not` prints), loads and schedules, staging, routing, move counts and balance, special cars, sessions, data and files, and diagnosis with the audit finding names. Every rule in them was checked against the JMRI 5.16 source; modelling choices are labelled as such.
 
 ## Tools
 
