@@ -6,9 +6,9 @@
 - Tries up to seven trains. Hops go through interchanges first, then yards if "routing via yards" is on, default off, then staging if "routing via staging" is on, default off, and only staging tracks with no load-changing option.
 - Needs room only at the first hop, and tests train length at the first hop only. The final spur may be full.
 - If the first hop is full and a route exists, the car is sent to the current spur's alternate or a yard rather than held. Otherwise the car waits.
-- If any single train can deliver the car directly, no two-train path is used. The train build option to service all cars with a final destination overrides that. Duplicate or misspelt train names cause missed direct paths.
+- If any single train can deliver the car directly, no two-train path is used. The train build option to service all cars with a final destination overrides that.
 - "Could not find a first or last hop" in the report means a gap at a hop or no room there. The audit's `routing-gap` finding checks for a chain of trains between every shipping spur and every receiver.
-- Router report level Normal keeps the report readable. Higher levels add little with default settings.
+- The router writes its lines to the report only at the Detailed and Very Detailed router levels.
 
 ## Alternates
 
@@ -54,7 +54,7 @@ A location name splits only when the text after a hyphen is a whole number or st
 
 ## Divisions
 
-Locations and cars carry a division. A car with a home division and no final destination gets one before the load test, by load type: an empty goes home, a load goes anywhere. A custom empty counts as empty. Cars with no division are unaffected.
+Locations and cars carry a division. A car with a home division and no final destination gets one before the load test, by load type. An empty goes home: a home yard first, then home staging, then a home spur. A load on a track outside its division goes to a home spur or home staging. A load already at home goes to any spur or staging. A custom empty counts as empty. Cars with no division are unaffected.
 
 ## Checking a setup
 

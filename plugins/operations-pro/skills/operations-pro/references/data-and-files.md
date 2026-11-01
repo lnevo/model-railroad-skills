@@ -28,7 +28,7 @@ There is no seventh file. Generated folders beside them: `buildstatus`, `manifes
 
 - An automatic backup set is taken when Operations initialises, default on, under `autoBackups/<date>_<nn>`.
 - `backups` fills only from the Backup button, or from the plugin, which backs up before every write so JMRI's Restore window lists those sets too.
-- Settings, Restore sees only those two stores. Tools, Restore can browse to an archived set anywhere.
+- JMRI has two restore entry points, the Restore dialog and the restore files action. Which folders each can reach was not checked.
 - To move a railroad: copy the six files into the same folder of the other install with JMRI closed.
 - `ops_backups` lists sets; `ops_restore` puts one back after backing up the current state.
 
@@ -57,7 +57,7 @@ Ids: tracks are `<location>s<n>`, pools `<location>p<n>`, route stops `<route>r<
 
 ## What a hand edit can create that JMRI drops
 
-A pick up or set out list on a yard, a Destinations filter on a yard or spur, a schedule or alternate on a non-spur, ship options or Routed on a spur. These survive only in hand-edited XML and vanish on the next save. The plugin refuses to write them, and the audit reports the ignored ones.
+A schedule or an alternate on a non-spur, and a Destinations filter on a yard or spur, are dropped on the next save. A pick up or set out list on a yard, and ship options or Routed on a spur, survive a save but are ignored. The plugin refuses to write any of them, and the audit reports the ignored ones.
 
 ## Deleting
 
@@ -86,13 +86,13 @@ Types: car, cars, carType, engine, engines, kernel, location, locations, rolling
 
 ## Import and export
 
-- Cars import from CSV with the car columns plus division, schedule id, RWE, RWL, destination, final destination and train; a later build fills the hidden route fields.
+- Cars import from CSV with the car columns plus division, schedule id, RWE, RWL, destination, final destination and train.
 - Routes import; an existing route is not overwritten. Trains and schedules export only.
 - The RFID attribute on a car is the lower-case `rfid`, shown once RFID is enabled in Settings.
 
 ## Several computers
 
-One running JMRI owns the data. Two running copies go out of sync because each holds its own memory and writes whole files. Web frames can drive a remote JMRI but dialogs open on the server. The plugin's running-JMRI check sees this computer only, so close JMRI elsewhere too.
+One running JMRI owns the data. Two running copies go out of sync because each holds its own memory and writes whole files. Builder dialogs open on the computer running JMRI, whatever started the build. The plugin's running-JMRI check sees this computer only, so close JMRI elsewhere too.
 
 ## Lost data
 

@@ -222,13 +222,141 @@ class Statuses(unittest.TestCase):
                  "track capacity, rolling stock length 90 feet is greater than track length 60 feet": "E9",
                  "schedule (Coal Dock) doesn't service car type (Boxcar)": "F2",
                  "schedule (Mill Receiving) in match mode, no match": "E10",
-                 "schedule (Elevator) requests car type (Hopper) load (Grain)": "F2",
+                 "schedule (Elevator) requests car type (Hopper)": "F2",
+                 "schedule (Elevator) requests car type (Hopper) road (BVR)": "F3",
+                 "schedule (Elevator) requests car type (Hopper) load (Grain)": "F4",
+                 "schedule (Elevator) requests car type (Hopper) only on (Monday)": "F1",
+                 "rolling stock length (abc)": "E5",
                  "car's final destination (Tolvern) is not allowed by track (Quarry Interchange)": "E6",
                  "car doesn't have a final destination": "E7", "could not route car": "G12",
                  "Train (BV1) no moves left for route (Main East) id 1r5 destination (East Staging)": "G6"}
         for status, gate in cases.items():
             self.assertEqual(ops_report.status_gate(status)[0], gate, status)
         self.assertIsNone(ops_report.status_gate("Train (BV1)")[0])
+
+
+SEARCH = "5- Find destinations for (BVR 1001) type (Boxcar) load (E) at yard (Brackwater, Brackwater Yard A)\n"
+
+
+def parsed(*lines):
+    """Walk a synthetic snippet of report lines, written as JMRI 5.16 prints them."""
+    return ops_report.parse("".join(line + "\n" for line in lines))
+
+
+def only_story(report):
+    (car, attempts), = report["cars"].items()
+    return car, attempts
+
+
+class Findings(unittest.TestCase):
+    """Emit sites checked against the JMRI 5.16 source; the comment on each names the line."""
+
+    def test_skipped_destination_inside_a_search_does_not_close_the_car(self):  # TBC:1731, gate D2
+        report = parsed(SEARCH, "5- Searching location (Ashgrove) route id 1r2 for possible destination",
+                        "5- Route location (Ashgrove) id 1r2 is skipped by train (BV1)",
+                        "5- Searching location (Tolvern) route id 1r3 for possible destination",
+                        "7- Can't send car (BVR 1001) to same track (Brackwater Yard A)",
+                        "5- Did not assign a destination for car (BVR 1001)")
+        car, attempts = only_story(report)
+        self.assertEqual((car, len(attempts)), ("BVR 1001", 1))
+        self.assertEqual(attempts[0]["outcome"], NO_DESTINATION)
+        gates = [e.get("gate") for e in attempts[0]["events"] if e["kind"] == "refused"]
+        self.assertEqual(gates, ["D2", "D13"])
+        self.assertEqual(report["route"].get("notes", []), [])
+
+    def test_skipped_pickup_stop_is_a_stop_note(self):  # TBB:3065, gate C1
+        report = parsed("1- Route location (Ashgrove) id 1r2 is skipped by train (BV1)")
+        self.assertEqual(report["cars"], {})
+        self.assertIn("(C1)", report["route"]["notes"][0])
+
+    def test_return_to_staging_and_leave_in_staging_keep_the_story_open(self):  # TBC:1761, 1912
+        for note in ("7- Returning car (BVR 1001) to staging (West Staging), no other tracks available",
+                     "7- Leave car (BVR 1001) in staging (West Staging, West Stage 1)"):
+            report = parsed(SEARCH, "5- Searching location (West Staging) route id 1r5 for possible destination",
+                            note, "7- Staging (West Staging, West Stage 1) can accept car's load (E)",
+                            "3- Car (BVR 1001) assigned to train, destination (West Staging, West Stage 1)")
+            car, attempts = only_story(report)
+            self.assertEqual(len(attempts), 1, note)
+            self.assertEqual(attempts[0]["outcome"], ASSIGNED)
+            kinds = [e["kind"] for e in attempts[0]["events"]]
+            self.assertEqual(kinds, ["location", "note", "accepted", "outcome"], note)
+
+    def test_staging_refusals_follow_the_open_side(self):  # TBB:1718 and TB:235 depart; TBB:2040 and 2093 terminate
+        report = parsed("1- Train terminates into staging at (East Staging), there are 2 tracks",
+                        "5- Staging track (East Stage 1) does not service this train",
+                        "7- Staging track (East Stage 2) cannot service train (BV1)",
+                        "1- Train will depart staging (West Staging), there are 1 tracks",
+                        "3- Staging track (West Stage 1) does not service this train",
+                        "7- Staging track (West Stage 1) cannot service train (BV1)")
+        terminal = [(r["kind"], r["gate"]) for r in report["staging"]["terminal"] if r["kind"] != "note"]
+        departure = [(r["kind"], r["gate"]) for r in report["staging"]["departure"] if r["kind"] != "note"]
+        self.assertEqual(terminal, [("rejected", "A7"), ("summary", "A7")])
+        self.assertEqual(departure, [("rejected", "A8"), ("summary", "A8")])
+        x99 = explained("X99")["staging"]
+        # TB:235 prints "cannot service train" after the caboose refusal; it is not a second check
+        self.assertEqual([(r["kind"], r["gate"]) for r in x99["departure"] if r["kind"] != "note"],
+                         [("rejected", "A8"), ("summary", "A8")])
+        self.assertIn("not a separate check", x99["departure"][-1]["text"])
+        self.assertEqual(x99["terminal"], [])
+
+    def test_caboose_set_aside_is_b17_not_a_type_refusal(self):  # TBB:777, TBC:117, 279
+        report = parsed("7- Exclude car (BVR 9001) type (Caboose)  at location (Brackwater, Brackwater Yard A)")
+        self.assertEqual([(r["car"], r["gate"]) for r in report["excluded_cars"]], [("BVR 9001", "B17")])
+
+    def test_train_local_move_option_is_g9(self):  # TBB:2727, isAllowLocalMovesEnabled
+        report = parsed(SEARCH, "7- Local move from (Brackwater, Yard A) to track (Brackwater, Mill) disabled for train (BV1)")
+        event = only_story(report)[1][0]["events"][0]
+        self.assertEqual(event["gate"], "G9")
+        self.assertIn("Edit Train > Build Options", event["short"])
+
+    def test_spur_type_before_schedule_is_e3(self):  # TBB:2193, track.isTypeNameAccepted
+        report = parsed(SEARCH, "7- Spur (Ashgrove, Feed Mill) schedule (Mill) doesn't service type (Tank)")
+        self.assertEqual(only_story(report)[1][0]["events"][0]["gate"], "E3")
+
+    def test_non_numeric_length_status_is_e5(self):  # TR:1591-1593 with Track.LENGTH, TR:191-193
+        line = ops_report.read("7- Can't send (BVR 1001) to spur (Ashgrove, Mill) due to rolling stock length (abc)")[0]
+        self.assertEqual(line.key, "buildCanNotDropCarBecause")
+        report = parsed(SEARCH, line.text)
+        self.assertEqual(only_story(report)[1][0]["events"][0]["gate"], "E5")
+
+    def test_train_refusing_a_generated_load_is_b13(self):  # TBB:2275, 2807
+        report = parsed(SEARCH, "7- Train (BV1) doesn't service load (Grain) destination (Ashgrove, Mill)")
+        self.assertEqual(only_story(report)[1][0]["events"][0]["gate"], "B13")
+
+    def test_second_pass_without_local_moves_is_a_stop_note_c7(self):  # TBC:467
+        report = parsed("1- Route location (Ashgrove) id 1r2 requests 4 moves, 2/4 moves are available",
+                        "5- Route (Main) id 1r2 no local moves at location (Ashgrove)")
+        self.assertNotIn("unhandled", report)
+        self.assertIn("(C7)", report["route"]["passes"][0]["notes"][0])
+
+    def test_terminal_type_and_mid_search_staging_lines_are_filed_apart(self):  # TBB:2107 vs 2752, 2758; TBE:838
+        report = parsed("1- Train terminates into staging at (East Staging), there are 2 tracks",
+                        "5- Destination (East Staging) does not accept type (Tank)",
+                        "3- Error, no tracks at destination (Ashgrove)!",
+                        "7- Generate load for (BVR 1001) type (Boxcar) load (E) at (West Staging, West Stage 1) "
+                        "to staging (East Staging, East Stage 1)",
+                        "7- Staging track (East Staging, East Stage 1) does not accept type (Boxcar)",
+                        "7- Staging track (East Staging, East Stage 1) does not accept road (BVR)")
+        self.assertEqual([(r["kind"], r["gate"]) for r in report["staging"]["terminal"] if r["kind"] == "rejected"],
+                         [("rejected", "A7")])
+        self.assertIn("no tracks at destination", report["engines"]["notes"][0])
+        events = only_story(report)[1][0]["events"]
+        self.assertEqual([e["gate"] for e in events], ["E3", "E4"])
+        self.assertNotIn("unhandled", report)
+
+    def test_thrown_no_track_warning_is_the_failure(self):  # TBB:1477 thrown; TB:727-730 prints it before buildFailedMsg
+        report = parsed("1- WARNING! Exclude (BVR 3003) at location (Brackwater) no track assignment",
+                        "1- Build failed for train (BV1)")
+        self.assertTrue(report["outcome"]["failed"])
+        self.assertEqual([(f["key"], f["gate"]) for f in report["outcome"]["failure"]], [("buildWarningRsNoTrack", "B1")])
+        self.assertEqual(report["excluded_cars"], [])
+        kept = [r["car"] for r in explained("BV1")["excluded_cars"] if r["gate"] == "B1"]  # TBB:827, not thrown
+        self.assertEqual(kept, ["BVR 3003"])
+
+    def test_open_ended_template_does_not_absorb_the_next_line(self):
+        lines = ops_report.read("7- Car (BVR 1001) is lead in kernel (K1) with 2 cars, 80 feet \n"
+                                "7- Car (BVR 1002) is in kernel (K1) with 2 cars, 80 feet\n")
+        self.assertEqual([line.key for line in lines], ["buildCarLeadKernel", "buildCarPartOfKernel"])
 
 
 if __name__ == "__main__":

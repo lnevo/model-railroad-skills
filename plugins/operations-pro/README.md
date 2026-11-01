@@ -99,7 +99,7 @@ Unlike the read-only tools in `model-railroad-skills`, this plugin changes your 
 - **No changes while a train is built,** apart from cars that aren't on a train.
 - **Move counts are preserved.** They steer the builder, so resetting them quietly changes your traffic. Only `set_track_moves` and `reset_moves` change them, and a final check refuses anything else that would.
 - **Derived fields are left alone.** A car's destination, for example, depends on where it sits in a train's route. Those changes go through JMRI.
-- **Settings JMRI would drop are refused,** such as a pickup list on a yard or a schedule on a non-spur.
+- **Settings JMRI ignores or drops are refused,** such as a pickup list on a yard or a schedule on a non-spur.
 - **New audit errors block a plan** until you accept them. Renaming something that already had a fault reports that fault under its new name, so a block isn't always a new problem.
 
 The builder makes random choices, so two identical builds can differ. The build check counts a train as changed only when none of its results after the plan appeared before it, and shows partial overlaps separately. A rare outcome can still be missed.

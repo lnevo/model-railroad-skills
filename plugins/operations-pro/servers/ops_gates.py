@@ -198,7 +198,7 @@ class Gates:
             return self._gate("E9", FAIL, f"car is longer than the track: {room}")
         return self._gate("E9", FAIL, f"track is full: {room}")
 
-    def _line(self, car: Car, item: ScheduleItem) -> list[dict]:
+    def _line(self, car: Car, item: ScheduleItem, track: Track) -> list[dict]:
         rr, gate = self.rr, self._gate
         day = item.setout_day
         day_ok = car.schedule_item == item.id or not day or day == rr.active_schedule \
@@ -209,9 +209,15 @@ class Gates:
         out.append(gate("F3", not item.road or car.road == item.road, f"line {item.id} road {item.road or 'any'}"))
         out.append(gate("F4", not item.receive or car.load == item.receive,
                         f"line {item.id} receives {item.receive or 'any load'}, car has {car.load}"))
-        drawn = item.random not in ("", "0") and car.schedule_item != item.id and car.fd_track_id != item.id
-        out.append(gate("F5", NOT_CHECKED if drawn else PASS,
-                        f"line {item.id} random {item.random}%" if drawn else "no random draw"))
+        # Schedule.checkScheduleItem: the draw is skipped when the car's final destination track is this
+        # spur or the car already holds the line. Only a blank means no draw; "0" is drawn and never passes.
+        drawn = item.random != "" and car.schedule_item != item.id and car.fd_track_id != track.id
+        if not drawn:
+            out.append(gate("F5", PASS, "no random draw"))
+        elif not re.fullmatch(r"-?\d+", item.random):
+            out.append(gate("F5", FAIL, f"line {item.id} random {item.random!r} is not a number, so the draw never passes"))
+        else:
+            out.append(gate("F5", NOT_CHECKED, f"line {item.id} random {item.random}%"))
         return out
 
     def _schedule(self, car: Car, track: Track) -> list[dict]:
@@ -233,7 +239,7 @@ class Gates:
             items = schedule.items
         else:
             items = [i for i in schedule.items if i.id == track.item_id] or schedule.items[:1]
-        lines = [self._line(car, item) for item in items]
+        lines = [self._line(car, item, track) for item in items]
         lines.sort(key=lambda gates: sum(g["status"] == FAIL for g in gates))
         best = lines[0]
         ok = not any(g["status"] == FAIL for g in best)
@@ -313,7 +319,9 @@ class Gates:
             tracks = [dest_track] if dest_track else dest.tracks
             def fits(t: Track) -> bool:
                 return bool(switcher or stop.direction & t.dir) and t.accepts_drop(train)
-            usable = [t for t in tracks if fits(t) and (dest_track or self._accepts_ignoring_length(car, dest, t))]
+            # With no destination track, Train uses track.isRollingStockAccepted, which has no schedule test.
+            usable = [t for t in tracks if fits(t) and (
+                dest_track or self._accepts_ignoring_length(car, dest, t, schedule=False))]
             attempt.append(gate("G8", bool(usable), f"{len(usable)} of {len(tracks)} tracks at {dest.name}"))
             attempt.append(self._g9(car, train, stops, stops[start], stop, dest))
             length = rr.kernel_length(car)
@@ -334,6 +342,9 @@ class Gates:
             reasons.append("train sends every later pick up to the terminal")
         if not self._is_turn(train) and track.is_staging and dest.id == here.id:
             reasons.append("no local move inside staging")
+        # Train.isServiceableDestination returns true here, before the local-move, through-car and moves tests.
+        if not reasons and train.allow_return and track.is_staging and dest.id == here.id:
+            return self._gate("G9", PASS, "the train may return the car to its own staging")
         switcher = self._is_switcher(train)
         if local and not switcher and not _exempt(car) and not (
                 train.local_moves and origin.local and stop.local):
@@ -343,9 +354,11 @@ class Gates:
             reasons.append("through cars are off")
         return self._gate("G9", not reasons, "; ".join(reasons) or "terminal, local and through rules allow it")
 
-    def _accepts_ignoring_length(self, car: Car, location: Location, track: Track) -> bool:
+    def _accepts_ignoring_length(self, car: Car, location: Location, track: Track, schedule: bool = True) -> bool:
+        """Table E with a length failure tolerated; schedule=False also drops E10 and the F lines."""
+        skipped = {"E9"} if schedule else {"E9", "E10", "F1", "F2", "F3", "F4", "F5"}
         results = self.check_destination(car, location, track)
-        return not any(r["status"] == FAIL and r["gate"] != "E9" for r in results)
+        return not any(r["status"] == FAIL and r["gate"] not in skipped for r in results)
 
     # Tables A to D, one train, one car, one track.
     def _train_gates(self, train: Train) -> tuple[list[dict], list[Stop]]:
@@ -408,15 +421,33 @@ class Gates:
             problems.append(f"train does not take {car} built {car.built}")
         return problems
 
+    def terminal_track_problems(self, train: Train, track: Track) -> list[str]:
+        """Why this staging track cannot take the train at its terminal (checkTerminateStagingTrack).
+
+        Occupied fails unless the track ignores used length, or the build is aggressive with staging
+        tracks immediately available. Cars already destined here fail on their own, unless on-time
+        building with quick service.
+        """
+        rr = self.rr
+        problems = []
+        if not track.accepts_drop(train):
+            problems.append("set out list refuses the train")
+        cars, engines = rr.rolling_stock_on(track)
+        if (cars or engines) and not track.ignore_used and not (
+                rr.option("buildOptions", "aggressive") and rr.option("buildOptions", "stagingTrackAvail")):
+            problems.append(f"occupied by {len(cars)} cars and {len(engines)} locomotives")
+        pending = [c for c in rr.cars.values() if c.dest_track_id == track.id and c.track_id != track.id]
+        if pending and not (rr.option("buildOptions", "onTime") and track.load_options & QUICK_SERVICE):
+            problems.append(f"{len(pending)} cars already destined here")
+        return problems
+
     def _staging_gates(self, train: Train, stops: list[Stop]) -> list[dict]:
         rr, gate = self.rr, self._gate
         out = []
         last = rr.locations.get(stops[-1].location_id)
         if last is not None and last.is_staging and len(stops) > 1:
-            free = [t for t in last.tracks if t.accepts_drop(train) and (
-                not sum(map(len, rr.rolling_stock_on(t))) or t.ignore_used
-                or (rr.option("buildOptions", "aggressive") and rr.option("buildOptions", "stagingTrackAvail")))]
-            out.append(gate("A7", bool(free), f"free at {last.name}: {', '.join(t.name for t in free) or 'none'}"))
+            usable = [t for t in last.tracks if not self.terminal_track_problems(train, t)]
+            out.append(gate("A7", bool(usable), f"free at {last.name}: {', '.join(t.name for t in usable) or 'none'}"))
         else:
             out.append(gate("A7", PASS, "train does not end in staging"))
         first = rr.locations.get(stops[0].location_id)
@@ -448,9 +479,17 @@ class Gates:
         out.append(gate("B3", not car.out_of_service, f"out of service {car.out_of_service}"))
         on_route = not car.destination_id or any(s.location_id == car.destination_id for s in stops)
         out.append(gate("B4", on_route, f"car destination {car.destination_id or 'none'}"))
-        goal = car.destination_id or (target.location_id if target else "")
-        terminal_ok = not (car.fred or car.caboose) or not goal or (bool(stops) and goal == stops[-1].location_id)
-        out.append(gate("B5", terminal_ok, "only FRED cars and cabooses are held to the terminal"))
+        # createCarList tests only the car's assigned destination, never a what-if target. A caboose is
+        # let through when a leg option adds or removes the caboose along the route.
+        held = car.fred or (car.caboose and not train.changes_caboose)
+        if not held:
+            out.append(gate("B5", PASS, "only FRED cars and cabooses are held to the terminal"))
+        elif not car.destination_id:
+            out.append(gate("B5", PASS, "the car has no assigned destination; the target asked about is not one"))
+        else:
+            terminal = bool(stops) and car.destination_id == stops[-1].location_id
+            out.append(gate("B5", terminal, f"assigned destination {car.destination_id}, "
+                                            f"terminal {stops[-1].location_id if stops else 'none'}"))
         same_route = bool(track) and track.is_interchange and track.pickup_option == ANY \
             and car.last_route_id == train.route_id
         out.append(gate("B6", not same_route, f"last route {car.last_route_id or 'none'}, this route {train.route_id}"))
@@ -486,12 +525,16 @@ class Gates:
     def _kernel(self, car: Car) -> dict:
         if not car.kernel:
             return self._gate("B18", PASS, "not in a kernel")
-        members = [c for c in self.rr.cars.values() if c.kernel == car.kernel]
-        leads = [c for c in members if c.lead]
-        tracks = {c.track_id for c in members}
-        ok = len(leads) == 1 and len(tracks) == 1
-        return self._gate("B18", ok, f"kernel {car.kernel}: {len(leads)} lead, {len(tracks)} tracks. "
-                                     "A split kernel fails the whole build, not only the car.")
+        # checkKernel: a lead that is in service, every member at one location with a track, and the
+        # track names equal once split.
+        rr = self.rr
+        members = [c for c in rr.cars.values() if c.kernel == car.kernel]
+        leads = [c for c in members if c.lead and not c.out_of_service]
+        places = {(c.location_id, rr.tracks[c.track_id].split if c.track_id in rr.tracks else None)
+                  for c in members}
+        ok = bool(leads) and len(places) == 1 and None not in {p[1] for p in places}
+        return self._gate("B18", ok, f"kernel {car.kernel}: {len(leads)} lead in service, {len(places)} track "
+                                     "names. A split kernel fails the whole build, not only the car.")
 
     def _departure_track(self, car: Car, train: Train, stops: list[Stop]) -> dict:
         rr = self.rr
@@ -522,10 +565,16 @@ class Gates:
         out.append(gate("C8", PASS, "repeats B6 and B7, needed for quick service"))
         out.append(gate("C9", switcher or bool(stop.direction & track.dir),
                         f"{stop.id} {directions(stop.direction)}, {track.name} {directions(track.dir)}"))
-        generated = track.is_staging and track.generates_loads and car.load == rr.default_empty
-        shipped = generated or track.ships_load(car.load, car.type)
-        note = "a generator may replace the load" if generated else f"{track.ship_option}: {car.load}"
-        out.append(gate("C10", shipped, note))
+        # The ship check runs whenever both generators fail. A generator only replaces a default empty with
+        # no destination or final destination, and only when the type has a custom load to give.
+        if track.ships_load(car.load, car.type):
+            out.append(gate("C10", PASS, f"{track.ship_option}: {car.load}"))
+        elif (track.is_staging and track.generates_loads and car.load == rr.default_empty
+              and not car.destination_id and not car.fd_id and rr.custom_loads(car.type)):
+            out.append(gate("C10", NOT_CHECKED, f"{track.ship_option}: {car.load}; fails the build if load "
+                                                "generation finds nothing"))
+        else:
+            out.append(gate("C10", FAIL, f"{track.ship_option}: {car.load}, and no generator replaces it"))
         quick = bool(track.load_options & QUICK_SERVICE)
         out.append(gate("C11", NOT_CHECKED if quick else PASS, "quick service timing" if quick else "no quick service"))
         division = bool(car.division_id)
@@ -570,9 +619,14 @@ class Gates:
         out.append(gate("D10", not through, f"allow through cars {train.through_cars}"))
         terminal = train.to_terminal and origin.split != stops[0].split and stop.split != stops[-1].split
         out.append(gate("D11", not terminal, f"send to terminal {train.to_terminal}"))
+        # The train terminates only on a track A7 accepts; there tryStaging refuses a local switcher's own
+        # track and otherwise answers through car.checkDestination (D16).
         staged = dest.is_staging and stop is stops[-1] and track.is_staging
-        occupied = staged and sum(map(len, rr.rolling_stock_on(track))) > 0
-        out.append(gate("D12", not occupied, f"{track.name} occupied {occupied}"))
+        problems = self.terminal_track_problems(train, track) if staged else []
+        if staged and switcher and not exempt and car.track_id == track.id:
+            problems.append("a switcher cannot set the car out on its own staging track")
+        out.append(gate("D12", not problems, "; ".join(problems) or (
+            "the train can terminate here; table E decides" if staged else "not terminal staging")))
         same_name = here.split == dest.split and here_track.split == track.split and not exempt
         out.append(gate("D13", not same_name, f"{here_track.name} to {track.name}"))
         final = rr.tracks.get(car.fd_track_id)
@@ -587,9 +641,12 @@ class Gates:
         alternate = rr.tracks.get(track.alternate_id)
         full = any(r["gate"] == "E9" and r["status"] == FAIL and "full" in r["reason"] for r in table_e)
         if full and alternate:
-            out.append(gate("D17", PASS, f"track is full, so the car would go to alternate {alternate.name}"))
+            # checkForAlternate: the alternate must take the train and pass table E for the car, which
+            # depends on its own space at that moment in the build.
+            out.append(gate("D17", NOT_CHECKED, f"track is full; the car goes to alternate {alternate.name} "
+                                                "only if that track takes the train and the car during the build"))
         else:
-            out.append(gate("D17", PASS, "no alternate needed"))
+            out.append(gate("D17", PASS, "no alternate needed" if not full else "track is full and has no alternate"))
         out.append(gate("D18", NOT_CHECKED, "depends on which trains pull from the track and when"))
         allowed = self._local_track_rule(car, train, here_track, track)
         out.append(gate("D19", allowed, f"switcher {switcher}: {here_track.type} to {track.type}"))
@@ -648,10 +705,14 @@ class Gates:
         out += self._drop_gates(car, train, stops, pickup, drop, dest, track)
         out += self.check_destination(car, dest, track)
         out += self._router_gates(car, train, dest, track)
-        out.append(self._gate("G11", NOT_CHECKED if self.rr.option("router", "onlyActiveTrains") else PASS,
-                              "depends on the active train schedule at build time"
-                              if self.rr.option("router", "onlyActiveTrains") else "option off"))
+        out.append(self._g11(train))
         return out
+
+    def _g11(self, train: Train) -> dict:
+        """TrainManager.getTrainForCar skips trains with build off when only active trains are used."""
+        if not self.rr.option("router", "onlyActiveTrains"):
+            return self._gate("G11", PASS, "option off")
+        return self._gate("G11", train.build, f"{train.name} build {train.build}")
 
     # Router: breadth-first across trains, the shape of Router.setDestination.
     def route_path(self, car: Car, target: Track, check_target: bool = True) -> list[dict] | None:
@@ -689,6 +750,8 @@ class Gates:
                 origin: Track) -> bool:
         if last_route == train.route_id and origin.is_interchange and origin.pickup_option == ANY:
             return False  # The same route may not drop and then pull an open interchange.
+        if self._g11(train)["status"] == FAIL:
+            return False
         if track.location_id == origin.location_id and not self._is_switcher(train):
             return False
         return not any(g["status"] == FAIL for g in self.serviceable(car, train, location, track))
@@ -700,7 +763,7 @@ class Gates:
         for track in rr.tracks.values():
             if track.id in alternates:
                 continue
-            usable = track.is_interchange or (track.is_yard and rr.option("router", "carRoutingViaYards", True)) or (
+            usable = track.is_interchange or (track.is_yard and rr.option("router", "carRoutingViaYards")) or (
                 track.is_staging and rr.option("router", "carRoutingViaStaging") and not track.modifies_loads)
             if usable and self._accepts_ignoring_length(car, rr.locations[track.location_id], track):
                 out.append(track)
@@ -932,8 +995,10 @@ class Audit:
             target = rr.tracks.get(t.alternate_id)
             if target and target.is_interchange:
                 yield _finding("interchange-as-alternate", "warning", target.name,
-                               f"{target.name} is the alternate for {t.name}, so the router never uses it "
-                               "as a connection.", TRACK, "Use a yard as the alternate")
+                               f"{target.name} is the alternate for {t.name}. The router skips every alternate "
+                               "track, so it is no longer a connection between trains, and with pick ups set to "
+                               "Any the train that overflows a car onto it cannot pull that car back on the same "
+                               "route.", TRACK, "Use a yard as the alternate")
 
     def rule_interchange_exit(self):
         rr = self.rr
@@ -1115,10 +1180,17 @@ class Audit:
     def rule_kernels(self):
         rr = self.rr
         for kernel in sorted({c.kernel for c in rr.cars.values() if c.kernel}):
-            if len({c.track_id for c in rr.cars.values() if c.kernel == kernel}) > 1:
+            members = [c for c in rr.cars.values() if c.kernel == kernel]
+            places = {(c.location_id, rr.tracks[c.track_id].split if c.track_id in rr.tracks else None)
+                      for c in members}
+            if len(places) > 1:
                 yield _finding("kernel-split", "error", kernel,
                                "Members are on different tracks. Any train that sees them fails to build.",
                                CAR, "Move the members together")
+            elif not any(c.lead and not c.out_of_service for c in members):
+                yield _finding("kernel-split", "error", kernel,
+                               "No lead car in service. Any train that sees the kernel fails to build.",
+                               CAR, "Lead car, or Out of Service on the lead")
 
     def rule_cars(self):
         rr = self.rr

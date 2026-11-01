@@ -25,8 +25,15 @@ DIRECTIONS = {EAST: "East", WEST: "West", NORTH: "North", SOUTH: "South"}
 SWAP_DEFAULT, EMPTY_CUSTOM, GENERATE, GENERATE_ANY_SPUR, EMPTY_DEFAULT = 1, 2, 4, 8, 16
 GENERATE_ANY_STAGING, DISABLE_LOAD_CHANGE, QUICK_SERVICE = 32, 64, 128
 REQUIRES_CABOOSE, REQUIRES_FRED = 1, 2
+ADD_CABOOSE, REMOVE_CABOOSE = 4, 8  # Train leg option bits.
 ANY_DAY = "ANY"
 TYPE_AND_LOAD = " & "
+# JMRI writes these option values from its Bundle, so a non-English file holds other words.
+# The comparisons here use the English ones; the loader warns when a value is not known.
+OPTION_WORDS = (ALL, INCLUDE, EXCLUDE)
+SERVICE_WORDS = (ANY, TRAINS, ROUTES, EXCLUDE_TRAINS, EXCLUDE_ROUTES)
+LOAD_TYPES = ("Load", "Empty")
+LENGTH_UNITS = ("Feet", "Meters")
 
 
 def directions(mask: int) -> str:
@@ -250,6 +257,12 @@ class Train:
     through_cars: bool = True
     allow_return: bool = False
     send_custom_staging: bool = False
+    leg2_options: int = 0
+    leg3_options: int = 0
+
+    @property
+    def changes_caboose(self) -> bool:
+        return bool((self.leg2_options | self.leg3_options) & (ADD_CABOOSE | REMOVE_CABOOSE))
 
     def accepts_road(self, road: str) -> bool:
         return _accepts(self.road_option, self.roads, road)
@@ -375,6 +388,34 @@ class Railroad:
         self._read_trains()
         self._read_cars()
         self._read_engines()
+        self._check_option_words()
+
+    def _check_option_words(self) -> None:
+        """Warn about option values JMRI wrote in another language: the gates would misread them."""
+        def check(subject: str, setting: str, value: str, known: tuple[str, ...]) -> None:
+            if value not in known:
+                self.warnings.append(f"{subject}: {setting} is {value!r}, not one of {', '.join(known)}. "
+                                     "JMRI writes these words in its own language, so the file may be from a "
+                                     "non-English JMRI and this option may read the wrong way round here")
+        unit = self.setup.get("settings", {}).get("lengthUnit")
+        if unit is not None:
+            check("Operations.xml", "lengthUnit", unit, LENGTH_UNITS)
+        for t in self.tracks.values():
+            name = f"track {t.name}"
+            for setting, value in (("carRoadOption", t.road_option), ("carLoadOption", t.load_option),
+                                   ("carShipLoadOption", t.raw_ship_option),
+                                   ("trackDestinationOption", t.raw_destination_option)):
+                check(name, setting, value, OPTION_WORDS)
+            for setting, value in (("dropOption", t.raw_drop_option), ("pickupOption", t.raw_pickup_option)):
+                check(name, setting, value, SERVICE_WORDS)
+        for train in self.trains.values():
+            name = f"train {train.name}"
+            for setting, value in (("carRoadOption", train.road_option), ("cabooseRoadOption", train.caboose_road_option),
+                                   ("carLoadOption", train.load_option), ("carOwnerOption", train.owner_option)):
+                check(name, setting, value, OPTION_WORDS)
+        for kind, loads in self.loads.items():
+            for load in loads:
+                check(f"load {kind} {load.name}", "loadType", load.load_type, LOAD_TYPES)
 
     def _root(self, name: str) -> ET.Element | None:
         path = self.directory / name
@@ -494,7 +535,8 @@ class Railroad:
                 local_moves=e.get("allowLocalMoves", "true") == "true",
                 through_cars=e.get("allowThroughCars", "true") == "true",
                 allow_return=e.get("allowReturn") == "true",
-                send_custom_staging=e.get("sendCustomStaging") == "true")
+                send_custom_staging=e.get("sendCustomStaging") == "true",
+                leg2_options=_int(e.get("leg2Options")), leg3_options=_int(e.get("leg3Options")))
             self.trains[train.id] = train
         for schedule in root.findall("./schedules/schedule"):
             self.train_schedules[schedule.get("id", "")] = schedule.get("name", "")

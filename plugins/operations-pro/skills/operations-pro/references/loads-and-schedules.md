@@ -6,7 +6,7 @@
 - Load Type, Load or Empty, is a label on a load name, stored per car type and name. The default for a new custom name is Load. Changing it for one car type changes every car of that type.
 - Routing tests the load **name** against the two defaults, never the load type. A custom load called MTY with type Empty is a custom load for routing, and it does not make a car able to leave staging.
 - Load type matters only for division rules, the blank Ship flip, weight, and report text.
-- Load names are case sensitive, so `Grain` and `grain` can both exist. A default renamed to look like a custom name shows both in reports. The audit flags that as `renamed-default-collision`.
+- Load names are case sensitive, so `Grain` and `grain` can both exist. A default renamed to look like a custom name may show both in reports. The audit flags that as `renamed-default-collision`.
 
 ## What a default-load car does
 

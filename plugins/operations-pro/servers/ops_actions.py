@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ops_data import (ALL, ANY, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, INTERCHANGE, ROUTES, SPUR,
-                      STAGING, TRAINS, TYPE_AND_LOAD, YARD, DIRECTIONS)
+                      STAGING, TRAINS, TYPE_AND_LOAD, YARD, DIRECTIONS, split_name)
 from ops_store import Doc, FILES, Refused
 
 LOCATIONS, ROUTE_FILE, TRAIN_FILE, CAR_FILE = FILES[0], FILES[1], FILES[2], FILES[3]
@@ -23,6 +23,12 @@ TRAIN_CHILDREN = ("rowColor", "route", "types", "carRoads", "cabooseRoads", "loc
 LOAD_BITS = {"swap_default": 1, "empty_custom": 2, "generate": 4, "generate_any_spur": 8, "empty_default": 16,
              "generate_any_staging": 32, "disable_load_change": 64, "quick_service": 128}
 STAGING_BITS = 1 | 2 | 4 | 8 | 16 | 32
+SPUR_BITS = 64 | 128
+# What JMRI's windows offer: ScheduleTableModel:412 and RouteEditTableModel:614-621.
+SCHEDULE_RANDOM = ("", "50", "30", "25", "20", "15", "10", "5", "2", "1")
+STOP_RANDOM = ("Off",) + tuple(str(n) for n in range(10, 101, 10))
+# Train attributes that hold a road name: trains/Xml.java:63-72.
+TRAIN_ROAD_ATTRS = ("engineRoad", "leg2Road", "leg3Road", "cabooseRoad", "leg2CabooseRoad", "leg3CabooseRoad")
 DIRECTION_BITS = {name.lower(): bit for bit, name in DIRECTIONS.items()}
 # Car attributes that only a build, a move or JMRI's own logic may set.
 CAR_DERIVED = ("destinationId", "secDestinationId", "routeLocationId", "routeDestinationId", "train", "trainId",
@@ -59,6 +65,28 @@ def _mask(value) -> int:
             raise Refused(f"Unknown direction {part!r}; use East, West, North, South")
         total |= DIRECTION_BITS[key]
     return total
+
+
+def _int_field(name: str, value, minimum: int = 0) -> int:
+    """A whole number for a field JMRI parses with Integer.parseInt."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        text = str(value).strip() if isinstance(value, str) else None
+        if text is None or not text.lstrip("-").isdigit():
+            raise Refused(f"{name} must be a whole number, not {value!r}")
+        value = int(text)
+    if value < minimum:
+        raise Refused(f"{name} cannot be less than {minimum}")
+    return value
+
+
+def _remove_types(holder: ET.Element, names) -> None:
+    """Drop type entries; a holder with no <types> has nothing to drop."""
+    types = holder.find("types")
+    if types is None:
+        return
+    for entry in list(types):
+        if entry.get("name") in names:
+            types.remove(entry)
 
 
 def _next(ids, split: str | None = None) -> int:
@@ -103,7 +131,7 @@ class Editor:
     def __init__(self, base: Path):
         self.base = base
         self.docs = {n: Doc(base / n) for n in FILES if (base / n).is_file()}
-        self.moves_touched = False
+        self.moves_allowed: set[str] = set()  # Track ids whose moves an action was asked to change.
 
     # File sections.
     @property
@@ -176,6 +204,11 @@ class Editor:
 
     def cars(self) -> list[ET.Element]:
         return self.car_root.findall("./cars/car")
+
+    def engines(self) -> list[ET.Element]:
+        if ENGINE_FILE not in self.docs:
+            return []
+        return self.docs[ENGINE_FILE].root.findall("./engines/engine")
 
     def car(self, text: str) -> ET.Element:
         key = text.replace(" ", "").upper()
@@ -255,7 +288,7 @@ def guard(editor: Editor, allowed_cars: tuple[str, ...] = ()) -> None:
         old = old_tracks.get(track.get("id"))
         if old is None:
             continue
-        if not editor.moves_touched and old.get("moves") != track.get("moves"):
+        if track.get("id") not in editor.moves_allowed and old.get("moves") != track.get("moves"):
             raise Refused(f"Internal check: moves on {track.get('name')} would change")
     old_cars = {c.get("id"): c for c in before.cars()}
     for car in editor.cars():
@@ -422,14 +455,18 @@ def rename_load(ed: Editor, old: str, new: str, car_type: str | None = None) -> 
 
 @action()
 def rename_road(ed: Editor, old: str, new: str) -> str:
-    """Rename a road in the road list, track and train filters and schedule lines. Cars keep theirs, since a car's id holds its road."""
+    """Rename a road in the road list, track and train filters, train engine and caboose roads, and schedule lines. Refused while a car or engine carries it, since their ids hold the road."""
     if old not in [e.get("name") for e in ed.registered("roads", "road")]:
         raise Refused(f"Unknown road {old!r}")
     if any(c.get("roadName") == old for c in ed.cars()):
         raise Refused(f"Cars still carry road {old}. A car's id contains its road, so rename those in JMRI")
+    engines = [e.get("id") for e in ed.engines() if e.get("roadName") == old]
+    if engines:
+        raise Refused(f"Engines still carry road {old}: {', '.join(engines[:8])}. Rename those in JMRI")
     count = _rename_values(ed.car_root, {"road": ("name",)}, old, new)
     count += _rename_values(ed.loc_root, {"carRoad": ("name",), "item": ("road",)}, old, new)
-    count += _rename_values(ed.train_root, {"carRoad": ("name",)}, old, new)
+    count += _rename_values(ed.train_root, {"carRoad": ("name",), "locoRoad": ("name",),
+                                            "train": TRAIN_ROAD_ATTRS}, old, new)
     return f"Renamed road {old} to {new}: {count} places."
 
 
@@ -444,7 +481,8 @@ def add_location(ed: Editor, name: str, types: list[str] | None = None, directio
         raise Refused(f"Location {name!r} already exists")
     wanted = types if types is not None else (ed.type_entries(ed.location(like)) if like else ed.car_types())
     number = _next(x.get("id") for x in ed.locations())
-    element = ET.Element("location", {"id": str(number), "name": name, "ops": "Normal", "dir": str(_mask(directions)),
+    # No ops attribute: Location(Element) never reads it and store() derives it from the tracks.
+    element = ET.Element("location", {"id": str(number), "name": name, "dir": str(_mask(directions)),
                                       "switchList": "true", "comment": comment, "switchListComment": ""})
     holder = ed.section(ed.loc_root, "locations")
     holder.append(element)
@@ -471,10 +509,7 @@ def update_location(ed: Editor, location: str, directions: str | int | None = No
         users = [t.get("name") for t in element.findall("track") if kind in ed.type_entries(t)]
         if users:
             raise Refused(f"Tracks here still take {kind}: {', '.join(users)}")
-        types = element.find("types")
-        for entry in list(types):
-            if entry.get("name") == kind:
-                types.remove(entry)
+        _remove_types(element, (kind,))
     _indent(element, 2)
     return f"Updated location {element.get('name')}."
 
@@ -529,7 +564,7 @@ def add_track(ed: Editor, location: str, name: str, type: str, length: int, type
         ed.add_type_to(place, kind, 2)
         ed.add_type_to(element, kind, 3)
     if moves:
-        ed.moves_touched = True
+        ed.moves_allowed.add(identity)
     _indent(place, 2)
     if settings:
         update_track(ed, track=identity, **settings)
@@ -590,11 +625,8 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
         ed.need_type(name)
         ed.add_type_to(place, name, 2)
         ed.add_type_to(element, name, 3)
-    for name in remove_types or []:
-        holder = element.find("types")
-        for entry in list(holder):
-            if entry.get("name") == name:
-                holder.remove(entry)
+    if remove_types:
+        _remove_types(element, remove_types)
     if roads is not None:
         _option_list(ed, element, roads, "carRoadOption", "carRoads", "carRoad", (ALL, INCLUDE, EXCLUDE), ALL)
     if loads is not None:
@@ -726,6 +758,14 @@ def _load_options(element: ET.Element, names: list[str]) -> None:
         raise Refused("Those load options exist on staging tracks only")
     if mask & LOAD_BITS["disable_load_change"] and kind != SPUR:
         raise Refused("disable_load_change is a spur option")
+    # The names replace one group (Track.java:117-125): staging options on staging, spur options
+    # elsewhere. Bits of the other group stay as they were.
+    group = STAGING_BITS if kind == STAGING else SPUR_BITS
+    try:
+        old = int(element.get("loadOptions", "0"))
+    except ValueError:
+        old = 0
+    mask |= old & ~group
     element.attrib.pop("loadOptions", None)
     if mask:
         element.set("loadOptions", str(mask))
@@ -765,10 +805,9 @@ def track_references(ed: Editor, identity: str) -> list[str]:
         for attr in attrs[:-1]:
             if car.get(attr) == identity:
                 found.append(f"car {car.get('id')} ({attr})")
-    if ENGINE_FILE in ed.docs:
-        for engine in ed.docs[ENGINE_FILE].root.findall("./engines/engine"):
-            if identity in (engine.get("secLocationId"), engine.get("secDestinationId")):
-                found.append(f"engine {engine.get('id')}")
+    for engine in ed.engines():
+        if identity in (engine.get("secLocationId"), engine.get("secDestinationId")):
+            found.append(f"engine {engine.get('id')}")
     for train in ed.trains():
         if identity in (train.get("departureTrack"), train.get("terminationTrack")):
             found.append(f"train {train.get('name')}")
@@ -800,6 +839,8 @@ def delete_location(ed: Editor, location: str) -> str:
     uses += [f"track {d.get('id')}" for d in ed.loc_root.iter("destination") if d.get("id") == identity]
     attrs = ("locationId", "destinationId", "nextDestId", "rweDestId", "rwlDestId")
     uses += [f"car {c.get('id')}" for c in ed.cars() if identity in [c.get(a) for a in attrs]]
+    # RollingStock:1474 reads locationId for engines too.
+    uses += [f"engine {e.get('id')}" for e in ed.engines() if identity in (e.get("locationId"), e.get("destinationId"))]
     if uses:
         raise Refused(f"Still used by: {', '.join(uses[:12])}")
     holder = ed.section(ed.loc_root, "locations")
@@ -812,8 +853,9 @@ def delete_location(ed: Editor, location: str) -> str:
 def set_track_moves(ed: Editor, moves: dict[str, int]) -> str:
     """Set the move counts that bias the builder, by track name or id. The only action that changes them."""
     for name, value in moves.items():
-        ed.track(name).set("moves", str(int(value)))
-    ed.moves_touched = True
+        track = ed.track(name)
+        track.set("moves", str(_int_field("moves", value)))
+        ed.moves_allowed.add(track.get("id"))
     return f"Set moves on {len(moves)} tracks."
 
 
@@ -823,7 +865,7 @@ def reset_moves(ed: Editor, location: str | None = None) -> str:
     tracks = ed.location(location).findall("track") if location else ed.tracks()
     for track in tracks:
         track.set("moves", "0")
-    ed.moves_touched = True
+        ed.moves_allowed.add(track.get("id"))
     return f"Reset moves on {len(tracks)} tracks."
 
 
@@ -848,10 +890,16 @@ def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) 
         raise Refused("JMRI's schedule window does not offer staging as a ship destination")
     days = {s.get("name"): s.get("id") for s in ed.train_root.findall("./schedules/schedule")}
     day = lambda text: days.get(text, text) if text else ""  # noqa: E731
+    random = str(line.get("random", "") or "")
+    if random not in SCHEDULE_RANDOM:
+        raise Refused(f"random must be blank or one of {', '.join(SCHEDULE_RANDOM[1:])} (percent), not {random!r}")
+    # ScheduleItem:347-351 parses count and wait with no catch: a bad value stops the load.
+    count = _int_field("count", line.get("count", 1), 1)
+    wait = _int_field("wait", line.get("wait", 0))
     element = ET.Element("item", {
-        "id": f"{schedule_id}c{number}", "sequenceId": str(sequence), "random": str(line.get("random", "")),
+        "id": f"{schedule_id}c{number}", "sequenceId": str(sequence), "random": random,
         "trainScheduleId": day(line.get("setout_day")), "pickupTrainScheduleId": day(line.get("pickup_day")),
-        "count": str(line.get("count", 1)), "wait": str(line.get("wait", 0)), "type": kind,
+        "count": str(count), "wait": str(wait), "type": kind,
         "road": line.get("road", ""), "load": line.get("receive", ""), "ship": line.get("ship", ""),
         "comment": line.get("comment", ""), "hits": "0"})
     if place is not None:
@@ -884,9 +932,7 @@ def replace_schedule_lines(ed: Editor, schedule: str, lines: list[dict]) -> str:
     if not lines:
         raise Refused("A schedule needs at least one line")
     old = {i.get("id") for i in element.findall("item")}
-    holders = [c.get("id") for c in ed.cars() if c.get("scheduleId") in old]
-    if holders:
-        raise Refused(f"Cars are on their way under these lines: {', '.join(holders[:8])}")
+    _no_holders(ed, element)
     identity = element.get("id")
     start = _next((i for i in old), "c")
     for item in element.findall("item"):
@@ -900,6 +946,14 @@ def replace_schedule_lines(ed: Editor, schedule: str, lines: list[dict]) -> str:
             track.set("itemId", first)
             track.set("itemCount", "0")
     return f"Replaced lines in schedule {element.get('name')}: {len(lines)} lines."
+
+
+def _no_holders(ed: Editor, schedule: ET.Element) -> None:
+    """Refuse while a car's scheduleId points at one of this schedule's lines (C:1202)."""
+    ids = {i.get("id") for i in schedule.findall("item")}
+    holders = [c.get("id") for c in ed.cars() if c.get("scheduleId") in ids]
+    if holders:
+        raise Refused(f"Cars are on their way under these lines: {', '.join(holders[:8])}")
 
 
 @action()
@@ -917,11 +971,12 @@ def rename_schedule(ed: Editor, schedule: str, new: str) -> str:
 
 @action()
 def delete_schedule(ed: Editor, schedule: str) -> str:
-    """Delete a schedule no track uses."""
+    """Delete a schedule no track uses and no car is travelling under."""
     element = ed.schedule(schedule)
     users = [t.get("name") for t in ed.tracks() if t.get("scheduleId") == element.get("id")]
     if users:
         raise Refused(f"Still on: {', '.join(users)}")
+    _no_holders(ed, element)
     holder = ed.section(ed.loc_root, "schedules")
     holder.remove(element)
     _indent(holder, 1)
@@ -979,19 +1034,29 @@ def mirror_schedule(ed: Editor, spur: str, sources: list[str] | None = None, loc
 
 @action()
 def setup_custom_staging(ed: Editor, track: str, location: str | None = None, ship_loads: list[str] | None = None,
-                         local_route_only: bool = False, any_staging: bool = True) -> str:
-    """Set a staging track for custom loads: empty arrivals, generate outbound loads, and ship only those loads."""
+                         local_route_only: bool = False, any_staging: bool = True, ship_empties: bool = False) -> str:
+    """Set a staging track for custom loads: arrivals become the default empty (custom and default loads alike),
+    outbound loads are generated, and the ship list refuses the default empty and load. The price: an empty that
+    finds no custom load fails the build. ship_empties keeps the default empty on the ship list, so such a car
+    leaves as an empty instead."""
     element = ed.track(track, location)
     if element.get("trackType") != STAGING:
         raise Refused(f"{element.get('name')} is not staging")
-    options = ["empty_custom", "generate" if local_route_only else "generate_any_spur"]
+    # Car.java:935-955: bit 2 strips custom loads only; only swap (1) or empty_default (16) turn a default
+    # load into the empty the generators need (TBC:635). Without 16 a loaded arrival is refused by Ship.
+    options = ["empty_custom", "empty_default", "generate" if local_route_only else "generate_any_spur"]
     if any_staging:
         options.append("generate_any_staging")
-    defaults = list(ed.defaults())
-    settings: dict = {"load_options": options, "loads": {"option": ALL},
-                      "ship_loads": {"option": INCLUDE, "names": ship_loads} if ship_loads
-                      else {"option": EXCLUDE, "names": defaults}}
+    empty, loaded = ed.defaults()
+    if ship_loads:
+        names = list(ship_loads) + ([empty] if ship_empties and empty not in ship_loads else [])
+        ship = {"option": INCLUDE, "names": sorted(names)}  # JMRI's save sorts the list.
+    else:
+        ship = {"option": EXCLUDE, "names": [loaded] if ship_empties else sorted([empty, loaded])}
+    settings: dict = {"load_options": options, "loads": {"option": ALL}, "ship_loads": ship}
     update_track(ed, element.get("id"), **settings)
+    if ship_empties:
+        return f"Set {element.get('name')} for custom loads; an empty that finds no load still leaves as {empty}."
     return (f"Set {element.get('name')} for custom loads. An empty that finds no load now fails the build, "
             "because the ship list refuses it; the audit's staging rules show what to check.")
 
@@ -1033,12 +1098,17 @@ def _stop_values(element: ET.Element, stop: dict) -> None:
         if mask not in DIRECTIONS:
             raise Refused("A route stop has one direction")
         element.set("trainDirection", str(mask))
-    plain = {"max_moves": "maxCarMoves", "max_length": "maxTrainLength", "wait": "wait", "comment": "comment"}
-    for key, attr in plain.items():
+    # RouteLocation:612-655 parses these with Integer.parseInt and logs an error on anything else.
+    for key, attr in (("max_moves", "maxCarMoves"), ("max_length", "maxTrainLength"), ("wait", "wait")):
         if key in stop:
-            element.set(attr, str(stop[key]))
+            element.set(attr, str(_int_field(key, stop[key])))
+    if "comment" in stop:
+        element.set("comment", str(stop["comment"]))
     if "random" in stop:
-        element.set("randomControl", str(stop["random"]))
+        random = str(stop["random"])
+        if random not in STOP_RANDOM:
+            raise Refused(f"random must be Off or 10 to 100 by tens, not {random!r}")
+        element.set("randomControl", random)
     if "depart_time" in stop:
         element.set("departTime", stop["depart_time"])
     for key, attr in (("pickups", "pickups"), ("drops", "drops"), ("local_moves", "localMoves")):
@@ -1167,10 +1237,7 @@ def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
                 ed.need_type(kind)
                 ed.add_type_to(element, kind, 2)
         elif key == "remove_types":
-            holder = element.find("types")
-            for entry in list(holder):
-                if entry.get("name") in value:
-                    holder.remove(entry)
+            _remove_types(element, value)
         else:
             raise Refused(f"Unknown train field {key!r}")
 
@@ -1291,12 +1358,22 @@ def rename_train(ed: Editor, train: str, new: str) -> str:
 
 @action()
 def delete_train(ed: Editor, train: str) -> str:
-    """Delete a train. It is taken off track lists. Refused while a car is assigned to it."""
+    """Delete a train. It is taken off track lists and day schedules. Refused while a car is assigned to it or an automation names it."""
     element = ed.train(train)
     identity = element.get("id")
     cars = [c.get("id") for c in ed.cars() if c.get("trainId") == identity]
     if cars:
         raise Refused(f"Cars are on it: {', '.join(cars[:8])}")
+    # AutomationItem:446 reads trainId; an item left pointing at nothing loses its action.
+    automations = [a.get("name") for a in ed.train_root.findall("./automations/automation")
+                   if any(i.get("trainId") == identity for i in a.findall("item"))]
+    if automations:
+        raise Refused(f"Automations still use it: {', '.join(automations[:8])}. Change those in JMRI first")
+    # TrainSchedule:120 reads trainIds as a comma list.
+    for day in ed.train_root.findall("./schedules/schedule"):
+        ids = [i for i in day.get("trainIds", "").split(",") if i]
+        if identity in ids:
+            day.set("trainIds", ",".join(i for i in ids if i != identity))
     for track in ed.tracks():
         for option, tag, item in (("dropOption", "dropIds", "dropId"), ("pickupOption", "pickupIds", "pickupId")):
             holder = track.find(tag)
@@ -1476,8 +1553,13 @@ def set_kernel(ed: Editor, name: str, cars: list[str], lead: str | None = None) 
     members = [ed.car(c) for c in cars]
     if len(members) < 2:
         raise Refused("A kernel needs at least two cars")
-    tracks = {c.get("secLocationId") for c in members}
-    if len(tracks) != 1:
+    # TBB:1213-1231: every car needs a track, one location, and the same split track name.
+    homeless = [c.get("id") for c in members if not c.get("secLocationId")]
+    if homeless:
+        raise Refused(f"Kernel cars need a track; none on: {', '.join(homeless)}")
+    names = {t.get("id"): split_name(t.get("name", "")) for t in ed.tracks()}
+    places = {(c.get("locationId"), names.get(c.get("secLocationId"))) for c in members}
+    if len(places) != 1:
         raise Refused("Kernel cars must be on the same track: a split kernel fails the whole build")
     for car in ed.cars():
         if car.get("kernel") == name:

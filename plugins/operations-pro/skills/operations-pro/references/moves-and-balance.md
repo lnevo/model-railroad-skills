@@ -44,10 +44,10 @@ Track priority and load priority decide which cars are **analysed first**: track
 
 - Room is used length plus reserved length plus this car's length within the track length. A car's length includes a coupler allowance of four feet, or one metre.
 - Reserved length counts cars en route. The spur's "% from staging" factor scales it for load generation.
-- Planned pick ups, the ignore-used-length percentage, let the builder discount part of the used length. Use it only on a track where only locos go, because cars will fill the freed room.
-- A pool shares length between tracks, with a minimum per track. It does not make the builder search those tracks as one; model drawers as a location with rows as tracks instead. Pool requests change track lengths at build time, so a pooled track's length is not a stable input.
+- Planned pick ups, the ignore-used-length percentage, let the builder discount part of the used length. Cars will fill the freed room, so keeping it to tracks where only locos go is a modelling choice.
+- A pool shares length between tracks, with a minimum per track. It does not make the builder search those tracks as one. Pool requests change track lengths at build time, so a pooled track's length is not a stable input. Modelling drawers as a location with rows as tracks is a modelling choice.
 - Set a track's length to zero to retire it: nothing new is sent and the cars there are pulled. Delete it once the drop count reaches zero.
-- A yard track entered shorter than real gives operators spare room.
+- Entering a yard track shorter than real to give operators spare room is a modelling choice.
 
 ## Hold
 
@@ -67,6 +67,6 @@ Fixes: give spurs schedules, which sort first; set yard counts high and spur cou
 
 ## Track Analysis
 
-Per type, the figure is space used by all cars of that type as a percentage of all track that accepts the type, as if they all sat on it. Layout fullness comes from Print Locations. Half full is a working start.
+The forum reads the per-type figure as space used by all cars of that type as a percentage of all track that accepts the type, as if they all sat on it; that reading was not checked against the source. Layout fullness comes from Print Locations. Half full as a starting point is a modelling choice.
 
 Checked against JMRI 5.16 source, tag v5.16.

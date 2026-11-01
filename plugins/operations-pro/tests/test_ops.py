@@ -5,10 +5,12 @@ regenerates it. The oracle tests hold this code to JMRI rather than to our readi
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -456,6 +458,173 @@ class AuditFaults(Base):
         self.assertNotIn("BV1", subjects)
         self.assertNotIn("Brackwater Yard A", {f["subject"] for f in self.report["findings"]
                                                if f["rule"] != "alternate-ignored"})
+
+
+class ReviewFixes(Base):
+    """Gate readings checked against JMRI 5.16 source (verification.md, Part 1). Each test names the
+    Java it follows. Mutating tests load their own railroad so the shared one stays untouched."""
+
+    def fresh(self):
+        rr = ops_data.load(OPS)
+        return rr, Gates(rr)
+
+    @staticmethod
+    def gate(result, code):
+        return next(g for g in result["gates"] if g["gate"] == code)
+
+    def test_c10_generator_only_covers_a_default_empty_it_can_replace(self):
+        # TrainBuilderCars 546-558, 633-637, 658: the ship check runs when both generators fail.
+        rr, g = self.rr, self.gates
+        empty = self.gate(g.why_not("BVR6001", "Brackwater", train="X99"), "C10")
+        self.assertEqual(empty["status"], "not_checked")
+        self.assertIn("load generation", empty["reason"])
+        custom = self.gate(g.why_not("BVR6002", "Brackwater", train="X99"), "C10")
+        self.assertEqual(custom["status"], FAIL)
+        routed = replace(rr.find_car("BVR6001"), fd_id="1")
+        self.assertEqual(self.gate(g.why_not(routed, "Brackwater", train="X99"), "C10")["status"], FAIL)
+
+    def test_g11_fails_a_train_with_build_off_and_the_router_skips_it(self):
+        # TrainManager 556: isOnlyActiveTrainsEnabled && !train.isBuildEnabled.
+        rr, g = self.fresh()
+        rr.setup["router"]["onlyActiveTrains"] = "true"
+        self.assertEqual([p["train"] for p in g.route_path(rr.find_car("QXR3018"), rr.tracks["3s2"])], ["T10", "T30"])
+        self.assertEqual(self.gate(g.why_not("QXR3018", "Tolvern", "Tolvern Yard", "T30"), "G11")["status"], "pass")
+        rr.find_train("T30").build = False
+        self.assertEqual(self.gate(g.why_not("QXR3018", "Tolvern", "Tolvern Yard", "T30"), "G11")["status"], FAIL)
+        self.assertIsNone(g.route_path(rr.find_car("QXR3018"), rr.tracks["3s2"]))
+
+    def test_yard_routing_is_off_when_operations_xml_does_not_say(self):
+        # Setup 310: carRoutingYards = false.
+        rr, g = self.fresh()
+        car = rr.find_car("BVR1001")
+        self.assertTrue(any(t.is_yard for t in g._connecting(car)))
+        del rr.setup["router"]["carRoutingViaYards"]
+        self.assertFalse(any(t.is_yard for t in g._connecting(car)))
+
+    def test_f5_random_is_skipped_when_the_final_destination_track_is_this_spur(self):
+        # Schedule 483-489 compares car.getFinalDestinationTrack() with the spur; ScheduleItem 95-103
+        # draws for any non-blank value, so "0" is drawn and a non-number never passes.
+        rr, g = self.rr, self.gates
+        track = rr.tracks["3s1"]
+        item = replace(rr.schedules["4"].items[0], random="50")
+        car = replace(rr.find_car("BVR2001"), load="Coal", fd_id="3", fd_track_id="3s1")
+
+        def f5(car, item):
+            return next(x for x in g._line(car, item, track) if x["gate"] == "F5")
+
+        self.assertEqual(f5(car, item)["status"], "pass")
+        self.assertEqual(f5(replace(car, fd_id="", fd_track_id=""), item)["status"], "not_checked")
+        self.assertEqual(f5(replace(car, fd_id="", fd_track_id=""), replace(item, random="0"))["status"], "not_checked")
+        self.assertEqual(f5(replace(car, fd_id="", fd_track_id=""), replace(item, random="x"))["status"], FAIL)
+        self.assertEqual(f5(replace(car, fd_id="", fd_track_id=""), replace(item, random=""))["status"], "pass")
+
+    def test_g9_allow_return_passes_before_the_local_move_rule(self):
+        # Train 1939-1963: the return-to-staging check returns true before isLocalMoveAllowed.
+        rr, g = self.fresh()
+        stops = rr.routes["5"].stops
+        stops.append(ops_data.Stop(id="5r3", name="Quarry Staging", location_id="6", direction=3))
+        for stop in stops:
+            stop.local = True
+        train = rr.find_train("X99")
+        train.local_moves = False
+        car = replace(rr.find_car("BVR6001"), destination_id="6", dest_track_id="6s1")
+        g9 = {x["gate"]: x for x in g.serviceable(car, train)}["G9"]
+        self.assertEqual(g9["status"], FAIL)
+        self.assertIn("local moves", g9["reason"])
+        train.allow_return = True
+        g9 = {x["gate"]: x for x in g.serviceable(car, train)}["G9"]
+        self.assertEqual(g9["status"], "pass")
+        self.assertIn("staging", g9["reason"])
+
+    def test_b5_tests_only_the_assigned_destination(self):
+        # TrainBuilderBase 870-890: the car's own destination, caboose exempt when a leg changes the caboose.
+        rr, g = self.rr, self.gates
+        caboose = replace(rr.find_car("BVR1001"), caboose=True, destination_id="3")
+        self.assertEqual(self.gate(g.why_not(caboose, "Tolvern", "Tolvern Yard", "BV1"), "B5")["status"], FAIL)
+        what_if = self.gate(g.why_not(replace(caboose, destination_id=""), "Tolvern", "Tolvern Yard", "BV1"), "B5")
+        self.assertEqual(what_if["status"], "pass")
+        self.assertIn("not one", what_if["reason"])
+        changes = replace(rr.find_train("BV1"), leg2_options=ops_data.ADD_CABOOSE)
+        self.assertEqual(self.gate(g.why_not(caboose, "Tolvern", "Tolvern Yard", changes), "B5")["status"], "pass")
+        fred = replace(caboose, caboose=False, fred=True)
+        self.assertEqual(self.gate(g.why_not(fred, "Tolvern", "Tolvern Yard", changes), "B5")["status"], FAIL)
+
+    def test_b18_compares_split_track_names_and_needs_a_lead_in_service(self):
+        # TrainBuilderBase 1213-1231: getSplitName on both tracks; a lead that is not out of service.
+        rr, g = self.fresh()
+        rr.tracks["7s1"].name, rr.tracks["7s2"].name = "North-1", "North-2"
+        self.assertEqual(self.gate(g.why_not("BVR3014", "Tolvern"), "B18")["status"], "pass")
+        self.assertNotIn("Pair", {f["subject"] for f in g.audit()["findings"] if f["rule"] == "kernel-split"})
+        rr.find_car("BVR3013").out_of_service = True
+        b18 = self.gate(g.why_not("BVR3014", "Tolvern"), "B18")
+        self.assertEqual(b18["status"], FAIL)
+        self.assertIn("0 lead", b18["reason"])
+        self.assertIn("Pair", {f["subject"] for f in g.audit()["findings"] if f["rule"] == "kernel-split"})
+
+    def test_d12_refuses_exactly_the_staging_tracks_a7_refuses(self):
+        # TrainBuilderBase 2577-2612 tryStaging is car.checkDestination on the terminal track; which
+        # track that is comes from checkTerminateStagingTrack (2038-2072).
+        g = self.gates
+        occupied = g.why_not("BVR1001", "East Staging", "East Stage 1", "BV1")
+        self.assertEqual(self.gate(occupied, "A7")["status"], "pass")
+        self.assertEqual(self.gate(occupied, "D12")["status"], FAIL)
+        self.assertIn("occupied", self.gate(occupied, "D12")["reason"])
+        empty = g.why_not("BVR1001", "East Staging", "East Stage 2", "BV1")
+        self.assertEqual(self.gate(empty, "D12")["status"], "pass")
+        self.assertTrue(empty["can_move"])
+
+    def test_a7_counts_cars_already_destined_to_the_staging_track(self):
+        # TrainBuilderBase 2067-2072: getDropRS() != 0 fails the track.
+        rr, g = self.fresh()
+        rr.find_car("BVR1001").destination_id, rr.find_car("BVR1001").dest_track_id = "5", "5s2"
+        result = g.why_not("BVR1002", "East Staging", "East Stage 2", "BV1")
+        self.assertEqual(self.gate(result, "A7")["status"], FAIL)
+        self.assertIn("destined", self.gate(result, "D12")["reason"])
+
+    def test_d17_full_spur_with_an_alternate_is_not_decided(self):
+        # TrainBuilderBase 2430-2449: the alternate must take the train and the car at that moment.
+        rr, g = self.fresh()
+        dock = rr.tracks["3s1"]
+        dock.length = 60
+        rr.find_car("BVR2001").location_id, rr.find_car("BVR2001").track_id = "3", "3s1"
+        car = replace(rr.at(rr.find_car("BVR2002"), "1", "1s1"), load="Coal")
+        result = g.why_not(car, "Tolvern", "Tolvern Coal Dock", "BV1")
+        self.assertIn("full", self.gate(result, "E9")["reason"])
+        d17 = self.gate(result, "D17")
+        self.assertEqual(d17["status"], "not_checked")
+        self.assertIn("Tolvern Interchange", d17["reason"])
+        dock.raw_alternate_id = ""
+        self.assertEqual(self.gate(g.why_not(car, "Tolvern", "Tolvern Coal Dock", "BV1"), "D17")["status"], "pass")
+
+    def test_interchange_alternate_warning_names_the_router_and_the_pickup_trap(self):
+        # LocationManager 329 skips alternates; TrainBuilderBase 1524-1533 is the same-route pull bar.
+        hit = next(f for f in self.gates.audit()["findings"] if f["rule"] == "interchange-as-alternate")
+        self.assertIn("every alternate", hit["message"])
+        self.assertIn("Any", hit["message"])
+        self.assertIn("same route", hit["message"])
+
+    def test_foreign_option_words_are_warned_about(self):
+        # Track 159-173 compares Bundle values, so a non-English file holds other words.
+        self.assertEqual(self.rr.warnings, [])
+        with tempfile.TemporaryDirectory() as temp:
+            copy = Path(temp) / "operations"
+            shutil.copytree(OPS, copy)
+            trains = copy / "OperationsTrainRoster.xml"
+            trains.write_text(trains.read_text().replace('carRoadOption="Exclude"', 'carRoadOption="Ausschliessen"'))
+            warnings = ops_data.load(copy).warnings
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("train BV1", warnings[0])
+        self.assertIn("Ausschliessen", warnings[0])
+
+    def test_g8_without_a_destination_track_ignores_the_schedule(self):
+        # Train 1912-1917 uses track.isRollingStockAccepted (Track 1572-1663), which has no schedule test.
+        rr, g = self.rr, self.gates
+        car = replace(rr.find_car("BVR1003"), destination_id="2", load="Feed")
+        for track in rr.locations["2"].tracks:
+            self.assertEqual(g.destination_status(car, rr.locations["2"], track), (False, "E10"))
+        self.assertEqual({x["gate"]: x["status"] for x in g.serviceable(car, rr.find_train("T10"))}["G8"], "pass")
+        with_track = replace(car, dest_track_id="2s1")
+        self.assertEqual({x["gate"]: x["status"] for x in g.serviceable(with_track, rr.find_train("T10"))}["G8"], "pass")
 
 
 def call(env, *messages):

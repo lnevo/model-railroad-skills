@@ -31,7 +31,8 @@ LINE_TEMPLATES = {k: v for k, v in TEMPLATES.items() if k not in FRAGMENTS and k
 # What a 'due to' tail can be: a Track, Schedule, Router or Train status.
 STATUS_TEMPLATES = {
     **STATUS, **{k: v for k, v in TRAINS.items() if k.startswith("train")},
-    "statusType": "type ({0})", "statusRoad": "road ({0})", "statusLoad": "load ({0})", "statusLength": "length ({0})",
+    "statusType": "type ({0})", "statusRoad": "road ({0})", "statusLoad": "load ({0})",
+    "statusLength": "rolling stock length ({0})",  # Track.LENGTH, TR:191-193, for a non-numeric car length (TR:1591)
     "statusDestination": "car's final destination ({0}) is not allowed by track ({1})",
     "statusNoFinalDestination": "car doesn't have a final destination", "statusOkay": "okay",
     "statusScheduleError": "schedule ERROR", "statusScheduleItem": "schedule ERROR Track {0} current schedule item is null!",
@@ -43,12 +44,12 @@ STATUS_TAILED = {"buildCanNotDropCarBecause": 4, "buildNoDestTrackNewLoad": 6, "
                  "RouterTrainCanNotDueTo": 4, "buildNotAbleToSetDestination": 1, "trainCanNotDeliverToStaging": 4,
                  "RouterAlternateFailed": 1, "RouterCanNotUseYard": 2, "buildTrackSequentialMode": 2}
 PLACEHOLDER = re.compile(r"\{(\d+)\}")
-ASSIGNED, NO_DESTINATION, HELD, RETURNED, LEFT, PICKUP_REFUSED, DEFERRED = (
-    "assigned", "no_destination", "held", "returned_to_staging", "left_in_staging", "pickup_refused", "deferred")
+ASSIGNED, NO_DESTINATION, HELD, PICKUP_REFUSED, DEFERRED = (
+    "assigned", "no_destination", "held", "pickup_refused", "deferred")
 
 # Report lines whose wording alone names the gate. Keys are template keys.
 KEY_GATES: dict[str, str] = {
-    "buildExcludeCarWrongRoad": "B9", "buildExcludeCarWrongType": "B10", "buildExcludeCarTypeAtLoc": "B10",
+    "buildExcludeCarWrongRoad": "B9", "buildExcludeCarWrongType": "B10", "buildExcludeCarTypeAtLoc": "B17",
     "buildExcludeCarAtLoc": "B20", "buildExcludeCarWrongDest": "B4", "buildExcludeCarDestNotPartRoute": "B4",
     "buildExcludeCarDropByTrain": "B6", "buildExcludeCarByTrain": "B7", "buildExcludeCarByRoute": "B7",
     "buildExcludeCarByInterchange": "B8", "buildExcludeCarLocUnknown": "B2", "buildExcludeCarOutOfService": "B3",
@@ -60,18 +61,18 @@ KEY_GATES: dict[str, str] = {
     "buildTrackNotNewLoad": "C10", "buildTrackNotLoadSchedule": "C10", "buildErrorCarStageLoad": "C10",
     "buildWarningQuickService": "C11", "buildTrackNotQuickService": "C11", "buildNoDivisionTrack": "C12",
     "buildRouteNoDropLocation": "D1", "buildNoAvailableMovesDest": "D3", "buildCarLocEqualDestination": "D4",
-    "buildNoReturnStaging": "D4", "buildRouteNoLocalLocation": "D5", "buildRouteNoLocalLocCar": "D5",
+    "buildNoReturnStaging": "D4", "buildRouteNoLocalLocation": "C7", "buildRouteNoLocalLocCar": "D5",
     "buildCarHasFinalDestNoMove": "D5", "buildDestinationNotServiced": "D6", "buildCanNotDropLocation": "D7",
-    "buildDestinationType": "D7", "buildNoTracksAtDestination": "D7", "buildDestinationDoesNotService": "D8",
+    "buildDestinationType": "A7", "buildDestinationDoesNotService": "D8",
     "buildCanNotPickupCarLength": "D9", "buildThroughTrafficNotAllow": "D10", "buildCarDestinationStaging": "D12",
     "buildCanNotDropCarSameTrack": "D13", "buildCanNotDropRsUsingTrain": "D14", "buildCanNotDropRsUsingTrain4": "D14",
     "buildCanNotDropTrain": "D15", "buildCanNotDropRoute": "D15", "buildTrackFullHasAlternate": "D17",
     "buildWarnTrainTiming": "D18", "buildNoSpurToSpurMove": "D19", "buildNoYardToYardMove": "D19",
-    "buildNoInterchangeToInterchangeMove": "D19", "buildNoLocalMoveToTrack": "D19",
+    "buildNoInterchangeToInterchangeMove": "D19", "buildNoLocalMoveToTrack": "G9",
     "buildSpurFullNoAlternate": "E9", "buildTrackTooShort": "E9", "buildNoDestTrackSpace": "E9", "buildNoDestSpace": "E9",
     "buildDestTrackNoLoad": "E8", "buildSpurNoSchedule": "E10", "buildSpurScheduleNotUsed": "E10",
-    "buildErrorNoScheduleItem": "E10", "buildScheduleNotActive": "F1", "buildSpurNotThisType": "F2",
-    "buildScheduleRandom": "F5", "buildTrainNotNewLoad": "G1", "buildCanNotRouteCar": "G12",
+    "buildErrorNoScheduleItem": "E10", "buildScheduleNotActive": "F1", "buildSpurNotThisType": "E3",
+    "buildScheduleRandom": "F5", "buildTrainNotNewLoad": "B13", "buildCanNotRouteCar": "G12",
     "buildRouteNotFound": "G12", "buildStagingTrackNotReachable": "G12", "RouterCouldNotFindLast": "G12",
     "RouterCouldNotFindStaging": "G12", "RouterCouldNotFindLoc": "G12", "RouterCouldNotFindTrain": "G12",
     "RouterNotAbleToRoute": "G12", "RouterNotFindTrain": "G12", "RouterSameInterchange": "G12",
@@ -98,6 +99,11 @@ KEY_GATES: dict[str, str] = {
     "buildErrorReqDepature": "B17", "buildErrorReqDest": "B17", "buildErrorRequirements": "B17",
     "buildErrorCabooseNoLocation": "B17", "buildErrorCabooseNoDestination": "B17", "mbuildFail": "B19",
 }
+# Printed by both staging checks: departure (TBB:1718, TB:235, A8) and terminal (TBB:2040, 2093, A7).
+STAGING_EITHER = ("buildStagingNotTrain", "buildStagingTrackRestriction")
+# Terminal staging checks (A7) that also come up inside a car's search when a load is generated towards
+# staging (TBB:2752, 2758); there they are the track's own type and road tests.
+MID_SEARCH_GATES = {"buildStagingTrackType": "E3", "buildStagingTrackRoad": "E4"}
 
 # What a refusal line means, in a few words, where the template alone does not say.
 KEY_NOTES: dict[str, str] = {
@@ -112,11 +118,25 @@ KEY_NOTES: dict[str, str] = {
     "buildUnableNewLoad": "no spur needing a custom load could be reached",
     "buildUnableNewLoadStaging": "no custom load could be generated towards staging",
     "buildCarNoCustomLoad": "no custom load exists for this car type",
+    "buildNoLocalMoveToTrack": "the train's option to allow local moves is off. Fix: Edit Train > Build Options, "
+                               "Allow local moves if car has a custom load or FD",
+    "buildSpurNotThisType": "the spur's car types exclude this type, so its schedule is not read",
+    "buildTrainNotNewLoad": "the train's load option refuses the load that would be generated",
+    "buildReturnCarToStaging": "the search goes on; staging is the fallback if no other track takes the car",
+    "buildExcludeCarTypeAtLoc": "a caboose or FRED car set aside after the caboose and FRED pass, "
+                                "or one that could not be picked up in the train's direction",
     "TrainDoesNotServiceCar": "this train cannot take the car directly there; the router looks for another",
     "buildNotAbleToSetDestination": "",
     "buildCarCanDropMoves": "",
 }
 
+# Why a schedule line refused a car (Schedule.checkScheduleItem, SCH:467-505), tried first on a status
+# that starts with "schedule (". Day comes before type; road and load share the requestCar template.
+SCHEDULE_RULES: list[tuple[str, str, str]] = [
+    ("only on (", "F1", "the line's delivery day is not the active day"),
+    (") road (", "F3", "the schedule line wants another road"),
+    (") load (", "F4", "the schedule line wants another load"),
+]
 # Why a track refused a car, from the status text Track and Schedule return.
 STATUS_RULES: list[tuple[str, str, str]] = [
     ("could not route car", "G12", "the router found no chain of trains"),
@@ -124,11 +144,12 @@ STATUS_RULES: list[tuple[str, str, str]] = [
     ("in match mode, no match", "E10", "no schedule line matched the car"),
     ("in sequential mode", "E10", "the current schedule line does not match the car"),
     ("doesn't service car type", "F2", "no line of the schedule has this car type"),
-    ("requests car type", "F2", "the schedule line wants another type, road or load"),
-    ("random value", "F5", "the line's random draw failed"),
     ("only on (", "F1", "the line's delivery day is not the active day"),
+    ("requests car type", "F2", "the schedule line wants another type"),
+    ("random value", "F5", "the line's random draw failed"),
     ("car has a custom load", "E10", "a spur without a schedule refuses custom loads"),
     ("track capacity", "E9", "the car is longer than the track"),
+    ("rolling stock length (", "E5", "the car's length is not a number"),
     ("rolling stock length", "E9", "no room on the track"),
     ("available track space", "E9", "no room on the track"),
     ("car's final destination", "E6", "the track's Destinations filter excludes the final destination"),
@@ -138,20 +159,19 @@ STATUS_RULES: list[tuple[str, str, str]] = [
     ("type (", "E3", "the track does not take this car type"),
     ("road (", "E4", "the track's road option excludes the road"),
     ("load (", "E8", "the track's load option excludes the load"),
-    ("length (", "E5", "the car's length is not a number"),
 ]
 
 STAGING_DEPARTURE = ("buildDepartStaging", "buildStagingHas", "buildTrainCanDepartTrack", "buildStagingNoCaboose",
-                     "buildStagingNoCarFRED", "buildStagingNotEngines", "buildStagingTrackRestriction",
+                     "buildStagingNoCarFRED", "buildStagingNotEngines",
                      "buildStagingEmpty", "buildStagingTooManyCars", "buildStagingTrainTooLong", "buildStagingDepart",
-                     "buildStagingCarsBefore", "buildStagingNotDirection", "buildStagingNotTrain",
+                     "buildStagingCarsBefore", "buildStagingNotDirection",
                      "buildStagingTrackPool", "buildUserSelectedDeparture", "buildOnlyOneDepartureTrack",
                      "buildErrorStagingEmpty", "buildStagingTrackDepart", "buildUserCanceledDeparture")
 STAGING_TERMINAL = ("buildTerminateStaging", "buildStagingAvail", "buildStagingReturn", "buildTrainCanTerminateTrack",
                     "buildStagingTrackOccupied", "buildStagingTrackReserved", "buildStagingTrackType",
                     "buildStagingTrackRoad", "buildStagingTrackLoad", "buildStagingTrackAllRoads",
                     "buildStagingTrackAllLoads", "buildErrorStagingFull", "buildErrorStagingFullNote",
-                    "buildUserSelectedArrival", "buildIgnoreStagingFirstPass")
+                    "buildUserSelectedArrival", "buildIgnoreStagingFirstPass", "buildDestinationType")
 SEARCH_STARTS = {"buildFindDestinationForCar": "default", "buildSearchForSpur": "custom load",
                  "buildCarRoutingBegins": "router", "buildSearchTrackNewLoad": "generate load",
                  "buildSearchTrackLoadStaging": "generate load for staging", "buildCarDepartHomeDivision": "division",
@@ -165,8 +185,9 @@ ACCEPTED = {"buildCarCanDropMoves", "buildCarHasAssignedDest", "buildCreateNewLo
             "buildTrackServicedLater", "buildEngineCanDrop", "RouterFoundTrack", "RouterTwoTrainsSuccess",
             "RouterTrainCanService", "buildCabooseRoadMatches", "trainCanPickUpCar", "buildTrainCanDepartTrack",
             "buildTrainCanTerminateTrack"}
-ENDERS = {"buildCarAssignedDest": ASSIGNED, "buildCarKernelAssignedDest": ASSIGNED, "buildNoDestForCar": NO_DESTINATION,
-          "buildReturnCarToStaging": RETURNED, "buildLeaveCarInStaging": LEFT}
+# buildReturnCarToStaging (TBC:1761) and buildLeaveCarInStaging (TBC:1912) fall through to the rest of the
+# search and to addCarToTrain, so they are notes inside the attempt, not outcomes.
+ENDERS = {"buildCarAssignedDest": ASSIGNED, "buildCarKernelAssignedDest": ASSIGNED, "buildNoDestForCar": NO_DESTINATION}
 EXCLUDE_KEYS = ("buildExcludeCar", "buildWarningRsNoTrack", "buildErrorCarKernel", "buildCarAlreadyAssigned")
 ENGINE_KEYS = ("buildExcludeEngine", "buildExcludeEngConsistNumber", "buildEngineAssigned", "buildFoundLocos",
                "buildNoLocosFoundAtLocation", "buildErrorEngines", "buildErrorEngHp", "buildAssignedHpNotEnough",
@@ -174,7 +195,8 @@ ENGINE_KEYS = ("buildExcludeEngine", "buildExcludeEngConsistNumber", "buildEngin
                "buildTrainReqExtraHp", "buildTrainRequiresAddHp", "buildCanNotDropEngToDest",
                "buildCanNotDropEngineToTrack", "buildEngineLeadConsist", "buildTrainEngineChange",
                "buildTrainAddEngines", "buildTrainRemoveEngines", "buildTrainHelperEngines", "buildCabooseChange",
-               "buildAutoBuildMsg", "buildOptionSingleLocos", "buildOptionBuildConsist", "buildTrainReqConsist")
+               "buildAutoBuildMsg", "buildOptionSingleLocos", "buildOptionBuildConsist", "buildTrainReqConsist",
+               "buildNoTracksAtDestination")  # TrainBuilderEngines:838, an engine's destination
 FAILURE_KEYS = ("buildError", "buildStagingCouldNotFindDest", "mbuildFail", "buildFailedTryNormalMode",
                 "buildErrorStagingFullNote")
 OPTION_HEADERS = {"MenuItemBuildOptions": "build", "buildStagingOptions": "staging", "buildCarRoutingOptions": "routing",
@@ -283,6 +305,8 @@ def read(text: str) -> list[Line]:
         if content.strip() and not _complete(found):
             joined, j, best = content, i, (found, content, i)
             while continues(j, raw[j][2]) and j - i < MAX_WRAP:
+                if best[0] is not None and best[0][0] not in STATUS_TAILED and MATCHER.match(raw[j + 1][2].strip()):
+                    break  # the next piece is a line of its own, not the tail of an open-ended argument
                 joined += raw[j + 1][2]
                 j += 1
                 longer = MATCHER.match(joined.strip())
@@ -307,7 +331,8 @@ def read(text: str) -> list[Line]:
 
 def status_gate(status: str) -> tuple[str | None, str]:
     """The gate and meaning of a 'due to' status from Track, Schedule, Router or Train."""
-    for needle, gate, meaning in STATUS_RULES:
+    rules = SCHEDULE_RULES + STATUS_RULES if status.startswith("schedule (") else STATUS_RULES
+    for needle, gate, meaning in rules:
         if needle in status:
             return gate, meaning
     if re.fullmatch(r"Train \(.*\)", status):
@@ -322,10 +347,10 @@ def gate_fix(gate: str | None) -> str:
     return ""
 
 
-def _short(line: Line) -> str:
+def _short(line: Line, gate: str | None = None) -> str:
     """One readable phrase for a refusal, with the gate and the screen that fixes it."""
     key = line.key or ""
-    gate = KEY_GATES.get(key)
+    gate = gate or KEY_GATES.get(key)
     text = line.text
     if key in STATUS_TAILED:
         gate, meaning = status_gate(line.f(STATUS_TAILED[key]))
@@ -357,6 +382,8 @@ class Walker:
         self.pass_number = 1
         self.ignoring = False
         self.last_excluded: dict | None = None
+        self.staging_side: str | None = None  # which staging check is open: the last of depart / terminate seen
+        self.previous: Line | None = None
 
     def run(self) -> dict:
         for line in self.lines:
@@ -364,8 +391,9 @@ class Walker:
                 continue
             if line.key is None:
                 self._unparsed(line)
-                continue
-            self._line(line)
+            else:
+                self._line(line)
+            self.previous = line
         self._close_attempt()
         levels = {line.level for line in self.lines if line.level}
         self.report["levels"] = {"present": sorted(levels), "complete": {1, 3, 5, 7} <= levels,
@@ -431,6 +459,10 @@ class Walker:
         elif key.startswith(ENGINE_KEYS):
             self.section = "engines"
             self._engine(line)
+        elif key in MID_SEARCH_GATES and self.attempt is not None:
+            self.attempt["events"].append(self._event(line, "refused", MID_SEARCH_GATES[key]))
+        elif key in STAGING_EITHER:
+            self._staging(self.staging_side or "departure", line)
         elif key in STAGING_TERMINAL:
             self._staging("terminal", line)
         elif key in STAGING_DEPARTURE:
@@ -464,11 +496,16 @@ class Walker:
         elif key == "buildCarIgnored" and self.ignoring:
             r["ignored_moves_done"].append({"car": line.f(0), "load": line.f(3), "at": f"{line.f(4)}, {line.f(5)}",
                                            "stop": self.stop["id"] if self.stop else None})
+        elif key == "buildLocSkipped" and self.attempt is not None and line.level != 1:
+            # Inside a car's search (TBC:1731, level 5) the skipped stop is one destination refused, gate D2;
+            # at level 1 (TBB:3065) it is the pickup stop itself, handled as a stop note below.
+            self.attempt["events"].append(self._event(line, "refused", "D2"))
         elif key in ("buildLocSkipped", "buildLocNoPickups", "buildLocDirection", "buildNoPickupsFromStaging",
                      "buildNoCarsAtLocation", "buildExtraPassForLocation", "buildRouteRandomControl",
                      "buildDepartStagingAggressive", "buildSendToTerminal", "buildCustomLoadOptions",
                      "buildLoadCarLoads", "buildLoadAnyCarLoads", "buildLoadsStaging", "buildWarnDepartStaging",
-                     "buildOnlyFirstXXXCars", "buildTracksNotQuickService", "buildTrackNotQuick"):
+                     "buildOnlyFirstXXXCars", "buildTracksNotQuickService", "buildTrackNotQuick",
+                     "buildRouteNoLocalLocation"):
             self._close_attempt()
             note = _short(line)
             if key in ("buildLoadCarLoads", "buildLoadAnyCarLoads", "buildLoadsStaging"):
@@ -506,6 +543,7 @@ class Walker:
         elif key == "buildFailedMsg":
             self._close_attempt()
             r["outcome"].update(status="Build failed", built=False, failed=True)
+            self._thrown_warning()
         elif key == "buildWarningMsg":
             r["outcome"]["warnings"] = int(line.f(1)) if line.f(1).isdigit() else line.f(1)
         elif key == "buildTime":
@@ -532,7 +570,9 @@ class Walker:
                                                                        "buildTryStagingToStaging",
                                                                        "buildCarDoesNotHaveDest",
                                                                        "buildSpurScheduleLoad",
-                                                                       "buildTrackFullHasAlternate") else "refused"
+                                                                       "buildTrackFullHasAlternate",
+                                                                       "buildReturnCarToStaging",
+                                                                       "buildLeaveCarInStaging") else "refused"
             if key == "buildHoldCarValidRoute":
                 self.attempt["held"] = True
             if key == "buildWarningCarNotRoutable":
@@ -570,11 +610,18 @@ class Walker:
 
     def _staging(self, side: str, line: Line):
         key = line.key
+        if key in ("buildDepartStaging", "buildTerminateStaging"):
+            self.staging_side = side
         gate = KEY_GATES.get(key)
+        if side == "terminal" and key in STAGING_EITHER:
+            gate = "A7"
         row = {"line": line.number, "key": key, "text": line.text}
         if key in ("buildStagingAvail", "buildTrainCanDepartTrack", "buildTrainCanTerminateTrack", "buildStagingReturn",
                    "buildUserSelectedDeparture", "buildUserSelectedArrival", "buildOnlyOneDepartureTrack"):
             row["kind"] = "accepted"
+        elif key == "buildStagingTrackRestriction":
+            # TB:235 and TBB:2093 print this after the specific refusal; it is the sum, not a separate check
+            row.update(kind="summary", gate=gate, text=f"{line.text} [sums up the refusal above; not a separate check]")
         elif gate:
             row.update(kind="rejected", gate=gate, fix=gate_fix(gate))
         else:
@@ -608,16 +655,26 @@ class Walker:
                         "destination": None}
         self.location = None
 
-    def _event(self, line: Line, kind: str) -> dict:
+    def _event(self, line: Line, kind: str, gate: str | None = None) -> dict:
         event = {"line": line.number, "key": line.key, "kind": kind, "text": line.text, "location": self.location}
-        gate = KEY_GATES.get(line.key or "")
+        gate = gate or KEY_GATES.get(line.key or "")
         if kind == "refused":
-            event["short"] = _short(line)
+            event["short"] = _short(line, gate)
             if line.key in STATUS_TAILED:
                 gate, _ = status_gate(line.f(STATUS_TAILED[line.key]))
             if gate:
                 event["gate"] = gate
         return event
+
+    def _thrown_warning(self):
+        """A buildWarningRsNoTrack is an exclusion (TBB:827) unless the builder threw it (TBB:1477); then
+        buildFailed prints it as the line right before buildFailedMsg (TB:727-730) and it is the cause."""
+        prev, r = self.previous, self.report
+        if prev is None or prev.key != "buildWarningRsNoTrack" or r["outcome"]["failure"]:
+            return
+        r["excluded_cars"] = [row for row in r["excluded_cars"] if row["line"] != prev.number]
+        r["outcome"]["failure"].append({"line": prev.number, "key": prev.key, "text": prev.text, "gate": "B1",
+                                        "fix": gate_fix("B1")})
 
     def _close_attempt(self, outcome: str | None = None):
         if self.attempt is None:

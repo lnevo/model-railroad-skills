@@ -47,11 +47,11 @@ Room at the spur: cars present plus cars en route, scaled by the track's "% from
 
 ## Ship Load Options
 
-- Exist on staging only. The panel appears once a generate option is on and saved.
+- Exist on staging only. The panel appears once a generate option is on.
 - They are the gate after generation. Excluding E means any E that failed to get a load fails the build. That is the price of a strict all-custom setup.
 - The audit reports `staging-ship-excludes-empty` and `generator-no-target`.
 
-The `setup_custom_staging` action sets a track for all-custom loads: convert arrivals to empty, generate for any spur and any staging, and ship only the custom loads.
+The `setup_custom_staging` action sets a track for all-custom loads: convert arriving custom loads and default loads to empty, generate for any spur and any staging, and ship only the custom loads. Arriving default L cars must be converted too, because the generators replace only a default E, and an L that stays L would be refused at departure. With `ship_empties` the track also ships E, so an empty that finds no load leaves as an empty instead of failing the build.
 
 ## Arrivals
 

@@ -60,6 +60,7 @@ EVERYTHING = [
      "return_when_empty": {"destination": "Harbor Point", "track": "Auto Plant", "load": "Racks"}},
     {"action": "set_kernel", "name": "Racks Pair", "cars": ["BVR9001", "BVR9002"], "lead": "BVR9001"},
     {"action": "set_track_moves", "moves": {"Harbor Yard": 12}},
+    {"action": "setup_custom_staging", "track": "West Stage 1", "location": "West Staging"},
     {"action": "set_active_day", "name": "Tuesday"},
     {"action": "set_option", "group": "router", "name": "carRoutingViaStaging", "value": True},
 ]
@@ -352,6 +353,192 @@ class Chains(Case):
         self.assertTrue(result["changed"])
 
 
+class ReviewFixes(Case):
+    """Findings from the write-lane review, each held to the JMRI source it cites."""
+
+    def rewrite(self, name, old, new):
+        path = self.ops / name
+        text = path.read_text()
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new, 1))
+
+    def raw_track(self, name):
+        root = ET.parse(self.ops / "OperationsLocationRoster.xml").getroot()
+        return next(t for t in root.iter("track") if t.get("name") == name)
+
+    # 1. Custom staging: Car.java:935-955, TBC:633-637, 547-557.
+    def test_custom_staging_empties_default_loads_and_keeps_other_bits(self):
+        self.rewrite("OperationsLocationRoster.xml", 'name="West Stage 1" trackType="Staging" dir="3" length="500" moves="0"',
+                     'name="West Stage 1" trackType="Staging" dir="3" length="500" moves="0" loadOptions="128"')
+        self.edit({"action": "setup_custom_staging", "track": "West Stage 1"})
+        track = self.raw_track("West Stage 1")
+        self.assertEqual(int(track.get("loadOptions")), 2 | 8 | 16 | 32 | 128)
+        self.assertEqual(track.get("carShipLoadOption"), "Exclude")
+        self.assertEqual([e.get("name") for e in track.findall("carShipLoads/carLoad")], ["L", "Mty"])
+        self.assertIn("fails the build", ops_actions.ACTIONS["setup_custom_staging"]["help"])
+
+    def test_custom_staging_can_keep_shipping_empties(self):
+        self.edit({"action": "setup_custom_staging", "track": "West Stage 2", "local_route_only": True,
+                   "any_staging": False, "ship_empties": True})
+        track = self.raw_track("West Stage 2")
+        self.assertEqual(int(track.get("loadOptions")), 2 | 4 | 16)
+        self.assertEqual([e.get("name") for e in track.findall("carShipLoads/carLoad")], ["L"])
+        self.edit({"action": "setup_custom_staging", "track": "West Stage 2", "ship_loads": ["Feed"],
+                   "ship_empties": True})
+        track = self.raw_track("West Stage 2")
+        self.assertEqual(track.get("carShipLoadOption"), "Include")
+        self.assertEqual([e.get("name") for e in track.findall("carShipLoads/carLoad")], ["Feed", "Mty"])
+
+    def test_spur_load_options_replace_only_the_spur_group(self):
+        self.edit({"action": "update_track", "track": "Ashgrove Feed Mill", "load_options": ["disable_load_change"]})
+        self.edit({"action": "update_track", "track": "Ashgrove Feed Mill", "load_options": ["quick_service"]})
+        self.assertEqual(self.raw_track("Ashgrove Feed Mill").get("loadOptions"), "128")
+
+    # 2. Roads: trains/Xml.java:44-49, 63, 72; Train.java:4031-4036; RollingStock:1445.
+    def test_rename_road_reaches_train_road_fields_and_refuses_engine_roads(self):
+        with self.assertRaisesRegex(Refused, "Engines still carry road BV"):
+            self.plan({"action": "rename_road", "old": "BV", "new": "BX"})
+        self.rewrite("OperationsCarRoster.xml", '<road name="QXR" />', '<road name="QXR" />\n    <road name="PRR" />')
+        # First occurrences are both on BV1.
+        self.rewrite("OperationsTrainRoster.xml", 'engineRoad=""', 'engineRoad="PRR" leg2Road="PRR"')
+        self.rewrite("OperationsTrainRoster.xml", 'cabooseRoad=""', 'cabooseRoad="PRR"')
+        self.rewrite("OperationsTrainRoster.xml", '<carLoad name="Tank &amp; Acid" />\n      </carLoads>\n    </train>',
+                     '<carLoad name="Tank &amp; Acid" />\n      </carLoads>\n      <locoRoads>\n'
+                     '        <locoRoad name="PRR" />\n      </locoRoads>\n    </train>')
+        self.edit({"action": "rename_road", "old": "PRR", "new": "PX"})
+        trains = (self.ops / "OperationsTrainRoster.xml").read_text()
+        self.assertNotIn("PRR", trains)
+        self.assertIn('engineRoad="PX" leg2Road="PX"', trains)
+        self.assertIn('cabooseRoad="PX"', trains)
+        self.assertIn('<locoRoad name="PX" />', trains)
+        self.assertIn('<road name="PX" />', (self.ops / "OperationsCarRoster.xml").read_text())
+
+    # 3. Moves guard is per track.
+    def test_moves_guard_allows_only_the_tracks_an_action_named(self):
+        editor = ops_actions.Editor(self.ops)
+        editor.run([{"action": "set_track_moves", "moves": {"Ashgrove Feed Mill": 40}}])
+        ops_actions.guard(editor)
+        editor.track("Ashgrove Cannery").set("moves", "9")
+        with self.assertRaisesRegex(Refused, "moves on Ashgrove Cannery"):
+            ops_actions.guard(editor)
+        editor = ops_actions.Editor(self.ops)
+        editor.run([{"action": "add_track", "location": "Ashgrove", "name": "New Spur", "type": "Spur", "length": 50,
+                     "moves": 3}])
+        editor.track("Ashgrove Cannery").set("moves", "9")
+        with self.assertRaisesRegex(Refused, "moves on Ashgrove Cannery"):
+            ops_actions.guard(editor)
+
+    # 4. delete_train: TrainSchedule.java:120, AutomationItem.java:446.
+    def test_delete_train_leaves_day_schedules_and_refuses_automations(self):
+        self.rewrite("OperationsTrainRoster.xml", '<schedule id="1" name="Monday" />',
+                     '<schedule id="1" name="Monday" trainIds="1,3,6" />')
+        self.edit({"action": "delete_train", "train": "T10"})
+        trains = (self.ops / "OperationsTrainRoster.xml").read_text()
+        self.assertIn('<schedule id="1" name="Monday" trainIds="1,6" />', trains)
+        self.rewrite("OperationsTrainRoster.xml", "</schedules>",
+                     '</schedules>\n  <automations>\n    <automation id="1" name="Nightly" comment="">\n'
+                     '      <item id="1c1" sequenceId="1" name="Build" actionCode="0" trainId="6" />\n'
+                     '    </automation>\n  </automations>')
+        with self.assertRaisesRegex(Refused, "Automations still use it: Nightly"):
+            self.plan({"action": "delete_train", "train": "T30"})
+
+    # 5. Engines hold locationId too: RollingStock:1474.
+    def test_delete_location_sees_engines(self):
+        editor = ops_actions.Editor(self.ops)
+        place = editor.location("Ashgrove-North")
+        for track in place.findall("track"):
+            place.remove(track)
+        engine = editor.engines()[0]
+        engine.set("locationId", place.get("id"))
+        engine.attrib.pop("secLocationId")
+        with self.assertRaisesRegex(Refused, f"engine {engine.get('id')}"):
+            ops_actions.delete_location(editor, "Ashgrove-North")
+
+    # 6. Kernels: TBB:1213-1231.
+    def test_kernel_needs_tracks_and_compares_split_names(self):
+        with self.assertRaisesRegex(Refused, "need a track; none on: BVR3003"):
+            self.plan({"action": "set_kernel", "name": "K", "cars": ["BVR1001", "BVR3003"]})
+        self.edit({"action": "add_track", "location": "Brackwater", "name": "Dock-1", "type": "Yard", "length": 200},
+                  {"action": "add_track", "location": "Brackwater", "name": "Dock-2", "type": "Yard", "length": 200},
+                  {"action": "add_car", "road": "BVR", "number": "7001", "type": "Boxcar", "length": 40,
+                   "location": "Brackwater", "track": "Dock-1"},
+                  {"action": "add_car", "road": "BVR", "number": "7002", "type": "Boxcar", "length": 40,
+                   "location": "Brackwater", "track": "Dock-2"},
+                  {"action": "set_kernel", "name": "Docks", "cars": ["BVR7001", "BVR7002"]})
+        self.assertEqual(self.rr().cars["BVR7002"].kernel, "Docks")
+
+    # 7. Numbers JMRI parses: RouteLocation:612-655, ScheduleItem:347-351, ScheduleTableModel:412.
+    def test_numeric_fields_are_checked(self):
+        with self.assertRaisesRegex(Refused, "max_moves must be a whole number"):
+            self.plan({"action": "update_stop", "route": "Main East", "stop": 1, "max_moves": "lots"})
+        with self.assertRaisesRegex(Refused, "random must be Off or 10 to 100"):
+            self.plan({"action": "update_stop", "route": "Main East", "stop": 1, "random": 25})
+        with self.assertRaisesRegex(Refused, "random must be blank or one of"):
+            self.plan({"action": "add_schedule", "name": "S", "lines": [{"type": "Boxcar", "random": 33}]})
+        with self.assertRaisesRegex(Refused, "wait must be a whole number"):
+            self.plan({"action": "add_schedule", "name": "S", "lines": [{"type": "Boxcar", "wait": 1.5}]})
+        self.assertTrue(self.plan({"action": "update_stop", "route": "Main East", "stop": 1, "max_moves": "9",
+                                   "random": "20"})["changed"])
+
+    # 8. delete_schedule checks cars under its lines, like replace_schedule_lines.
+    def test_delete_schedule_refuses_while_a_car_travels_under_a_line(self):
+        self.rewrite("OperationsCarRoster.xml", 'load="Grain" />', 'load="Grain" scheduleId="5c1" />')
+        with self.assertRaisesRegex(Refused, "Cars are on their way"):
+            self.plan({"action": "delete_schedule", "schedule": "Unused Siding Plan"})
+
+    # 9. Transaction edges.
+    def test_interrupt_during_apply_restores_and_reraises(self):
+        before = self.snapshot()
+        result = self.plan(Transaction.ADD)
+        real = ops_store._audit
+        calls = []
+
+        def interrupted(directory):
+            calls.append(directory)
+            if len(calls) == 2:
+                raise KeyboardInterrupt
+            return real(directory)
+
+        with mock.patch.object(ops_store, "_audit", interrupted):
+            with self.assertRaises(KeyboardInterrupt):
+                ops_store.apply(result["plan_id"])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_failed_replace_leaves_no_temporary_file(self):
+        before = self.snapshot()
+        result = self.plan(Transaction.ADD)
+        real = os.replace
+
+        def once(*args):
+            os.replace = real
+            raise OSError("disk full")
+
+        with mock.patch.object(os, "replace", once):
+            with self.assertRaisesRegex(Refused, "disk full"):
+                ops_store.apply(result["plan_id"])
+        self.assertEqual(list(self.ops.glob(".*.opspro.tmp")), [])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_failed_restore_names_the_files_already_replaced(self):
+        result = self.plan(Transaction.ADD)
+        with mock.patch.object(ops_store, "_audit", side_effect=[ops_store._audit(self.ops), RuntimeError("boom")]):
+            with mock.patch.object(ops_store, "_restore_set", side_effect=OSError("locked")):
+                with self.assertRaisesRegex(Refused, "Already replaced: OperationsCarRoster.xml, "
+                                                     "OperationsLocationRoster.xml"):
+                    ops_store.apply(result["plan_id"])
+
+    # 10. Cosmetic.
+    def test_add_location_writes_no_ops_and_remove_types_tolerates_no_types(self):
+        self.edit({"action": "add_location", "name": "Bare", "types": []},
+                  {"action": "add_track", "location": "Bare", "name": "Bare Spur", "type": "Spur", "length": 50,
+                   "types": []},
+                  {"action": "update_track", "track": "Bare Spur", "remove_types": ["Boxcar"]},
+                  {"action": "update_location", "location": "Bare", "remove_types": ["Boxcar"]})
+        root = ET.parse(self.ops / "OperationsLocationRoster.xml").getroot()
+        bare = next(x for x in root.iter("location") if x.get("name") == "Bare")
+        self.assertIsNone(bare.get("ops"))
+
+
 @unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
 class RealJmri(Case):
     def read_back(self):
@@ -393,6 +580,10 @@ class RealJmri(Case):
                          {x.name: x.load_type for x in theirs.loads["Autorack"]})
         self.assertEqual(ours.active_schedule, theirs.active_schedule)
         self.assertEqual(ours.tracks[new_tracks[0].id].moves, 12)
+        stage, jmri_stage = ours.find_track("West Stage 1"), theirs.tracks[ours.find_track("West Stage 1").id]
+        self.assertEqual(stage.load_options, 2 | 8 | 16 | 32)
+        self.assertEqual((stage.load_options, stage.raw_ship_option, sorted(stage.ship_loads)),
+                         (jmri_stage.load_options, jmri_stage.raw_ship_option, sorted(jmri_stage.ship_loads)))
 
     def test_a_file_saved_by_jmri_renders_byte_for_byte(self):
         _, keep = self.read_back()

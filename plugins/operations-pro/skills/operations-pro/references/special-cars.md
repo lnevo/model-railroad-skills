@@ -20,7 +20,7 @@
 ## Kernels
 
 - A kernel is switched as one unit and counts as one move. The members must be on one track; a split kernel fails the whole build. The audit reports `kernel-split`.
-- A kernel may mix car types. For custom loads from staging, the lead car's load is evaluated; since 5.13.3 a non-lead member gets a valid load of its own if the lead's load is not valid for it, so two members can differ unless the arrival schedule pins one.
+- A kernel may mix car types. For custom loads from staging, the lead car's load is evaluated; a non-lead member gets a valid load of its own if the lead's load is not valid for it, so two members can differ unless the arrival schedule pins one.
 - To split a kernel on paper, break it up or make smaller ones. The `set_kernel` and `clear_kernel` actions do that.
 - Sorting inside a kernel uses the blocking number, so blocking works for non-passenger cars there.
 
@@ -48,6 +48,6 @@
 
 ## Unit trains
 
-A staging-to-staging train keeps its consist. Give it a route from one staging to another and its own types or roads. The builder has no unit-train flag.
+The builder has no unit-train flag. A staging-to-staging train keeps its consist, so giving it a route from one staging to another and its own types or roads is the usual modelling choice.
 
 Checked against JMRI 5.16 source, tag v5.16.

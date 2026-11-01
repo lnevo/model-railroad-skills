@@ -191,8 +191,12 @@ def backup(base: Path, tag: str = "before-change") -> str:
 
 def _replace(base: Path, name: str, data: bytes) -> None:
     temporary = base / f".{name}.opspro.tmp"
-    temporary.write_bytes(data)
-    os.replace(temporary, base / name)
+    try:
+        temporary.write_bytes(data)
+        os.replace(temporary, base / name)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _restore_set(base: Path, set_name: str) -> list[str]:
@@ -232,9 +236,11 @@ def apply(plan_id: str, allow_new_errors: bool = False) -> dict:
         raise Refused("A train has been built since this plan was made. Reset it first.")
     before_keys, before = _audit(base)
     set_name = backup(base)
+    replaced: list[str] = []
     try:
         for name in manifest["changed"]:
             _replace(base, name, (folder / "after" / name).read_bytes())
+            replaced.append(name)
         for name in manifest["changed"]:
             if sha((base / name).read_bytes()) != sha((folder / "after" / name).read_bytes()):
                 raise Refused(f"{name} did not write correctly")
@@ -243,9 +249,16 @@ def apply(plan_id: str, allow_new_errors: bool = False) -> dict:
                  and (f["rule"], f["subject"], f["message"]) not in before_keys]
         if added and not allow_new_errors:
             raise Refused("Audit found new errors: " + "; ".join(f["message"] for f in added[:5]))
-    except Exception as exc:
-        _restore_set(base, set_name)
-        raise Refused(f"Change undone, files restored from {set_name}. Cause: {exc}") from exc
+    except BaseException as exc:  # A Ctrl-C here must restore too.
+        try:
+            _restore_set(base, set_name)
+        except BaseException as failure:
+            raise Refused(f"Change failed ({exc}) and restoring from backups/{set_name} failed too ({failure}). "
+                          f"Already replaced: {', '.join(replaced) or 'none'}. Restore that set by hand before "
+                          "starting JMRI.") from failure
+        if isinstance(exc, Exception):
+            raise Refused(f"Change undone, files restored from {set_name}. Cause: {exc}") from exc
+        raise
     shutil.rmtree(folder, ignore_errors=True)
     return {"applied": True, "files": manifest["changed"], "backup": set_name,
             "summary": manifest["summary"], "findings_before": len(before), "findings_after": len(after),

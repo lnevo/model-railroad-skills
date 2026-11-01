@@ -33,8 +33,8 @@
 ## Train schedules, days and time
 
 - A train schedule is a named day. Activate sets the active day; Apply sets each train's Build box for that day. They are two separate actions in automations. The report header shows the active schedule, and a wrong one is a common cause of nothing building.
-- The real date is never used. Schedule lines carry a set out day and a pick up day that are tested against the active day.
-- The fast clock date exists in the timebase but is not used by Operations.
+- Schedule days never use the calendar. Schedule lines carry a set out day and a pick up day that are tested against the active day.
+- Manifest and report dates come from the JMRI timebase, which may be a fast clock.
 - On-time mode uses departure times and a dwell time, default 60. Otherwise departure time only feeds expected times on paperwork and the timing check against other trains' pulls.
 - The plugin's `set_active_day` sets the active day in the files. Days themselves are not written yet.
 
@@ -43,14 +43,14 @@
 - Automations live in the train roster file. Actions include build, move, terminate, reset, activate and apply train schedules, go to a step on success, wait for a train to terminate, print, and generate or update CSV switch lists. "Generate CSV Switch Lists Changes" writes only locations touched by a new build; Update writes them all.
 - A Message step opens a window on the JMRI computer.
 - In 5.16 a LogixNG action can start an automation, and starting one loads the Operations data first.
-- Operations startup scripts run when the train roster loads, not at JMRI start. Operations loads when an Operations window other than Settings opens, when the automation manager initialises, or when the JSON server is asked for trains.
+- Operations startup scripts run when the train roster loads, not at JMRI start. The automation manager loads it when it initialises, and a JSON request for trains loads it too, which is how the live tools wake the agent.
 - `ops_live_automation` runs a named automation with build dialogs off and waits up to two minutes. The plugin can run automations but not create them.
 
 ## Session patterns
 
 - Build, print, terminate in groups so a later group can draw on cars freed by an earlier one. An automation with wait-for-terminate steps does this.
 - A dry run before a session: `ops_dry_run` builds and terminates every enabled train on a copy and reports, changing nothing. A manual backup, build and terminate all days, then Restore does the same by hand.
-- Only one running JMRI may own the files. Web frames can press Build on a remote JMRI, but any dialog opens on the server.
+- Only one running JMRI may own the files. Any builder dialog opens on the computer running JMRI.
 
 ## Live lane
 

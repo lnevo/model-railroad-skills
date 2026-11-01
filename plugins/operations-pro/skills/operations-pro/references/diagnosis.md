@@ -61,7 +61,7 @@ A build in aggressive mode shows half the moves on the first pass. Two identical
 | Every car refused at a spur | Length typo; type not on the track; load option | Audit `type-no-track`, `car-on-refusing-track` |
 | Car goes to staging instead of the spur | Spur full or not routable; no Hold; Destinations filter | `ops_why_not` to the spur |
 | Custom-load car became a default load | RWE to an unscheduled spur; blank ship with the wrong load type; arrived in staging with the convert option | Audit `rwe-to-unscheduled-spur`, `custom-empty-flagged-load` |
-| Report shows E twice with different names | A renamed default beside a custom one | Audit `renamed-default-collision` |
+| Report may show E twice with different names | A renamed default beside a custom one | Audit `renamed-default-collision` |
 | Train works a location but never a track there | Track direction, or Pick ups and Set outs lists | Audit `track-direction-unserved` |
 | Edits vanished | Made while JMRI ran; overwritten by autosave or exit | Restore; redo with JMRI exited |
 | Cars gone after a start | Bad file | `ops_restore` from `autoBackups` |
