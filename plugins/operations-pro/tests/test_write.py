@@ -577,6 +577,219 @@ class ReviewFixes(Case):
         self.assertIsNone(bare.get("ops"))
 
 
+# ---- Engines and divisions ---------------------------------------------------------------
+# One plan for the engine and division actions, kept apart from EVERYTHING for the JMRI read-back.
+ENGINE_PLAN = [
+    {"action": "add_engine_type", "name": "Road Diesel", "like": "Diesel"},
+    {"action": "add_engine", "road": "BV", "number": "201", "model": "GP38", "type": "Diesel",
+     "location": "Brackwater", "track": "Brackwater Yard A", "owner": "BV", "built": "1970"},
+    {"action": "add_engine", "road": "BV", "number": "202", "model": "GP38", "location": "Brackwater",
+     "track": "Brackwater Yard A"},
+    {"action": "add_engine", "road": "BVR", "number": "301", "model": "C628", "type": "Road Diesel", "length": 69,
+     "hp": 2750, "weight_tons": 195, "b_unit": False, "location": "Tolvern", "track": "Tolvern Yard",
+     "comment": "Leased"},
+    {"action": "update_engine_model", "model": "GP38", "hp": 2100},
+    {"action": "set_consist", "name": "Pair", "engines": ["BV201", "BV202"], "number": 21},
+    {"action": "update_engine", "engine": "BVR301", "out_of_service": True, "value": "12"},
+    {"action": "add_division", "name": "East End", "comment": "east of the river"},
+    {"action": "add_division", "name": "West End"},
+    {"action": "set_location_division", "division": "East End", "locations": ["Brackwater", "Tolvern"]},
+    {"action": "set_location_division", "division": "West End", "locations": ["Ashgrove"]},
+    {"action": "update_division", "division": "West End", "name": "Valley", "comment": "renamed"},
+    {"action": "set_car_division", "division": "East End", "cars": ["BVR1001"]},
+    {"action": "set_load_type", "load": "Cinders", "load_type": "Load"},
+    {"action": "update_train", "train": "T30", "loco_roads": {"option": "Include", "names": ["BV", "BVR"]}},
+]
+
+
+def _engine_xml(folder):
+    return ET.parse(Path(folder) / "OperationsEngineRoster.xml").getroot()
+
+
+class Engines(Case):
+    def engine(self, identity):
+        return next(e for e in _engine_xml(self.ops).iter("engine") if e.get("id") == identity)
+
+    def test_the_engine_plan_runs_and_keeps_moves(self):
+        before = {t.id: t.moves for t in self.rr().tracks.values()}
+        self.edit(*ENGINE_PLAN)
+        rr = self.rr()
+        self.assertEqual({t.id: t.moves for t in rr.tracks.values()}, before)
+        self.assertEqual(rr.engines["BV201"].consist, "Pair")
+        self.assertTrue(rr.engines["BV201"].lead)
+        self.assertEqual(rr.engines["BVR301"].type, "Road Diesel")
+        self.assertIn("Road Diesel", rr.engine_types)
+        self.assertEqual(sorted(rr.divisions.values()), ["East End", "Valley"])
+        self.assertEqual(rr.find_location("Ashgrove").division_id,
+                         next(i for i, n in rr.divisions.items() if n == "Valley"))
+        self.assertTrue(rr.cars["BVR1001"].division_id)
+
+    def test_a_model_keeps_one_value_on_every_engine(self):
+        # Engine.java: setHp, setLength, setTypeName and setWeightTons go to EngineModels.
+        self.edit(*ENGINE_PLAN[:3])
+        for identity in ("BV201", "BV202"):
+            engine = self.engine(identity)
+            self.assertEqual((engine.get("hp"), engine.get("length"), engine.get("weightTons")), ("2000", "59", "125"))
+        with self.assertRaisesRegex(Refused, "one value per model"):
+            self.plan({"action": "add_engine", "road": "BV", "number": "203", "model": "GP38", "hp": 1500})
+        with self.assertRaisesRegex(Refused, "update_engine_model"):
+            self.plan({"action": "update_engine", "engine": "BV201", "hp": 1500})
+        self.edit({"action": "update_engine_model", "model": "GP38", "hp": 2100, "length": 60})
+        self.assertEqual({self.engine(i).get("hp") for i in ("BV201", "BV202")}, {"2100"})
+        self.assertIn("60", [e.get("value") for e in _engine_xml(self.ops).iter("length")])
+
+    def test_engine_fields_are_checked(self):
+        cases = [
+            ({"model": ""}, "needs a model"),
+            ({"model": "New1"}, "give its type and length"),
+            ({"model": "New1", "type": "Steam", "length": 50}, "Unknown locomotive type"),
+            ({"model": "New1", "type": "Diesel", "length": "long"}, "length must be a whole number"),
+            ({"model": "New1", "type": "Diesel", "length": 50, "hp": "big"}, "hp must be a whole number"),
+            ({"model": "GP38", "location": "Brackwater"}, "both location and track"),
+            ({"model": "GP38", "b_unit": "yes"}, "b_unit is true or false"),
+        ]
+        for fields, message in cases:
+            with self.assertRaisesRegex(Refused, message):
+                self.plan({"action": "add_engine", "road": "BV", "number": "9", **fields})
+        with self.assertRaisesRegex(Refused, "does not take Steam"):
+            self.plan({"action": "add_engine_type", "name": "Steam"},
+                      {"action": "add_engine", "road": "BV", "number": "9", "model": "Mogul", "type": "Steam",
+                       "length": 60, "location": "Brackwater", "track": "Brackwater Yard A"})
+        with self.assertRaisesRegex(Refused, "at most 10"):
+            self.plan({"action": "add_engine", "road": "BV", "number": "12345678901", "model": "GP38"})
+        with self.assertRaisesRegex(Refused, "already exists"):
+            self.plan({"action": "add_engine", "road": "BV", "number": "101", "model": "GP9"})
+
+    def test_types_rename_and_delete_follow_tracks_and_trains(self):
+        with self.assertRaisesRegex(Refused, "is a car type"):
+            self.plan({"action": "add_engine_type", "name": "Boxcar"})
+        with self.assertRaisesRegex(Refused, "is a locomotive type"):
+            self.plan({"action": "add_car_type", "name": "Diesel"})
+        self.edit({"action": "add_engine_type", "name": "Steam", "like": "Diesel"})
+        text = (self.ops / "OperationsLocationRoster.xml").read_text()
+        self.assertEqual(text.count('<locoType name="Steam" />'), text.count('<locoType name="Diesel" />'))
+        self.edit({"action": "rename_engine_type", "old": "Steam", "new": "Steam-heavy"})
+        text = (self.ops / "OperationsLocationRoster.xml").read_text()
+        self.assertNotIn('"Steam"', text)
+        self.assertEqual(text.count('<locoType name="Steam-heavy" />'), text.count('<locoType name="Diesel" />'))
+        with self.assertRaisesRegex(Refused, "Engines still have type Diesel"):
+            self.plan({"action": "delete_engine_type", "name": "Diesel"})
+        self.edit({"action": "delete_engine_type", "name": "Steam-heavy"})
+        for name in ("OperationsLocationRoster.xml", "OperationsTrainRoster.xml"):
+            self.assertNotIn("Steam", (self.ops / name).read_text())
+        with self.assertRaisesRegex(Refused, "refills an empty list"):
+            ops_actions._keep_one(ops_actions.Editor(self.ops), "types", "type")
+
+    def test_model_rename_reaches_trains_and_delete_refuses_while_used(self):
+        self.edit({"action": "rename_engine_model", "old": "GP9", "new": "GP9m"})
+        self.assertEqual(self.rr().engines["BV101"].length, "56")
+        self.assertEqual({e.get("model") for e in _engine_xml(self.ops).iter("engine")}, {"GP9m"})
+        self.assertIn('engineModel="GP9m"', (self.ops / "OperationsTrainRoster.xml").read_text())
+        with self.assertRaisesRegex(Refused, "Still used by: BV101"):
+            self.plan({"action": "delete_engine_model", "model": "GP9m"})
+        with self.assertRaisesRegex(Refused, "No engine has model"):
+            self.plan({"action": "update_engine_model", "model": "SD45", "hp": 4000})
+
+    def test_consists_place_and_delete(self):
+        self.edit(*ENGINE_PLAN[:3])
+        with self.assertRaisesRegex(Refused, "same track"):
+            self.plan({"action": "set_consist", "name": "C", "engines": ["BV201", "BV101"]})
+        self.edit({"action": "set_consist", "name": "Pair", "engines": ["BV201", "BV202"], "lead": "BV202"})
+        lead, other = self.engine("BV202"), self.engine("BV201")
+        self.assertEqual((lead.get("leadConsist"), lead.get("blocking"), other.get("blocking")), ("true", "1", "2"))
+        self.assertIsNone(lead.get("consistNum"))
+        with self.assertRaisesRegex(Refused, "Place the lead"):
+            ops_store.quick(self.ops, [{"action": "place_engine", "engine": "BV201", "location": "Tolvern",
+                                        "track": "Tolvern Yard"}])
+        with self.assertRaisesRegex(Refused, "consist Pair first"):
+            self.plan({"action": "delete_engine", "engine": "BV201"})
+        ops_store.quick(self.ops, [{"action": "place_engine", "engine": "BV202", "location": "Tolvern",
+                                    "track": "Tolvern Yard"}])
+        tolvern = self.rr().find_track("Tolvern Yard").id
+        self.assertEqual({self.rr().engines[i].track_id for i in ("BV201", "BV202")}, {tolvern})
+        with self.assertRaisesRegex(Refused, "needs ops_plan"):
+            ops_store.quick(self.ops, [{"action": "delete_engine", "engine": "BV201"}])
+        self.edit({"action": "clear_consist", "name": "Pair"}, {"action": "delete_engine", "engine": "BV201"})
+        self.assertNotIn("BV201", self.rr().engines)
+        self.assertIsNone(self.engine("BV202").get("blocking"))
+        self.assertEqual(list(_engine_xml(self.ops).iter("consist")), [])
+
+    def test_engine_on_a_train_is_left_alone(self):
+        self.rewrite_engine('locationId="4" secLocationId="4s1"', 'locationId="4" secLocationId="4s1" trainId="1" '
+                            'destinationId="5"')
+        for item in ({"action": "update_engine", "engine": "BV101", "comment": "x"},
+                     {"action": "update_engine_model", "model": "GP9", "hp": 1800},
+                     {"action": "delete_engine", "engine": "BV101"}):
+            with self.assertRaisesRegex(Refused, "assigned to a train"):
+                self.plan(item)
+
+    def rewrite_engine(self, old, new):
+        path = self.ops / "OperationsEngineRoster.xml"
+        text = path.read_text()
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new, 1))
+
+    def test_a_railroad_without_an_engine_file_gets_jmris_defaults(self):
+        (self.ops / "OperationsEngineRoster.xml").unlink()
+        result = self.edit({"action": "add_engine", "road": "BV", "number": "1", "model": "SW8",
+                            "location": "Brackwater", "track": "Brackwater Yard A"})
+        self.assertIn("OperationsEngineRoster.xml", result["files"])
+        root = _engine_xml(self.ops)
+        self.assertEqual(len(root.findall("./models/model")), 27)
+        self.assertIn("Switcher", [t.get("name") for t in root.findall("./types/type")])
+        engine = root.find("./engines/engine")
+        self.assertEqual((engine.get("type"), engine.get("length"), engine.get("hp")), ("Diesel", "44", "800"))
+
+    def test_a_failed_apply_removes_a_file_it_created(self):
+        (self.ops / "OperationsEngineRoster.xml").unlink()
+        before = self.snapshot()
+        result = self.plan({"action": "add_engine_type", "name": "Steam-new"})
+        with mock.patch.object(ops_store, "_audit", side_effect=[ops_store._audit(self.ops), RuntimeError("boom")]):
+            with self.assertRaisesRegex(Refused, "Change undone"):
+                ops_store.apply(result["plan_id"])
+        self.assertEqual(self.snapshot(), before)
+
+
+class Divisions(Case):
+    def test_delete_clears_locations_and_cars(self):
+        self.edit(*ENGINE_PLAN[7:13])
+        result = self.edit({"action": "delete_division", "division": "East End"})
+        self.assertIn("cleared on 2 locations, 1 cars", result["summary"][0])
+        rr = self.rr()
+        self.assertEqual(list(rr.divisions.values()), ["Valley"])
+        self.assertEqual(rr.cars["BVR1001"].division_id, "")
+        self.assertEqual(rr.find_location("Brackwater").division_id, "")
+
+    def test_names_and_load_types_are_checked(self):
+        self.edit({"action": "add_division", "name": "East"})
+        with self.assertRaisesRegex(Refused, "already exists"):
+            self.plan({"action": "add_division", "name": "East"})
+        with self.assertRaisesRegex(Refused, "at most 25"):
+            self.plan({"action": "add_division", "name": "x" * 26})
+        with self.assertRaisesRegex(Refused, "No division"):
+            self.plan({"action": "set_location_division", "division": "Nowhere", "locations": ["Ashgrove"]})
+        with self.assertRaisesRegex(Refused, "fixed"):
+            self.plan({"action": "set_load_type", "load": "Mty", "load_type": "Load"})
+        with self.assertRaisesRegex(Refused, "Load or Empty"):
+            self.plan({"action": "set_load_type", "load": "Grain", "load_type": "empty"})
+        self.edit({"action": "set_location_division", "division": "East", "locations": ["Ashgrove"]})
+        self.assertIn('name="Ashgrove" divisionId="1"', (self.ops / "OperationsLocationRoster.xml").read_text())
+        self.edit({"action": "set_location_division", "division": None, "locations": ["Ashgrove"]})
+        self.assertNotIn("divisionId", (self.ops / "OperationsLocationRoster.xml").read_text())
+
+    def test_a_kernel_follows_its_car(self):
+        self.edit({"action": "add_division", "name": "East"},
+                  {"action": "add_car", "road": "BVR", "number": "7001", "type": "Boxcar", "length": 40,
+                   "location": "Brackwater", "track": "Brackwater Yard A"},
+                  {"action": "add_car", "road": "BVR", "number": "7002", "type": "Boxcar", "length": 40,
+                   "location": "Brackwater", "track": "Brackwater Yard A"},
+                  {"action": "set_kernel", "name": "K", "cars": ["BVR7001", "BVR7002"]},
+                  {"action": "set_car_division", "division": "East", "cars": ["BVR7002"]})
+        rr = self.rr()
+        self.assertTrue(rr.cars["BVR7001"].division_id)
+        self.assertEqual(rr.cars["BVR7001"].division_id, rr.cars["BVR7002"].division_id)
+
+
 @unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
 class RealJmri(Case):
     def read_back(self):
@@ -622,6 +835,59 @@ class RealJmri(Case):
         self.assertEqual(stage.load_options, 2 | 8 | 16 | 32)
         self.assertEqual((stage.load_options, stage.raw_ship_option, sorted(stage.ship_loads)),
                          (jmri_stage.load_options, jmri_stage.raw_ship_option, sorted(jmri_stage.ship_loads)))
+
+    # ---- Engines and divisions in real JMRI.
+    def test_engines_and_divisions_survive_a_jmri_load_and_save(self):
+        self.edit(*ENGINE_PLAN)
+        ours = self.rr()
+        result, keep = self.read_back()
+        self.assertEqual(result["log_errors"], [])
+        theirs = ops_data.load(keep)
+        self.assertEqual(ours.engines, theirs.engines)
+        self.assertEqual(ours.divisions, theirs.divisions)
+        self.assertEqual(sorted(ours.engine_types), sorted(theirs.engine_types))
+        self.assertEqual(sorted(ours.engine_models), sorted(theirs.engine_models))
+        self.assertEqual(ours.consists, theirs.consists)
+        self.assertEqual({x.id: x.division_id for x in ours.locations.values()},
+                         {x.id: x.division_id for x in theirs.locations.values()})
+        self.assertEqual({c.id: c.division_id for c in ours.cars.values()},
+                         {c.id: c.division_id for c in theirs.cars.values()})
+        self.assertEqual({x.name: x.load_type for x in ours.loads["Hopper"]},
+                         {x.name: x.load_type for x in theirs.loads["Hopper"]})
+        mine, jmri = _engine_xml(self.ops), _engine_xml(keep)
+        for engine in ("BV201", "BV202", "BVR301"):
+            self.assertEqual(next(e.attrib for e in mine.iter("engine") if e.get("id") == engine),
+                             next(e.attrib for e in jmri.iter("engine") if e.get("id") == engine), engine)
+        types = lambda root: sorted(  # noqa: E731
+            (t.get("id"), x.get("name")) for t in root.iter("track") for x in t.findall("types/locoType"))
+        self.assertEqual(types(ET.parse(self.ops / "OperationsLocationRoster.xml").getroot()),
+                         types(ET.parse(keep / "OperationsLocationRoster.xml").getroot()))
+        roads = lambda folder: [  # noqa: E731
+            (t.get("locoRoadOption"), [r.get("name") for r in t.findall("locoRoads/locoRoad")])
+            for t in ET.parse(Path(folder) / "OperationsTrainRoster.xml").getroot().iter("train")]
+        self.assertEqual(roads(self.ops), roads(keep))
+        self.assertIn(("Include", ["BV", "BVR"]), roads(keep))
+
+    def test_a_new_engine_file_holds_what_jmri_writes_for_none(self):
+        (self.ops / "OperationsEngineRoster.xml").unlink()
+        _, keep = self.read_back()
+        editor = ops_actions.Editor(self.ops)
+        ops_actions._engine_root(editor)
+        mine = ET.fromstring(editor.docs[ops_actions.ENGINE_FILE].render())
+        jmri = _engine_xml(keep)
+        for path, attr in (("./models/model", "name"), ("./types/type", "name"), ("./lengths/length", "value")):
+            self.assertEqual([e.get(attr) for e in mine.findall(path)], [e.get(attr) for e in jmri.findall(path)],
+                             path)
+
+    def test_a_train_takes_a_new_consist(self):
+        self.edit(*ENGINE_PLAN[:3], {"action": "set_consist", "name": "Pair", "engines": ["BV201", "BV202"]},
+                  {"action": "update_train", "train": "T10", "engines": "2", "engine_model": "GP38"})
+        keep = Path(self.temp.name) / "built"
+        keep.mkdir()
+        result = ops_jmri.run_worker(self.ops, {"build": True, "save": True}, keep)
+        self.assertTrue(result["builds"]["T10"]["built"], result["builds"]["T10"]["message"])
+        engines = {e.get("id"): e for e in _engine_xml(keep).iter("engine")}
+        self.assertEqual({engines[i].get("trainId") for i in ("BV201", "BV202")}, {self.rr().find_train("T10").id})
 
     def test_a_file_saved_by_jmri_renders_byte_for_byte(self):
         _, keep = self.read_back()

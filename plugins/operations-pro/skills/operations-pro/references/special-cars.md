@@ -8,7 +8,11 @@
 - A loco change at a track that the departing loco will free fails on room unless the track uses planned pick ups. Keep such a track for locos only.
 - Horsepower can be entered or derived from tractive effort. Auto horsepower per ton sizes consists.
 - `OperationsEngineRoster.xml` does not exist until something writes it.
-- The plugin does not write engines yet. Say so and point at JMRI's window.
+- JMRI keeps a locomotive's type, length, horsepower, weight and B unit on its model, not on the engine. Only model names are stored, so on load each engine sets its model and the last one read wins; the next save writes that value onto every engine of the model. Horsepower and weight need a model at all.
+- A train's types, loco road list, owner list and built dates filter locomotives as they do cars, and an out of service engine is never used. Those exclusions are Very Detailed (level 7) lines in the build report.
+- A consist is used through its lead. A train needing N engines takes a consist only of exactly N, and the lead takes the others with it from wherever they are.
+- Write actions: `add_engine_type`, `rename_engine_type`, `delete_engine_type`; `add_engine` (a model that already has engines gives the new one its values, and a different value is refused), `update_engine` for the engine's own fields, `update_engine_model` for the values every engine of a model shares, `rename_engine_model` (follows the trains' model fields), `delete_engine_model`; `place_engine` (a session action; a consist moves by its lead), `delete_engine`; `set_consist`, `clear_consist`. A train's loco road list is `loco_roads` on `add_train` or `update_train`.
+- A JMRI default model such as SW8 starts with JMRI's own values until an engine of it says otherwise. A railroad with no engine file gets the file JMRI writes for none, with its default models, types and lengths.
 
 ## Cabooses and FRED
 

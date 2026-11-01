@@ -344,6 +344,18 @@ class Engine:
     length: str = "0"
     location_id: str = ""
     track_id: str = ""
+    # JMRI keeps type, length, horsepower, weight and B unit on the model (EngineModels).
+    model: str = ""
+    type: str = ""
+    hp: str = ""
+    weight_tons: str = ""
+    b_unit: bool = False
+    consist: str = ""
+    lead: bool = False
+    train_id: str = ""
+    destination_id: str = ""
+    division_id: str = ""
+    out_of_service: bool = False
 
 
 @dataclass
@@ -375,6 +387,10 @@ class Railroad:
         self.active_schedule = ""
         self.cars: dict[str, Car] = {}
         self.engines: dict[str, Engine] = {}
+        self.engine_models: list[str] = []
+        self.engine_types: list[str] = []
+        self.consists: list[str] = []
+        self.divisions: dict[str, str] = {}  # Division id to name.
         self.car_types: list[str] = []
         self.loads: dict[str, list[Load]] = {}
         self.default_empty = "E"
@@ -441,6 +457,8 @@ class Railroad:
 
     def _read_locations(self) -> None:
         root = self._root(REQUIRED[0])
+        for element in root.findall("./divisions/division"):
+            self.divisions[element.get("id", "")] = element.get("name", "")
         for element in root.findall("./locations/location"):
             location = Location(
                 id=element.get("id", ""), name=element.get("name", ""),
@@ -578,9 +596,17 @@ class Railroad:
         root = self._root("OperationsEngineRoster.xml")
         if root is None:
             return
+        self.engine_models = _names(root.find("models"), "model")
+        self.engine_types = _names(root.find("types"), "type")
+        self.consists = _names(root.find("newConsists"), "consist")
         for e in root.findall("./engines/engine"):
             engine = Engine(e.get("id", ""), e.get("roadName", ""), e.get("roadNumber", ""),
-                            e.get("length", "0"), e.get("locationId", ""), e.get("secLocationId", ""))
+                            e.get("length", "0"), e.get("locationId", ""), e.get("secLocationId", ""),
+                            model=e.get("model", ""), type=e.get("type", ""), hp=e.get("hp", ""),
+                            weight_tons=e.get("weightTons", ""), b_unit=e.get("bUnit") == "true",
+                            consist=e.get("consist", ""), lead=e.get("leadConsist") == "true",
+                            train_id=e.get("trainId", ""), destination_id=e.get("destinationId", ""),
+                            division_id=e.get("divisionId", ""), out_of_service=e.get("outOfService") == "true")
             self.engines[engine.id] = engine
 
     # Lookups. Each accepts an id or a name, ignoring case and spaces in car ids.
