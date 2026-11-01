@@ -257,6 +257,7 @@ class Train:
     through_cars: bool = True
     allow_return: bool = False
     send_custom_staging: bool = False
+    service_all: bool = False  # Service all cars with a final destination (Train.java 3056).
     leg2_options: int = 0
     leg3_options: int = 0
 
@@ -536,6 +537,7 @@ class Railroad:
                 through_cars=e.get("allowThroughCars", "true") == "true",
                 allow_return=e.get("allowReturn") == "true",
                 send_custom_staging=e.get("sendCustomStaging") == "true",
+                service_all=e.get("serviceAll") == "true",
                 leg2_options=_int(e.get("leg2Options")), leg3_options=_int(e.get("leg3Options")))
             self.trains[train.id] = train
         for schedule in root.findall("./schedules/schedule"):

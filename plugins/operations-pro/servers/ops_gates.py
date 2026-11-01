@@ -8,9 +8,9 @@ used) cannot be decided from files and reports not_checked rather than guessing.
 from __future__ import annotations
 
 import re
-from collections import deque
 from dataclasses import replace
 
+import ops_router
 from ops_data import (
     ALL, ANY, MATCH, QUICK_SERVICE, REQUIRES_CABOOSE, REQUIRES_FRED, TRAINS, ANY_DAY, GENERATE,
     GENERATE_ANY_SPUR, EXCLUDE_ROUTES, EXCLUDE_TRAINS,
@@ -18,7 +18,6 @@ from ops_data import (
 )
 
 PASS, FAIL, NOT_CHECKED = "pass", "fail", "not_checked"
-MAX_ROUTER_TRAINS = 7  # Router tries up to this many trains in one route.
 
 # Failures here hold the car whichever train or chain of trains is tried.
 ANY_TRAIN = {"B1", "B2", "B3", "B15", "B16", "B18", *(f"E{n}" for n in range(1, 11)),
@@ -714,61 +713,10 @@ class Gates:
             return self._gate("G11", PASS, "option off")
         return self._gate("G11", train.build, f"{train.name} build {train.build}")
 
-    # Router: breadth-first across trains, the shape of Router.setDestination.
+    # Router: ops_router ports JMRI's Router.setDestination.
     def route_path(self, car: Car, target: Track, check_target: bool = True) -> list[dict] | None:
-        """Trains chaining the car to the target, or None. Length is ignored, as at a first look."""
-        rr = self.rr
-        if not rr.option("router", "carRoutingEnabled", True):
-            return None
-        start = rr.tracks.get(car.track_id)
-        if start is None:
-            return None
-        goal_location = rr.locations[target.location_id]
-        if check_target and not self._accepts_ignoring_length(car, goal_location, target):
-            return None
-        queue = deque([(start, [], "")])
-        seen = {start.id}
-        while queue:
-            track, path, last_route = queue.popleft()
-            if len(path) >= MAX_ROUTER_TRAINS:
-                continue
-            moved = rr.at(car, track.location_id, track.id)
-            for train in rr.trains.values():
-                if self._hop_ok(moved, train, goal_location, target, last_route, track):
-                    return path + [{"train": train.name, "to": f"{goal_location.name}, {target.name}"}]
-                for via in self._connecting(moved):
-                    if via.id in seen:
-                        continue
-                    location = rr.locations[via.location_id]
-                    if self._hop_ok(moved, train, location, via, last_route, track):
-                        seen.add(via.id)
-                        step = {"train": train.name, "to": f"{location.name}, {via.name}"}
-                        queue.append((via, path + [step], train.route_id))
-        return None
-
-    def _hop_ok(self, car: Car, train: Train, location: Location, track: Track, last_route: str,
-                origin: Track) -> bool:
-        if last_route == train.route_id and origin.is_interchange and origin.pickup_option == ANY:
-            return False  # The same route may not drop and then pull an open interchange.
-        if self._g11(train)["status"] == FAIL:
-            return False
-        if track.location_id == origin.location_id and not self._is_switcher(train):
-            return False
-        return not any(g["status"] == FAIL for g in self.serviceable(car, train, location, track))
-
-    def _connecting(self, car: Car) -> list[Track]:
-        rr = self.rr
-        alternates = {t.alternate_id for t in rr.tracks.values() if t.alternate_id}
-        out = []
-        for track in rr.tracks.values():
-            if track.id in alternates:
-                continue
-            usable = track.is_interchange or (track.is_yard and rr.option("router", "carRoutingViaYards")) or (
-                track.is_staging and rr.option("router", "carRoutingViaStaging") and not track.modifies_loads)
-            if usable and self._accepts_ignoring_length(car, rr.locations[track.location_id], track):
-                out.append(track)
-        # The router tries interchanges before yards, and staging last.
-        return sorted(out, key=lambda t: (not t.is_interchange, t.is_staging))
+        """Trains chaining the car to the target, or None, as JMRI's router finds them with no train named."""
+        return ops_router.route_path(self, car, target, check_target)
 
     def routing_mode(self, car: Car) -> str:
         if car.fd_id:
@@ -806,6 +754,7 @@ class Gates:
             "at": self._where(car), "destination": dest.name, "track": chosen_track.name,
             "train": chosen_train.name, "can_move": not failed or (bool(path) and not stuck),
             "direct": not failed, "routing": self.routing_mode(car), "router_path": path,
+            "router": ops_router.router_detail(self, car, chosen_track, chosen_train),
             "first_failure": failed[0] if failed else None,
             "gates": gates,
             "other_trains": [
