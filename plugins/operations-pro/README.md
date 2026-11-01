@@ -4,11 +4,16 @@ Tools for setting up, checking and running JMRI OperationsPro with Claude. The a
 
 **Status: in development, not ready to use.** It isn't listed in the marketplace yet, and this page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
 
-## The problem
+## What it helps with
 
-One idea in OperationsPro often means changes across many screens. Before a new car type can move, the location, tracks, route and each train all have to allow it. When one setting is missed, the car stays put, and the reason is somewhere in the build report.
+OperationsPro is powerful, and much of how it behaves isn't obvious from its screens. This plugin works at the level of the railroad, not single fields, across the whole job:
 
-This plugin works at the level of the railroad, not single fields. You ask why a car won't move, or ask for a new flow of traffic, and it deals with the screens involved.
+- **Setting up:** building locations, tracks, routes, trains and rolling stock in the right order, and making changes that span many screens in one step.
+- **Generating traffic:** custom loads, schedules, staging, interchanges and multi-train routing that send cars where you intend.
+- **Finding out why:** explaining a failed build, a stuck car, a held car, drained spurs or full yards from the data and the build report.
+- **Yards and special moves:** classification, arrival and departure tracks, switchers, locomotive changes, cabooses, kernels, unit trains, passenger blocking and buffer cars.
+- **Running sessions:** building and terminating trains, handling manual changes, and resetting between sessions.
+- **Looking after the data:** auditing it, importing it, backing it up, recovering it, and moving between JMRI versions.
 
 ## Planned
 
