@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-locations.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-locations.dtd">
+<operations-config>
+  <locations>
+    <location id="1" name="Brackwater" ops="Normal" dir="3" switchList="true" comment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="1s1" name="Brackwater Yard A" trackType="Yard" dir="3" length="400" moves="0" alternative="1s2" carRoadOption="Exclude">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <carRoads>
+          <carRoad name="QXR" />
+        </carRoads>
+      </track>
+      <track id="1s2" name="Brackwater Yard B" trackType="Yard" dir="3" length="300" moves="0" dropOption="routes" pickupOption="trains">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <dropIds>
+          <dropId id="1" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="3" />
+        </pickupIds>
+      </track>
+      <track id="1s3" name="Quarry Interchange" trackType="Interchange" dir="3" length="120" moves="0" trackDestinationOption="Include">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <destinations>
+          <destination id="6" />
+        </destinations>
+      </track>
+      <track id="1s4" name="Lakeshore Interchange" trackType="Interchange" dir="3" length="200" moves="0" carLoadOption="Exclude" trackDestinationOption="Exclude">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <carLoads>
+          <carLoad name="Boxcar &amp; Feed" />
+        </carLoads>
+        <destinations>
+          <destination id="1" />
+          <destination id="2" />
+          <destination id="3" />
+          <destination id="5" />
+          <destination id="7" />
+        </destinations>
+      </track>
+      <track id="1s5" name="Brackwater Team Track" trackType="Spur" dir="3" length="90" moves="0" onlyCarWithFD="true" carShipLoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <carShipLoads>
+          <carLoad name="Grain" />
+        </carShipLoads>
+      </track>
+      <track id="1s6" name="Brackwater Old Spur" trackType="Spur" dir="4" length="80" moves="0">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <carType name="Scalecar" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+    </location>
+    <location id="2" name="Ashgrove" ops="Normal" dir="3" switchList="true" comment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Flatcar" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="2s1" name="Ashgrove Feed Mill" trackType="Spur" dir="3" length="150" moves="0" schedule="Mill Receiving" scheduleId="1" itemId="1c1" itemCount="0" scheduleMode="1" factor="100" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+      <track id="2s2" name="Ashgrove Cannery" trackType="Spur" dir="3" length="150" moves="0" schedule="Cannery Line" scheduleId="2" itemId="2c1" itemCount="0" scheduleMode="0" factor="100" holdCustomLoads="false" dropOption="trains" pickupOption="trains">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <dropIds>
+          <dropId id="1" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="77" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="3" name="Tolvern" ops="Normal" dir="1" switchList="true" comment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="3s1" name="Tolvern Coal Dock" trackType="Spur" dir="3" length="130" moves="0" alternative="3s4" schedule="Coal Dock" scheduleId="4" itemId="4c1" itemCount="0" scheduleMode="1" factor="100" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+      <track id="3s2" name="Tolvern Yard" trackType="Yard" dir="3" length="300" moves="0" schedule="Mill Receiving" scheduleId="1" itemId="1c1" itemCount="0" scheduleMode="1" factor="100" holdCustomLoads="false" trackDestinationOption="Include">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <destinations>
+          <destination id="2" />
+        </destinations>
+      </track>
+      <track id="3s3" name="Tolvern Scrap Shed" trackType="Spur" dir="3" length="120" moves="0" schedule="Scrap Shed" scheduleId="3" itemId="3c1" itemCount="0" scheduleMode="1" factor="100" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+      <track id="3s4" name="Tolvern Interchange" trackType="Interchange" dir="3" length="200" moves="0" onlyCarWithFD="true">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+    </location>
+    <location id="4" name="West Staging" ops="Staging" dir="3" switchList="true" comment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="4s1" name="West Stage 1" trackType="Staging" dir="3" length="500" moves="0">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+      <track id="4s2" name="West Stage 2" trackType="Staging" dir="3" length="500" moves="0">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+    </location>
+    <location id="5" name="East Staging" ops="Staging" dir="3" switchList="true" comment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="5s1" name="East Stage 1" trackType="Staging" dir="3" length="500" moves="0" loadOptions="8">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+        <carType name="Scalecar" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+      <track id="5s2" name="East Stage 2" trackType="Staging" dir="3" length="500" moves="0">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+        <carType name="Scalecar" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+    </location>
+    <location id="6" name="Quarry Staging" ops="Staging" dir="3" switchList="true" comment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="6s1" name="Quarry Stage 1" trackType="Staging" dir="3" length="300" moves="0" loadOptions="4" carShipLoadOption="Exclude">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+        <carShipLoads>
+          <carLoad name="Mty" />
+          <carLoad name="Feed" />
+        </carShipLoads>
+      </track>
+    </location>
+    <location id="7" name="Ashgrove-North" ops="Normal" dir="3" switchList="true" comment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="7s1" name="North Elevator" trackType="Spur" dir="3" length="150" moves="0" schedule="Elevator" scheduleId="6" itemId="6c1" itemCount="0" scheduleMode="1" factor="100" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+      <track id="7s2" name="North Siding" trackType="Yard" dir="3" length="150" moves="0">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="Hopper" />
+          <carType name="Tank" />
+          <locoType name="Diesel" />
+        </types>
+      </track>
+    </location>
+  </locations>
+  <schedules>
+    <schedule id="1" name="Mill Receiving" comment="">
+      <item id="1c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Grain" ship="Feed" comment="" hits="0" />
+      <item id="1c2" sequenceId="2" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Mty" ship="Feed" comment="" hits="0" />
+    </schedule>
+    <schedule id="2" name="Cannery Line" comment="">
+      <item id="2c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Tank" road="" load="Oil" ship="Mty" comment="" hits="0" />
+      <item id="2c2" sequenceId="2" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Feed" ship="Mty" comment="" hits="0" />
+    </schedule>
+    <schedule id="3" name="Scrap Shed" comment="">
+      <item id="3c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Gondola" road="" load="" ship="Scrap" comment="" hits="0" />
+    </schedule>
+    <schedule id="4" name="Coal Dock" comment="">
+      <item id="4c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Hopper" road="" load="Coal" ship="Mty" comment="" hits="0" destinationId="5" />
+      <item id="4c2" sequenceId="2" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Hopper" road="" load="Mty" ship="Coal" comment="" hits="0" destinationId="5" />
+    </schedule>
+    <schedule id="5" name="Unused Siding Plan" comment="">
+      <item id="5c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Grain" ship="Mty" comment="" hits="0" />
+    </schedule>
+    <schedule id="6" name="Elevator" comment="">
+      <item id="6c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Feed" ship="Grain" comment="" hits="0" />
+    </schedule>
+  </schedules>
+</operations-config>

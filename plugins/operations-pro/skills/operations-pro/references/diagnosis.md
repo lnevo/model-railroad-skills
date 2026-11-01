@@ -95,6 +95,6 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 
 ## When the report and the tools disagree
 
-The report wins. The tools read the files and report `not_checked` for gates that depend on the build itself: on-time order, random draws, quick service timing, home division outcome, timing against other trains, room at build time, manual build lines. Say which gate was not checked.
+The report wins. The tools read the files and report `not_checked` for gates that depend on the build itself: moves and train length once other cars are placed, a random draw that could take every move, quick service timing against a clone, which track a home division search picks, timing against other trains' pulls, room that pulls in aggressive mode or quick service may open, and a manual line that may or may not take the car. Say which gate was not checked.
 
 Checked against JMRI 5.16 source, tag v5.16.
