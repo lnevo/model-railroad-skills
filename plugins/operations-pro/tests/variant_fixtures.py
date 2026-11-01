@@ -4,10 +4,13 @@ Each variant is the demo railroad with a few settings changed, so that gates the
 reaches are held to JMRI's answer as well:
 
 - build: on-time build order with a built train (A2), a random value that is not a number (A6),
-  terminal staging checks on (A7), and a manual build line set to fail (B19).
+  terminal staging checks on (A7), a locomotive model the departure track lacks (A8), and a manual
+  build line set to fail (B19).
 - space: a track pool and planned pick ups (E9), a short train length leaving one stop (D9, G10),
   a car whose home division has no track (C12), a caboose no train asks for (B17), a random draw
   (A6) and a manual build line with a destination (B19).
+- aggressive: aggressive mode with staging immediately available, and both terminal staging tracks
+  holding cars that are not leaving (A7).
 
   python3 tests/variant_fixtures.py
 
@@ -73,6 +76,7 @@ def build_variant(files: dict[str, str]) -> None:
     for train_id, hour in (("1", "12"), ("2", "12"), ("3", "08"), ("4", "12"), ("5", "12"), ("6", "10")):
         files[trains] = element(files[trains], f'<train id="{train_id}" ', attr("departHour", hour))
     files[trains] = element(files[trains], '<train id="6" ', attr("built", "true"))
+    files[trains] = element(files[trains], '<train id="1" ', attr("engineModel", "SD40"))
     files[trains] = once(files[trains], "</operations-config>", manual("4", type="Gondola", count="5", fail="true"))
     routes = "OperationsRouteRoster.xml"
     files[routes] = element(files[routes], '<location id="6r2" ', attr("randomControl", "abc"))
@@ -107,7 +111,15 @@ def space_variant(files: dict[str, str]) -> None:
         destTrackId="1s3", count="1"))
 
 
-VARIANTS = {"build": build_variant, "space": space_variant}
+def aggressive_variant(files: dict[str, str]) -> None:
+    ops = "Operations.xml"
+    files[ops] = element(files[ops], "<buildOptions", attr("aggressive", "true"))
+    files[ops] = element(files[ops], "<buildOptions", attr("stagingTrackAvail", "true"))
+    cars = "OperationsCarRoster.xml"
+    files[cars] = element(files[cars], '<car id="BVR1103" ', attr("secLocationId", "5s2"))
+
+
+VARIANTS = {"build": build_variant, "space": space_variant, "aggressive": aggressive_variant}
 
 
 def make(name: str) -> Path:

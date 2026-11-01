@@ -122,7 +122,7 @@ Set `OPS_DIR` to your Operations folder, or pass `ops_dir` on each call. Tools r
 python3 -m unittest discover -s plugins/operations-pro/tests
 ```
 
-The tests hold the gates to `tests/fixtures/demo/jmri_oracle.json`, which is what real JMRI 5.16 said about the demo railroad; `tests/jmri_oracle.py` regenerates it. The report reader is held to `tests/fixtures/demo/buildstatus`, the reports real JMRI 5.16 wrote for the same railroad together with what the builder returned; `tests/report_fixtures.py` regenerates those. Where JMRI is installed, the write tests also make it load and save what was written, and `tests/test_live.py` starts a real JMRI for each live test. Both skip that otherwise.
+The tests hold the gates to `tests/fixtures/demo/jmri_oracle.json`, which is what real JMRI 5.16 said about the demo railroad; `tests/jmri_oracle.py` regenerates it. Three variants of the demo (`build`, `space`, `aggressive`) reach the gates the demo does not, such as on-time order, pools and manual build lines, each with its own answer from JMRI; `tests/variant_fixtures.py` rebuilds them. The report reader is held to `tests/fixtures/demo/buildstatus`, the reports real JMRI 5.16 wrote for the same railroad together with what the builder returned; `tests/report_fixtures.py` regenerates those. Where JMRI is installed, the write tests also make it load and save what was written, and `tests/test_live.py` starts a real JMRI for each live test. Both skip that otherwise.
 
 ## License
 

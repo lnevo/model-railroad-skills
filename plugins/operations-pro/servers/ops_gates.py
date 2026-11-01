@@ -449,6 +449,14 @@ class Gates:
         # checkQuickServiceTrack runs only while a train builds in on-time mode, against pull times.
         if building and track.load_options & QUICK_SERVICE and rr.option("buildOptions", "onTime"):
             return self._gate("E9", NOT_CHECKED, f"{room}; quick service may free room after earlier pulls")
+        # In aggressive mode a car the building train pulls off the track gives back its length at once
+        # (Track.addPickupRS), so room can open during the build.
+        if building and rr.option("buildOptions", "aggressive"):
+            staying = [c for c in rr.rolling_stock_on(track)[0] if not c.destination_id and c.id != car.id]
+            freed = sum(rr.car_length(c) or 0 for c in staying)
+            if staying and used + reserved - freed + need <= track.length and setouts + need <= track.length:
+                return self._gate("E9", NOT_CHECKED, f"{room}; aggressive mode: room opens if the build pulls "
+                                                     f"some of the {len(staying)} cars on the track first")
         return self._gate("E9", FAIL, f"track is full: {room}")
 
     def _line(self, car: Car, item: ScheduleItem, track: Track) -> list[dict]:
@@ -661,6 +669,20 @@ class Gates:
         last, other = max(built, key=lambda pair: pair[0])
         return self._gate("A2", mine >= last, f"{train.name} departs at minute {mine}; last built train "
                                               f"{other.name} departs at minute {last}")
+
+    def build_blockers(self, train: Train) -> list[dict]:
+        """Gates that fail this train's whole build, whichever car is asked about.
+
+        A1 is left out: it only keeps a train out of Build All. Cars stuck in departure staging and
+        locomotive assignment are decided during the build and are not covered.
+        """
+        out, stops = self._train_gates(train)
+        out = [g for g in out if g["gate"] != "A1"]
+        if stops:
+            out.append(self._random_gate(train, []))
+            out += self._staging_gates(train, stops)
+            out.append(self._manual_short(train, stops))
+        return [g for g in out if g["status"] == FAIL]
 
     def staging_problems(self, train: Train, track: Track) -> list[str]:
         """Why this staging track cannot depart on this train (checkDepartureStagingTrack)."""
@@ -966,8 +988,42 @@ class Gates:
                                                 "takes one" + (" and prefers the lead locomotive's road"
                                                                if car.caboose else ""))
             return gate("B17", PASS, f"the train takes this {kind} at {start.name} to {end.name}")
-        where = ", ".join(s.name for s, _, _ in legs) or "no stop"
+        if not legs:
+            return gate("B17", FAIL, f"the train needs no {kind}, so the builder drops this one")
+        where = ", ".join(s.name for s, _, _ in legs)
         return gate("B17", FAIL, f"the train takes a {kind} only at {where}, so the builder drops this one")
+
+    def _mb_matches(self, item: dict, other: Car, stops: list[Stop]) -> bool:
+        """TrainBuilder.checkItem, for a car in the train's car list (on the route, no train, no destinations)."""
+        rr = self.rr
+        if other.train_id or other.destination_id or other.fd_id or not other.track_id:
+            return False
+        if not any(s.location_id == other.location_id for s in stops):
+            return False
+        stop = next((s for s in stops if s.id == item.get("routeLocationId", "")), None)
+        if stop is None and item.get("routeLocationId"):
+            return False
+        day = rr.active_schedule if rr.active_schedule in rr.train_schedules else ""
+        return ((not item.get("type") or other.type == item["type"])
+                and (not item.get("road") or other.road == item["road"])
+                and (not item.get("load") or other.load == item["load"])
+                and (stop is None or other.location_id == stop.location_id)
+                and (not item.get("locTrackId") or other.track_id == item["locTrackId"])
+                and (not day or not item.get("trainScheduleId") or item["trainScheduleId"] == day))
+
+    @staticmethod
+    def _mb_count(item: dict) -> int:
+        text = item.get("count", "0")
+        return int(text) if JAVA_INT.fullmatch(text) else 0
+
+    def _manual_short(self, train: Train, stops: list[Stop]) -> dict:
+        """Manual lines set to fail the build that more cars than can match them (mbuildFail)."""
+        short = [i for i in self.x.manual.get(train.id, []) if i.get("fail") == "true" and self._mb_count(i) > 0
+                 and sum(self._mb_matches(i, c, stops) and self._can_join(c, train)
+                         for c in self.rr.cars.values()) < self._mb_count(i)]
+        reason = ("manual line " + ", ".join(i.get("id", "?") for i in short) +
+                  " asks for more cars than match it and is set to fail the build") if short else ""
+        return self._gate("B19", not short, reason or "no manual line can fail the build for want of cars")
 
     def _manual_build(self, car: Car, train: Train, stops: list[Stop], target: Track | None) -> dict:
         """B19: manualBuild offers cars to each line in turn before the general search (TB:310-443)."""
@@ -975,31 +1031,14 @@ class Gates:
         items = self.x.manual.get(train.id, [])
         if not items:
             return gate("B19", PASS, "the train has no manual build lines")
-        by_stop = {s.id: s for s in stops}
-        day = rr.active_schedule if rr.active_schedule in rr.train_schedules else ""
+        short = self._manual_short(train, stops)
+        if short["status"] == FAIL:
+            return short
 
         def matches(item: dict, other: Car) -> bool:
-            if other.train_id or other.destination_id or other.fd_id or not other.track_id:
-                return False
-            stop = by_stop.get(item.get("routeLocationId", ""))
-            if stop is None and item.get("routeLocationId"):
-                return False
-            return ((not item.get("type") or other.type == item["type"])
-                    and (not item.get("road") or other.road == item["road"])
-                    and (not item.get("load") or other.load == item["load"])
-                    and (stop is None or other.location_id == stop.location_id)
-                    and (not item.get("locTrackId") or other.track_id == item["locTrackId"])
-                    and (not day or not item.get("trainScheduleId") or item["trainScheduleId"] == day))
+            return self._mb_matches(item, other, stops)
 
-        def count(item: dict) -> int:
-            text = item.get("count", "0")
-            return int(text) if JAVA_INT.fullmatch(text) else 0
-
-        short = [i for i in items if i.get("fail") == "true" and count(i) > 0
-                 and sum(matches(i, c) and self._can_join(c, train) for c in rr.cars.values()) < count(i)]
-        if short:
-            return gate("B19", FAIL, "manual line " + ", ".join(i.get("id", "?") for i in short) +
-                        " asks for more cars than match it and is set to fail the build")
+        count = self._mb_count
         for item in items:
             if not matches(item, car):
                 continue
@@ -1009,7 +1048,7 @@ class Gates:
             if count(item) <= 0:
                 note = f"{line} matches but asks for no cars"
             elif dest and target and (dest != target.location_id or dest_track not in ("", target.id)):
-                where = rr.locations[dest].name if dest in rr.locations else dest
+                where = ", ".join(x.name for x in (rr.locations.get(dest), rr.tracks.get(dest_track)) if x) or dest
                 if item.get("remove") == "true":
                     return gate("B19", FAIL, f"{line} sends the car to {where} and removes it from the build "
                                              "if that fails")

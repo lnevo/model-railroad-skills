@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-engines.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-engines.dtd">
+<operations-config>
+  <models>
+    <model name="GP9" />
+  </models>
+  <types>
+    <type name="Diesel" />
+  </types>
+  <lengths>
+    <length value="56" />
+  </lengths>
+  <options />
+  <newConsists />
+  <engines>
+    <engine id="BV101" roadName="BV" roadNumber="101" type="Diesel" length="56" color="Black" weightTons="120" built="1957" locationId="4" secLocationId="4s1" moves="0" date="" selected="false" owner="BV" model="GP9" hp="1750" />
+    <engine id="BV102" roadName="BV" roadNumber="102" type="Diesel" length="56" color="Black" weightTons="120" built="1957" locationId="5" secLocationId="5s1" moves="0" date="" selected="false" owner="BV" model="GP9" hp="1750" />
+    <engine id="BV103" roadName="BV" roadNumber="103" type="Diesel" length="56" color="Black" weightTons="120" built="1957" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" owner="BV" model="GP9" hp="1750" />
+  </engines>
+</operations-config>

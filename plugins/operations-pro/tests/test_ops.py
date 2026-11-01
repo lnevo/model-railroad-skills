@@ -75,11 +75,24 @@ class ParserTests(Base):
         self.assertFalse(track.accepts_destination("6"))
 
 
-class AgainstRealJmri(Base):
+class OracleChecks:
+    """What real JMRI 5.16 answered for one fixture, held against the gates. FIXTURE names the folder."""
+    FIXTURE = DEMO
+
     @classmethod
     def setUpClass(cls):
-        super().setUpClass()
-        cls.oracle = json.loads((DEMO / "jmri_oracle.json").read_text())
+        cls.rr = ops_data.load(cls.FIXTURE / "operations")
+        cls.gates = Gates(cls.rr)
+        cls.oracle = json.loads((cls.FIXTURE / "jmri_oracle.json").read_text())
+
+    def failed(self, car, destination, track=None, train=None):
+        result = self.gates.why_not(car, destination, track, train)
+        return {g["gate"] for g in result["gates"] if g["status"] == FAIL}
+
+    def test_counts_match_jmri(self):
+        rr, oracle = self.rr, self.oracle
+        self.assertEqual((len(rr.cars), len(rr.engines), len(rr.locations), len(rr.routes), len(rr.trains)),
+                         (oracle["cars"], oracle["engines"], oracle["locations"], oracle["routes"], oracle["trains"]))
 
     def test_check_destination_matches_every_car_and_track(self):
         for car_id, row in self.oracle["destination"].items():
@@ -106,6 +119,14 @@ class AgainstRealJmri(Base):
                 with self.subTest(train=train, car=car, track=name):
                     self.assertEqual(self.failed(car, track.location_id, track.id, train), set())
 
+    def test_build_blockers_name_exactly_the_trains_jmri_did_not_build(self):
+        for train in self.rr.trains.values():
+            blockers = self.gates.build_blockers(train)
+            with self.subTest(train=train.name, blockers=[g["gate"] for g in blockers]):
+                self.assertEqual(not blockers, self.oracle["builds"][train.name]["built"])
+
+
+class AgainstRealJmri(OracleChecks, unittest.TestCase):
     def test_trains_build_except_the_one_the_audit_predicts(self):
         failed = {k for k, v in self.oracle["builds"].items() if v["failed"]}
         predicted = {f["subject"] for f in self.gates.audit()["findings"]
@@ -118,6 +139,132 @@ class AgainstRealJmri(Base):
         path = self.gates.route_path(self.rr.find_car("QXR3018"), self.rr.tracks["3s2"])
         self.assertEqual([p["train"] for p in path], ["T10", "T30"])
         self.assertEqual(path[0]["to"], "Brackwater, Lakeshore Interchange")
+
+
+def gate_of(result, code):
+    return next(g for g in result["gates"] if g["gate"] == code)
+
+
+class BuildVariant(OracleChecks, unittest.TestCase):
+    """tests/variant_fixtures.py build: on-time order, a bad random value, staging checks, a manual line.
+    JMRI built only BV1; the build reports name these causes for the others."""
+    FIXTURE = DEMO.parent / "build"
+
+    def status(self, car, destination, train, code):
+        return gate_of(self.gates.why_not(car, destination, train=train), code)
+
+    def test_a2_on_time_order_refuses_a_train_departing_before_the_last_built(self):
+        # TrainManager.checkBuildOrder 1106-1123; T30 is built and departs at 10:00.
+        self.assertEqual(self.status("BVR1001", "Tolvern", "T10", "A2")["status"], FAIL)
+        self.assertEqual(self.status("BVR1001", "Tolvern", "BV1", "A2")["status"], "pass")
+        self.assertFalse(self.oracle["builds"]["T10"]["built"])
+
+    def test_a6_random_that_is_not_a_number_fails_the_build(self):
+        # TrainBuilderBase 527-530: buildErrorRandomControl.
+        a6 = self.status("BVR2001", "Tolvern", "T30", "A6")
+        self.assertEqual(a6["status"], FAIL)
+        self.assertIn("abc", a6["reason"])
+
+    def test_a7_terminal_staging_must_take_every_type_the_train_carries(self):
+        # TrainBuilderBase 2085-2153 with stagingRestrictionEnabled; West Staging takes no Scalecar.
+        a7 = self.status("BVR1103", "West Staging", "BV2", "A7")
+        self.assertEqual(a7["status"], FAIL)
+        self.assertIn("Scalecar", a7["reason"])
+        self.assertEqual(self.status("BVR1001", "East Staging", "BV1", "A7")["status"], "pass")
+
+    def test_a8_departure_locomotive_must_be_the_train_model(self):
+        # TrainBuilderBase 1803-1810: buildStagingDepartEngineModel. BV1 asks for an SD40.
+        a8 = self.status("BVR1101", "Tolvern", "BV1", "A8")
+        self.assertEqual(a8["status"], FAIL)
+        self.assertIn("SD40", a8["reason"])
+
+    def test_b19_manual_line_short_of_cars_fails_the_build(self):
+        # TrainBuilder 386-390: mbuildFail. One gondola on the route, the line asks for five.
+        self.assertEqual(self.status("BVR1001", "Brackwater", "Y20", "B19")["status"], FAIL)
+
+
+class SpaceVariant(OracleChecks, unittest.TestCase):
+    """tests/variant_fixtures.py space: a pool, planned pick ups, a short leg, a division, a caboose."""
+    FIXTURE = DEMO.parent / "space"
+
+    def status(self, car, destination, track, train, code):
+        return gate_of(self.gates.why_not(car, destination, track, train), code)
+
+    def assigned(self):
+        return {line.split(" > ")[0] for build in self.oracle["builds"].values() for line in build["cars"]}
+
+    def test_e9_pool_lends_length_even_to_a_car_longer_than_the_track(self):
+        # Track 1633-1645 and Pool.requestTrackLength; JMRI said okay for both (destination oracle).
+        for car in ("BVR1001", "BVR4001"):
+            e9 = self.status(car, "Brackwater", "Brackwater Team Track", "Y20", "E9")
+            self.assertEqual(e9["status"], "pass", car)
+            self.assertIn("pool", e9["reason"])
+        self.assertEqual(self.oracle["destination"]["BVR4001"]["1s5"], "okay")
+
+    def test_e9_planned_pick_ups_free_an_overfull_yard(self):
+        # Track.checkPlannedPickUps and getAvailableTrackSpace: 400 + 400 - 677 leaves 123.
+        e9 = self.status("BVR1003", "Brackwater", "Brackwater Yard A", "Y20", "E9")
+        self.assertEqual(e9["status"], "pass")
+        self.assertIn("planned pick ups", e9["reason"])
+
+    def test_d9_counts_the_locomotive_against_max_length(self):
+        # checkTrainLength: the GP9 (60 with couplers) is in the train before any car; Tolvern allows 100.
+        self.assertEqual(self.status("BVR3008", "East Staging", "East Stage 2", "BV1", "D9")["status"], FAIL)
+        self.assertNotEqual(self.status("BVR2002", "East Staging", "East Stage 2", "BV1", "D9")["status"], FAIL)
+        to_east = [line for line in self.oracle["builds"]["BV1"]["cars"] if "East Stage" in line]
+        self.assertEqual(to_east, ["BVR2002 > East Stage 2"])
+
+    def test_g10_tests_length_only_for_the_train_being_built(self):
+        # Train.isTrainLengthOkay 2120-2134 is true unless the train is building.
+        car = replace(self.rr.find_car("BVR3008"), destination_id="5", fd_id="5")
+        train = self.rr.find_train("BV1")
+        self.assertEqual(gate_of({"gates": self.gates.serviceable(car, train)}, "G10")["status"], "pass")
+        self.assertEqual(gate_of({"gates": self.gates.serviceable(car, train, building=True)}, "G10")["status"], FAIL)
+
+    def test_c12_a_home_division_with_no_track_holds_the_car(self):
+        # TrainBuilderCars 894-1035: no final destination found, so the car stays.
+        self.assertEqual(self.status("BVR3006", "Tolvern", "Tolvern Yard", "BV1", "C12")["status"], FAIL)
+        self.assertNotIn("BVR3006", self.assigned())
+
+    def test_b17_a_caboose_no_train_asks_for_is_dropped(self):
+        # removeCaboosesAndCarsWithFred, TrainBuilderBase 770-786.
+        self.assertEqual(self.status("BVR9001", "Tolvern", "Tolvern Yard", "BV1", "B17")["status"], FAIL)
+        self.assertNotIn("BVR9001", self.assigned())
+
+    def test_b19_manual_line_takes_its_car_to_its_destination(self):
+        self.assertEqual(self.status("BVR3008", "Brackwater", "Quarry Interchange", "Y20", "B19")["status"], "pass")
+        self.assertEqual(self.status("BVR3008", "Brackwater", "Brackwater Yard B", "Y20", "B19")["status"],
+                         "not_checked")
+        self.assertIn("BVR3008 > Quarry Interchange", self.oracle["builds"]["Y20"]["cars"])
+
+    def test_a6_random_draw_that_always_leaves_moves_passes(self):
+        # Random 50 on 5 moves takes at most 2 (TrainBuilderBase 520).
+        a6 = self.status("BVR1004", "Tolvern", "Tolvern Yard", "BV1", "A6")
+        self.assertEqual(a6["status"], "pass")
+        self.assertIn("at least 3 of 5", a6["reason"])
+
+
+class AggressiveVariant(OracleChecks, unittest.TestCase):
+    """tests/variant_fixtures.py aggressive: both East Staging tracks hold cars that are not leaving."""
+    FIXTURE = DEMO.parent / "aggressive"
+
+    def test_a7_aggressive_mode_needs_every_car_on_the_track_to_be_leaving(self):
+        # TrainBuilderBase 2044-2050: numberRS must equal pickupRS on an occupied track.
+        a7 = gate_of(self.gates.why_not("BVR1001", "Tolvern", train="BV1"), "A7")
+        self.assertEqual(a7["status"], FAIL)
+        self.assertIn("not all of them leaving", a7["reason"])
+        rr = ops_data.load(self.FIXTURE / "operations")
+        rr.find_car("BVR1103").destination_id = "3"
+        self.assertEqual(gate_of(Gates(rr).why_not("BVR1001", "Tolvern", train="BV1"), "A7")["status"], "pass")
+
+    def test_e9_aggressive_pulls_can_open_room_during_the_build(self):
+        # Track.addPickupRS gives back a pulled car's length in aggressive mode. JMRI refused the full
+        # Team Track before any build, then Y20 set BVR3008 out there after pulling from it.
+        self.assertNotEqual(self.oracle["destination"]["BVR3008"]["1s5"], "okay")
+        self.assertIn("BVR3008 > Brackwater Team Track", self.oracle["builds"]["Y20"]["cars"])
+        e9 = gate_of(self.gates.why_not("BVR3008", "Brackwater", "Brackwater Team Track", "Y20"), "E9")
+        self.assertEqual(e9["status"], "not_checked")
+        self.assertIn("aggressive", e9["reason"])
 
 
 class WhyNotShape(Base):
@@ -146,10 +293,11 @@ class WhyNotShape(Base):
                 self.assertTrue(test and screen and setting)
 
     def test_gates_decided_only_by_a_build_are_not_guessed(self):
-        result = self.gates.why_not("BVR1001", "Tolvern")
+        # Five moves at Tolvern and five other cars that may be placed first: the build decides.
+        result = self.gates.why_not("BVR1001", "Tolvern", "Tolvern Yard", "BV1")
         status = {g["gate"]: g["status"] for g in result["gates"]}
-        self.assertEqual(status["A2"], "not_checked")
-        self.assertEqual(status["D18"], "not_checked")
+        self.assertEqual(status["D3"], "not_checked")
+        self.assertEqual((status["A2"], status["D18"]), ("pass", "pass"))
 
     def test_other_trains_are_summarised(self):
         result = self.gates.why_not("BVR1001", "Tolvern")
@@ -625,6 +773,59 @@ class ReviewFixes(Base):
         self.assertEqual({x["gate"]: x["status"] for x in g.serviceable(car, rr.find_train("T10"))}["G8"], "pass")
         with_track = replace(car, dest_track_id="2s1")
         self.assertEqual({x["gate"]: x["status"] for x in g.serviceable(with_track, rr.find_train("T10"))}["G8"], "pass")
+
+    def test_c7_never_refuses_a_car_on_its_own(self):
+        # TB 599-612, TBC 465-485: the extra pass only adds a try. The old reading refused this exempt car.
+        car = replace(self.rr.find_car("BVR1001"), passenger=True)
+        c7 = self.gate(self.gates.why_not(car, "Brackwater", "Brackwater Yard B", "T10"), "C7")
+        self.assertEqual(c7["status"], "pass")
+
+    def test_c8_repeats_the_pick_up_rules_at_the_stop(self):
+        # TrainBuilderCars 522: checkPickupInterchangeOrSpur again, so it fails with B6.
+        result = self.gates.why_not("BVR3006", "Ashgrove", train="T10")
+        self.assertEqual((self.gate(result, "B6")["status"], self.gate(result, "C8")["status"]), (FAIL, FAIL))
+        self.assertEqual(self.gate(self.gates.why_not("BVR1004", "Tolvern", train="BV1"), "C8")["status"], "pass")
+
+    def test_d3_counts_the_cars_the_build_places_first(self):
+        # TBC 1735 against the moves other cars can take first: West Staging and Ashgrove hold 4.
+        g = self.gates
+        self.assertEqual(self.gate(g.why_not("BVR1004", "Tolvern", "Tolvern Yard", "BV1"), "D3")["status"], "pass")
+        rr, g = self.fresh()
+        next(s for s in rr.routes["1"].stops if s.id == "1r4").max_moves = 1
+        d3 = self.gate(g.why_not("BVR1004", "Tolvern", "Tolvern Yard", "BV1"), "D3")
+        self.assertEqual(d3["status"], "not_checked")
+        self.assertIn("up to 4 other", d3["reason"])
+
+    def test_d18_timing_matters_only_with_another_trains_car_on_a_tight_track(self):
+        # TrainBuilderBase 2487-2536: checkReserved.
+        rr, g = self.fresh()
+        result = g.why_not("BVR1001", "Brackwater", "Brackwater Team Track", "Y20")
+        self.assertEqual(self.gate(result, "D18")["status"], "pass")
+        rr.find_car("BVR5001").train_id = "6"
+        d18 = self.gate(g.why_not("BVR1001", "Brackwater", "Brackwater Team Track", "Y20"), "D18")
+        self.assertEqual(d18["status"], "not_checked")
+        self.assertIn("T30", d18["reason"])
+
+    def test_c11_quick_service_waits_only_on_a_clone(self):
+        # TrainBuilderBase 3097-3145: no clone on the track means nothing to wait for.
+        rr, g = self.fresh()
+        rr.tracks["3s2"].load_options |= ops_data.QUICK_SERVICE
+        self.assertEqual(self.gate(g.why_not("BVR2002", "Brackwater", train="BV2"), "C11")["status"], "pass")
+        rr.cars["clone"] = replace(rr.find_car("BVR2002"), id="clone", number="2002-(Clone)-1",
+                                   location_id="2", track_id="2s1", destination_id="3", dest_track_id="3s2",
+                                   train_id="3")
+        c11 = self.gate(g.why_not("BVR2002", "Brackwater", train="BV2"), "C11")
+        self.assertEqual(c11["status"], "not_checked")
+        self.assertIn("T10", c11["reason"])
+
+    def test_b17_takes_the_caboose_the_train_requires_to_the_end_of_its_leg(self):
+        # TrainBuilderCars 42-192: getCaboose at the departure, set out at the leg's end.
+        rr, g = self.fresh()
+        rr.find_train("T30").requires = ops_data.REQUIRES_CABOOSE
+        caboose = rr.find_car("BVR3016")
+        caboose.caboose, caboose.type = True, "Caboose"
+        self.assertEqual(self.gate(g.why_not(caboose, "Tolvern", "Tolvern Yard", "T30"), "B17")["status"], "pass")
+        self.assertEqual(self.gate(g.why_not(caboose, "Tolvern", "Tolvern Yard", "BV1"), "B17")["status"], FAIL)
 
 
 def call(env, *messages):

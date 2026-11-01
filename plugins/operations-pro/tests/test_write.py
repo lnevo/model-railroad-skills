@@ -405,7 +405,10 @@ class ReviewFixes(Case):
         self.rewrite("OperationsTrainRoster.xml", '<carLoad name="Tank &amp; Acid" />\n      </carLoads>\n    </train>',
                      '<carLoad name="Tank &amp; Acid" />\n      </carLoads>\n      <locoRoads>\n'
                      '        <locoRoad name="PRR" />\n      </locoRoads>\n    </train>')
-        self.edit({"action": "rename_road", "old": "PRR", "new": "PX"})
+        # A PRR locomotive road leaves BV1's staging locomotive (road BV) unfit to depart (TrainBuilderBase
+        # 1812-1818), and the rename reports that same fault under the new name, so it is accepted here.
+        ops_store.apply(self.plan({"action": "rename_road", "old": "PRR", "new": "PX"})["plan_id"],
+                        allow_new_errors=True)
         trains = (self.ops / "OperationsTrainRoster.xml").read_text()
         self.assertNotIn("PRR", trains)
         self.assertIn('engineRoad="PX" leg2Road="PX"', trains)
