@@ -9,11 +9,13 @@ PROTOCOL_VERSION = "2025-06-18"
 
 
 class Tool:
-    def __init__(self, name: str, description: str, schema: dict, run: Callable[[dict], object]):
+    def __init__(self, name: str, description: str, schema: dict, run: Callable[[dict], object],
+                 read_only: bool = True):
         self.name = name
         self.description = description
         self.schema = schema
         self.run = run
+        self.read_only = read_only
 
 
 def handle(message: dict, server_name: str, tools: dict[str, Tool]) -> dict | None:
@@ -37,7 +39,7 @@ def handle(message: dict, server_name: str, tools: dict[str, Tool]) -> dict | No
                     "name": t.name,
                     "description": t.description,
                     "inputSchema": t.schema,
-                    "annotations": {"readOnlyHint": True},
+                    "annotations": {"readOnlyHint": t.read_only, "destructiveHint": not t.read_only},
                 }
                 for t in tools.values()
             ]
