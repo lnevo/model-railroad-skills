@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import ops_report
 from ops_data import load
 from ops_store import FILES, Refused, plans_root, quick
 
@@ -67,7 +68,8 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
                                 if " ERROR " in line or "Exception" in line][:20]
         for row in result.get("builds", {}).values():
             report = Path(row.pop("report", "") or "/nonexistent")
-            row["report_tail"] = report.read_text(errors="replace")[-1500:] if report.is_file() else ""
+            text = report.read_text(encoding="utf-8", errors="replace") if report.is_file() else ""
+            row["report_text"], row["report_tail"] = text, text[-1500:]
         if keep is not None:
             for name in FILES:
                 if (operations / name).is_file():
@@ -75,6 +77,33 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
             if (operations / "buildstatus").is_dir():
                 shutil.copytree(operations / "buildstatus", keep / "buildstatus", dirs_exist_ok=True)
         return result
+
+
+DETAILS = ("summary", "normal", "full")
+
+
+def attach_report(row: dict, detail: str = "summary") -> dict:
+    """Replace a build's raw report text with the build report reader's answer.
+
+    detail: summary (the default: outcome and the plain-language findings), normal (also
+    stops, excluded cars and each car's story) or full, as ops_explain_build gives them.
+    The old character tail stays only when there is no report to read.
+    """
+    if detail not in DETAILS:
+        raise Refused(f"detail must be one of: {', '.join(DETAILS)}")
+    text, tail = row.pop("report_text", ""), row.pop("report_tail", "")
+    try:
+        explained = ops_report.explain(text, detail="full" if detail == "full" else "normal") if text else None
+    except Exception as exc:  # a report this reader cannot parse still has its tail
+        explained = None
+        row["report_note"] = f"The build report could not be read ({exc}); showing the end of it."
+    if explained is None:
+        row["report_tail"] = tail
+        return row
+    if detail == "summary":
+        explained = {k: explained[k] for k in ("train", "built_on", "outcome", "summary")}
+    row["report"] = explained
+    return row
 
 
 def _outcome(result: dict) -> dict:
@@ -137,10 +166,11 @@ def build_check(plan_id: str, runs: int = 4) -> dict:
             "jmri_log_errors": last["log_errors"], "notes": _version_note(last)}
 
 
-def dry_run(directory: str | Path, terminate: bool = True) -> dict:
+def dry_run(directory: str | Path, terminate: bool = True, detail: str = "summary") -> dict:
     """A whole session on a copy: build all, terminate all, report. The real files are not touched."""
     result = run_worker(load(directory).directory, {"build": True, "terminate": terminate})
-    return {"jmri": result["version"], "builds": result["builds"], "jmri_log_errors": result["log_errors"],
+    builds = {name: attach_report(row, detail) for name, row in result["builds"].items()}
+    return {"jmri": result["version"], "builds": builds, "jmri_log_errors": result["log_errors"],
             "notes": _version_note(result)}
 
 

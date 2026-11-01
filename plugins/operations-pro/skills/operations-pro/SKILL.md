@@ -16,7 +16,7 @@ Ask first: staging or a loop, default loads only or custom loads, and which trai
 3. **Routes:** `add_route`, one per train pattern, with each stop's direction, moves and train length.
 4. **Trains:** `add_train`, which also puts the train on the pick up and set out lists of the tracks along its route.
 5. **Cars:** `add_car`, then `place_car` on the starting track. Kernels with `set_kernel`.
-6. **Check:** `ops_audit`, then `ops_dry_run`, which builds and terminates every train on a copy. Read its reports with `ops_explain_build` and fix what they say before the first real session.
+6. **Check:** `ops_audit`, then `ops_dry_run`, which builds and terminates every train on a copy. Each train comes back with its report already read (outcome and findings; `detail` normal or full for more, or `ops_explain_build` with a car); fix what they say before the first real session.
 
 A minimal working railroad is two locations with a yard each, one route between them, one train and a few cars of one type. Everything else is added to that, one plan at a time.
 

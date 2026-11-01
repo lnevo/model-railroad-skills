@@ -116,14 +116,15 @@ class Live(unittest.TestCase):
         row = self.build("BV1")
         self.assertTrue(row["built"])
         self.assertTrue(row["cars"])
-        self.assertIn("BV1", row["report_tail"])
+        self.assertEqual(row["report"]["train"], "BV1")
+        self.assertNotIn("report_tail", row)
 
     def test_failed_build_answers_and_leaves_the_dialog_setting_alone(self):
         before = ops_live.status(self.url)["build_messages"]
         row = self.build("X99")
         self.assertFalse(row["built"])
         self.assertTrue(row["failed"])
-        self.assertTrue(row["report_tail"])
+        self.assertTrue(row["report"]["outcome"]["failed"])
         self.assertEqual(ops_live.status(self.url)["build_messages"], before)
 
     def test_build_all_covers_every_enabled_train(self):

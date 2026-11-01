@@ -66,6 +66,11 @@ def list_items(args: dict) -> object:
     return [asdict(x) for x in getattr(rr, kind).values()]
 
 
+DETAIL = {"type": "string", "enum": ["summary", "normal", "full"],
+          "description": "How much of each build report to return: summary (default), normal or full, "
+                         "as ops_explain_build gives them"}
+
+
 def explain_build(args: dict) -> object:
     car, detail = args.get("car"), args.get("detail", "normal")
     if args.get("text"):
@@ -136,9 +141,10 @@ def tools() -> list[Tool]:
              lambda a: ops_jmri.build_check(a["plan_id"], a.get("runs", 4))),
         Tool("ops_dry_run",
              "Run a session on a copy with real JMRI: build all enabled trains, then terminate them, and report. "
-             "Changes nothing.",
-             {"type": "object", "properties": {**directory, "terminate": {"type": "boolean"}}},
-             lambda a: ops_jmri.dry_run(folder(a), a.get("terminate", True))),
+             "Each train comes back with its build report read as ops_explain_build reads it: "
+             "outcome and findings by default, detail 'normal' or 'full' for more. Changes nothing.",
+             {"type": "object", "properties": {**directory, "terminate": {"type": "boolean"}, "detail": DETAIL}},
+             lambda a: ops_jmri.dry_run(folder(a), a.get("terminate", True), a.get("detail", "summary"))),
         Tool("ops_apply",
              "Apply a plan. JMRI must be fully exited. Backs up the set, writes, audits and restores on failure. "
              "A plan with new audit errors is refused unless the user accepts them: renaming something that "
@@ -180,15 +186,16 @@ def tools() -> list[Tool]:
         Tool("ops_train",
              "Build, move, terminate or reset a train in a running JMRI. train may be 'all' for build (enabled, "
              "unbuilt trains in time order), terminate and reset. Build opens no dialogs and answers with the "
-             "report: a staging track is then chosen by JMRI, not asked for. Building a built train needs rebuild.",
+             "report read as ops_explain_build reads it (outcome and findings; detail for more): a staging track is "
+             "then chosen by JMRI, not asked for. Building a built train needs rebuild.",
              {"type": "object",
               "properties": {**url, "action": {"type": "string", "enum": ["build", "move", "terminate", "reset"]},
                              "train": {"type": "string"},
                              "location": {"type": "string", "description": "For move: a location on the route"},
-                             "rebuild": {"type": "boolean"}},
+                             "rebuild": {"type": "boolean"}, "detail": DETAIL},
               "required": ["action", "train"]},
              lambda a: ops_live.train_action(a["action"], a["train"], a.get("location"), a.get("rebuild", False),
-                                             a.get("jmri_url")), read_only=False),
+                                             a.get("jmri_url"), a.get("detail", "summary")), read_only=False),
         Tool("ops_live_car",
              "Set a car on a track in a running JMRI and run that track's schedule, as Set Car does. "
              "Refused for a car on a train. If the schedule refuses it, the car goes back.",

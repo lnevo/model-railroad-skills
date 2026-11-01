@@ -28,6 +28,7 @@ from jmri.jmrit.operations.trains import TrainManager
 
 AGENT_VERSION = 1
 TAIL = 4000
+WHOLE = 400000  # a report longer than this is sent as its tail only
 AUTOMATION_WAIT = 120
 
 memories = IM.getDefault(MemoryManager)
@@ -84,6 +85,14 @@ def tail(path):
         return handle.read()[-TAIL:]
 
 
+def whole(path):
+    if not os.path.isfile(path):
+        return ""
+    with open(path) as handle:
+        text = handle.read()
+    return text if len(text) <= WHOLE else ""
+
+
 def report_path(folder, train):
     return IM.getDefault(OperationsManager).getPath(os.path.join(folder, "train (" + train.getName() + ").txt"))
 
@@ -105,7 +114,9 @@ def build_one(train, rebuild):
     row = train_row(train)
     row["cars"] = sorted(car.getId() + " > " + car.getDestinationName() + " / " + car.getDestinationTrackName()
                          for car in IM.getDefault(CarManager).getByTrainList(train))
-    row["report_tail"] = tail(report_path("buildstatus", train))
+    path = report_path("buildstatus", train)
+    row["report_text"] = whole(path)
+    row["report_tail"] = tail(path)
     return row
 
 

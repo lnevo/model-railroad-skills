@@ -2,7 +2,7 @@
 
 ## Gather first
 
-- The build report, from `operations/buildstatus`. `ops_explain_build` reads it with the train name, or with `path` or pasted `text`. JMRI writes every detail level to that file whatever the Build Report setting shows; only the router lines depend on the router level, so set it to Detailed when routing is the question. `ops_live_report` reads the end of the file from a running JMRI.
+- The build report, from `operations/buildstatus`. `ops_explain_build` reads it with the train name, or with `path` or pasted `text`. JMRI writes every detail level to that file whatever the Build Report setting shows; only the router lines depend on the router level, so set it to Detailed when routing is the question. `ops_dry_run` and `ops_train` build return the same reading for each train they build (the end of the file only if there is none). `ops_live_report` reads the end of the file from a running JMRI.
 - The six XML files, after `ops_live_save` if JMRI is running.
 - The JMRI version and the active train schedule, both in the report header.
 - What the user expected to happen, in words.

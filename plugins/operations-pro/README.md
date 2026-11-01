@@ -50,7 +50,7 @@ Not written yet: engines, divisions, train schedule days, manual builds, automat
 | `ops_why_not`, `ops_audit`, `ops_list` | No | Explain a stuck car from the files, check the railroad, list records |
 | `ops_explain_build` | No | Reads a train's build report: outcome, each stop's moves, excluded cars and each car's story with gate ids |
 | `ops_build_check` | No | Compares real builds before and after a plan, on copies |
-| `ops_dry_run` | No | Runs a whole session on a copy |
+| `ops_dry_run` | No | Runs a whole session on a copy; each train comes back with its build report read as `ops_explain_build` reads it (`detail`: summary, normal, full) |
 | `ops_backups`, `ops_restore` | Restore only | Lists backup sets and puts one back |
 
 These work on a running JMRI, and don't need it exited:
@@ -58,7 +58,7 @@ These work on a running JMRI, and don't need it exited:
 | Tool | Needs the agent? | What it does |
 |---|---|---|
 | `ops_live_status` | No | Shows each train's state and whether the agent is running |
-| `ops_train` | Build and reset only | Builds, moves, terminates or resets one train or all of them |
+| `ops_train` | Build and reset only | Builds, moves, terminates or resets one train or all of them; a build answers with the report read as `ops_explain_build` reads it (`detail`: summary, normal, full) |
 | `ops_live_car` | Yes | Sets a car on a track and runs the track's schedule, as Set Car does |
 | `ops_live_save` | Yes | Saves the Operations files now, so the reading tools see the latest state |
 | `ops_live_report` | Yes | Reads the end of a build report or manifest |

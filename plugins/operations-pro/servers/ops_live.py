@@ -16,6 +16,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+import ops_jmri
 import ops_store
 from ops_store import Refused, resolve
 
@@ -137,7 +138,7 @@ def terminate(train: str, url: str | None = None) -> dict:
 
 
 def train_action(action: str, train: str, location: str | None = None, rebuild: bool = False,
-                 url: str | None = None) -> dict:
+                 url: str | None = None, detail: str = "summary") -> dict:
     if action == "move":
         if not location:
             raise Refused("move needs a location")
@@ -145,7 +146,9 @@ def train_action(action: str, train: str, location: str | None = None, rebuild: 
     if action == "terminate":
         return terminate(train, url)
     if action == "build":
-        return ask(base_url(url), "build", train=train, rebuild=rebuild)
+        result = ask(base_url(url), "build", train=train, rebuild=rebuild)
+        result["builds"] = [ops_jmri.attach_report(row, detail) for row in result["builds"]]
+        return result
     if action == "reset":
         return ask(base_url(url), "reset", train=train)
     raise Refused("action must be build, move, terminate or reset")
