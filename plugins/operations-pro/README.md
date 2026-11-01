@@ -73,7 +73,7 @@ Set `JMRI_URL` if JMRI isn't at `http://localhost:12080`. It can be another comp
 - **A built train isn't rebuilt by accident.** Building again resets the train, so it needs `rebuild`. A train en route can't be built or reset.
 - **A refused Set Car puts the car back.**
 - **Only the listed commands run.** The agent doesn't evaluate text it's sent. Anyone who can reach JMRI's web server can send commands, as they already can for turnouts and sensors.
-- **A Store of tables in JMRI** can save the agent's three `IMOPSPRO_` Memories. They're harmless, and hold no data once a command is finished.
+- **A Store of tables in JMRI** can save the agent's three `IMOPSPRO_` Memories. They're harmless: they hold only the agent version and the last command.
 
 ## Changing data safely
 
