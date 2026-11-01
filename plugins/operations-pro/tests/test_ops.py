@@ -496,10 +496,10 @@ class ReviewFixes(Base):
     def test_yard_routing_is_off_when_operations_xml_does_not_say(self):
         # Setup 310: carRoutingYards = false.
         rr, g = self.fresh()
-        car = rr.find_car("BVR1001")
-        self.assertTrue(any(t.is_yard for t in g._connecting(car)))
+        car = rr.find_car("BVR1004")  # Its only route to the feed mill is through Brackwater Yard B.
+        self.assertEqual(g.route_path(car, rr.tracks["2s1"])[0]["to"], "Brackwater, Brackwater Yard B")
         del rr.setup["router"]["carRoutingViaYards"]
-        self.assertFalse(any(t.is_yard for t in g._connecting(car)))
+        self.assertIsNone(g.route_path(car, rr.tracks["2s1"]))
 
     def test_f5_random_is_skipped_when_the_final_destination_track_is_this_spur(self):
         # Schedule 483-489 compares car.getFinalDestinationTrack() with the spur; ScheduleItem 95-103
@@ -700,7 +700,7 @@ class ServerTests(unittest.TestCase):
         allowed = {"__future__", "collections", "concurrent", "copy", "dataclasses", "datetime", "difflib",
                    "hashlib", "json", "os", "pathlib", "re", "shutil", "subprocess", "sys", "tempfile", "time",
                    "typing", "urllib", "uuid", "xml", "mcp_stdio", "ops_actions", "ops_data", "ops_gates",
-                   "ops_jmri", "ops_live", "ops_report", "ops_report_messages", "ops_store"}
+                   "ops_jmri", "ops_live", "ops_report", "ops_report_messages", "ops_router", "ops_store"}
         for path in SERVERS.glob("*.py"):
             if path.name in ("jmri_worker.py", "jmri_agent.py"):  # These run in JMRI's jython, not the server.
                 continue
