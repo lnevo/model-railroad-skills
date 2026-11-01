@@ -2,12 +2,24 @@
 
 ## Gather first
 
-- The build report at Very Detailed with the router at Normal, from `operations/buildstatus`. `ops_live_report` reads the end of it from a running JMRI.
+- The build report, from `operations/buildstatus`. `ops_explain_build` reads it with the train name, or with `path` or pasted `text`. JMRI writes every detail level to that file whatever the Build Report setting shows; only the router lines depend on the router level, so set it to Detailed when routing is the question. `ops_live_report` reads the end of the file from a running JMRI.
 - The six XML files, after `ops_live_save` if JMRI is running.
 - The JMRI version and the active train schedule, both in the report header.
 - What the user expected to happen, in words.
 
-Then run `ops_audit` for the railroad and `ops_why_not` for the car, with the train and track named when known.
+Then run `ops_audit` for the railroad and `ops_why_not` for the car, with the train and track named when known. The `ops-diagnoser` agent does all of this with reading tools only; use it for a failed build or a report too long to read by hand.
+
+## What ops_explain_build returns
+
+- `outcome`: built or failed, the failure lines with their gate, the warning count.
+- `route.passes`: each stop with the moves requested, used and the result, plus notes such as a skipped stop or a direction the location cannot serve.
+- `excluded_cars`: cars removed before any search, each with its B gate and the screen that fixes it.
+- `cars`: one story per car with its attempts: the search kind (default, custom load, router, generate load), the tracks refused with the gate, the accepted candidate, and the outcome (assigned, no destination, held, pick up refused, returned to or left in staging).
+- `ignored_moves_done`: cars never tried because the stop's moves were used up.
+- `not_routable`: the warning list of cars whose final destination could not be reached.
+- `summary`: the same in sentences. `unparsed` lists any line that matched no JMRI 5.16 message; a non-empty list on another version means the wording changed there.
+
+Line numbers refer to the file, so a claim can be checked against it.
 
 ## Reading the report
 

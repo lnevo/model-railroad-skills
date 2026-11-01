@@ -36,7 +36,7 @@ def java_command() -> str:
 
 
 def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
-    """Copy the files from source and run one job. With keep, leave the saved files there."""
+    """Copy the files from source and run one job. With keep, leave the saved files and build reports there."""
     home = jmri_home()
     if home is None:
         raise Refused("JMRI was not found. Set JMRI_HOME to the folder holding jmri.jar.")
@@ -72,6 +72,8 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
             for name in FILES:
                 if (operations / name).is_file():
                     shutil.copy2(operations / name, keep / name)
+            if (operations / "buildstatus").is_dir():
+                shutil.copytree(operations / "buildstatus", keep / "buildstatus", dirs_exist_ok=True)
         return result
 
 

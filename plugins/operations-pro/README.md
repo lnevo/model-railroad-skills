@@ -1,52 +1,56 @@
 # Operations Pro for Claude Code
 
-Tools for setting up, checking and running JMRI OperationsPro with Claude. The aim is full management of an Operations railroad by an AI agent, with a change plan you can see first.
+Build, change, run and understand a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first. The skill carries the rules the program applies, and the tools do the work at the level of the railroad rather than one field at a time, with a change plan you see before anything is written.
 
-**Status: in development.** It can read and audit a railroad, change its files with JMRI exited, and run trains in a running JMRI, and the skill tells Claude how the builder decides. The diagnosis agent is still to come. This page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
+**Status: in development.** It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
-OperationsPro is powerful, and much of how it behaves isn't obvious from its screens. This plugin works at the level of the railroad, not single fields, across the whole job:
+OperationsPro is powerful, and much of how it behaves isn't obvious from its screens. This plugin works across the whole job:
 
-- **Setting up:** building locations, tracks, routes, trains and rolling stock in the right order, and making changes that span many screens in one step.
+- **Building a railroad:** locations, tracks, industries with their schedules, routes, trains, loads and rolling stock, in the order the program needs, with a change that spans many screens made in one step. Start from an empty Operations folder or from one you already have.
 - **Generating traffic:** custom loads, schedules, staging, interchanges and multi-train routing that send cars where you intend.
-- **Finding out why:** explaining a failed build, a stuck car, a held car, drained spurs or full yards from the data and the build report.
+- **Running sessions:** building and terminating trains, Set Car, manual corrections, and resetting between sessions.
+- **Finding out why:** explaining a failed build, a stuck car, a held car, drained spurs or full yards from the build report and the data, with the setting that changes it.
 - **Yards and special moves:** classification, arrival and departure tracks, switchers, locomotive changes, cabooses, kernels, unit trains, passenger blocking and buffer cars.
-- **Running sessions:** building and terminating trains, handling manual changes, and resetting between sessions.
 - **Looking after the data:** auditing it, importing it, backing it up, recovering it, and moving between JMRI versions.
 
-## Planned
+## Parts
 
 | Part | What it does | State |
 |---|---|---|
+| Skill | Verified rules for setup, routing, staging, schedules, sessions and diagnosis | Done |
+| Write actions | Make a multi-screen change in one step, with JMRI exited. `ops_actions` lists them | Done |
 | Data parser | Reads the six Operations XML files | Done |
-| Demo railroad | An invented railroad with deliberate faults, for tests | Done, builds in real JMRI 5.16 |
 | `why_not` | Walks each requirement in the builder's order and names the setting that blocks a car | Done |
 | `audit` | Finds problems across the railroad, such as a car type no train can carry or a schedule with only one destination | Done |
-| MCP server | Exposes the tools below to Claude | Done |
-| Write actions | Make a multi-screen change in one step, with JMRI exited. `ops_actions` lists them | Done |
+| `explain_build` | Reads a build report and names the gate behind each refusal | Done |
+| Diagnosis agent | `ops-diagnoser`: reads reports and files with reading tools only | Done |
 | Build check | Runs JMRI's own builder on copies, several times each side, and compares the results | Done |
 | Dry run | Builds and terminates every enabled train on a copy and reports | Done |
 | Session control | Build, move, terminate and reset trains in a running JMRI | Done |
-| Skill | Verified rules for setup, routing, staging, schedules and sessions | Done |
-| Diagnosis agent | Reads long build reports without changing anything | Planned |
+| Demo railroad | An invented railroad with deliberate faults, for tests | Done, builds in real JMRI 5.16 |
+| MCP server | Exposes the tools below to Claude | Done |
+
+Not written yet: engines, divisions, train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
 
 ## Skill
 
-`skills/operations-pro/` is the guidance. The entry file says how to work, which tool to reach for and the dozen facts that trip most people. Nine reference files hold the detail, one per question: the builder's gate order (the ids `ops_why_not` prints), loads and schedules, staging, routing, move counts and balance, special cars, sessions, data and files, and diagnosis with the audit finding names. Every rule in them was checked against the JMRI 5.16 source; modelling choices are labelled as such.
+`skills/operations-pro/` is the guidance. The entry file says how to work, which tool to reach for and the dozen facts that trip most people. Nine reference files hold the detail, one per question: the builder's gate order (the ids `ops_why_not` and `ops_explain_build` print), loads and schedules, staging, routing, move counts and balance, special cars, sessions, data and files, and diagnosis with the audit finding names. Every rule in them was checked against the JMRI 5.16 source; modelling choices are labelled as such.
 
 ## Tools
 
 | Tool | Changes files? | What it does |
 |---|---|---|
-| `ops_why_not`, `ops_audit`, `ops_list` | No | Explain a stuck car, check the railroad, list records |
 | `ops_actions` | No | Lists the change actions and their fields |
 | `ops_plan` | No | Works out a change and shows the diff and any new audit findings |
-| `ops_build_check` | No | Compares real builds before and after a plan, on copies |
-| `ops_dry_run` | No | Runs a whole session on a copy |
 | `ops_apply` | Yes | Applies a plan |
 | `ops_session` | Yes | Applies a car correction without a separate plan step |
 | `ops_deliver_car` | Yes | Sets a car on a track and runs that track's schedule, as Set Car does |
+| `ops_why_not`, `ops_audit`, `ops_list` | No | Explain a stuck car from the files, check the railroad, list records |
+| `ops_explain_build` | No | Reads a train's build report: outcome, each stop's moves, excluded cars and each car's story with gate ids |
+| `ops_build_check` | No | Compares real builds before and after a plan, on copies |
+| `ops_dry_run` | No | Runs a whole session on a copy |
 | `ops_backups`, `ops_restore` | Restore only | Lists backup sets and puts one back |
 
 These work on a running JMRI, and don't need it exited:
@@ -60,6 +64,12 @@ These work on a running JMRI, and don't need it exited:
 | `ops_live_report` | Yes | Reads the end of a build report or manifest |
 | `ops_live_automation` | Yes | Runs a named automation |
 | `ops_install_agent` | | Copies the agent beside the Operations files and plans its startup entry |
+
+## Diagnosis
+
+`ops_explain_build` reads the file JMRI writes in `buildstatus` when a train is built. Every line is matched against the messages JMRI 5.16 prints, so the result says what the builder did rather than what the files suggest: the failure cause with its gate, each stop's moves, the cars excluded before the search and why, and for each car the tracks tried, the refusal and the screen that changes it. Pass a car to follow one car, or paste report text from another computer. JMRI writes every detail level to the file whatever the Build Report setting shows; only the router lines depend on the router level.
+
+The `ops-diagnoser` agent does this with reading tools only. Hand it a failed build or a long report and it returns the cause, the report lines, and the setting that fixes it, without changing anything.
 
 ## Running trains in a live JMRI
 
@@ -101,7 +111,8 @@ The builder makes random choices, so two identical builds can differ. The build 
 - Not written yet: engines, divisions, train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
 - JMRI's JSON server doesn't cover schedules, Operations routes, loads or divisions, so those are changed through the files.
 - A train's own build or terminate script runs as usual, and can still open a window or hang. So can a Message step in an automation.
-- Rules come from the JMRI 5.16 source. Other versions may differ.
+- `ops_explain_build` reads a file, so for a JMRI on another computer copy the report or paste its text. `ops_live_report` fetches only the end of it.
+- Rules and report wording come from the JMRI 5.16 source. Other versions may differ; a line the reader does not recognise is listed as unparsed rather than guessed at.
 
 ## Use and test
 
@@ -111,7 +122,7 @@ Set `OPS_DIR` to your Operations folder, or pass `ops_dir` on each call. Tools r
 python3 -m unittest discover -s plugins/operations-pro/tests
 ```
 
-The tests hold the gates to `tests/fixtures/demo/jmri_oracle.json`, which is what real JMRI 5.16 said about the demo railroad. `tests/jmri_oracle.py` regenerates it. Where JMRI is installed, the write tests also make it load and save what was written, and `tests/test_live.py` starts a real JMRI for each live test. Both skip that otherwise.
+The tests hold the gates to `tests/fixtures/demo/jmri_oracle.json`, which is what real JMRI 5.16 said about the demo railroad; `tests/jmri_oracle.py` regenerates it. The report reader is held to `tests/fixtures/demo/buildstatus`, the reports real JMRI 5.16 wrote for the same railroad together with what the builder returned; `tests/report_fixtures.py` regenerates those. Where JMRI is installed, the write tests also make it load and save what was written, and `tests/test_live.py` starts a real JMRI for each live test. Both skip that otherwise.
 
 ## License
 

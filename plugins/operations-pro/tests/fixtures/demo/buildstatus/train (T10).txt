@@ -1,0 +1,257 @@
+1- Build Report for train (T10) built on 11/01/2026 15:11
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Monday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+1-  
+1- Invented railroad with deliberate faults, for tests.
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (T10):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (T10):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Brackwater)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (T10) route (Ashgrove Turn):
+3- 3r1 Location (Brackwater) Westbound requests 5 pick ups, set outs,  
+3- maximum train length 1,000 feet 
+3- 3r2 Location (Ashgrove) Westbound requests 5 pick ups, set outs,  maximum 
+3- train length 1,000 feet 
+3- 3r3 Location (Brackwater) Eastbound requests 5 pick ups, set outs,  train 
+3- terminates 
+1- Route (Ashgrove Turn) requests 7 cars and 15 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+5- Train (T10) Exclude owners: Lessor
+7-  
+1- Found 1 locomotives for train (T10)
+5- 1 locomotives at location (Brackwater):
+7- Loco (BV 103) type (Diesel) model (GP9) at (Brackwater, Brackwater Yard 
+7- A) 0 moves 
+7-  
+5- 0 locomotives at location (Ashgrove):
+7-  
+5-  
+5- Train (T10) services car types:
+5- Boxcar, Caboose, Gondola, Hopper, Scalecar, Tank
+5- Train (T10) Exclude loads: Tank & Acid
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (BVR 3007) type (Boxcar) C/I (Brackwater, Quarry Interchange) 
+7- destination restrictions can not be serviced by this train's route 
+7- Exclude car (BVR 3002) location unknown, last known location (Brackwater, 
+7- Brackwater Yard A) 
+7- Exclude car (BVR 3001) out of service, car's location (Brackwater, 
+7- Brackwater Yard A) 
+7- Exclude car (BVR 4003) type (Tank) train doesn't service load (Acid)
+7- Exclude car (BVR 4002) at (Brackwater, Brackwater Old Spur) train doesn't 
+7- service type (Reefer) 
+7- Exclude car (BVR 4001) at (Brackwater, Brackwater Yard A) train doesn't 
+7- service type (Flatcar) 
+7- Exclude car (BVR 3012) type (Boxcar) at location (Brackwater, Brackwater 
+7- Yard A) scheduled pickup on (Tuesday) 
+7- Exclude car (BVR 3011) type (Boxcar) at (Brackwater, Brackwater Yard A) 
+7- wait (7) 
+7- Train (T10) can service car (BVR 3011) decrementing wait count to (6)
+7- Exclude car with FRED (BVR 3010) type (Boxcar) at location (Brackwater, 
+7- Brackwater Yard A) 
+1- WARNING! Exclude (BVR 3003) at location (Brackwater) no track assignment
+5-  
+1- Found 6 cars for train (T10)
+5- 5 cars at location (Brackwater):
+7- Car (BVR 4005) type (Scalecar) at (Brackwater, Brackwater Old Spur) 0 
+7- moves 
+7- Car (BVR 2001) type (Hopper) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 3017) type (Gondola) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 3016) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 3015) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7-  
+5- 1 cars at location (Ashgrove):
+7- Car (QXR 3018) type (Boxcar) at (Ashgrove, Ashgrove Feed Mill) 0 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Brackwater)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (7) for train (T10) the number available (6) building 
+3- train! 
+3-  
+3- Use Normal mode when building this train
+1- Route location (Brackwater) id 3r1 requests 5 moves, 5/5 moves are 
+1- available 
+5-  
+7- Can't pick up (BVR 4005) using Westbound train, track (Brackwater Old 
+7- Spur) at location (Brackwater) route id 3r1 does not service this train's 
+7- direction 
+5-  
+5- Find spur for car (BVR 2001) type (Hopper) custom load (Coal) at yard 
+5- (Brackwater, Brackwater Yard A) 
+7-  
+7- Try spur (Tolvern, Tolvern Coal Dock) division () for car (BVR 2001) with 
+7- load (Coal) 
+7- Train (BV1) can transport car (BVR 2001) from yard (Brackwater, 
+7- Brackwater Yard A) to (Tolvern, Tolvern Coal Dock) 
+7- Route for car (BVR 2001): (Brackwater, Brackwater Yard A)-> (Tolvern, 
+7- Tolvern Coal Dock) 
+7- Train (T10) can't transport car (BVR 2001) directly to (Tolvern, Tolvern 
+7- Coal Dock) 
+7- Could not set destination for car (BVR 2001) due to Train (BV1)
+7- Spur (Tolvern, Tolvern Scrap Shed) can't service car (BVR 2001) with load 
+7- (Coal) due to schedule (Scrap Shed) doesn't service car type (Hopper) 
+7- Spur (Ashgrove, Ashgrove Cannery) is in sequential mode and schedule 
+7- (Cannery Line) requests car type (Tank) 
+7- Spur (Ashgrove, Ashgrove Cannery) can't service car (BVR 2001) with load 
+7- (Coal) due to schedule (Cannery Line) requests car type (Tank) 
+7- Spur at (Brackwater, Brackwater Old Spur) no schedule
+7- Spur at (Brackwater, Brackwater Team Track) no schedule
+7- Spur (Ashgrove-North, North Elevator) can't service car (BVR 2001) with 
+7- load (Coal) due to schedule (Elevator) doesn't service car type (Hopper) 
+7- Spur (Ashgrove, Ashgrove Feed Mill) can't service car (BVR 2001) with 
+7- load (Coal) due to schedule (Mill Receiving) doesn't service car type 
+7- (Hopper) 
+7- Could not find a reachable spur for car (BVR 2001) load (Coal)
+7- Hold car (BVR 2001) at (Brackwater, Brackwater Yard A) found a route to a 
+7- spur that has a schedule 
+5- Did not assign a destination for car (BVR 2001)
+5-  
+5- Find destinations for (BVR 3017) type (Gondola) empty (Mty) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Searching location (Ashgrove) route id 3r2 for possible destination
+7- Car (BVR 3017) type (Gondola) isn't serviced by destination (Ashgrove)
+5- Searching location (Brackwater) route id 3r3 for possible destination
+7- Car (BVR 3017) location is equal to destination (Brackwater) skipping 
+7- this destination 
+5- Did not assign a destination for car (BVR 3017)
+5-  
+5- Find destinations for (BVR 3016) type (Boxcar) empty (Mty) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Searching location (Ashgrove) route id 3r2 for possible destination
+7- Can't set out (BVR 3016) by train (T10) to spur (Ashgrove, Ashgrove 
+7- Cannery) 
+7- Can't send (BVR 3016) to spur (Ashgrove, Ashgrove Feed Mill) due to 
+7- rolling stock length 44 feet, track length 150 feet, available track 
+7- space 18 feet 
+5- Could not find a track for (BVR 3016) at destination (Ashgrove)
+5- Searching location (Brackwater) route id 3r3 for possible destination
+7- Car (BVR 3016) location is equal to destination (Brackwater) skipping 
+7- this destination 
+5- Did not assign a destination for car (BVR 3016)
+5-  
+5- Car (BVR 3015) type (Boxcar) load (Feed) at yard (Brackwater, Brackwater 
+5- Yard A) has final destination (Quarry Staging, ) routing begins 
+7- Could not find a last hop C/I or yard track that can service car to 
+7- destination (Quarry Staging) 
+7- Could not set destination for car (BVR 3015) due to could not route car
+5-  
+5- Car (BVR 3015) at (Brackwater, Brackwater Yard A) can't be routed to 
+5- (Quarry Staging, ) will attempt to move stuck car 
+5-  
+5- Find destinations for (BVR 3015) type (Boxcar) load (Feed) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Searching location (Ashgrove) route id 3r2 for possible destination
+7- Can't set out (BVR 3015) by train (T10) to spur (Ashgrove, Ashgrove 
+7- Cannery) 
+7- Can't send (BVR 3015) to spur (Ashgrove, Ashgrove Feed Mill) due to 
+7- schedule (Mill Receiving) in match mode, no match 
+5- Could not find a track for (BVR 3015) at destination (Ashgrove)
+5- Searching location (Brackwater) route id 3r3 for possible destination
+7- Car (BVR 3015) location is equal to destination (Brackwater) skipping 
+7- this destination 
+5- Did not assign a destination for car (BVR 3015)
+5-  
+1- Partial 0/5 cars at location (Brackwater) assigned to train (T10)
+1- Route location (Ashgrove) id 3r2 requests 5 moves, 5/5 moves are available
+5-  
+5- Car (QXR 3018) type (Boxcar) empty (Mty) at spur (Ashgrove, Ashgrove Feed 
+5- Mill) has final destination (Tolvern, Tolvern Yard) routing begins 
+7- Route for car (QXR 3018): (Ashgrove, Ashgrove Feed Mill)-> (Brackwater, 
+7- Lakeshore Interchange)-> (Tolvern, Tolvern Yard) 
+7- Car (QXR 3018) load (Mty) has assigned destination (Brackwater, Lakeshore 
+7- Interchange) final destination (Tolvern, Tolvern Yard) 
+3- Car (QXR 3018) assigned to train, destination (Brackwater, Lakeshore 
+3- Interchange) 
+3-  
+1- Partial 1/5 cars at location (Ashgrove) assigned to train (T10)
+1- Route location (Brackwater) id 3r3 requests 4 moves, 4/5 moves are 
+1- available 
+5-  
+7- Can't pick up (BVR 4005) using Eastbound train, track (Brackwater Old 
+7- Spur) at location (Brackwater) route id 3r3 does not service this train's 
+7- direction 
+5-  
+5- Find spur for car (BVR 2001) type (Hopper) custom load (Coal) at yard 
+5- (Brackwater, Brackwater Yard A) 
+7-  
+7- Try spur (Tolvern, Tolvern Coal Dock) division () for car (BVR 2001) with 
+7- load (Coal) 
+7- Train (BV1) can transport car (BVR 2001) from yard (Brackwater, 
+7- Brackwater Yard A) to (Tolvern, Tolvern Coal Dock) 
+7- Route for car (BVR 2001): (Brackwater, Brackwater Yard A)-> (Tolvern, 
+7- Tolvern Coal Dock) 
+7- Train (T10) can't transport car (BVR 2001) directly to (Tolvern, Tolvern 
+7- Coal Dock) 
+7- Could not set destination for car (BVR 2001) due to Train (BV1)
+7- Spur (Tolvern, Tolvern Scrap Shed) can't service car (BVR 2001) with load 
+7- (Coal) due to schedule (Scrap Shed) doesn't service car type (Hopper) 
+7- Spur (Ashgrove, Ashgrove Cannery) is in sequential mode and schedule 
+7- (Cannery Line) requests car type (Tank) 
+7- Spur (Ashgrove, Ashgrove Cannery) can't service car (BVR 2001) with load 
+7- (Coal) due to schedule (Cannery Line) requests car type (Tank) 
+7- Spur at (Brackwater, Brackwater Old Spur) no schedule
+7- Spur at (Brackwater, Brackwater Team Track) no schedule
+7- Spur (Ashgrove-North, North Elevator) can't service car (BVR 2001) with 
+7- load (Coal) due to schedule (Elevator) doesn't service car type (Hopper) 
+7- Spur (Ashgrove, Ashgrove Feed Mill) can't service car (BVR 2001) with 
+7- load (Coal) due to schedule (Mill Receiving) doesn't service car type 
+7- (Hopper) 
+7- Could not find a reachable spur for car (BVR 2001) load (Coal)
+7- Hold car (BVR 2001) at (Brackwater, Brackwater Yard A) found a route to a 
+7- spur that has a schedule 
+5- Did not assign a destination for car (BVR 2001)
+5-  
+5- Find destinations for (BVR 3017) type (Gondola) empty (Mty) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Did not assign a destination for car (BVR 3017)
+5-  
+5- Find destinations for (BVR 3016) type (Boxcar) empty (Mty) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Did not assign a destination for car (BVR 3016)
+5-  
+5- Car (BVR 3015) type (Boxcar) load (Feed) at yard (Brackwater, Brackwater 
+5- Yard A) has final destination (Quarry Staging, ) routing begins 
+7- Could not find a last hop C/I or yard track that can service car to 
+7- destination (Quarry Staging) 
+7- Could not set destination for car (BVR 3015) due to could not route car
+5-  
+5- Car (BVR 3015) at (Brackwater, Brackwater Yard A) can't be routed to 
+5- (Quarry Staging, ) will attempt to move stuck car 
+5-  
+5- Find destinations for (BVR 3015) type (Boxcar) load (Feed) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Did not assign a destination for car (BVR 3015)
+5-  
+1- Partial 0/4 cars at location (Brackwater) assigned to train (T10)
+1- Partial 1/7 cars
+1-  
+1- WARNING! The program wasn't able to route the following cars:
+1- Car (BVR 3015) at (Brackwater, Brackwater Yard A) final destination 
+1- (Quarry Staging, ) 
+1-  
+1- Build report for train (T10) has 2 warnings
+5- Build for train (T10) took 5 mSec

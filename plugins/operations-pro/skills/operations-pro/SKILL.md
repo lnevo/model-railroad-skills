@@ -14,7 +14,7 @@ OperationsPro moves cars by building trains. Almost every surprise is a gate in 
 - **Setup changes show a plan first.** Call `ops_plan`, show the user the diff and any new audit findings, then `ops_apply`. Session corrections to a car use `ops_session` without the plan step.
 - **Do not hand-edit XML with JMRI running,** and do not edit the XML at all when an action exists. JMRI rewrites whole files from memory on save and exit, and drops anything it does not store.
 - **Leave move counts alone** unless asked. They steer traffic. Only `set_track_moves` and `reset_moves` change them.
-- **Judge by the build report** in very detailed mode with routing at normal. Two identical builds can differ, so compare sets of outcomes, not one run.
+- **Judge by the build report.** `ops_explain_build` reads the file JMRI wrote and names the gate behind each refusal; it beats anything worked out from the files. For a failed build or a long report, hand the job to the `ops-diagnoser` agent, which can only read. Two identical builds can differ, so compare sets of outcomes, not one run.
 - **No changes while a train is built,** apart from cars not on a train. A build keeps per-stop counters in memory only.
 - **Say what you did not run.** A dry run on a copy is not a session on the railroad.
 
@@ -36,7 +36,7 @@ Read one file, not all of them. The gate ids in `build-order.md` are the ids `op
 
 ## Tools
 
-Read: `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`, `ops_plan`, `ops_build_check`, `ops_dry_run`, `ops_backups`.
+Read: `ops_explain_build`, `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`, `ops_plan`, `ops_build_check`, `ops_dry_run`, `ops_backups`.
 Write with JMRI exited: `ops_apply`, `ops_session`, `ops_deliver_car`, `ops_restore`, `ops_install_agent`.
 Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops_live_report`, `ops_live_automation`.
 

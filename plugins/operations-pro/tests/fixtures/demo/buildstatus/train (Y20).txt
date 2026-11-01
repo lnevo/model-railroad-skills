@@ -1,0 +1,134 @@
+1- Build Report for train (Y20) built on 11/01/2026 15:11
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Monday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+1-  
+1- Invented railroad with deliberate faults, for tests.
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Switcher Service Options (Local Car Movement with Default Loads):
+5- Do Not Allow Local Classification/Interchange to C/I Moves
+5- Do Not Allow Local Spur to Spur Moves
+5- Do Not Allow Local Yard to Yard Moves
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (Y20):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (Y20):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Brackwater)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (Y20) route (Brackwater Switcher):
+3- 4r1 Location (Brackwater) Eastbound requests 5 pick ups, set outs,  train 
+3- terminates 
+1- Route (Brackwater Switcher) requests 5 cars and 5 moves
+3-  
+3- Switcher (Y20) services location (Brackwater)
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 1 locomotives for train (Y20)
+5- 1 locomotives at location (Brackwater):
+7- Loco (BV 103) type (Diesel) model (GP9) at (Brackwater, Brackwater Yard 
+7- A) 0 moves 
+7-  
+5-  
+5- Train (Y20) services car types:
+5- Boxcar, Caboose, Gondola, Hopper, Scalecar, Tank
+5- Train (Y20) Exclude loads: Tank & Acid
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (BVR 3007) type (Boxcar) C/I (Brackwater, Quarry Interchange) 
+7- destination restrictions can not be serviced by this train's route 
+7- Exclude car (BVR 3002) location unknown, last known location (Brackwater, 
+7- Brackwater Yard A) 
+7- Exclude car (BVR 3001) out of service, car's location (Brackwater, 
+7- Brackwater Yard A) 
+7- Exclude car (BVR 4003) type (Tank) train doesn't service load (Acid)
+7- Exclude car (BVR 4002) at (Brackwater, Brackwater Old Spur) train doesn't 
+7- service type (Reefer) 
+7- Exclude car (BVR 4001) at (Brackwater, Brackwater Yard A) train doesn't 
+7- service type (Flatcar) 
+7- Exclude car (BVR 3012) type (Boxcar) at location (Brackwater, Brackwater 
+7- Yard A) scheduled pickup on (Tuesday) 
+7- Exclude car (BVR 3011) type (Boxcar) at (Brackwater, Brackwater Yard A) 
+7- wait (5) 
+7- Train (Y20) can service car (BVR 3011) decrementing wait count to (4)
+7- Exclude car with FRED (BVR 3010) type (Boxcar) at location (Brackwater, 
+7- Brackwater Yard A) 
+1- WARNING! Exclude (BVR 3003) at location (Brackwater) no track assignment
+5-  
+1- Found 2 cars for train (Y20)
+5- 2 cars at location (Brackwater):
+7- Car (BVR 4005) type (Scalecar) at (Brackwater, Brackwater Old Spur) 0 
+7- moves 
+7- Car (BVR 3015) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Brackwater)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (5) for train (Y20) the number available (2) building 
+3- train! 
+3-  
+3- Use Normal mode when building this train
+1- Route location (Brackwater) id 4r1 requests 5 moves, 5/5 moves are 
+1- available 
+5-  
+5- Find destinations for (BVR 4005) type (Scalecar) load (L) at spur 
+5- (Brackwater, Brackwater Old Spur) 
+5- Searching location (Brackwater) route id 4r1 for possible destination
+7- Can't send (BVR 4005) to yard (Brackwater, Brackwater Yard A) due to type 
+7- (Scalecar) 
+7- Can't send (BVR 4005) to C/I (Brackwater, Quarry Interchange) due to type 
+7- (Scalecar) 
+7- Can't send (BVR 4005) to spur (Brackwater, Brackwater Team Track) due to 
+7- type (Scalecar) 
+7- Can't send car (BVR 4005) to same track (Brackwater Old Spur)
+7- Can't send (BVR 4005) to yard (Brackwater, Brackwater Yard B) due to type 
+7- (Scalecar) 
+7- Can't send (BVR 4005) to C/I (Brackwater, Lakeshore Interchange) due to 
+7- type (Scalecar) 
+5- Could not find a track for (BVR 4005) at destination (Brackwater)
+5- Did not assign a destination for car (BVR 4005)
+5-  
+5- Car (BVR 3015) type (Boxcar) load (Feed) at yard (Brackwater, Brackwater 
+5- Yard A) has final destination (Quarry Staging, ) routing begins 
+7- Could not find a last hop C/I or yard track that can service car to 
+7- destination (Quarry Staging) 
+7- Could not set destination for car (BVR 3015) due to could not route car
+5-  
+5- Car (BVR 3015) at (Brackwater, Brackwater Yard A) can't be routed to 
+5- (Quarry Staging, ) will attempt to move stuck car 
+5-  
+5- Find destinations for (BVR 3015) type (Boxcar) load (Feed) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Searching location (Brackwater) route id 4r1 for possible destination
+5- Route (Brackwater Switcher) id 4r1 no local moves at location 
+5- (Brackwater) for car (BVR 3015) 
+5- Did not assign a destination for car (BVR 3015)
+5-  
+1- Partial 0/5 cars at location (Brackwater) assigned to train (Y20)
+1- Partial 0/5 cars
+1-  
+1- WARNING! The program wasn't able to route the following cars:
+1- Car (BVR 3015) at (Brackwater, Brackwater Yard A) final destination 
+1- (Quarry Staging, ) 
+1-  
+1- Build report for train (Y20) has 2 warnings
+5- Build for train (Y20) took 4 mSec

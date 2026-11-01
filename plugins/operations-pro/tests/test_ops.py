@@ -485,10 +485,18 @@ class ServerTests(unittest.TestCase):
         writers = {"ops_apply", "ops_session", "ops_deliver_car", "ops_restore", "ops_install_agent", "ops_train",
                    "ops_live_car", "ops_live_save", "ops_live_automation"}
         readers = {"ops_why_not", "ops_audit", "ops_list", "ops_actions", "ops_plan", "ops_build_check",
-                   "ops_dry_run", "ops_backups", "ops_live_status", "ops_live_report"}
+                   "ops_dry_run", "ops_backups", "ops_live_status", "ops_live_report", "ops_explain_build"}
         self.assertEqual({t["name"] for t in tools}, writers | readers)
         for entry in tools:
             self.assertEqual(entry["annotations"]["readOnlyHint"], entry["name"] in readers, entry["name"])
+
+    def test_explain_build_over_the_wire(self):
+        out = call(self.env, INIT, tool("ops_explain_build", {"train": "X99"}))
+        self.assertTrue(out[1]["result"].get("isError"), "the demo operations folder holds no buildstatus")
+        self.assertIn("buildstatus", self.text(out[1]))
+        path = str(DEMO / "buildstatus" / "train (X99).txt")
+        out = call(self.env, INIT, tool("ops_explain_build", {"path": path, "train": "X99"}))
+        self.assertEqual(json.loads(self.text(out[1]))["outcome"]["failure"][0]["gate"], "A8")
 
     def test_why_not_over_the_wire(self):
         out = call(self.env, INIT, tool("ops_why_not", {"car": "BVR3001", "destination": "Tolvern"}))
@@ -523,7 +531,7 @@ class ServerTests(unittest.TestCase):
         allowed = {"__future__", "collections", "concurrent", "copy", "dataclasses", "datetime", "difflib",
                    "hashlib", "json", "os", "pathlib", "re", "shutil", "subprocess", "sys", "tempfile", "time",
                    "typing", "urllib", "uuid", "xml", "mcp_stdio", "ops_actions", "ops_data", "ops_gates",
-                   "ops_jmri", "ops_live", "ops_store"}
+                   "ops_jmri", "ops_live", "ops_report", "ops_report_messages", "ops_store"}
         for path in SERVERS.glob("*.py"):
             if path.name in ("jmri_worker.py", "jmri_agent.py"):  # These run in JMRI's jython, not the server.
                 continue

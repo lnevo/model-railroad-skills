@@ -12,6 +12,7 @@ from dataclasses import asdict
 
 import ops_jmri
 import ops_live
+import ops_report
 import ops_store
 from mcp_stdio import Tool, serve
 from ops_actions import ACTIONS
@@ -65,6 +66,14 @@ def list_items(args: dict) -> object:
     return [asdict(x) for x in getattr(rr, kind).values()]
 
 
+def explain_build(args: dict) -> object:
+    car, detail = args.get("car"), args.get("detail", "normal")
+    if args.get("text"):
+        return ops_report.explain(args["text"], car, detail)
+    path = args.get("path") or ops_report.report_path(folder(args), args["train"])
+    return ops_report.explain_file(path, car, detail)
+
+
 def action_help(args: dict) -> object:
     wanted = args.get("session_only")
     return {name: {"session": entry["session"], "help": entry["help"]}
@@ -90,6 +99,20 @@ def tools() -> list[Tool]:
                   "train": {"type": "string", "description": "Train name or id; omit to try every train"}},
               "required": ["car", "destination"]},
              why_not),
+        Tool("ops_explain_build",
+             "Read a train's build report and say what the builder did: the outcome and failure cause, each stop's "
+             "moves, the cars excluded before the search and why, and for each car the tracks tried, the refusal "
+             "and its gate id. Reads the file JMRI wrote in buildstatus; give car to follow one car, "
+             "detail 'full' for every line.",
+             {"type": "object",
+              "properties": {
+                  **directory,
+                  "train": {"type": "string", "description": "Train name, as in the buildstatus file name"},
+                  "path": {"type": "string", "description": "A report file anywhere, instead of train and ops_dir"},
+                  "text": {"type": "string", "description": "Pasted report text, instead of a file"},
+                  "car": {"type": "string", "description": "Car id or road and number: only that car's story"},
+                  "detail": {"type": "string", "enum": ["normal", "full"]}}},
+             explain_build),
         Tool("ops_audit",
              "Check a whole railroad for types and loads nothing can carry, schedule and routing gaps, "
              "and settings JMRI silently ignores.",

@@ -1,0 +1,61 @@
+1- Build Report for train (X99) built on 11/01/2026 15:11
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Monday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+1-  
+1- Invented railroad with deliberate faults, for tests.
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (X99):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (X99):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Brackwater)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (X99) route (Quarry Extra):
+3- 5r1 Staging (Quarry Staging) Eastbound requests 5 pick ups, set outs,  
+3- maximum train length 1,000 feet 
+3- 5r2 Location (Brackwater) Eastbound requests 0 pick ups, set outs,  train 
+3- terminates 
+1- Route (Quarry Extra) requests 2 cars and 5 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+1- Train must depart (Quarry Staging) with caboose, road (QXR)
+7-  
+1- Found 1 locomotives for train (X99)
+5- 0 locomotives available from staging (Quarry Staging):
+7-  
+5- 1 locomotives at location (Brackwater):
+7- Loco (BV 103) type (Diesel) model (GP9) at (Brackwater, Brackwater Yard 
+7- A) 0 moves 
+7-  
+3-  
+1- Train will depart staging (Quarry Staging), there are 1 tracks
+3- Staging track (Quarry Stage 1) has 0 loco(s) and 2 cars
+3- Staging track (Quarry Stage 1) does not have a caboose with the correct 
+3- road (QXR) 
+7- Staging track (Quarry Stage 1) cannot service train (X99)
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+1- Train must depart (Quarry Staging) with caboose, road (QXR)
+1- Could not find a departure staging track at Quarry Staging that meets the 
+1- train requirements 
+1- Build failed for train (X99)

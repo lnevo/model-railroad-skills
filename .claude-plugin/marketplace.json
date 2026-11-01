@@ -10,7 +10,7 @@
     {
       "name": "operations-pro",
       "source": "./plugins/operations-pro",
-      "description": "Operations management for JMRI OperationsPro: a gates audit that explains why a car will not move. Reads only so far, with writes to come."
+      "description": "Build, change, run and diagnose a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first: setup from scratch with a plan you see first, sessions in a live JMRI, and build reports explained."
     }
   ]
 }

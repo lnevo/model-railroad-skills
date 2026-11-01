@@ -8,7 +8,39 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills" / "operations-pro"
 sys.path.insert(0, str(ROOT / "servers"))
 
+import operations_pro  # noqa: E402
 import ops_gates  # noqa: E402
+
+AGENT = ROOT / "agents" / "ops-diagnoser.md"
+TOOL_PREFIX = "mcp__plugin_operations-pro_operations-pro__"
+
+
+class AgentTest(unittest.TestCase):
+    """The diagnosis agent may only hold reading tools, and the names must be real."""
+
+    def setUp(self):
+        self.head, self.body = AGENT.read_text().split("---")[1:3]
+        self.tools = [t.strip() for t in re.search(r"^tools: (.*)$", self.head, re.M).group(1).split(",")]
+
+    def test_frontmatter(self):
+        self.assertIn("name: ops-diagnoser", self.head)
+        self.assertIn("description:", self.head)
+
+    def test_only_reading_tools(self):
+        by_name = {t.name: t for t in operations_pro.tools()}
+        for name in self.tools:
+            if name in ("Read", "Grep", "Glob"):
+                continue
+            self.assertTrue(name.startswith(TOOL_PREFIX), name)
+            tool = by_name[name[len(TOOL_PREFIX):]]
+            self.assertTrue(tool.read_only, name)
+        self.assertIn(TOOL_PREFIX + "ops_explain_build", self.tools)
+        for word in ("Edit", "Write", "Bash", "ops_apply", "ops_session", "ops_live_save"):
+            self.assertNotIn(word, self.tools)
+
+    def test_points_at_the_skill(self):
+        self.assertIn("references/diagnosis.md", self.body)
+        self.assertIn("references/build-order.md", self.body)
 
 
 class SkillTest(unittest.TestCase):
@@ -38,9 +70,13 @@ class SkillTest(unittest.TestCase):
         missing = [r for r in sorted(rules) if f"`{r}`" not in text]
         self.assertEqual(missing, [])
 
+    def test_every_tool_is_named_in_the_entry_file(self):
+        for tool in operations_pro.tools():
+            self.assertIn(f"`{tool.name}`", self.entry, tool.name)
+
     def test_no_private_content(self):
         banned = re.compile(r"groups\.io|jmriusers|hart", re.I)
-        for path in [SKILL / "SKILL.md", *(SKILL / "references").glob("*.md")]:
+        for path in [SKILL / "SKILL.md", *(SKILL / "references").glob("*.md"), AGENT, ROOT / "README.md"]:
             self.assertIsNone(banned.search(path.read_text()), path.name)
 
 
