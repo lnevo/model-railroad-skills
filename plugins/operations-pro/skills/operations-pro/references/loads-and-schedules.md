@@ -37,6 +37,25 @@ Further cases:
 - Disable Load Change skips the ship load, the ship destination and the id clear. Wait and pick up day still apply.
 - Moving a car with a JSON location change does not apply a schedule.
 
+## Worked example: convert a default track to custom loads
+
+There is no single action. It is two actions in one `ops_plan`: `add_schedule` first, then `update_track` naming the new schedule. One plan keeps them together, so the files never hold a track pointing at a schedule that is not there. The example is checked by a test that plans, applies and has real JMRI load and save the result.
+
+```json
+[
+  {"action": "add_schedule", "name": "Team Track Loads",
+   "lines": [{"type": "Boxcar", "receive": "Feed", "ship": "Mty", "count": 2}]},
+  {"action": "update_track", "track": "Brackwater Team Track", "location": "Brackwater",
+   "schedule": "Team Track Loads", "schedule_mode": "sequential"}
+]
+```
+
+- `add_schedule` takes `name`, `lines` and an optional `comment`. A line takes `type` (required) and any of `road`, `receive`, `ship`, `random`, `wait`, `count`, `setout_day`, `pickup_day`, `destination`, `track`, `comment`.
+- `update_track` takes `track`, `location` (to tell same-named tracks apart), `schedule` and `schedule_mode` (`sequential` or `match`). Other fields leave the track alone.
+- The track must be a spur. Name the car types and loads the lines use before the plan, with `add_car_type` and `add_load` earlier in the same plan if they do not exist.
+- Plan first and read the findings. Converting a track can add routing findings such as "No chain of trains takes Feed from ... to ...": the new receive or ship load has no train path. Fix the routes, or choose loads the trains already connect, before `ops_apply`; a plan with new errors is blocked.
+- Cars already on the track keep their loads. A schedule does not revisit parked cars.
+
 ## Match and sequential
 
 - Match mode tests every line and advances the pointer on each test, so lines rotate per test, not per delivered car.
