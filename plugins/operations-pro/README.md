@@ -2,7 +2,7 @@
 
 Tools for setting up, checking and running JMRI OperationsPro with Claude. The aim is full management of an Operations railroad by an AI agent, with a change plan you can see first.
 
-**Status: in development.** It can read and audit a railroad, and change its files with JMRI exited. Control of a running JMRI, the skill and the diagnosis agent are still to come. This page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
+**Status: in development.** It can read and audit a railroad, change its files with JMRI exited, and run trains in a running JMRI. The skill and the diagnosis agent are still to come. This page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
@@ -27,7 +27,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | Write actions | Make a multi-screen change in one step, with JMRI exited. `ops_actions` lists them | Done |
 | Build check | Runs JMRI's own builder on copies, several times each side, and compares the results | Done |
 | Dry run | Builds and terminates every enabled train on a copy and reports | Done |
-| Session control | Build, move and terminate trains in a running JMRI | Planned |
+| Session control | Build, move, terminate and reset trains in a running JMRI | Done |
 | Skill | Verified rules for setup, routing, staging, schedules and sessions | Planned |
 | Diagnosis agent | Reads long build reports without changing anything | Planned |
 
@@ -44,6 +44,36 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | `ops_session` | Yes | Applies a car correction without a separate plan step |
 | `ops_deliver_car` | Yes | Sets a car on a track and runs that track's schedule, as Set Car does |
 | `ops_backups`, `ops_restore` | Restore only | Lists backup sets and puts one back |
+
+These work on a running JMRI, and don't need it exited:
+
+| Tool | Needs the agent? | What it does |
+|---|---|---|
+| `ops_live_status` | No | Shows each train's state and whether the agent is running |
+| `ops_train` | Build and reset only | Builds, moves, terminates or resets one train or all of them |
+| `ops_live_car` | Yes | Sets a car on a track and runs the track's schedule, as Set Car does |
+| `ops_live_save` | Yes | Saves the Operations files now, so the reading tools see the latest state |
+| `ops_live_report` | Yes | Reads the end of a build report or manifest |
+| `ops_live_automation` | Yes | Runs a named automation |
+| `ops_install_agent` | | Copies the agent beside the Operations files and plans its startup entry |
+
+## Running trains in a live JMRI
+
+JMRI's JSON server can move and terminate a train, but can't build or reset one. So this plugin adds a small agent: a script that JMRI runs from its Operations startup scripts. It takes commands through a Memory that the JSON server can set.
+
+To set it up:
+
+1. In JMRI's Preferences, add a Startup item to start the web server.
+2. Exit JMRI, run `ops_install_agent`, and apply its plan with `ops_apply`.
+3. Start JMRI. The first live tool call loads Operations if it isn't already open, and that starts the agent.
+
+Set `JMRI_URL` if JMRI isn't at `http://localhost:12080`. It can be another computer.
+
+- **Builds don't stop on a dialog.** A failed build, or a good build with warnings, normally opens a window on the JMRI computer and waits for someone to click it. The agent turns those windows off for the build, along with the staging track prompts, then puts the settings back. With prompts off, JMRI chooses the staging track itself.
+- **A built train isn't rebuilt by accident.** Building again resets the train, so it needs `rebuild`. A train en route can't be built or reset.
+- **A refused Set Car puts the car back.**
+- **Only the listed commands run.** The agent doesn't evaluate text it's sent. Anyone who can reach JMRI's web server can send commands, as they already can for turnouts and sensors.
+- **A Store of tables in JMRI** can save the agent's three `IMOPSPRO_` Memories. They're harmless, and hold no data once a command is finished.
 
 ## Changing data safely
 
@@ -64,8 +94,9 @@ The builder makes random choices, so two identical builds can differ. The build 
 
 - It only ever works on the Operations folder you point it at, and JMRI's checks run on temporary copies.
 - `ops_build_check`, `ops_dry_run` and `ops_deliver_car` need JMRI installed. Set `JMRI_HOME` if it isn't found.
-- Not written yet: engines, divisions, train schedule days, manual builds, automations and manifest formats.
-- JMRI's JSON server has no train build action and doesn't cover schedules, Operations routes, loads or divisions, so those need another route.
+- Not written yet: engines, divisions, train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
+- JMRI's JSON server doesn't cover schedules, Operations routes, loads or divisions, so those are changed through the files.
+- A train's own build or terminate script runs as usual, and can still open a window or hang. So can a Message step in an automation.
 - Rules come from the JMRI 5.16 source. Other versions may differ.
 
 ## Use and test
@@ -76,7 +107,7 @@ Set `OPS_DIR` to your Operations folder, or pass `ops_dir` on each call. Tools r
 python3 -m unittest discover -s plugins/operations-pro/tests
 ```
 
-The tests hold the gates to `tests/fixtures/demo/jmri_oracle.json`, which is what real JMRI 5.16 said about the demo railroad. `tests/jmri_oracle.py` regenerates it. Where JMRI is installed, the write tests also make it load and save what was written, and skip that otherwise.
+The tests hold the gates to `tests/fixtures/demo/jmri_oracle.json`, which is what real JMRI 5.16 said about the demo railroad. `tests/jmri_oracle.py` regenerates it. Where JMRI is installed, the write tests also make it load and save what was written, and `tests/test_live.py` starts a real JMRI for each live test. Both skip that otherwise.
 
 ## License
 

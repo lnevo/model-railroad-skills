@@ -11,6 +11,7 @@ import os
 from dataclasses import asdict
 
 import ops_jmri
+import ops_live
 import ops_store
 from mcp_stdio import Tool, serve
 from ops_actions import ACTIONS
@@ -75,6 +76,7 @@ def tools() -> list[Tool]:
     actions = {"actions": {"type": "array", "items": {"type": "object"},
                            "description": "Each item names action plus its fields. See ops_actions."}}
     plan_id = {"plan_id": {"type": "string", "description": "From ops_plan"}}
+    url = {"jmri_url": {"type": "string", "description": "JMRI web server; defaults to JMRI_URL, then localhost:12080"}}
     return [
         Tool("ops_why_not",
              "Walk a car through every OperationsPro build gate to a destination, in JMRI's order, "
@@ -143,6 +145,54 @@ def tools() -> list[Tool]:
                              "folder": {"type": "string", "enum": ["backups", "autoBackups"]}},
               "required": ["set"]},
              lambda a: ops_store.restore(folder(a), a["set"], a.get("folder", "backups")), read_only=False),
+        Tool("ops_install_agent",
+             "Copy the live agent beside the Operations files and plan the startup entry that runs it. "
+             "Show the plan, then ops_apply it with JMRI exited. Needed for ops_train build and reset, "
+             "ops_live_car, ops_live_save, ops_live_report and ops_live_automation.",
+             {"type": "object", "properties": directory},
+             lambda a: ops_live.install_agent(folder(a)), read_only=False),
+        Tool("ops_live_status",
+             "Ask a running JMRI what state each train is in and whether the agent is running. Changes nothing.",
+             {"type": "object", "properties": url}, lambda a: ops_live.status(a.get("jmri_url"))),
+        Tool("ops_train",
+             "Build, move, terminate or reset a train in a running JMRI. train may be 'all' for build (enabled, "
+             "unbuilt trains in time order), terminate and reset. Build opens no dialogs and answers with the "
+             "report: a staging track is then chosen by JMRI, not asked for. Building a built train needs rebuild.",
+             {"type": "object",
+              "properties": {**url, "action": {"type": "string", "enum": ["build", "move", "terminate", "reset"]},
+                             "train": {"type": "string"},
+                             "location": {"type": "string", "description": "For move: a location on the route"},
+                             "rebuild": {"type": "boolean"}},
+              "required": ["action", "train"]},
+             lambda a: ops_live.train_action(a["action"], a["train"], a.get("location"), a.get("rebuild", False),
+                                             a.get("jmri_url")), read_only=False),
+        Tool("ops_live_car",
+             "Set a car on a track in a running JMRI and run that track's schedule, as Set Car does. "
+             "Refused for a car on a train. If the schedule refuses it, the car goes back.",
+             {"type": "object",
+              "properties": {**url, "car": {"type": "string"}, "location": {"type": "string"},
+                             "track": {"type": "string"}},
+              "required": ["car", "location", "track"]},
+             lambda a: ops_live.ask(ops_live.base_url(a.get("jmri_url")), "set_car", car=a["car"],
+                                    location=a["location"], track=a["track"]), read_only=False),
+        Tool("ops_live_save",
+             "Make a running JMRI save its Operations files now, so ops_why_not and ops_audit see the latest state.",
+             {"type": "object", "properties": url},
+             lambda a: ops_live.ask(ops_live.base_url(a.get("jmri_url")), "save"), read_only=False),
+        Tool("ops_live_report",
+             "Read the end of a train's build report or manifest from a running JMRI.",
+             {"type": "object",
+              "properties": {**url, "train": {"type": "string"},
+                             "kind": {"type": "string", "enum": ["build", "manifest"]}},
+              "required": ["train"]},
+             lambda a: ops_live.ask(ops_live.base_url(a.get("jmri_url")), "report", train=a["train"],
+                                    kind=a.get("kind", "build"))),
+        Tool("ops_live_automation",
+             "Run a named Operations automation in a running JMRI, with build dialogs off, and wait up to two "
+             "minutes. A Message step in the automation still opens a window on that computer.",
+             {"type": "object", "properties": {**url, "name": {"type": "string"}}, "required": ["name"]},
+             lambda a: ops_live.ask(ops_live.base_url(a.get("jmri_url")), "automation", name=a["name"]),
+             read_only=False),
     ]
 
 

@@ -278,6 +278,22 @@ def guard(editor: Editor, allowed_cars: tuple[str, ...] = ()) -> None:
 
 
 @action()
+def add_startup_script(ed: Editor, path: str) -> str:
+    """Run a script when JMRI loads the trains, as Trains > Tools > Startup Scripts does."""
+    options = ed.train_root.find("options")
+    if options is None:
+        raise Refused("The train file has no options section")
+    scripts = options.find("scripts")
+    if scripts is None:
+        scripts = ET.SubElement(options, "scripts")
+    if any(e.get("name") == path for e in scripts.findall("startUp")):
+        return f"{path} is already a startup script."
+    ET.SubElement(scripts, "startUp", {"name": path})
+    _indent(options, 2)
+    return f"JMRI will run {path} when it loads the trains."
+
+
+@action()
 def add_car_type(ed: Editor, name: str, like: str | None = None) -> str:
     """Add a car type. With like, every location, track and train that takes that type takes this too."""
     if name in ed.car_types():

@@ -482,9 +482,10 @@ class ServerTests(unittest.TestCase):
     def test_lists_tools_with_correct_read_only_flags(self):
         out = call(self.env, INIT, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = out[1]["result"]["tools"]
-        writers = {"ops_apply", "ops_session", "ops_deliver_car", "ops_restore"}
+        writers = {"ops_apply", "ops_session", "ops_deliver_car", "ops_restore", "ops_install_agent", "ops_train",
+                   "ops_live_car", "ops_live_save", "ops_live_automation"}
         readers = {"ops_why_not", "ops_audit", "ops_list", "ops_actions", "ops_plan", "ops_build_check",
-                   "ops_dry_run", "ops_backups"}
+                   "ops_dry_run", "ops_backups", "ops_live_status", "ops_live_report"}
         self.assertEqual({t["name"] for t in tools}, writers | readers)
         for entry in tools:
             self.assertEqual(entry["annotations"]["readOnlyHint"], entry["name"] in readers, entry["name"])
@@ -521,10 +522,10 @@ class ServerTests(unittest.TestCase):
     def test_plugin_stays_stdlib_only(self):
         allowed = {"__future__", "collections", "concurrent", "copy", "dataclasses", "datetime", "difflib",
                    "hashlib", "json", "os", "pathlib", "re", "shutil", "subprocess", "sys", "tempfile", "time",
-                   "typing", "uuid", "xml", "mcp_stdio", "ops_actions", "ops_data", "ops_gates",
-                   "ops_jmri", "ops_store"}
+                   "typing", "urllib", "uuid", "xml", "mcp_stdio", "ops_actions", "ops_data", "ops_gates",
+                   "ops_jmri", "ops_live", "ops_store"}
         for path in SERVERS.glob("*.py"):
-            if path.name == "jmri_worker.py":  # Runs inside JMRI's jython, not in the server.
+            if path.name in ("jmri_worker.py", "jmri_agent.py"):  # These run in JMRI's jython, not the server.
                 continue
             for line in path.read_text().splitlines():
                 words = line.split()
