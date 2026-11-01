@@ -3,16 +3,21 @@
 ## The router
 
 - Runs for any car with a final destination, whatever its load. It never runs for a default E or L without one, except through a home division.
-- Tries up to seven trains. Hops go through interchanges first, then yards if "routing via yards" is on, default off, then staging if "routing via staging" is on, default off, and only staging tracks with no load-changing option.
-- Needs room only at the first hop, and tests train length at the first hop only. The final spur may be full.
-- If the first hop is full and a route exists, the car is sent to the current spur's alternate or a yard rather than held. Otherwise the car waits.
+- Tries up to seven trains, in this order: one train; two through an interchange; two through a yard if "routing via yards" is on, default off; three to seven through interchanges and yards; two through staging if "routing via staging" is on, default off; three to seven including staging. Only staging tracks with no load-changing option are used.
+- Each list of hop tracks covers every location, fewest moves first. Ties fall in JMRI's internal location order, a hash of the location id rather than the name, then track name. Trains are tried in name order and the first that can carry the car wins. Setting a destination bumps that track's moves, so later lists in the same build can change order.
+- Every hop must take the car as a set out would, length aside: type, road, load, and an interchange or staging Destinations filter that admits the car's **final** destination.
+- The final track's schedule is not asked while routing, only when the last train is given that track as its destination. The final track may be full.
+- Room is tested only at the first hop. In a two-train route a full first hop is skipped and the next candidate tried.
+- Train length and route moves count only for the train being built, and only on its own legs. When that train could carry the car but not now, the router answers "Train (name)" and the car waits for it, unless it is on a staging track or the train services all cars with a final destination.
+- One train to a full final track, or one whose schedule refuses the car when the train is given it: the car goes to that track's alternate, then, if the track was full and "forward to yard" is on (default on), to a yard at the destination. Otherwise it gets no destination this build.
+- A route of three or more trains whose first hop cannot be set now: the car goes to the alternate of the spur it is on, then to a yard at its own location if "forward to yard" is on and it is not already on a yard. Either needs the train being built to take it there. Otherwise the car waits.
 - If any single train can deliver the car directly, no two-train path is used. The train build option to service all cars with a final destination overrides that.
 - "Could not find a first or last hop" in the report means a gap at a hop or no room there. The audit's `routing-gap` finding checks for a chain of trains between every shipping spur and every receiver.
 - The router writes its lines to the report only at the Detailed and Very Detailed router levels.
 
 ## Alternates
 
-- Only a spur can have an alternate. The alternate is used when the spur is full and shares a direction with it.
+- Only a spur can have an alternate. The alternate is used when the spur is full and shares a direction with it. For a routed car it is also used when the spur's schedule refuses the car as the last train is given the spur.
 - An alternate never appears in any move-ordered track list, so it is never a direct destination and never a routing hop. "Can't send directly to alternate" is the report line.
 - An interchange set as an alternate loses its exchange role and traps cars through the same-route rule. The audit reports `interchange-as-alternate` and `alternate-ignored`.
 - For overflow on a yard or interchange use a pool, or move count bias.
@@ -31,7 +36,7 @@
 - Exclude only inverts the checkboxes; the stored list is always the accepted locations. Writes keep that.
 - As a gate on the car's track (D6, B8): the next location the train would use must be admitted, or the car has no exit. The audit reports `interchange-no-exit`.
 - As a gate on the destination track (E6): the car's **final** destination must be admitted. A car with no final destination passes.
-- Interim yards and interchanges are not tested, so excluding a yard does not stop a car passing through it. Either exclude every final destination reached through that yard, or turn on the EXTREME option in car routing, which tests each hop against the car's track.
+- An interim interchange or staging track must admit the car's final destination, so a filter there closes that hop for those cars. Yards have no filter, so nothing in the yard stops a car passing through it. Either exclude every final destination reached through that yard on the tracks that feed it, or turn on the EXTREME option in car routing, which tests each hop against the car's track.
 - A filter that leaves out the location a schedule names makes the builder skip that spur and fall to the route search, so cars scatter. Accept all is the usual fix.
 
 ## Directions
@@ -58,6 +63,6 @@ Locations and cars carry a division. A car with a home division and no final des
 
 ## Checking a setup
 
-The Track Destinations tool and the check destinations tool warn about types a destination does not service. The build report is the judge. `ops_why_not` with a train named walks the router gates for a final destination.
+The Track Destinations tool and the check destinations tool warn about types a destination does not service. The build report is the judge. `ops_why_not` with a train named walks the router gates for a final destination, and its `router` field gives the router's answer for that train as JMRI 5.16 computes it from the files: the status, the trains in the route, and for a custom load the spur search with its hold or staging outcome.
 
 Checked against JMRI 5.16 source, tag v5.16.
