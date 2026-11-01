@@ -37,6 +37,8 @@ def directions(mask: int) -> str:
 def split_name(name: str) -> str:
     """JMRI splits only on a hyphen followed by an integer or a left parenthesis."""
     parts = name.split("-")
+    while len(parts) > 1 and not parts[-1]:  # Java's split drops trailing empties.
+        parts.pop()
     if len(parts) > 1 and not parts[1].startswith("(") and not re.fullmatch(r"[+-]?\d+", parts[1]):
         return name.strip()
     return parts[0].strip()
@@ -169,8 +171,8 @@ class Track:
         return _accepts(self.ship_option, self.ship_loads, load, f"{car_type}{TYPE_AND_LOAD}{load}")
 
     def accepts_destination(self, location_id: str | None) -> bool:
-        return self.destination_option == ALL or location_id is None or (
-            (location_id in self.destination_ids) == (self.destination_option == INCLUDE))
+        # The list always holds accepted ids. Exclude only inverts the checkboxes in the GUI.
+        return self.destination_option == ALL or location_id is None or location_id in self.destination_ids
 
     def _service(self, option: str, ids: list[str], train: "Train") -> bool:
         if option == ANY:

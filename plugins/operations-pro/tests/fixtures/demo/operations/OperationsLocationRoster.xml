@@ -11,6 +11,7 @@
         <carType name="Gondola" />
         <carType name="Hopper" />
         <carType name="Tank" />
+        <carType name="Scalecar" />
         <locoType name="Diesel" />
       </types>
       <track id="1s1" name="Brackwater Yard A" trackType="Yard" dir="3" length="400" moves="0" alternative="1s2" carRoadOption="Exclude">
@@ -72,7 +73,11 @@
           <carLoad name="Boxcar &amp; Feed" />
         </carLoads>
         <destinations>
-          <destination id="6" />
+          <destination id="1" />
+          <destination id="2" />
+          <destination id="3" />
+          <destination id="5" />
+          <destination id="7" />
         </destinations>
       </track>
       <track id="1s5" name="Brackwater Team Track" trackType="Spur" dir="3" length="90" moves="0" onlyCarWithFD="true" carShipLoadOption="Include">
@@ -97,6 +102,7 @@
           <carType name="Gondola" />
           <carType name="Hopper" />
           <carType name="Tank" />
+          <carType name="Scalecar" />
           <locoType name="Diesel" />
         </types>
       </track>
@@ -286,6 +292,7 @@
         </types>
         <carShipLoads>
           <carLoad name="Mty" />
+          <carLoad name="Feed" />
         </carShipLoads>
       </track>
     </location>

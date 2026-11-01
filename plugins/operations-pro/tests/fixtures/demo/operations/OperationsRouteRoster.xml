@@ -29,5 +29,9 @@
       <location id="5r1" name="Quarry Staging" locationId="6" sequenceId="1" trainDirection="1" maxTrainLength="1000" grade="0.0" maxCarMoves="5" randomControl="Off" pickups="yes" drops="yes" localMoves="no" wait="0" departTime="" order="0" trainIconX="0" trainIconY="0" commentColor="black" comment="" />
       <location id="5r2" name="Brackwater" locationId="1" sequenceId="2" trainDirection="1" maxTrainLength="1000" grade="0.0" maxCarMoves="0" randomControl="Off" pickups="yes" drops="yes" localMoves="no" wait="0" departTime="" order="0" trainIconX="0" trainIconY="0" commentColor="black" comment="" />
     </route>
+    <route id="6" name="Tolvern Job" comment="">
+      <location id="6r1" name="Brackwater" locationId="1" sequenceId="1" trainDirection="1" maxTrainLength="1000" grade="0.0" maxCarMoves="5" randomControl="Off" pickups="yes" drops="yes" localMoves="no" wait="0" departTime="" order="0" trainIconX="0" trainIconY="0" commentColor="black" comment="" />
+      <location id="6r2" name="Tolvern" locationId="3" sequenceId="2" trainDirection="1" maxTrainLength="1000" grade="0.0" maxCarMoves="5" randomControl="Off" pickups="yes" drops="yes" localMoves="no" wait="0" departTime="" order="0" trainIconX="0" trainIconY="0" commentColor="black" comment="" />
+    </route>
   </routes>
 </operations-config>

@@ -2,7 +2,7 @@
 
 Tools for setting up, checking and running JMRI OperationsPro with Claude. The aim is full management of an Operations railroad by an AI agent, with a change plan you can see first.
 
-**Status: in development, not ready to use.** It isn't listed in the marketplace yet, and this page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
+**Status: in development.** The first stage works and only reads: it never changes your files. This page describes the plan as well as what exists today. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
@@ -19,11 +19,11 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 
 | Part | What it does | State |
 |---|---|---|
-| Data parser | Reads the six Operations XML files | Written, not yet tested |
-| Demo railroad | An invented railroad with deliberate faults, for tests | Written, not yet tested |
-| `why_not` | Walks each requirement in the builder's order and names the setting that blocks a car | In progress |
-| `audit` | Finds problems across the railroad, such as a car type no train can carry or a schedule with only one destination | In progress |
-| MCP server | Exposes these tools to Claude | In progress |
+| Data parser | Reads the six Operations XML files | Done |
+| Demo railroad | An invented railroad with deliberate faults, for tests | Done, builds in real JMRI 5.16 |
+| `why_not` | Walks each requirement in the builder's order and names the setting that blocks a car | Done |
+| `audit` | Finds problems across the railroad, such as a car type no train can carry or a schedule with only one destination | Done |
+| MCP server | Exposes these tools to Claude as `ops_why_not`, `ops_audit` and `ops_list` | Done, read-only |
 | Write actions | Make a multi-screen change in one step | Planned |
 | Build check | Runs JMRI's own builder on a copy and compares the reports before and after | Planned |
 | Session control | Build, move and terminate trains in a running JMRI | Planned |
@@ -44,6 +44,16 @@ Unlike the read-only tools in `model-railroad-skills`, this plugin will change y
 - It only ever works on the Operations folder you point it at.
 - JMRI's JSON server has no train build action and doesn't cover schedules, Operations routes, loads or divisions, so those need another route.
 - Rules come from the JMRI 5.16 source. Other versions may differ.
+
+## Use and test
+
+Set `OPS_DIR` to your Operations folder, or pass `ops_dir` on each call. Tools read the files on disk, which can lag a running JMRI by a minute or two. A gate that depends on the build itself, such as a random draw or timing against another train, reports `not_checked`.
+
+```
+python3 -m unittest discover -s plugins/operations-pro/tests
+```
+
+The tests hold the gates to `tests/fixtures/demo/jmri_oracle.json`, which is what real JMRI 5.16 said about the demo railroad. `tests/jmri_oracle.py` regenerates it.
 
 ## License
 
