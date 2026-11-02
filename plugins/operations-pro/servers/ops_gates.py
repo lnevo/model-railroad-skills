@@ -1445,7 +1445,21 @@ class Gates:
         if not (car.fd_id or _custom(rr, car) or car.division_id):
             return [gate(c, PASS, "router not used: default load and no final destination") for c in codes]
         results = {r["gate"]: r for r in self.serviceable(car, train, dest, track, building=True)}
-        return [results.get(c) or gate(c, NOT_CHECKED, "stopped at an earlier G gate") for c in codes]
+        out = [results.get(c) or gate(c, NOT_CHECKED, "stopped at an earlier G gate") for c in codes]
+        return [self._router_optional(g, car, train) for g in out]
+
+    def _router_optional(self, result: dict, car: Car, train: Train) -> dict:
+        """A custom load with no final destination does not need the router. When no spur or staging route is
+        found, findFinalDestinationForCarLoad returns false and the car falls to the search along the train's
+        own route (TBC:578-592), which the C and D gates hold. Only a hold keeps it where it is (TBC:1163).
+        G1 and G2 stay: a train that cannot carry the car or reach the place fails on its own route too."""
+        if (result["status"] != FAIL or result["gate"] in ("G1", "G2") or car.fd_id or car.division_id
+                or not _custom(self.rr, car)):
+            return result
+        if ops_router.find_spur_for_load(self, car, train)["hold"]:
+            return result
+        return self._gate(result["gate"], PASS, f"the router would refuse ({result['reason']}), but this custom load "
+                                                "has no final destination, so the car falls to the train's own route")
 
     def evaluate(self, car: Car, train: Train, dest: Location, track: Track) -> list[dict]:
         """Every gate in code order for one train and one destination track."""
@@ -1535,7 +1549,7 @@ class Gates:
         for candidate in trains:
             for target in tracks:
                 gates = self.evaluate(car, candidate, dest, target)
-                gates.append(self._g12(car, target))
+                gates.append(self._g12(car, target, candidate))
                 table.append((candidate, target, gates))
         build_note = None
         if real_build:
@@ -1600,13 +1614,15 @@ class Gates:
         track = self.rr.tracks.get(car.track_id)
         return ", ".join(x.name for x in (location, track) if x) or "nowhere"
 
-    def _g12(self, car: Car, target: Track) -> dict:
+    def _g12(self, car: Car, target: Track, train: Train | None = None) -> dict:
         if not self._router_eligible(car):
             return self._gate("G12", PASS, "router not used: default load and no final destination")
         if car.track_id not in self.rr.tracks:
             return self._gate("G12", NOT_CHECKED, "car has no track")
         path = self.route_path(car, target)
         reason = " then ".join(f"{p['train']} to {p['to']}" for p in path) if path else "no chain of trains found"
+        if path is None and train is not None:
+            return self._router_optional(self._gate("G12", FAIL, reason), car, train)
         return self._gate("G12", path is not None, reason)
 
     def audit(self) -> dict:
