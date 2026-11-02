@@ -220,7 +220,7 @@ STAGING_DEPARTURE = ("buildDepartStaging", "buildStagingHas", "buildTrainCanDepa
                      "buildStagingEmpty", "buildStagingTooManyCars", "buildStagingTrainTooLong", "buildStagingDepart",
                      "buildStagingCarsBefore", "buildStagingNotDirection",
                      "buildStagingTrackPool", "buildUserSelectedDeparture", "buildOnlyOneDepartureTrack",
-                     "buildErrorStagingEmpty", "buildStagingTrackDepart", "buildUserCanceledDeparture",
+                     "buildErrorStagingEmpty", "buildUserCanceledDeparture",
                      # The one line that names the car or locomotive a departure track was refused for (TBB:1777-1880).
                      "buildStagingDepartCarType", "buildStagingDepartCarRoad", "buildStagingDepartCarLoad",
                      "buildStagingDepartCarOwner", "buildStagingDepartCarBuilt", "buildStagingDepartCarDestination",
@@ -231,7 +231,8 @@ STAGING_TERMINAL = ("buildTerminateStaging", "buildStagingAvail", "buildStagingR
                     "buildStagingTrackOccupied", "buildStagingTrackReserved", "buildStagingTrackType",
                     "buildStagingTrackRoad", "buildStagingTrackLoad", "buildStagingTrackAllRoads",
                     "buildStagingTrackAllLoads", "buildErrorStagingFull", "buildErrorStagingFullNote",
-                    "buildUserSelectedArrival", "buildIgnoreStagingFirstPass", "buildDestinationType")
+                    "buildUserSelectedArrival", "buildIgnoreStagingFirstPass", "buildDestinationType",
+                    "buildStagingTrackDepart")  # TBB:2074, the terminal check: a train still leaving that track
 SEARCH_STARTS = {"buildFindDestinationForCar": "default", "buildSearchForSpur": "custom load",
                  "buildCarRoutingBegins": "router", "buildSearchTrackNewLoad": "generate load",
                  "buildSearchTrackLoadStaging": "generate load for staging", "buildCarDepartHomeDivision": "division",

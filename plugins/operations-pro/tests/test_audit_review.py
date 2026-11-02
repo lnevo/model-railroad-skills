@@ -69,6 +69,13 @@ class ReportReader(unittest.TestCase):
         self.assertEqual(report["unparsed"], [])
         self.assertEqual(report["engines"]["available"], ["Locomotive (JFN 5) at (Carrow, Carrow Yard) is a B unit"])
 
+    def test_a_train_leaving_the_terminal_track_is_a_terminal_note(self):
+        """TBB:2074 prints this from checkTerminateStagingTrack, about a train still on the arrival track."""
+        report = parsed("1- Train terminates into staging at (East Staging), there are 2 tracks",
+                        "5- Train on staging track (East Stage 1) is scheduled to depart")
+        self.assertEqual([r["key"] for r in report["staging"]["departure"]], [])
+        self.assertIn("buildStagingTrackDepart", [r["key"] for r in report["staging"]["terminal"]])
+
 
 if __name__ == "__main__":
     unittest.main()
