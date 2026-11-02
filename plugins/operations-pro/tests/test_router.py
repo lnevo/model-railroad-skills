@@ -2,7 +2,7 @@
 
 jmri_router_oracle.json is what Router.setDestination returned in real JMRI for every car
 on a track, every track as its final destination, and no train or each train named: in
-the demo railroad and in nine scenarios that change settings in memory first. Only the
+the demo railroad and in scenarios that change settings in memory first. Only the
 answers that differ from the demo are kept for a scenario. tests/jmri_router_oracle.py
 regenerates it. The spur search for custom loads is held to the build reports in
 tests/fixtures/demo/buildstatus, where the build state still matched the files.
@@ -37,12 +37,22 @@ def kind(status: str) -> str:
 def railroad(scenario: dict):
     """The demo with a scenario's changes, made the way jmri_router_oracle.py makes them in JMRI."""
     rr = ops_data.load(DEMO / "operations")
+    for name, value in scenario.get("options", {}).items():
+        rr.setup.setdefault("buildOptions", {})[name] = "true" if value else "false"
     for name, value in scenario.get("router", {}).items():
         rr.setup.setdefault("router", {})[name] = "true" if value else "false"
     for track_id, change in scenario.get("tracks", {}).items():
         track = rr.tracks[track_id]
         track.length = change.get("length", track.length)
         track.raw_alternate_id = change.get("alternate", track.raw_alternate_id)
+        if change.get("quickService"):
+            track.load_options |= ops_data.QUICK_SERVICE
+        track.pool = change.get("pool", track.pool)
+        track.ignore_used = change.get("ignoreUsed", track.ignore_used)
+        track.schedule_id = change.get("scheduleId", track.schedule_id)
+    for car_id, change in scenario.get("cars", {}).items():
+        car, track = rr.cars[car_id], rr.tracks[change["destination"]]
+        car.destination_id, car.dest_track_id = track.location_id, track.id
     stops = {s.id: s for r in rr.routes.values() for s in r.stops}
     for stop_id, length in scenario.get("stops", {}).items():
         stops[stop_id].max_length = length
@@ -50,6 +60,8 @@ def railroad(scenario: dict):
         train = rr.trains[train_id]
         train.service_all = change.get("serviceAll", train.service_all)
         train.build = change.get("build", train.build)
+        if "terminationTrack" in change:
+            train.termination_track_id, train.built = change["terminationTrack"], True
     return rr, Gates(rr)
 
 
@@ -57,7 +69,10 @@ def ask(gates, scenario: dict, car_id: str, track_id: str, train_id: str):
     """Router.isCarRouteable on a copy, as the oracle asks JMRI: (returned, status, destination, trains)."""
     rr = gates.rr
     train = rr.trains.get(train_id)
-    building = ops_router.Build() if scenario.get("building") and train else None
+    # JMRI keeps the named train's saved termination track while the oracle marks it building; in a
+    # real build that is the track the build picked, which is what a Build names.
+    building = ops_router.Build(termination_track_id=train.termination_track_id) \
+        if scenario.get("building") and train else None
     router = ops_router.Router(gates, building)
     target = rr.tracks[track_id]
     copy = replace(rr.cars[car_id], kernel="", lead=False, train_id="", fd_id=target.location_id,
@@ -142,6 +157,41 @@ class WhereTheOldSearchWasWrong(unittest.TestCase):
         car = replace(rr.find_car("BVR1001"), fd_id="", fd_track_id="")
         self.assertEqual(router.set_destination(car, rr.locations["1"], rr.tracks["1s2"]), ops_router.OKAY)
         self.assertEqual(router._moves(rr.tracks["1s2"]), rr.tracks["1s2"].moves + 1)
+
+
+class AsLoaded(unittest.TestCase):
+    """State JMRI derives while it loads the files, which the files do not spell out."""
+
+    def test_a_kernel_with_no_lead_flag_is_led_by_its_first_member(self):
+        # RollingStockGroup.add makes the first member the lead (:40-42); a later leadKernel wins (Car:1179).
+        rr = ops_data.load(DEMO / "operations")
+        first, second = rr.cars["BVR3013"], rr.cars["BVR3014"]
+        first.lead = False
+        self.assertTrue(rr.is_kernel_lead(first))
+        self.assertFalse(rr.is_kernel_lead(second))
+        self.assertEqual(rr.kernel_length(first), (rr.car_length(first) or 0) + (rr.car_length(second) or 0))
+        # R:139: only the lead is routed; another member returns before any search.
+        for car, searched in ((second, False), (first, True)):
+            router = ops_router.Router(Gates(rr))
+            router.set_car_destination(replace(car, fd_id="1", fd_track_id="1s1"), None)
+            self.assertEqual(bool(router.steps), searched, car.id)
+        first.lead = second.lead = True
+        self.assertEqual([rr.is_kernel_lead(first), rr.is_kernel_lead(second)], [False, True])
+
+    def test_why_not_orders_tracks_by_moves_as_loaded_and_schedules_only_on_spurs(self):
+        # A destined car bumps its track's moves on load (RS:1490, TR:818); Store left them out (TR:2840).
+        # Track.getScheduleId is empty off a spur (TR:1906), so a yard's stale scheduleId does not lead.
+        rr = ops_data.load(DEMO / "operations")
+        tolvern = rr.locations[rr.tracks["3s2"].location_id]
+        self.assertTrue(rr.tracks["3s2"].schedule_id and rr.tracks["3s2"].is_yard)
+        before = [t.id for t in Gates(rr).track_order(tolvern)]
+        self.assertNotEqual(before[0], "3s2")
+        lowest = before[0]
+        car = rr.cars["BVR4003"]
+        car.destination_id, car.dest_track_id = tolvern.id, lowest
+        after = [t.id for t in Gates(rr).track_order(tolvern)]
+        self.assertNotEqual(after[0], lowest)
+        self.assertEqual(Gates(rr).loaded_moves()[lowest], rr.tracks[lowest].moves + 1)
 
 
 class Orders(unittest.TestCase):
