@@ -264,6 +264,21 @@ class Gates:
                          if self.x.engine.get(e.id, {}).get("destinationId"))
         return total
 
+    def loaded_moves(self) -> dict[str, int]:
+        """Track.getMoves after a load: the stored count plus one for each car and engine destined to the
+        track. Loading sets each destination again (RS:1490), Track.addDropRS bumps moves (TR:818), and
+        Store writes moves less those drops (TR:2840)."""
+        rr = self.rr
+        moves = {t.id: t.moves for t in rr.tracks.values()}
+        destined = [(c.destination_id, c.dest_track_id) for c in rr.cars.values()]
+        destined += [(self.x.engine.get(e.id, {}).get("destinationId", ""), self._engine_dest_track(e))
+                     for e in rr.engines.values()]
+        for location_id, track_id in destined:
+            track = rr.tracks.get(track_id)
+            if track is not None and location_id and track.location_id == location_id:
+                moves[track.id] += 1
+        return moves
+
     def _setouts(self, track: Track) -> int:
         """Track.getReservedLengthSetouts: every car and engine destined to the track, clones included."""
         rr = self.rr
@@ -724,7 +739,7 @@ class Gates:
         problems.extend(self._staging_engines(train, engines))
         caboose = fred = False
         for car in cars:
-            if self._is_clone(car) or (car.kernel and not car.lead):
+            if self._is_clone(car) or (car.kernel and not rr.is_kernel_lead(car)):
                 continue
             problems.extend(self._staging_car(car, train, track))
             right_road = not train.caboose_road or train.caboose_road == car.road
@@ -1520,9 +1535,11 @@ class Gates:
         ids sorted as text, then lowest moves first keeping that order on ties, tracks with a schedule moved
         to the front. JMRI drops alternate tracks; they go last here so they can still be explained."""
         alternates = {t.alternate_id for t in location.tracks if t.alternate_id}
-        ordered = sorted(sorted(location.tracks, key=lambda t: t.id), key=lambda t: t.moves)
+        moves = self.loaded_moves()
+        ordered = sorted(sorted(location.tracks, key=lambda t: t.id), key=lambda t: moves.get(t.id, t.moves))
         main = [t for t in ordered if t.id not in alternates]
-        return ([t for t in main if t.schedule_id] + [t for t in main if not t.schedule_id]
+        scheduled = [t for t in main if t.schedule_id and t.is_spur]  # Only spurs have a schedule (TR:1906).
+        return (scheduled + [t for t in main if t not in scheduled]
                 + [t for t in ordered if t.id in alternates])
 
     def _router_eligible(self, car: Car) -> bool:

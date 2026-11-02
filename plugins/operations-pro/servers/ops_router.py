@@ -21,14 +21,15 @@ when the router is asked outside a build: route moves and train length are then
 never tested (T:2108, 2121). With one, the named train starts empty unless lengths
 and moves are given, and its termination staging track is the one named.
 
-What files cannot settle is listed in "uncertain" rather than guessed: a pool
-lending length, ignored used length, quick service timing, a schedule's random draw.
+What files cannot settle is listed in "uncertain" rather than guessed: quick
+service timing during a build, a schedule's random draw. Pool lending, planned
+pick ups and aggressive mode are worked out from the files as Track does.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-from ops_data import INTERCHANGE, SPUR, STAGING, YARD, Car, Location, Track, Train
+from ops_data import INTERCHANGE, QUICK_SERVICE, SPUR, STAGING, YARD, Car, Location, Track, Train
 
 OKAY = "okay"
 # How a JMRI status string starts decides what the router does next. These are the English
@@ -94,6 +95,15 @@ def java_hashtable_order(keys: list[str]) -> list[str]:
     return [key for i in range(capacity - 1, -1, -1) for key in table[i]]
 
 
+def _minutes(time: str) -> int | None:
+    """TrainCommon.convertStringTime for "days:hours:minutes" or "hours:minutes"; None for other forms."""
+    parts = time.split(":")
+    if len(parts) not in (2, 3) or not all(p.isdigit() for p in parts):
+        return None
+    day, hour, minute = ([0] if len(parts) == 2 else []) + [int(p) for p in parts]
+    return day * 24 * 60 + hour * 60 + minute
+
+
 def _ignore_case(text: str) -> str:
     return text.upper().lower()  # String.compareToIgnoreCase folds each character both ways.
 
@@ -113,6 +123,7 @@ class Router:
         self.uncertain: list[str] = []
         self._service_status: dict[str, str] = {}
         self._bumped: dict[str, int] = {}  # Track.addDropRS bumps moves on each new destination (TR:818).
+        self._loaded_moves = gates.loaded_moves()  # Moves as JMRI holds them after a load.
         self.shown: list[dict] | None = None  # Car.getRoutePath: cleared with the final destination (C:390).
         locations = java_hashtable_order(list(self.rr.locations))
         self._location_order = [self.rr.locations[i] for i in locations]
@@ -135,7 +146,7 @@ class Router:
         return sorted([t for t in tracks if not self._is_alternate(t)], key=self._moves)
 
     def _moves(self, track: Track) -> int:
-        return track.moves + self._bumped.get(track.id, 0)
+        return self._loaded_moves.get(track.id, track.moves) + self._bumped.get(track.id, 0)
 
     def all_tracks(self, kind: str | None) -> list[Track]:
         """LocationManager.getTracks (LM:302)."""
@@ -146,7 +157,9 @@ class Router:
         moved = sorted([t for t in sorted(location.tracks, key=lambda t: t.id) if kind is None or t.type == kind],
                        key=self._moves)
         moved = [t for t in moved if not self._is_alternate(t)]
-        return [t for t in moved if t.schedule_id] + [t for t in moved if not t.schedule_id]
+        # Track.getScheduleId is empty on any track but a spur (TR:1906), whatever the file holds.
+        return ([t for t in moved if t.schedule_id and t.is_spur]
+                + [t for t in moved if not (t.schedule_id and t.is_spur)])
 
     # Car state, as the Java setters change it.
     @staticmethod
@@ -172,27 +185,73 @@ class Router:
         return {g["gate"]: g for g in self.g.check_destination(car, location, track)}
 
     def _space(self, car: Car, track: Track) -> str:
-        """The space part of Track.isRollingStockAccepted (TR:1624-1654)."""
-        rr = self.rr
+        """The space part of Track.isRollingStockAccepted (TR:1631-1660), with the Gates' own counts:
+        reserved less pick ups in aggressive mode (TR:786), set outs, pool lending and planned pick ups."""
+        rr, g = self.rr, self.g
         if track.id in (car.track_id, car.dest_track_id):
             return OKAY
         need = rr.kernel_length(car)
-        used, reserved = rr.used_length(track), rr.reserved_length(track)
-        if used + reserved + need <= track.length:
+        used, reserved, setouts = rr.used_length(track), g._reserved(track), g._setouts(track)
+        if used + reserved + need <= track.length and setouts + need <= track.length:
             return OKAY
-        room = f"{need} needed, {track.length - used - reserved} free of {track.length}"
-        if track.pool:
-            self.uncertain.append(f"{track.name}: pool {track.pool} may lend length ({room})")
+        if track.pool and g._pool_lends(track, need):  # Pool.requestTrackLength
             return OKAY
-        if track.ignore_used:
-            self.uncertain.append(f"{track.name}: ignores {track.ignore_used}% of used length ({room})")
+        if track.ignore_used and g._available(track) >= need:  # checkPlannedPickUps
             return OKAY
-        if track.length < need:
+        pool_length = sum(t.length for t in g._pool(track))
+        if (not track.pool and track.length < need) or (track.pool and pool_length < need):
             return f"{CAPACITY} ({need} longer than track {track.length})"
-        if track.load_options & 128:  # Quick service: space can open up through timing.
-            self.uncertain.append(f"{track.name}: quick service timing ({room})")
-            return OKAY
-        return f"{LENGTH} ({room})"
+        quick = self._quick_service(track, need)
+        if quick is not None:
+            return quick
+        return f"{LENGTH} ({need} needed, {g._available(track)} available of {track.length})"
+
+    def _quick_service(self, track: Track, need: int) -> str | None:
+        """Track.checkQuickServiceTrack (TR:1691-1785); None where JMRI answers DISABLED. Only a train being
+        built counts (TrainManager.getTrainBuilding), and only rolling stock a train will pull frees room."""
+        rr, g = self.rr, self.g
+        if not track.load_options & QUICK_SERVICE or not rr.option("buildOptions", "onTime"):
+            return None
+        if self.build is None:
+            return None
+        train = self._train
+        depart = g.depart_minutes(train) if train is not None else None
+        if depart is None:
+            self.uncertain.append(f"{track.name}: quick service timing, no train or departure time to test")
+            return f"{LENGTH} (quick service)"
+        self.uncertain.append(f"{track.name}: quick service counts pick up times as the files hold them, "
+                              f"not those this build sets")
+        dwell = rr.setup.get("buildOptions", {}).get("dwellTime", "60")
+        dwell = int(dwell) if dwell.isdigit() else 60
+        space = track.length - rr.used_length(track)
+        on = ([(c, g.x.car.get(c.id, {}), rr.car_length(c) or 0, c.train_id)
+               for c in (rr.cars[i] for i in java_hashtable_order(list(rr.cars))) if c.track_id == track.id],
+              [(e, g.x.engine.get(e.id, {}), g._engine_length(e), g.x.engine.get(e.id, {}).get("trainId", ""))
+               for e in (rr.engines[i] for i in java_hashtable_order(list(rr.engines))) if e.track_id == track.id])
+        for group in on:
+            for _, raw, length, train_id in group:
+                pulled = self._route_destination(raw, train_id)
+                pickup = raw.get("pickupTime", "")
+                if pulled and pickup:
+                    minutes = _minutes(pickup)
+                    if minutes is None:
+                        self.uncertain.append(f"{track.name}: pick up time {pickup} cannot be read")
+                        return f"{LENGTH} (quick service)"
+                    if minutes + dwell > depart:
+                        return f"{LENGTH} ({need} needed, pulled at {pickup} after {train.name} departs)"
+                    space += length
+                elif pulled and train_id == train.id and raw.get("lastTrainId", "") != train.id:
+                    space += length
+                if space >= need:
+                    break
+            if space >= need:
+                break
+        return OKAY if space >= need else f"{LENGTH} ({need} needed, {space} available of {track.length})"
+
+    def _route_destination(self, raw: dict, train_id: str) -> bool:
+        """RollingStock.getRouteDestination after a load: a stop on the route of the car's train (RS:1522)."""
+        stop_id, train = raw.get("routeDestinationId", ""), self.rr.trains.get(train_id)
+        return bool(stop_id) and train is not None and any(s.id == stop_id for s in self.rr.stops(train))
 
     def accepted(self, car: Car, track: Track) -> str:
         """Track.isRollingStockAccepted (TR:1572): type, road, length, destination filter, routed, load, space."""
@@ -250,7 +309,7 @@ class Router:
                 car.dest_track_id == car.fd_track_id or not car.fd_track_id):
             car.fd_id = car.fd_track_id = ""  # removeCarFinalDestination (C:901)
             self.shown = None
-        if track is not None and old_track != track.id and track.schedule_id:
+        if track is not None and old_track != track.id and track.schedule_id and track.is_spur:
             # Track.scheduleNext (TR:2101): a held schedule line passes; otherwise the current line or a match.
             schedule = self.rr.schedules.get(track.schedule_id)
             if schedule is None:
@@ -263,6 +322,21 @@ class Router:
     # Train.isServiceable (T:1766) and TrainManager.getTrainForCar (TM:547).
     def _building(self, train: Train) -> bool:
         return self.build is not None and self._train is not None and train.id == self._train.id
+
+    def _termination_track(self, train: Train | None) -> Track | None:
+        """Train.getTerminationTrack. The train being built has the one its build picked (a build clears
+        the old one first, TrainBuilder:256); any other train keeps the one saved when it was last built,
+        looked up at the location its route ends at (T:4274-4281)."""
+        if train is None:
+            return None
+        if self._building(train):
+            return self.rr.tracks.get(self.build.termination_track_id)
+        track = self.rr.tracks.get(train.termination_track_id)
+        stops = self.rr.stops(train)
+        if track is None or not stops:
+            return None
+        end, here = self.rr.locations.get(stops[-1].location_id), self.rr.locations.get(track.location_id)
+        return track if end is not None and here is not None and here.name == end.name else None
 
     def able(self, train: Train, car: Car) -> bool:
         """Train.isTrainAbleToService (T:1985)."""
@@ -422,7 +496,7 @@ class Router:
         if car.track_id not in rr.tracks or car.fd_id not in rr.locations:
             return False
         self.status, self._train, self.path, self.how = OKAY, train, None, ""
-        if car.kernel and not car.lead:
+        if car.kernel and not rr.is_kernel_lead(car):
             return False
         clone = self._clone(car)
         fd, fd_track = rr.locations[car.fd_id], rr.tracks.get(car.fd_track_id)
@@ -631,7 +705,7 @@ class Router:
                     if train is not None and train.id != first.id:
                         self.status = not_this_train(first)
                         continue
-                    terminal = rr.tracks.get(self.build.termination_track_id) if self.build else None
+                    terminal = self._termination_track(first)  # R:669-671
                     if track.is_staging and terminal is not None and terminal.id != track.id:
                         continue
                     self.status = self.set_destination(car, rr.locations[track.location_id], track)
@@ -886,7 +960,7 @@ class Router:
         if specified == NOT_NOW:
             self.steps.append(f"{train.name} cannot reach {track.name} now: {self.service_status(train)}")
             return False
-        terminal = rr.tracks.get(self.build.termination_track_id) if self.build else None
+        terminal = self._termination_track(train)  # R:1221-1224
         if track.is_staging and train is not None and terminal is not None and terminal.id != track.id:
             return False
         self.status = self.set_destination(car, rr.locations[track.location_id], track)

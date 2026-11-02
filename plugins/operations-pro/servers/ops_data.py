@@ -308,6 +308,8 @@ class Train:
     leg3_options: int = 0
     # Leg 2 and leg 3 as Train.store writes them (Train:4549-4573): only legs with options, stops by id.
     legs: list[dict] = field(default_factory=list)
+    # The staging track a built train was sent to, kept until the train is reset (Train:4274-4281, 4385).
+    termination_track_id: str = ""
 
     @property
     def changes_caboose(self) -> bool:
@@ -675,7 +677,8 @@ class Railroad:
                 send_custom_staging=e.get("sendCustomStaging") == "true",
                 service_all=e.get("serviceAll") == "true",
                 leg2_options=_int(e.get("leg2Options")), leg3_options=_int(e.get("leg3Options")),
-                legs=_legs(e))
+                legs=_legs(e),
+                termination_track_id=e.get("terminationTrack", ""))
             self.trains[train.id] = train
         for schedule in root.findall("./schedules/schedule"):
             self.train_schedules[schedule.get("id", "")] = schedule.get("name", "")
@@ -829,10 +832,22 @@ class Railroad:
         except ValueError:
             return None
 
+    def is_kernel_lead(self, car: Car) -> bool:
+        """Kernel.isLead after a load: the last member read with leadKernel, else the first member read
+        (Car:1179-1180, RollingStockGroup.add:40-42)."""
+        if not car.kernel:
+            return False
+        members = [c for c in self.cars.values() if c.kernel == car.kernel]
+        if not any(m.id == car.id for m in members):
+            return car.lead  # A copy outside the roster keeps its own flag.
+        flagged = [m for m in members if m.lead]
+        lead = flagged[-1] if flagged else members[0]
+        return lead.id == car.id
+
     def kernel_length(self, car: Car) -> int:
         """A kernel lead counts for the whole kernel; other cars count alone."""
         members = [car]
-        if car.kernel and car.lead:
+        if car.kernel and self.is_kernel_lead(car):
             members = [c for c in self.cars.values() if c.kernel == car.kernel]
         return sum(self.car_length(c) or 0 for c in members)
 
