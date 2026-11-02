@@ -1023,7 +1023,10 @@ def report_path(ops_dir: str | Path, train: str) -> Path:
 def explain_file(path: str | Path, car: str | None = None, detail: str = "normal") -> dict:
     path = Path(path)
     if not path.is_file():
-        raise FileNotFoundError(f"No build report at {path}. JMRI writes one in buildstatus when a train is built.")
+        raise FileNotFoundError(f"No build report at {path}. JMRI writes one in buildstatus when a train is built. "
+                                "A dry run works on a copy and returns its reports in its own result. With Build on "
+                                "time on, a train out of time order is refused before any report is written: "
+                                "ops_why_not gate A2.")
     result = explain(path.read_text(encoding="utf-8", errors="replace"), car, detail)
     result["path"] = str(path)
     return result

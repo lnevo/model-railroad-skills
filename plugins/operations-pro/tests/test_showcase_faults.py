@@ -169,3 +169,18 @@ class StagingCause(Faults):
         self.assertIn("East Swap", message)
         self.assertIn("D12", message)
         self.assertNotIn("Carrow Packing", message)
+
+
+class OnTimeAbort(unittest.TestCase):
+    def test_a_refused_train_says_why(self):
+        import ops_jmri
+        row = {"built": False, "failed": False, "message": "Error"}
+        text = ops_jmri._refused_before_build("LOCAL-B", row, [
+            "x main ERROR Train (LOCAL-B) departs at 0:09:00, train (LOCAL-H) already built departs at 0:10:00"])
+        self.assertIn("LOCAL-H", text)
+        self.assertIn("A2", text)
+
+    def test_a_failed_build_is_not_called_refused(self):
+        import ops_jmri
+        self.assertEqual(ops_jmri._refused_before_build("T", {"built": False, "failed": True, "message": "Error"}, []), "")
+        self.assertEqual(ops_jmri._refused_before_build("T", {"built": True, "failed": False, "message": "Built"}, []), "")

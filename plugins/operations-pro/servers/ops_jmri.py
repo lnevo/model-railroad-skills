@@ -22,6 +22,8 @@ SEARCH = ("/Applications/JMRI", "/opt/JMRI", "/usr/local/JMRI", "~/JMRI", r"C:\P
 WORKER = Path(__file__).with_name("jmri_worker.py")
 TESTED = "5.16"
 TIMEOUT = 300
+LOG_ERRORS = 40  # lines kept; a refused build order logs one for each train
+SUMMARY_CARS = 25  # cars listed per train in a dry run summary
 
 
 def jmri_home() -> Path | None:
@@ -34,6 +36,16 @@ def jmri_home() -> Path | None:
 def java_command() -> str:
     home = os.environ.get("JAVA_HOME")
     return str(Path(home) / "bin" / "java") if home else "java"
+
+
+def _refused_before_build(name: str, row: dict, log_errors: list[str]) -> str:
+    """Train.build returns before any report when checkBuildOrder refuses (Train:3193-3196): status Error, no
+    failure flag, and only a log line says why (TrainManager:1107-1118)."""
+    if row["built"] or row["failed"] or row["message"] != "Error":
+        return ""
+    line = next((e for e in log_errors if f"Train ({name}) departs" in e), "")
+    why = line.split(" ERROR ", 1)[-1] if line else "no log line names it"
+    return f"Build on time refused this train before building, so there is no report: {why}. See gate A2."
 
 
 def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
@@ -65,11 +77,14 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
             raise Refused("JMRI stopped without a result: " + (done.stderr or done.stdout)[-800:])
         result = json.loads(output.read_text(encoding="utf-8"))
         result["log_errors"] = [line[:240] for line in (done.stdout + done.stderr).splitlines()
-                                if " ERROR " in line or "Exception" in line][:20]
-        for row in result.get("builds", {}).values():
+                                if " ERROR " in line or "Exception" in line][:LOG_ERRORS]
+        for name, row in result.get("builds", {}).items():
             report = Path(row.pop("report", "") or "/nonexistent")
             text = report.read_text(encoding="utf-8", errors="replace") if report.is_file() else ""
             row["report_text"], row["report_tail"] = text, text[-1500:]
+            refused = _refused_before_build(name, row, result["log_errors"])
+            if refused:
+                row["refused_before_build"] = refused
         if keep is not None:
             for name in FILES:
                 if (operations / name).is_file():
@@ -164,7 +179,8 @@ def build_check(plan_id: str, runs: int = 4) -> dict:
             "now_build": sorted(n for n in after if built(after[n]) and not built(before.get(n, []))),
             "varies_by_itself": sorted(n for n, rows in before.items() if len(rows) > 1),
             "changed": changed, "possibly_changed": possibly,
-            "failures_after": {n: r["message"] for n, r in last["builds"].items() if r["failed"]},
+            "failures_after": {n: r.get("refused_before_build") or r["message"] for n, r in last["builds"].items()
+                                if r["failed"] or r.get("refused_before_build")},
             "jmri_log_errors": last["log_errors"], "notes": _version_note(last)}
 
 
