@@ -2114,9 +2114,11 @@ class Audit:
         return out
 
     def _first_refusal(self, car: Car, train: Train, stops: list[Stop]) -> str:
-        """Empty when some track at a later stop passes every gate the files decide; else the first refusal."""
-        first = ""
-        for location_id in dict.fromkeys(s.location_id for s in stops[1:]):
+        """Empty when some track at a later stop passes every gate the files decide; else the closest refusal:
+        fewest failures, then a track open to this train, then the later stop, since that is where the car was
+        nearest to going. The first track tried says little: a spur on the way often refuses it by design."""
+        closest, best = "", None
+        for position, location_id in enumerate(dict.fromkeys(s.location_id for s in stops[1:])):
             location = self.rr.locations.get(location_id)
             if location is None:
                 continue
@@ -2125,8 +2127,10 @@ class Audit:
                          if g["status"] == FAIL and g["gate"] not in self.SKIP_FOR_STUCK]
                 if not fails:
                     return ""
-                first = first or f"{fails[0]['gate']} at {target.name}: {fails[0]['reason']}"
-        return first or "no stop after the departure"
+                rank = (len(fails), not target.accepts_drop(train), -position)
+                if best is None or rank < best:
+                    best, closest = rank, f"{fails[0]['gate']} at {target.name}: {fails[0]['reason']}"
+        return closest or "no stop after the departure"
 
     def _unserved_types(self, train: Train, stops: list[Stop]) -> set[str]:
         """Car types no track at a later stop of this train takes (with its location)."""

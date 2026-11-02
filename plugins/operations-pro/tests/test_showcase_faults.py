@@ -157,3 +157,15 @@ class AuditSample(Faults):
         with mock.patch.object(gates, "route_path", return_value=None):
             rules = [(f["rule"], f["subject"]) for f in gates.audit()["findings"]]
         self.assertIn(("single-destination-schedule", "Grain Co Loads"), rules)
+
+
+class StagingCause(Faults):
+    def test_an_occupied_terminal_track_is_named(self):
+        """F6: the closest refusal is the occupied terminal track, not the first spur on the route."""
+        copy = self.copy()
+        plan = ops_store.plan(copy, [{"action": "update_track", "location": "East Staging", "track": "East Swap",
+                                      "ignore_used_percent": 0}])
+        message = next(f["message"] for f in plan["new_findings"] if f["rule"] == "staging-departure-blocked")
+        self.assertIn("East Swap", message)
+        self.assertIn("D12", message)
+        self.assertNotIn("Carrow Packing", message)
