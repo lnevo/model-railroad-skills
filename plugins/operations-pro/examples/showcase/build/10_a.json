@@ -1,0 +1,874 @@
+[
+ {
+  "plan": [
+   {
+    "action": "add_track",
+    "location": "West Staging",
+    "name": "West Custom",
+    "type": "Staging",
+    "length": 400
+   },
+   {
+    "action": "add_track",
+    "location": "West Staging",
+    "name": "West Mixed",
+    "type": "Staging",
+    "length": 400
+   },
+   {
+    "action": "add_track",
+    "location": "West Staging",
+    "name": "West Swap",
+    "type": "Staging",
+    "length": 500
+   },
+   {
+    "action": "add_track",
+    "location": "West Staging",
+    "name": "West Mode",
+    "type": "Staging",
+    "length": 400
+   },
+   {
+    "action": "add_track",
+    "location": "West Staging",
+    "name": "Turn A",
+    "type": "Staging",
+    "length": 500
+   },
+   {
+    "action": "add_track",
+    "location": "West Staging",
+    "name": "Turn B",
+    "type": "Staging",
+    "length": 500
+   },
+   {
+    "action": "add_track",
+    "location": "East Staging",
+    "name": "East Mixed",
+    "type": "Staging",
+    "length": 400
+   },
+   {
+    "action": "add_track",
+    "location": "East Staging",
+    "name": "East Swap",
+    "type": "Staging",
+    "length": 500
+   },
+   {
+    "action": "add_track",
+    "location": "East Staging",
+    "name": "East Mode",
+    "type": "Staging",
+    "length": 400
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Stockyard",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Stock"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Engine Track",
+    "type": "Interchange",
+    "length": 100,
+    "types": [
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Linden",
+    "name": "Linden Refinery",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Tank Gas"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Linden",
+    "name": "Linden Team",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Gondola"
+    ]
+   },
+   {
+    "action": "add_industry",
+    "location": "Linden",
+    "name": "Linden Steel",
+    "length": 200,
+    "lines": [
+     {
+      "type": "Flatcar",
+      "receive": "Girder",
+      "ship": "E"
+     }
+    ],
+    "types": [
+     "Flatcar"
+    ]
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "plan": [
+   {
+    "action": "setup_custom_staging",
+    "track": "West Custom",
+    "location": "West Staging",
+    "ship_loads": [
+     "Machinery"
+    ]
+   },
+   {
+    "action": "setup_custom_staging",
+    "track": "West Mixed",
+    "location": "West Staging",
+    "ship_loads": [
+     "Machinery"
+    ],
+    "local_route_only": true,
+    "ship_empties": true
+   },
+   {
+    "action": "update_track",
+    "track": "West Custom",
+    "location": "West Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "CUSTOM"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "CUSTOM"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "West Mixed",
+    "location": "West Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "MIXED"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "MIXED"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "East Mixed",
+    "location": "East Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "MIXED"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "MIXED"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "West Swap",
+    "location": "West Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "SWAP-E"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "SWAP-W"
+     ]
+    },
+    "ignore_used_percent": 100
+   },
+   {
+    "action": "update_track",
+    "track": "East Swap",
+    "location": "East Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "SWAP-W"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "SWAP-E"
+     ]
+    },
+    "ignore_used_percent": 100
+   },
+   {
+    "action": "update_track",
+    "track": "West Mode",
+    "location": "West Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "MODE"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "MODE"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "East Mode",
+    "location": "East Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "MODE"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "MODE"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Turn A",
+    "location": "West Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "TURN"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "TURN"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Turn B",
+    "location": "West Staging",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "TURN"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "TURN"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Stockyard",
+    "location": "Brae",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "MODX"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Linden Refinery",
+    "location": "Linden",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "HZMX"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Linden Steel",
+    "location": "Linden",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "HZMX"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Linden Team",
+    "location": "Linden",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "TRNX"
+     ]
+    }
+   },
+   {
+    "action": "setup_interchange",
+    "track": "Brae Engine Track",
+    "location": "Brae",
+    "set_out_by": [
+     "MODE"
+    ],
+    "pulled_by": [
+     "MODE"
+    ]
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Engine Track",
+    "location": "Brae",
+    "ignore_used_percent": 100
+   },
+   {
+    "action": "set_train_leg",
+    "train": "MODE",
+    "leg": 2,
+    "locos": "change",
+    "start": "Brae",
+    "engines": 1
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "plan": [
+   {
+    "action": "add_engine",
+    "road": "JFN",
+    "number": "51",
+    "model": "GP9",
+    "type": "Diesel",
+    "length": 56,
+    "hp": 1750,
+    "weight_tons": 120,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07][U13] Lead of the West Pair consist."
+   },
+   {
+    "action": "add_engine",
+    "road": "JFN",
+    "number": "52",
+    "model": "GP9",
+    "type": "Diesel",
+    "length": 56,
+    "hp": 1750,
+    "weight_tons": 120,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07][U13] Second unit of the West Pair consist."
+   },
+   {
+    "action": "add_engine",
+    "road": "JFN",
+    "number": "53",
+    "model": "GP9",
+    "type": "Diesel",
+    "length": 56,
+    "hp": 1750,
+    "weight_tons": 120,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07][U13] Lead of the East Pair consist."
+   },
+   {
+    "action": "add_engine",
+    "road": "JFN",
+    "number": "54",
+    "model": "GP9",
+    "type": "Diesel",
+    "length": 56,
+    "hp": 1750,
+    "weight_tons": 120,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07][U13] Second unit of the East Pair consist."
+   },
+   {
+    "action": "add_engine",
+    "road": "JFN",
+    "number": "55",
+    "model": "GP9",
+    "type": "Diesel",
+    "length": 56,
+    "hp": 1750,
+    "weight_tons": 120,
+    "location": "West Staging",
+    "track": "West Mode",
+    "comment": "[U12][U13] Power that leaves West Mode and is changed at Brae."
+   },
+   {
+    "action": "add_engine",
+    "road": "JFN",
+    "number": "56",
+    "model": "GP9",
+    "type": "Diesel",
+    "length": 56,
+    "hp": 1750,
+    "weight_tons": 120,
+    "location": "Brae",
+    "track": "Brae Engine Track",
+    "comment": "[U13] Power waiting at Brae for the locomotive change."
+   },
+   {
+    "action": "add_engine",
+    "road": "JFN",
+    "number": "57",
+    "model": "GP9",
+    "type": "Diesel",
+    "length": 56,
+    "hp": 1750,
+    "weight_tons": 120,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[INFRA][U13] Spare locomotive; rested with a high move count."
+   },
+   {
+    "action": "set_consist",
+    "name": "West Pair",
+    "engines": [
+     "JFN51",
+     "JFN52"
+    ],
+    "lead": "JFN51"
+   },
+   {
+    "action": "set_consist",
+    "name": "East Pair",
+    "engines": [
+     "JFN53",
+     "JFN54"
+    ],
+    "lead": "JFN53"
+   },
+   {
+    "action": "set_engine_moves",
+    "moves": {
+     "JFN57": 200
+    }
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "plan": [
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "601",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Custom",
+    "comment": "[U06] Empty boxcar that leaves West Custom with a generated load."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "602",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Custom",
+    "comment": "[U06] Empty boxcar that leaves West Custom with a generated load."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "603",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Custom",
+    "comment": "[U06] Empty boxcar that leaves West Custom with a generated load."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "604",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Custom",
+    "comment": "[U06] Empty boxcar that leaves West Custom with a generated load."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "611",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mixed",
+    "comment": "[U06] Empty boxcar on the mixed staging track; takes a generated load."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "612",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mixed",
+    "comment": "[U06] Empty boxcar on the mixed staging track; takes a generated load."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "613",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mixed",
+    "comment": "[U06] Empty boxcar on the mixed staging track; takes a generated load."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "614",
+    "type": "Gondola",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mixed",
+    "comment": "[U06] Empty gondola with no custom load; leaves as an empty."
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "1",
+    "type": "Coal",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07] Loaded coal car that swaps to East Swap.",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "2",
+    "type": "Coal",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07] Loaded coal car that swaps to East Swap.",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "3",
+    "type": "Coal",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07] Loaded coal car that swaps to East Swap.",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "4",
+    "type": "Coal",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07] Loaded coal car that swaps to East Swap.",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "5",
+    "type": "Coal",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07] Loaded coal car that swaps to East Swap.",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "6",
+    "type": "Coal",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Swap",
+    "comment": "[U07] Loaded coal car that swaps to East Swap.",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "11",
+    "type": "Coal",
+    "length": 40,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07] Empty coal car that swaps to West Swap."
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "12",
+    "type": "Coal",
+    "length": 40,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07] Empty coal car that swaps to West Swap."
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "13",
+    "type": "Coal",
+    "length": 40,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07] Empty coal car that swaps to West Swap."
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "14",
+    "type": "Coal",
+    "length": 40,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07] Empty coal car that swaps to West Swap."
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "15",
+    "type": "Coal",
+    "length": 40,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07] Empty coal car that swaps to West Swap."
+   },
+   {
+    "action": "add_car",
+    "road": "SWPX",
+    "number": "16",
+    "type": "Coal",
+    "length": 40,
+    "location": "East Staging",
+    "track": "East Swap",
+    "comment": "[U07] Empty coal car that swaps to West Swap."
+   },
+   {
+    "action": "add_car",
+    "road": "MODX",
+    "number": "1",
+    "type": "Stock",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mode",
+    "comment": "[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode."
+   },
+   {
+    "action": "add_car",
+    "road": "MODX",
+    "number": "2",
+    "type": "Stock",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mode",
+    "comment": "[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode."
+   },
+   {
+    "action": "add_car",
+    "road": "MODX",
+    "number": "3",
+    "type": "Stock",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mode",
+    "comment": "[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode."
+   },
+   {
+    "action": "add_car",
+    "road": "MODX",
+    "number": "4",
+    "type": "Stock",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mode",
+    "comment": "[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode."
+   },
+   {
+    "action": "add_car",
+    "road": "MODX",
+    "number": "5",
+    "type": "Stock",
+    "length": 40,
+    "location": "West Staging",
+    "track": "West Mode",
+    "comment": "[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode."
+   },
+   {
+    "action": "add_car",
+    "road": "HZMX",
+    "number": "1",
+    "type": "Tank Gas",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[U22] Hazardous loaded tank car.",
+    "load": "L",
+    "hazardous": true
+   },
+   {
+    "action": "add_car",
+    "road": "HZMX",
+    "number": "2",
+    "type": "Tank Gas",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[U22] Hazardous loaded tank car.",
+    "load": "L",
+    "hazardous": true
+   },
+   {
+    "action": "add_car",
+    "road": "HZMX",
+    "number": "3",
+    "type": "Tank Gas",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[U22] Hazardous loaded tank car.",
+    "load": "L",
+    "hazardous": true
+   },
+   {
+    "action": "add_car",
+    "road": "HZMX",
+    "number": "9",
+    "type": "Buffer",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[U22] Buffer car: passenger flag and blocking -1 put it first out of staging.",
+    "passenger": true,
+    "blocking": -1
+   },
+   {
+    "action": "add_car",
+    "road": "HZMX",
+    "number": "11",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[U22] Flatcar loaded with girders; lead of kernel Girder Load.",
+    "load": "Girder"
+   },
+   {
+    "action": "add_car",
+    "road": "HZMX",
+    "number": "12",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[U22] Idler flatcar in kernel Girder Load."
+   },
+   {
+    "action": "add_car",
+    "road": "HZMX",
+    "number": "13",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[U22] Idler flatcar in kernel Girder Load."
+   },
+   {
+    "action": "add_car",
+    "road": "TRNX",
+    "number": "1",
+    "type": "Gondola",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[R19] Empty gondola for Linden Team."
+   },
+   {
+    "action": "add_car",
+    "road": "TRNX",
+    "number": "2",
+    "type": "Gondola",
+    "length": 40,
+    "location": "West Staging",
+    "track": "Turn A",
+    "comment": "[R19] Empty gondola for Linden Team."
+   },
+   {
+    "action": "add_car",
+    "road": "TRNX",
+    "number": "3",
+    "type": "Gondola",
+    "length": 40,
+    "location": "Linden",
+    "track": "Linden Team",
+    "comment": "[R19] Loaded gondola that comes back to staging.",
+    "load": "L"
+   },
+   {
+    "action": "set_kernel",
+    "name": "Girder Load",
+    "cars": [
+     "HZMX11",
+     "HZMX12",
+     "HZMX13"
+    ],
+    "lead": "HZMX11"
+   }
+  ],
+  "accept_new_errors": true
+ }
+]
