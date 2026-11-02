@@ -306,5 +306,33 @@ class StagingCabooses(AuditCase):
         self.assertEqual(len(found), 1, found)
         self.assertIn("BOXX 999", found[0]["message"])
 
+class GeneratedLoads(AuditCase):
+    def only_machinery(self):
+        edits = self.edits()
+        rr = ops_data.load(edits.folder)
+        for track in rr.locations["3"].tracks:
+            if track.id != "3s11":
+                edits.drop_type(edits.track(track.id), "Boxcar")
+        edits.track("3s11").find("types").append(ET.Element("carType", {"name": "Boxcar"}))
+        edits.add_schedule("99", "3s11", [("Boxcar", "Machinery", "E")])
+        return edits
+
+    def test_a_load_the_track_generates_finds_the_spur(self):
+        """TBC:546 generates the load before looking for a destination: all four empties on West Custom went to
+        Carrow Packing as Machinery in the real build, though nothing at Carrow takes E."""
+        edits = self.only_machinery()
+        self.assertEqual([f for f in self.findings(edits, "staging-departure-blocked") if f["subject"] == "CUSTOM"], [])
+
+    def test_a_load_the_train_refuses_is_not_generated(self):
+        """TBB:2275 skips a line whose load the train refuses, so the empties stay stuck."""
+        edits = self.only_machinery()
+        train = edits.train("CUSTOM")
+        train.set("carLoadOption", "Exclude")
+        ET.SubElement(train.find("carLoads") if train.find("carLoads") is not None else
+                      ET.SubElement(train, "carLoads"), "carLoad", {"name": "Machinery"})
+        found = [f for f in self.findings(edits, "staging-departure-blocked") if f["subject"] == "CUSTOM"]
+        self.assertEqual(len(found), 1, found)
+
+
 if __name__ == "__main__":
     unittest.main()

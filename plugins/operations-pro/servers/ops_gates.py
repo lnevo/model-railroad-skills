@@ -2144,7 +2144,54 @@ class Audit:
                 rank = (len(fails), not target.accepts_drop(train), -position)
                 if best is None or rank < best:
                     best, closest = rank, f"{fails[0]['gate']} at {target.name}: {fails[0]['reason']}"
+        if self._generated_load_leaves(car, train, stops):
+            return ""
         return closest or "no stop after the departure"
+
+    def _load_lines(self, car: Car, train: Train, track: Track, spur: Track) -> list[ScheduleItem]:
+        """The lines of spur's schedule the builder could fill this car from on track (TBB:2194-2303):
+        custom Receive, the car's type and road, a load the train and track allow, the active day. A random
+        line may or may not be drawn, so it counts."""
+        rr = self.rr
+        schedule = rr.schedules.get(spur.schedule_id)
+        if schedule is None or car.type not in spur.types or car.type not in rr.locations[spur.location_id].types:
+            return []
+        items = schedule.items
+        if spur.schedule_mode != MATCH:  # Sequential mode looks at the current line alone.
+            items = [i for i in items if i.id == spur.item_id] or items[:1]
+        return [i for i in items if i.type == car.type and i.receive and not rr.is_default_load(i.receive)
+                and i.road in ("", car.road) and train.accepts_load(i.receive, i.type)
+                and track.ships_load(i.receive, i.type)
+                and (not i.setout_day or i.setout_day == rr.active_schedule)]
+
+    def _generated_load_leaves(self, car: Car, train: Train, stops: list[Stop]) -> bool:
+        """generateCarLoadFromStaging (TBC:627-766) runs before the search for a destination (TBC:546), so an
+        empty in generating staging leaves if a spur's line gives it a load that reaches that spur. Staging
+        to staging generation (TBC:776) is not followed here."""
+        rr = self.rr
+        track = rr.tracks.get(car.track_id)
+        if track is None or not track.is_staging or not track.load_options & (GENERATE | GENERATE_ANY_SPUR) \
+                or car.load != rr.default_empty or car.destination_id or car.fd_id:
+            return False
+        places = self._places_for(car, train, stops)
+        on_route = {s.location_id for s in stops}
+        for spur in rr.tracks.values():
+            if not spur.is_spur or not track.accepts_destination(spur.location_id):
+                continue
+            if track.load_options & GENERATE and spur.location_id not in on_route:
+                continue  # TBC:686-690: this option keeps to the train's own route.
+            if (car.caboose or car.fred) and spur.location_id not in places:
+                continue  # TBC:88, 249 pass the leg end as rld.
+            for item in self._load_lines(car, train, track, spur):
+                loaded = replace(car, load=item.receive)
+                if spur.location_id in places:
+                    location = rr.locations[spur.location_id]
+                    if not any(g["status"] == FAIL and g["gate"] not in self.SKIP_FOR_STUCK
+                               for g in self.g.evaluate(loaded, train, location, spur)):
+                        return True
+                elif self.g.route_path(replace(loaded, fd_id=spur.location_id, fd_track_id=spur.id), spur):
+                    return True
+        return False
 
     def _unserved_types(self, train: Train, stops: list[Stop]) -> set[str]:
         """Car types no track at a later stop of this train takes (with its location)."""
