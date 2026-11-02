@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace
+from datetime import datetime
 
 import ops_build_state
 import ops_router
@@ -22,6 +23,7 @@ from ops_data import (
 PASS, FAIL, NOT_CHECKED = "pass", "fail", "not_checked"
 CLONE_MARK = "-(Clone)"  # RollingStock.CLONE: a quick service copy carries this after its number.
 JAVA_INT = re.compile(r"[+-]?\d+")  # What Integer.parseInt accepts.
+DATE_FORMATS = ("%m/%d/%Y %H:%M:%S", "%m/%d/%Y %I:%M%p", "%m/%d/%Y %H:%M")  # TrainCommon.convertStringToDate, in order.
 
 
 def _jdiv(a: int, b: int) -> int:
@@ -121,7 +123,7 @@ GATES: dict[str, tuple[str, str, str]] = {
            "tracks, so a full track counts as leaving; or empty a track. When the reason is a type, road or load: "
            "what the staging track and its location take, or Settings, staging restriction"),
     "A8": ("Departure staging has a track this train can take whole", TRACK,
-           "what the reason names for each track: the Pick ups list; a car or locomotive the train does not take "
+           "what the reason names for each track: the Pick ups list; a track's turn in a FIFO or LIFO pool; a car or locomotive the train does not take "
            "(Edit Train types, roads, loads, owners, built dates); a locomotive count other than the number on the "
            "track (ask for that number, or 0); the track direction; Moves and Max Length at the first stop"),
     "A9": ("Locomotives the train asks for are found", TRAIN,
@@ -764,7 +766,44 @@ class Gates:
             problems.append(f"no caboose of road {train.caboose_road or 'any'}")
         if train.requires & REQUIRES_FRED and not fred:
             problems.append(f"no FRED car of road {train.caboose_road or 'any'}")
+        problems.extend(self._pool_order(train, track)[0])
         return problems
+
+    def _last_move(self, car: Car) -> datetime:
+        """RollingStock.getLastMoveDate. A blank or unreadable date keeps the default, earlier than any real one."""
+        text = self.x.car.get(car.id, {}).get("date", "")
+        for form in DATE_FORMATS:
+            try:
+                return datetime.strptime(text, form)
+            except ValueError:
+                continue
+        return datetime.min
+
+    def _pool_order(self, train: Train, track: Track) -> tuple[list[str], list[str]]:
+        """checkStagingPool (TBB:1974-2029), as (problems, doubts): FIFO departs the pool track whose cars came
+        first, LIFO the one whose cars came last. Java compares the first car it lists on each track, by the
+        priorities and moves of the build; a comparison that car could change is a doubt, not a verdict."""
+        order = self.x.track.get(track.id, {}).get("order", "Normal")
+        if not track.pool or order not in ("FIFO", "LIFO"):  # Track.getServiceOrder (Track:1850).
+            return [], []
+
+        def dates(where: Track) -> list[datetime]:  # getAvailableTrainList: no train, or this one.
+            return [self._last_move(c) for c in self.rr.rolling_stock_on(where)[0]
+                    if not c.train_id or c.train_id == train.id]
+
+        mine = dates(track)
+        problems, doubts = [], []
+        for other in self._pool(track):
+            theirs = dates(other) if other is not track else []
+            if not mine or not theirs:
+                continue
+            earlier, later = (theirs, mine) if order == "FIFO" else (mine, theirs)
+            if max(earlier) < min(later):
+                problems.append(f"{order} pool {track.pool}: {other.name} departs first")
+            elif min(earlier) < max(later):
+                doubts.append(f"{order} pool {track.pool}: the dates on {other.name} overlap this track's, so the "
+                              "first car the build lists decides")
+        return problems, doubts
 
     def staging_doubts(self, train: Train, track: Track) -> list[str]:
         """What the files cannot settle about departing this staging track, once staging_problems is empty."""
@@ -772,8 +811,7 @@ class Gates:
         doubts = []
         if not train.engines.isdigit():
             doubts.append(f"locomotive count {train.engines} is worked out during the build")
-        # FIFO/LIFO order is not a doubt: TrainBuilderBase.sortCarsOnFifoLifoTracks (TBB:1167) skips staging
-        # tracks, and a staging departure takes every car on the track whatever its order.
+        doubts.extend(self._pool_order(train, track)[1])
         doubts.extend(self._loco_change_doubts(train, track))
         return doubts
 

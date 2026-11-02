@@ -10,8 +10,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "servers"))
 sys.path.insert(0, str(ROOT / "tests"))
 
+import ops_data  # noqa: E402
+from ops_gates import Gates  # noqa: E402
 from test_showcase_faults import Faults  # noqa: E402
 
 FILES = {"locations": "OperationsLocationRoster.xml", "cars": "OperationsCarRoster.xml",
@@ -154,6 +157,59 @@ class DropDirection(Review):
             x.track("9s5").set("dir", "1")
         out = self.why_not(self.scenario(change), "JFN 5901", "Oakhaven", "Plant Overflow", "LOCAL-H")
         self.assertEqual(self.gate(out, "D14")["status"], "fail")
+
+
+def turn_ends_at_carrow(x):
+    """TURN out of West Staging with Turn A as it stands, ending at Carrow so no terminal track is in question."""
+    stop = x.stop("17r3")
+    stop.attrib.update(name="Carrow", locationId="3")
+    x.car("HZMX9").attrib.update(locationId="3", secLocationId="3s1")
+
+
+def pooled(x, order):
+    """Turn A and Turn B in one pool, Turn A's cars arrived in 2026 and Turn B's one car in 2020."""
+    turn_ends_at_carrow(x)
+    for track in ("1s5", "1s6"):
+        x.track(track).attrib.update(pool="P", order=order, minLength="0")
+    for car in x.root("cars").findall("./cars/car"):
+        if car.get("secLocationId") == "1s5":
+            car.set("date", "06/01/2026 10:00:00")
+    x.add_car("TSTX901", "TRNX1", roadNumber="901", secLocationId="1s6", date="01/01/2020 10:00:00")
+
+
+class StagingPool(Review):
+    def test_fifo_departs_the_track_that_filled_first(self):
+        """Real build: Turn A rejected, the train departs Turn B and takes TRNX 901 (TBB:1763, 1974-2029)."""
+        folder = self.scenario(lambda x: pooled(x, "FIFO"))
+        gates = Gates(ops_data.load(folder))
+        self.assertTrue(any("first" in p for p in gates.staging_problems(
+            gates.rr.find_train("TURN"), gates.rr.find_track("Turn A"))))
+        self.assertEqual(self.gate(self.why_not(folder, "TRNX 1", "Linden", None, "TURN"), "B20")["status"], "fail")
+        out = self.why_not(folder, "TRNX 901", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "pass")
+        self.assertEqual(self.gate(out, "B20")["status"], "pass")
+
+    def test_lifo_departs_the_track_that_filled_last(self):
+        folder = self.scenario(lambda x: pooled(x, "LIFO"))
+        self.assertEqual(self.gate(self.why_not(folder, "TRNX 1", "Linden", None, "TURN"), "B20")["status"], "pass")
+        self.assertEqual(self.gate(self.why_not(folder, "TRNX 901", "Linden", None, "TURN"), "B20")["status"], "fail")
+
+    def test_mixed_dates_are_left_to_the_build(self):
+        """checkStagingPool reads the first car listed, and the list order is the builder's."""
+        def change(x):
+            pooled(x, "FIFO")
+            x.add_car("TSTX902", "TRNX1", roadNumber="902", secLocationId="1s6", date="01/01/2030 10:00:00")
+        out = self.why_not(self.scenario(change), "TRNX 1", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "not_checked")
+
+    def test_no_pool_ignores_the_service_order(self):
+        """Track.getServiceOrder answers Normal for staging outside a pool (Track:1850)."""
+        def change(x):
+            turn_ends_at_carrow(x)
+            for track in ("1s5", "1s6"):
+                x.track(track).set("order", "FIFO")
+        out = self.why_not(self.scenario(change), "TRNX 1", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "pass")
 
 
 if __name__ == "__main__":
