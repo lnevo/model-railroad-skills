@@ -1179,7 +1179,6 @@ class Gates:
         here = rr.locations.get(car.location_id)
         if stop is None or track is None or here is None:
             return [gate(c, NOT_CHECKED, "no pick up stop on this route") for c in codes]
-        local = goal is not None and goal.split == stop.split
         switcher = self._is_switcher(train)
         out = [gate("C1", stop.id not in train.skips, f"stop {stop.id}")]
         out.append(gate("C2", stop.pickups or stop.local, f"pick ups {stop.pickups}, local {stop.local}"))
@@ -1187,7 +1186,14 @@ class Gates:
         out.append(gate("C4", switcher or bool(stop.direction & here.dir),
                         f"{stop.id} {directions(stop.direction)}, {here.name} {directions(here.dir)}"))
         out.append(gate("C5", stop.max_moves > 0, f"moves {stop.max_moves}"))
-        out.append(gate("C6", stop.pickups or local or car.fd_id == stop.location_id, f"pick ups {stop.pickups}"))
+        # TBC:498-500 tests what the car holds, never the what-if: Car.isLocalMove compares the assigned destination
+        # with the car's location (Car:619-622), and the final destination is compared with the stop.
+        assigned, final = rr.locations.get(car.destination_id), rr.locations.get(car.fd_id)
+        local_move = assigned is not None and assigned.split == here.split
+        at_final = final is not None and final.split == stop.split
+        out.append(gate("C6", stop.pickups or local_move or at_final,
+                        f"pick ups {stop.pickups}; assigned destination {assigned.name if assigned else 'none'}, "
+                        f"final destination {final.name if final else 'none'}"))
         out.append(self._second_pass(car, train, stop))
         out.append(self._pickup_repeat(car, train, track))
         out.append(gate("C9", switcher or bool(stop.direction & track.dir),
