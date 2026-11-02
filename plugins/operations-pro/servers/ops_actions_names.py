@@ -30,6 +30,7 @@ def add_startup_script(ed: Editor, path: str) -> str:
 @action()
 def add_car_type(ed: Editor, name: str, like: str | None = None) -> str:
     """Add a car type. With like, every location, track and train that takes that type takes this too."""
+    name = ed.check_name("type", name)
     if name in ed.car_types():
         raise Refused(f"Type {name!r} already exists")
     if name in ed.loco_types():
@@ -55,6 +56,7 @@ def add_car_type(ed: Editor, name: str, like: str | None = None) -> str:
 def add_load(ed: Editor, name: str, types: list[str], load_type: str = "Load", priority: str | None = None,
              hazardous: bool = False, pickup_comment: str = "", drop_comment: str = "") -> str:
     """Add a custom load to car types. load_type is Load or Empty. It is only a label for routing."""
+    name = ed.check_name("load", name)
     if name in ed.defaults():
         raise Refused(f"{name!r} is a default load name")
     if load_type not in ("Load", "Empty"):
@@ -100,6 +102,7 @@ def rename_car_type(ed: Editor, old: str, new: str) -> str:
     """Rename a car type everywhere it is used, including type and load pairs."""
     if old not in ed.car_types():
         raise Refused(f"Unknown type {old!r}")
+    new = ed.check_name("type", new)
     if new in ed.car_types():
         raise Refused(f"Type {new!r} already exists")
     count = _rename_values(ed.car_root, {"type": ("name",), "load": ("type",), "car": ("type",)}, old, new)
@@ -119,6 +122,7 @@ def rename_load(ed: Editor, old: str, new: str, car_type: str | None = None) -> 
     """Rename a custom load, for one type or all, through cars, schedules, tracks and trains."""
     if old in ed.defaults():
         raise Refused("Rename a default load from JMRI: it is one name shared by every type")
+    new = ed.check_name("load", new)
     if new in ed.defaults():
         raise Refused(f"{new!r} is a default load name")
     count = 0
@@ -149,9 +153,11 @@ def rename_load(ed: Editor, old: str, new: str, car_type: str | None = None) -> 
             if value == old and car_type is None:
                 node.set("name", new)
                 count += 1
-            elif TYPE_AND_LOAD in value:
-                kind, load = value.split(TYPE_AND_LOAD, 1)
-                if load == old and match(kind):
+            elif value.endswith(f"{TYPE_AND_LOAD}{old}"):
+                # A type and load pair. Matched on the end, not split at the first " & ": a type an older
+                # file holds may contain " & " itself, and JMRI compares the whole pair (Track:1190).
+                kind = value[:-len(f"{TYPE_AND_LOAD}{old}")]
+                if match(kind):
                     node.set("name", f"{kind}{TYPE_AND_LOAD}{new}")
                     count += 1
     return f"Renamed load {old} to {new}: {count} places."
@@ -162,6 +168,7 @@ def rename_road(ed: Editor, old: str, new: str) -> str:
     """Rename a road in the road list, track and train filters, train engine and caboose roads, and schedule lines. Refused while a car or engine carries it, since their ids hold the road."""
     if old not in [e.get("name") for e in ed.registered("roads", "road")]:
         raise Refused(f"Unknown road {old!r}")
+    new = ed.check_name("road", new)
     if any(c.get("roadName") == old for c in ed.cars()):
         raise Refused(f"Cars still carry road {old}. A car's id contains its road, so rename those in JMRI")
     engines = [e.get("id") for e in ed.engines() if e.get("roadName") == old]

@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import xml.etree.ElementTree as ET
 
-from ops_data import ALL, DIRECTIONS, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, ROUTES, TRAINS
+from ops_data import ALL, DIRECTIONS, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, ROUTES, STAGING, TRAINS, java_int
 from ops_store import Refused
 from ops_actions import (Editor, SETUP_FILE, STOP_RANDOM, TRACK_CHILDREN, TRAIN_CHILDREN, action, _bool, _check_train_power, _day,
                          _day_id, _indent, _int_field, _mask, _next, _no_choice, _place, _remove_types, _set_active,
@@ -45,12 +45,32 @@ def _stop_values(element: ET.Element, stop: dict) -> None:
             element.set(attr, _yes(stop[key]))
 
 
+def _setup_value(ed: Editor, name: str, default: int) -> int:
+    doc = ed.docs.get(SETUP_FILE)
+    settings = doc.root.find("./operations/settings") if doc is not None else None
+    number = java_int(settings.get(name)) if settings is not None else None
+    return default if number is None else number  # Setup.load keeps its default for a bad value.
+
+
+def _stop_defaults(ed: Editor, place: ET.Element) -> dict[str, str]:
+    """What the route window gives a new stop (RouteEditFrame:287-293, RouteEditTableModel:434-483): the
+    first of the railroad's train directions (Setup.getTrainDirectionList: East, West, North, South), Setup's
+    train length, and Setup's car moves (always 5: Setup.setCarMoves has no caller), or 50 at staging."""
+    directions = _setup_value(ed, "trainDirection", 3)
+    first = next((bit for bit in (1, 2, 4, 8) if directions & bit), 1)
+    staging = any(t.get("trackType") == STAGING for t in place.findall("track"))
+    return {"trainDirection": str(first), "maxTrainLength": str(_setup_value(ed, "trainLength", 1000)),
+            "maxCarMoves": "50" if staging else "5"}
+
+
 def _new_stop(ed: Editor, route: ET.Element, number: int, sequence: int, stop: dict) -> ET.Element:
     place = ed.location(stop["location"])
+    defaults = _stop_defaults(ed, place)
     element = ET.Element("location", {
         "id": f"{route.get('id')}r{number}", "name": place.get("name"), "locationId": place.get("id"),
-        "sequenceId": str(sequence), "trainDirection": "1", "maxTrainLength": "1000", "grade": "0.0",
-        "maxCarMoves": "5", "randomControl": "Off", "pickups": "yes", "drops": "yes", "localMoves": "yes",
+        "sequenceId": str(sequence), "trainDirection": defaults["trainDirection"],
+        "maxTrainLength": defaults["maxTrainLength"], "grade": "0.0",
+        "maxCarMoves": defaults["maxCarMoves"], "randomControl": "Off", "pickups": "yes", "drops": "yes", "localMoves": "yes",
         "wait": "0", "departTime": "", "order": "0", "trainIconX": "0", "trainIconY": "0",
         "commentColor": "black", "comment": ""})
     _stop_values(element, stop)
@@ -59,7 +79,10 @@ def _new_stop(ed: Editor, route: ET.Element, number: int, sequence: int, stop: d
 
 @action()
 def add_route(ed: Editor, name: str, stops: list[dict], comment: str = "") -> str:
-    """Add a route. Each stop: location, and any of direction, max_moves, max_length, pickups, drops, local_moves."""
+    """Add a route. Each stop: location, and any of direction, max_moves, max_length, pickups, drops, local_moves.
+    A stop left without them gets what JMRI's route window gives: the first of the railroad's train directions,
+    Setup's train length, and 5 moves, or 50 at staging."""
+    name = ed.check_name("route", name)
     if name in [r.get("name") for r in ed.routes()]:
         raise Refused(f"Route {name!r} already exists")
     if not stops:
@@ -95,6 +118,7 @@ def update_stop(ed: Editor, route: str, stop: str | int, **fields) -> str:
 def rename_route(ed: Editor, route: str, new: str) -> str:
     """Rename a route and the name copy each train keeps."""
     element = ed.route(route)
+    new = ed.check_name("route", new)
     if new in [r.get("name") for r in ed.routes()]:
         raise Refused(f"Route {new!r} already exists")
     element.set("name", new)
@@ -116,13 +140,20 @@ def delete_route(ed: Editor, route: str) -> str:
             if track.get(option) in (ROUTES, EXCLUDE_ROUTES) and identity in [
                     e.get("id") for e in track.findall(f"{tag}/{item}")]:
                 uses.append(track.get("name"))
-    uses += [c.get("id") for c in ed.cars() if c.get("lastRouteId") == identity]
     if uses:
         raise Refused(f"Still used by: {', '.join(uses[:12])}")
+    # JMRI deletes a route with no reference check (RouteManager.deregister:103-111). A car's lastRouteId
+    # only bars that route's train from pulling it again (TrainBuilderBase:1524-1531), and the next new
+    # route can get this id again, so those cars forget it, as Set Car would.
+    forgot = [c for c in ed.cars() if c.get("lastRouteId") == identity]
+    for car in forgot:
+        ed.clear_last_route(car)
     holder = ed.section(ed.route_root, "routes")
     holder.remove(element)
     _indent(holder, 1)
-    return f"Deleted route {element.get('name')}."
+    return f"Deleted route {element.get('name')}." + (
+        f" {len(forgot)} car(s) set out by its trains forgot it: {', '.join(c.get('id') for c in forgot[:8])}."
+        if forgot else "")
 
 
 TRAIN_DEFAULTS = {
@@ -158,8 +189,8 @@ REQUIRES = {"none": 0, "caboose": 1, "fred": 2}
 def _max_engines(ed: Editor) -> int:
     doc = ed.docs.get(SETUP_FILE)
     settings = doc.root.find("./operations/settings") if doc is not None else None
-    text = settings.get("maxEngines", "6") if settings is not None else "6"
-    return int(text) if text.isdigit() else 6
+    number = java_int(settings.get("maxEngines")) if settings is not None else None
+    return 6 if number is None else number  # Setup:2326-2333 keeps 6 for a value it cannot read.
 
 
 def _train_value(ed: Editor, key: str, value) -> str:
@@ -185,8 +216,8 @@ def _train_value(ed: Editor, key: str, value) -> str:
             raise Refused(f"{key} must be 0 to {top}, not {value!r}")
         return f"{number:02d}"
     if key in ("built_start", "built_end"):
-        text = str(value).strip()
-        if text and not text.isdigit():
+        text = "" if value is None else str(value).strip()
+        if text and (isinstance(value, bool) or not text.isdigit() or java_int(text) is None):
             raise Refused(f"{key} must be a year or blank, not {value!r}")
         return text
     return str(value)
@@ -266,13 +297,16 @@ def _serve_tracks(ed: Editor, train: ET.Element, like: ET.Element | None) -> int
 
 @action()
 def add_train(ed: Editor, name: str, route: str, like: str | None = None, serve_tracks: bool = True, **fields) -> str:
-    """Add a train and, by default, put it on every train list at its route's tracks. With like, copy that train's settings and lists."""
+    """Add a train and, by default, put it on every train list at its route's tracks. With like, copy that train's settings and lists;
+    its legs 2 and 3 are copied only when the route is the same, since their stops belong to that route."""
+    name = ed.check_name("train", name)
     if name in [t.get("name") for t in ed.trains()]:
         raise Refused(f"Train {name!r} already exists")
     target = ed.route(route)
     holder = ed.section(ed.train_root, "trains", ("options",))
     identity = str(_next(t.get("id") for t in ed.trains()))
     source = ed.train(like) if like else None
+    cleared: list[str] = []
     if source is not None:
         element = copy.deepcopy(source)
         for attr in ("current", "leadEngine", "departureTrack", "terminationTrack"):
@@ -286,6 +320,13 @@ def add_train(ed: Editor, name: str, route: str, like: str | None = None, serve_
         old = element.find("route")
         if old is not None:
             element.remove(old)
+        if old is None or old.get("id") != target.get("id"):
+            # Leg starts and ends are stop ids of the source's route. Train.load resolves them against the
+            # new route (Train:4249-4263), keeps the options with no stop, and a caboose or locomotive change
+            # then fails the build, so the legs go, as set_train_route clears them.
+            cleared = [n for n in ("2", "3") if element.get(f"leg{n}Options") is not None]
+            for attr in [a for a in element.attrib if a.startswith(("leg2", "leg3"))]:
+                element.attrib.pop(attr)
     else:
         element = ET.Element("train", {"id": identity, "name": name, **TRAIN_DEFAULTS})
         ET.SubElement(element, "rowColor", {"name": "", "resetRowColor": ""})
@@ -297,6 +338,9 @@ def add_train(ed: Editor, name: str, route: str, like: str | None = None, serve_
     notes = _train_fields(ed, element, fields)
     _indent(holder, 1)
     served = _serve_tracks(ed, element, source) if serve_tracks else 0
+    if cleared:
+        notes.insert(0, f"Legs {', '.join(cleared)} of {source.get('name')} belong to its route, so they were not "
+                        "copied; set them again with set_train_leg.")
     return " ".join([f"Added train {name} (id {identity}); added to {served} track lists.", *notes])
 
 
@@ -348,6 +392,7 @@ def set_train_skips(ed: Editor, train: str, stops: list[str]) -> str:
 def rename_train(ed: Editor, train: str, new: str) -> str:
     """Rename a train. Track lists hold ids, so they keep working."""
     element = ed.train(train)
+    new = ed.check_name("train", new)
     if new in [t.get("name") for t in ed.trains()]:
         raise Refused(f"Train {new!r} already exists")
     element.set("name", new)

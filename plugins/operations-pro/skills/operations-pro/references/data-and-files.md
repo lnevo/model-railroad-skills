@@ -56,7 +56,7 @@ Do not treat these as independent when editing. The plugin refuses or derives th
 | Car destination | Forced on load; meaningful only with a matching train and route ids |
 | Car schedule item id, `<scheduleId>c<n>` | A pending load effect on delivery |
 | Car previous destination and schedule | Restored on reset |
-| Car `lastRouteId` | Drives the interchange same-route rule |
+| Car `lastRouteId` | Drives the interchange same-route rule. `place_car`, `ops_deliver_car` and `delete_route` clear it, as Set Car does |
 | Car `loadFromStaging` | Reset returns the load to E |
 | Car wait and pick up day | A pending schedule outcome |
 | Track schedule pointer | Resets when the schedule changes |

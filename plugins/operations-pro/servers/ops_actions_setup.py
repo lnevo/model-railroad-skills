@@ -13,6 +13,14 @@ from ops_actions import (Editor, SETUP_FILE, TRAIN_CHILDREN, TRAIN_ROOT_ORDER, a
 # ---- Setup ----------------------------------------------------------------------------
 
 
+# Settings Setup.load parses as numbers (Setup:2306-3016). A value it cannot parse is logged as an error
+# and replaced by the default on the next save, so only a number JMRI reads is written.
+INT_SETTINGS = {"settings": ("trainDirection", "trainLength", "maxEngines", "scale", "switchTime", "travelTime"),
+                "fontSize": ("size",), "tab": ("length", "tab2Length", "tab3Length", "manifestTabLength"),
+                "buildOptions": ("numberPasses", "dwellTime"), "buildReport": ("fontSize",)}
+DOUBLE_SETTINGS = {"settings": ("hpt",)}
+
+
 @action()
 def set_option(ed: Editor, group: str, name: str, value: str | bool | int) -> str:
     """Set an existing Operations.xml setting, such as group router, name carRoutingViaYards."""
@@ -25,6 +33,16 @@ def set_option(ed: Editor, group: str, name: str, value: str | bool | int) -> st
     text = _bool(value) if isinstance(value, bool) else str(value)
     if node.get(name) in ("true", "false") and text not in ("true", "false"):
         raise Refused(f"{group}.{name} is true or false")
+    if name in INT_SETTINGS.get(group, ()):
+        text = str(_int_field(f"{group}.{name}", value))
+    elif name in DOUBLE_SETTINGS.get(group, ()):
+        try:
+            number = float(value)
+            if isinstance(value, bool) or number != number or abs(number) == float("inf"):
+                raise ValueError
+            text = str(number)
+        except (TypeError, ValueError):
+            raise Refused(f"{group}.{name} must be a number, not {value!r}") from None
     node.set(name, text)
     return f"Set {group}.{name} to {text}."
 
