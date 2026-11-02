@@ -757,9 +757,8 @@ class Gates:
         doubts = []
         if not train.engines.isdigit():
             doubts.append(f"locomotive count {train.engines} is worked out during the build")
-        if track.pool and self.x.track.get(track.id, {}).get("serviceOrder", "Normal") != "Normal" \
-                and rr.rolling_stock_on(track)[0]:
-            doubts.append(f"pool {track.pool} departs its tracks in arrival order")
+        # FIFO/LIFO order is not a doubt: TrainBuilderBase.sortCarsOnFifoLifoTracks (TBB:1167) skips staging
+        # tracks, and a staging departure takes every car on the track whatever its order.
         return doubts
 
     def _staging_engines(self, train: Train, engines: list) -> list[str]:

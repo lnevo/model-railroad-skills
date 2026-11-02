@@ -283,5 +283,28 @@ class SpurSearch(unittest.TestCase):
         self.assertFalse(default["router"]["used"])
 
 
+class CloneLength(unittest.TestCase):
+    """Track.addRS (TR:749-760): a clone adds to the clone length, not the used length."""
+
+    def test_clones_are_left_out_of_used_length_and_counted_apart(self):
+        rr = ops_data.load(DEMO / "operations")
+        track = next(t for t in rr.tracks.values() if rr.rolling_stock_on(t)[0])
+        before = rr.used_length(track)
+        car = rr.rolling_stock_on(track)[0][0]
+        car.clone = True
+        self.assertEqual(rr.used_length(track, clones=True), rr.car_length(car))
+        self.assertEqual(rr.used_length(track) + rr.used_length(track, clones=True), before)
+
+    def test_staging_doubts_ignore_fifo_lifo_order(self):
+        rr = ops_data.load(DEMO / "operations")
+        g = Gates(rr)
+        for t in rr.tracks.values():
+            if t.is_staging:
+                g.x.track.setdefault(t.id, {})["serviceOrder"] = "FIFO"
+                t.pool = "P"
+                for train in rr.trains.values():
+                    self.assertFalse(any("arrival order" in d for d in g.staging_doubts(train, t)))
+
+
 if __name__ == "__main__":
     unittest.main()
