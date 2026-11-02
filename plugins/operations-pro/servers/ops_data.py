@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from pathlib import Path
 
 REQUIRED = ("OperationsLocationRoster.xml", "OperationsRouteRoster.xml",
@@ -85,6 +86,7 @@ def directions(mask: int) -> str:
     return "/".join(names) or "none"
 
 
+@lru_cache(maxsize=4096)
 def split_name(name: str) -> str:
     """JMRI splits only on a hyphen followed by an integer or a left parenthesis."""
     parts = name.split("-")
