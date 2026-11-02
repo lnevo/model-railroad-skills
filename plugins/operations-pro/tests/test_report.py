@@ -316,6 +316,11 @@ class Findings(unittest.TestCase):
         report = parsed("7- Exclude car (BVR 9001) type (Caboose)  at location (Brackwater, Brackwater Yard A)")
         self.assertEqual([(r["car"], r["gate"]) for r in report["excluded_cars"]], [("BVR 9001", "B17")])
 
+    def test_fred_or_caboose_destination_is_b5_and_staging_car_off_route_is_b4(self):  # TBB:870-890 vs 855-866
+        report = parsed("5- Exclude car (BVR 9001) type (Caboose)  wrong destination (Elsewhere) for this train")
+        self.assertEqual([(r["car"], r["gate"]) for r in report["excluded_cars"]], [("BVR 9001", "B5")])
+        self.assertEqual(ops_report.KEY_GATES["buildErrorCarNotPartRoute"], "B4")  # thrown at TBB:862
+
     def test_train_local_move_option_is_g9(self):  # TBB:2727, isAllowLocalMovesEnabled
         report = parsed(SEARCH, "7- Local move from (Brackwater, Yard A) to track (Brackwater, Mill) disabled for train (BV1)")
         event = only_story(report)[1][0]["events"][0]
