@@ -66,6 +66,24 @@ def list_items(args: dict) -> object:
     return [asdict(x) for x in getattr(rr, kind).values()]
 
 
+# ---- Manual builds and automations (start) ------------------------------------------
+from ops_data import STEP_KINDS, read_automations, read_manual_builds  # noqa: E402
+
+EXTRA_LISTS = {"manual_builds": read_manual_builds,
+               "automations": lambda d: {"automations": read_automations(d), "step_kinds": list(STEP_KINDS)}}
+LIST_TYPES += tuple(EXTRA_LISTS)
+_list_records = list_items
+
+
+def list_items(args: dict) -> object:  # noqa: F811
+    if args.get("type") in EXTRA_LISTS:
+        return EXTRA_LISTS[args["type"]](railroad(args).directory)
+    return _list_records(args)
+
+
+# ---- Manual builds and automations (end) --------------------------------------------
+
+
 DETAIL = {"type": "string", "enum": ["summary", "normal", "full"],
           "description": "How much of each build report to return: summary (default), normal or full, "
                          "as ops_explain_build gives them"}

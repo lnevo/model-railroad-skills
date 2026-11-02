@@ -2317,6 +2317,14 @@ def _train_section(ed: Editor, tag: str) -> ET.Element:
     return found
 
 
+def _close(holder: ET.Element, level: int = 1) -> None:
+    """Re-indent a section; an emptied one is written as JMRI writes it, <tag />."""
+    if len(holder):
+        _indent(holder, level)
+    else:
+        holder.text = None
+
+
 def _bool_field(name: str, value) -> bool:
     if value not in (True, False):
         raise Refused(f"{name} is true or false")
@@ -2490,7 +2498,7 @@ def delete_manual_build(ed: Editor, train: str) -> str:
         raise Refused(f"Train {element.get('name')} has no manual build")
     holder = ed.train_root.find("manualBuilds")
     holder.remove(build)
-    _indent(holder, 1)
+    _close(holder)
     return f"Removed the manual build of {element.get('name')}."
 
 
@@ -2649,6 +2657,15 @@ def _write_steps(ed: Editor, automation: ET.Element, entries: list[dict]) -> Non
             ET.SubElement(messages, "messageFail", {"message": entry["message_fail"]})
 
 
+def _sort_automations(holder: ET.Element) -> None:
+    """AutomationManager.store writes them by name, ignoring case (getAutomationsByNameList)."""
+    ordered = sorted(holder.findall("automation"), key=lambda a: a.get("name", "").lower())
+    for element in ordered:
+        holder.remove(element)
+    holder.extend(ordered)
+    _indent(holder, 1)
+
+
 def _summary(text: str, warnings: list[str]) -> str:
     return text + "".join(f" Warning: {w}" for w in warnings)
 
@@ -2670,7 +2687,7 @@ def add_automation(ed: Editor, name: str, steps: list[dict], comment: str = "", 
     entries, warnings = _steps(ed, element, steps, _bool_field("allow_dialogs", allow_dialogs))
     holder.append(element)
     _write_steps(ed, element, entries)
-    _indent(holder, 1)
+    _sort_automations(holder)
     return _summary(f"Added automation {name} (id {identity}) with {len(entries)} steps.", warnings)
 
 
@@ -2689,6 +2706,7 @@ def update_automation(ed: Editor, automation: str, name: str | None = None, comm
         _indent(element, 2)
     if name is not None:
         element.set("name", name)
+        _sort_automations(ed.train_root.find("automations"))
     if comment is not None:
         element.set("comment", str(comment))
     if name is None and comment is None and steps is None:
@@ -2708,7 +2726,7 @@ def delete_automation(ed: Editor, automation: str) -> str:
         raise Refused(f"Steps in {', '.join(users[:8])} name it. Change those with update_automation first")
     holder = ed.train_root.find("automations")
     holder.remove(element)
-    _indent(holder, 1)
+    _close(holder)
     note = ""
     options = ed.train_root.find("automationOptions")
     if options is not None and options.get("automationStartupId") == identity:
@@ -2787,7 +2805,7 @@ def _drop_manual_build(ed: Editor, train: str) -> str:
     gone = [b for b in holder.findall("manualBuild") if b.get("trainId") not in ids]
     for build in gone:
         holder.remove(build)
-    _indent(holder, 1)
+    _close(holder)
     # JMRI leaves the build behind (no listener), and a later train given the same id would inherit it.
     return "Its manual build lines were removed too." if gone else ""
 
