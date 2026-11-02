@@ -1121,7 +1121,7 @@ class Gates:
         # track names equal once split.
         rr = self.rr
         members = [c for c in rr.cars.values() if c.kernel == car.kernel]
-        leads = [c for c in members if c.lead and not c.out_of_service]
+        leads = [c for c in members if rr.is_kernel_lead(c) and not c.out_of_service]
         places = {(c.location_id, rr.tracks[c.track_id].split if c.track_id in rr.tracks else None)
                   for c in members}
         ok = bool(leads) and len(places) == 1 and None not in {p[1] for p in places}
@@ -1953,7 +1953,7 @@ class Audit:
         unserved = self._unserved_types(train, stops)
         out, seen = [], {}
         for car in cars:
-            if self.g._is_clone(car) or (car.kernel and not car.lead) or car.type in unserved:
+            if self.g._is_clone(car) or (car.kernel and not rr.is_kernel_lead(car)) or car.type in unserved:
                 continue
             if car.division_id and not car.destination_id and not car.fd_id:
                 continue  # staging-division-unreachable decides these

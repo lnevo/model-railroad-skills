@@ -178,6 +178,15 @@ class AsLoaded(unittest.TestCase):
         first.lead = second.lead = True
         self.assertEqual([rr.is_kernel_lead(first), rr.is_kernel_lead(second)], [False, True])
 
+    def test_the_kernel_gate_and_stuck_cars_follow_the_same_lead_rule(self):
+        # B18 (checkKernel) and the staging stuck-car list used the raw flag, so an unflagged kernel had no lead.
+        rr = ops_data.load(DEMO / "operations")
+        first, second = rr.cars["BVR3013"], rr.cars["BVR3014"]
+        first.lead = second.lead = False
+        gate = Gates(rr)._kernel(first)
+        # The demo's Pair kernel is split on purpose, so only the lead count is asserted here.
+        self.assertIn("1 lead in service", gate["reason"])
+
     def test_why_not_orders_tracks_by_moves_as_loaded_and_schedules_only_on_spurs(self):
         # A destined car bumps its track's moves on load (RS:1490, TR:818); Store left them out (TR:2840).
         # Track.getScheduleId is empty off a spur (TR:1906), so a yard's stale scheduleId does not lead.
