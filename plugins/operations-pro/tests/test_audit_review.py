@@ -235,6 +235,25 @@ class InterchangeExit(AuditCase):
         found = self.findings(edits, "interchange-no-exit")
         self.assertFalse([f for f in found if "Caboose with" in f["message"]], found)
 
+class FileNumbers(AuditCase):
+    def bad(self, path: str, attr: str) -> list[dict]:
+        edits = self.edits()
+        edits.root("trains").find(path).set(attr, "x1")
+        return self.findings(edits, "file-number")
+
+    def test_a_manual_build_line(self):
+        """TrainManualBuildItem:312 and 339 parse with no catch; real JMRI stopped at TrainManagerXml:107."""
+        for attr in ("sequenceId", "count"):
+            found = self.bad(".//mbItem", attr)
+            self.assertEqual(len(found), 1, attr)
+            self.assertIn("automations", found[0]["message"])
+
+    def test_an_automation_step(self):
+        """AutomationItem:432, read last of all (TrainManagerXml:111)."""
+        found = self.bad(".//automation/item", "sequenceId")
+        self.assertEqual(len(found), 1)
+        self.assertIn("automations", found[0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()
