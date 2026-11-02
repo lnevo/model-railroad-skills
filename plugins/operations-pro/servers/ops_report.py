@@ -194,7 +194,8 @@ STATUS_RULES: list[tuple[str, str, str]] = [
     ("could not route car", "G12", "the router found no chain of trains"),
     ("router is disabled", "G12", "car routing is off in Settings"),
     ("in match mode, no match", "E10", "no schedule line matched the car"),
-    ("in sequential mode", "E10", "the current schedule line does not match the car"),
+    # sequentialMessage holds the mode's display name, "Sequential" in English (Track:564-568, 2153).
+    (" mode, car (", "E10", "the current schedule line does not match the car"),
     ("doesn't service car type", "F2", "no line of the schedule has this car type"),
     ("only on (", "F1", "the line's delivery day is not the active day"),
     ("requests car type", "F2", "the schedule line wants another type"),
