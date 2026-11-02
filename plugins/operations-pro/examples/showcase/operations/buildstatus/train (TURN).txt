@@ -1,0 +1,259 @@
+1- Build Report for train (TURN) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- The option to restrict staging to the same car types, roads, and loads as the train 
+5- being built is enabled 
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (TURN):
+5- Allow cars to return to staging
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (TURN):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (West Staging)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (TURN) route (TURN):
+3- 17r1 Staging (West Staging) Eastbound requests 50 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 17r2 Location (Linden) Eastbound requests 10 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 17r3 Staging (West Staging) Westbound requests 50 pick ups, set outs, local moves,  
+3- train terminates 
+1- Route (TURN) requests 55 cars and 110 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (TURN)
+5- 0 locomotives available from staging (West Staging):
+7-  
+5- 0 locomotives at location (Linden):
+7-  
+3-  
+1- Train terminates into staging at (West Staging), there are 6 tracks
+5- Staging track (West Custom) does not service this train
+5- Staging track (West Mixed) does not service this train
+5- Staging track (West Mode) does not service this train
+5- Staging track (Turn A) is occupied, found 0 locomotive(s) and 9 cars
+7- Train (TURN) can terminate to staging track (Turn B)
+1- Staging track (Turn B) is available at destination (West Staging)
+3-  
+1- Train will depart staging (West Staging), there are 6 tracks
+3- Staging track (West Custom) has 0 loco(s) and 4 cars
+3- Staging track (West Custom) does not service this train
+7- Staging track (West Custom) cannot service train (TURN)
+3- Staging track (West Mixed) has 0 loco(s) and 4 cars
+3- Staging track (West Mixed) does not service this train
+7- Staging track (West Mixed) cannot service train (TURN)
+3- Staging track (West Mode) has 1 loco(s) and 5 cars
+3- Staging track (West Mode) does not service this train
+7- Staging track (West Mode) cannot service train (TURN)
+3- Staging track (Turn A) has 0 loco(s) and 9 cars
+5- Train (TURN) can depart from staging track (Turn A)
+7- Done assigning locomotives from staging
+5-  
+5- Train (TURN) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7-  
+7- Remove cars from the other staging tracks:
+5-  
+5- Departing staging (West Staging, Turn A) with 9 cars
+7- Staging car (TRNX 2) type (Gondola) empty (E)
+7- Staging car (TRNX 1) type (Gondola) empty (E)
+7- Staging car (HZMX 13) type (Flatcar) empty (E)
+7- Staging car (HZMX 12) type (Flatcar) empty (E)
+7- Staging car (HZMX 11) type (Flatcar) load (Girder)
+7- Staging car (HZMX 9) type (Buffer) empty (E)
+7- Staging car (HZMX 3) type (Tank Gas) load (L)
+7- Staging car (HZMX 2) type (Tank Gas) load (L)
+7- Staging car (HZMX 1) type (Tank Gas) load (L)
+5-  
+1- Found 10 cars for train (TURN)
+5- 9 cars in staging (West Staging):
+7- Car (TRNX 2) type (Gondola) at (West Staging, Turn A) 0 moves
+7- Car (TRNX 1) type (Gondola) at (West Staging, Turn A) 0 moves
+7- Car (HZMX 11) type (Flatcar) at (West Staging, Turn A) 0 moves
+7- Car (HZMX 11) is lead in kernel (Girder Load) with 3 cars, 132 feet
+7- Car (HZMX 12) is in kernel (Girder Load) with 3 cars, 132 feet
+7- Car (HZMX 13) is in kernel (Girder Load) with 3 cars, 132 feet
+7- Car (HZMX 9) type (Buffer) (P) -1 at (West Staging, Turn A) 0 moves
+7- Car (HZMX 3) type (Tank Gas) (H) at (West Staging, Turn A) 0 moves
+7- Car (HZMX 2) type (Tank Gas) (H) at (West Staging, Turn A) 0 moves
+7- Car (HZMX 1) type (Tank Gas) (H) at (West Staging, Turn A) 0 moves
+7-  
+5- 1 cars at location (Linden):
+7- Car (TRNX 3) type (Gondola) at (Linden, Linden Team) 0 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (West Staging)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (55) for train (TURN) the number available (8) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (West Staging) id 17r1 requests 50 moves, 50/50 moves are available
+5-  
+5- Find destinations for (TRNX 2) type (Gondola) empty (E) at staging (West Staging, Turn A)
+5- Searching location (Linden) route id 17r2 for possible destination
+7- Can't send (TRNX 2) to spur (Linden, Linden Steel) due to type (Gondola)
+7- Can't set out rolling stock (TRNX 2) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (TRNX 2) to spur (Linden, Linden Pipe Yard) due to schedule (Linden Pipe Yard 
+7- Schedule) in match mode, no match 
+7- Can't set out rolling stock (TRNX 2) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (TRNX 2) to spur (Linden, Linden Glazier) due to type (Gondola)
+7- Can't send (TRNX 2) to spur (Linden, Linden Refinery) due to type (Gondola)
+5- Car (TRNX 2) can go to spur (Linden, Linden Team) 0/10 moves used
+5- Searching location (West Staging) route id 17r3 for possible destination
+7- Car (TRNX 2) location is equal to destination (West Staging) skipping this destination
+3- Car (TRNX 2) assigned to train, destination (Linden, Linden Team)
+3-  
+5- Find destinations for (TRNX 1) type (Gondola) empty (E) at staging (West Staging, Turn A)
+5- Searching location (Linden) route id 17r2 for possible destination
+7- Can't send (TRNX 1) to spur (Linden, Linden Steel) due to type (Gondola)
+7- Can't set out rolling stock (TRNX 1) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (TRNX 1) to spur (Linden, Linden Pipe Yard) due to schedule (Linden Pipe Yard 
+7- Schedule) in match mode, no match 
+7- Can't set out rolling stock (TRNX 1) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (TRNX 1) to spur (Linden, Linden Glazier) due to type (Gondola)
+7- Can't send (TRNX 1) to spur (Linden, Linden Refinery) due to type (Gondola)
+5- Car (TRNX 1) can go to spur (Linden, Linden Team) 1/10 moves used
+5- Searching location (West Staging) route id 17r3 for possible destination
+7- Car (TRNX 1) location is equal to destination (West Staging) skipping this destination
+3- Car (TRNX 1) assigned to train, destination (Linden, Linden Team)
+3-  
+5- Find spur for car (HZMX 11) type (Flatcar) custom load (Girder) at staging (West 
+5- Staging, Turn A) 
+7- Car (HZMX 11) is lead in kernel (Girder Load) with 3 cars, 132 feet
+7- Spur (Oakhaven, Bakery) can't service car (HZMX 11) with load (Girder) due to type 
+7- (Flatcar) 
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (HZMX 11) with load (Girder) due to 
+7- type (Flatcar) 
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (HZMX 11) with load (Girder) due 
+7- to type (Flatcar) 
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (HZMX 11) with load (Girder) due to 
+7- type (Flatcar) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Linden, Linden Pier) can't service car (HZMX 11) with load (Girder) due to type 
+7- (Flatcar) 
+7- Spur (Linden, Linden Pipe Yard) can't service car (HZMX 11) with load (Girder) due to 
+7- type (Flatcar) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7-  
+7- Try spur (Linden, Linden Steel) division () for car (HZMX 11) with load (Girder) 
+7- Train (TURN) can transport car (HZMX 11) from staging (West Staging, Turn A) to (Linden, 
+7- Linden Steel) 
+7- Route for car (HZMX 11): (West Staging, Turn A)-> (Linden, Linden Steel)
+7- Car (HZMX 11) load (Girder) has assigned destination (Linden, Linden Steel) final 
+7- destination (, ) 
+3- Car (HZMX 11) assigned to train, destination (Linden, Linden Steel)
+3- Car (HZMX 11) is in kernel (Girder Load) with 3 cars, 132 feet
+3- Car (HZMX 12) kernel (Girder Load) assigned to train, destination (Linden, Linden Steel)
+3- Car (HZMX 13) kernel (Girder Load) assigned to train, destination (Linden, Linden Steel)
+3-  
+5- Find destinations for (HZMX 9) type (Buffer) (P) -1 empty (E) at staging (West Staging, 
+5- Turn A) 
+5- Searching location (Linden) route id 17r2 for possible destination
+7- Can't set out rolling stock (HZMX 9) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (HZMX 9) to spur (Linden, Linden Pipe Yard) due to type (Buffer)
+7- Can't set out rolling stock (HZMX 9) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (HZMX 9) to spur (Linden, Linden Glazier) due to type (Buffer)
+7- Can't send (HZMX 9) to spur (Linden, Linden Steel) due to type (Buffer)
+7- Can't send (HZMX 9) to spur (Linden, Linden Refinery) due to type (Buffer)
+7- Can't set out (HZMX 9) by train (TURN) to C/I (Linden, Northern Connection)
+7- Can't send (HZMX 9) to spur (Linden, Linden Team) due to type (Buffer)
+5- Could not find a track for (HZMX 9) at destination (Linden)
+5- Searching location (West Staging) route id 17r3 for possible destination
+5- Car (HZMX 9) can go to staging (West Staging, Turn B) 0/50 moves used
+3- Car (HZMX 9) assigned to train, destination (West Staging, Turn B)
+3-  
+5- Find destinations for (HZMX 3) type (Tank Gas) (H) load (L) at staging (West Staging, 
+5- Turn A) 
+5- Searching location (Linden) route id 17r2 for possible destination
+7- Can't set out rolling stock (HZMX 3) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (HZMX 3) to spur (Linden, Linden Pipe Yard) due to type (Tank Gas)
+7- Can't set out rolling stock (HZMX 3) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (HZMX 3) to spur (Linden, Linden Glazier) due to type (Tank Gas)
+7- Can't send (HZMX 3) to spur (Linden, Linden Steel) due to type (Tank Gas)
+5- Car (HZMX 3) can go to spur (Linden, Linden Refinery) 3/10 moves used
+5- Searching location (West Staging) route id 17r3 for possible destination
+7- Car (HZMX 3) location is equal to destination (West Staging) skipping this destination
+3- Car (HZMX 3) assigned to train, destination (Linden, Linden Refinery)
+3-  
+5- Find destinations for (HZMX 2) type (Tank Gas) (H) load (L) at staging (West Staging, 
+5- Turn A) 
+5- Searching location (Linden) route id 17r2 for possible destination
+7- Can't set out rolling stock (HZMX 2) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (HZMX 2) to spur (Linden, Linden Pipe Yard) due to type (Tank Gas)
+7- Can't set out rolling stock (HZMX 2) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (HZMX 2) to spur (Linden, Linden Glazier) due to type (Tank Gas)
+7- Can't send (HZMX 2) to spur (Linden, Linden Steel) due to type (Tank Gas)
+5- Car (HZMX 2) can go to spur (Linden, Linden Refinery) 4/10 moves used
+5- Searching location (West Staging) route id 17r3 for possible destination
+7- Car (HZMX 2) location is equal to destination (West Staging) skipping this destination
+3- Car (HZMX 2) assigned to train, destination (Linden, Linden Refinery)
+3-  
+5- Find destinations for (HZMX 1) type (Tank Gas) (H) load (L) at staging (West Staging, 
+5- Turn A) 
+5- Searching location (Linden) route id 17r2 for possible destination
+7- Can't set out rolling stock (HZMX 1) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (HZMX 1) to spur (Linden, Linden Pipe Yard) due to type (Tank Gas)
+7- Can't set out rolling stock (HZMX 1) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (HZMX 1) to spur (Linden, Linden Glazier) due to type (Tank Gas)
+7- Can't send (HZMX 1) to spur (Linden, Linden Steel) due to type (Tank Gas)
+7- Can't set out (HZMX 1) by train (TURN) to C/I (Linden, Northern Connection)
+5- Car (HZMX 1) can go to spur (Linden, Linden Refinery) 5/10 moves used
+5- Searching location (West Staging) route id 17r3 for possible destination
+7- Car (HZMX 1) location is equal to destination (West Staging) skipping this destination
+3- Car (HZMX 1) assigned to train, destination (Linden, Linden Refinery)
+3-  
+1- Partial 7/50 cars at location (West Staging) assigned to train (TURN)
+1- Route location (Linden) id 17r2 requests 4 moves, 4/10 moves are available
+5-  
+5- Find destinations for (TRNX 3) type (Gondola) load (L) at spur (Linden, Linden Team)
+5- Searching location (West Staging) route id 17r3 for possible destination
+5- Car (TRNX 3) can go to staging (West Staging, Turn B) 1/50 moves used
+3- Car (TRNX 3) assigned to train, destination (West Staging, Turn B)
+3-  
+1- Partial 1/4 cars at location (Linden) assigned to train (TURN)
+1- No pick ups from staging (West Staging)
+1- Partial 10/55 cars
+5- Build for train (TURN) took 3 mSec

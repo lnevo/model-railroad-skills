@@ -1,0 +1,190 @@
+1- Build Report for train (HOP OUT) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (HOP OUT):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (HOP OUT):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Carrow)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (HOP OUT) route (HOP OUT):
+3- 16r1 Staging (East Staging) Westbound requests 50 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 16r2 Location (Linden) Westbound requests 10 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 16r3 Location (Carrow) Westbound requests 20 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (HOP OUT) requests 40 cars and 80 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 1 locomotives for train (HOP OUT)
+5- 0 locomotives available from staging (East Staging):
+7-  
+5- 0 locomotives at location (Linden):
+7-  
+5- 1 locomotives at location (Carrow):
+7- Loco (JFN 57) type (Diesel) model (GP9) at (Carrow, Carrow Yard) 200 moves
+7-  
+3-  
+1- Train will depart staging (East Staging), there are 4 tracks
+3- Staging track (East Mixed) has 0 loco(s) and 0 cars
+3- Staging track (East Mixed) does not service this train
+7- Staging track (East Mixed) cannot service train (HOP OUT)
+3- Staging track (Hop) has 0 loco(s) and 1 cars
+5- Train (HOP OUT) can depart from staging track (Hop)
+7- Done assigning locomotives from staging
+5-  
+5- Train (HOP OUT) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (FLYX 5) type (Observation) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 4) type (Diner) by train, no pick up from spur (Carrow, Carrow Station)
+7- Exclude car (FLYX 3) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 2) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 1) type (Baggage) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (JFN 1301) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+7-  
+7- Remove cars from the other staging tracks:
+5-  
+5- Departing staging (East Staging, Hop) with 1 cars
+7- Staging car (JFN 5502) type (Hopper) empty (E)
+5-  
+1- Found 5 cars for train (HOP OUT)
+5- 1 cars in staging (East Staging):
+7- Car (JFN 5502) type (Hopper) at (East Staging, Hop) 0 moves
+7-  
+5- 2 cars at location (Linden):
+7- Car (TRNX 3) type (Gondola) at (Linden, Linden Team) 0 moves
+7- Car (WSTX 1) type (Boxcar) at (Linden, Linden Westside) 0 moves
+7-  
+5- 2 cars at location (Carrow):
+7- Car (MILX 1102) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7- Car (MILX 1101) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (East Staging)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (40) for train (HOP OUT) the number available (5) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (East Staging) id 16r1 requests 50 moves, 50/50 moves are available
+5-  
+5- Find destinations for (JFN 5502) type (Hopper) empty (E) at staging (East Staging, Hop)
+5- Searching location (Linden) route id 16r2 for possible destination
+7- Car (JFN 5502) type (Hopper) isn't serviced by destination (Linden)
+5- Searching location (Carrow) route id 16r3 for possible destination
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Packing) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Box Factory) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Grain Co) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Salt Works) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Glass Works) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Pool Lead) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Box Lead) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Grain Track) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow West Lead) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Connection Lead) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Transfer Lead) due to type (Hopper)
+7- Can't set out (JFN 5502) by train (HOP OUT) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out rolling stock (JFN 5502) using Westbound train, destination track (Carrow 
+7- Station) does not service this direction 
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Gondola Lead) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow Mill Lead) due to type (Hopper)
+7- Can't set out (JFN 5502) by train (HOP OUT) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (JFN 5502) by train (HOP OUT) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (JFN 5502) to C/I (Carrow, Carrow Caboose Track) due to type (Hopper)
+7- Can't send (JFN 5502) to spur (Carrow, Carrow RIP) due to type (Hopper)
+7- Can't send (JFN 5502) to yard (Carrow, Carrow Transfer) due to type (Hopper)
+7- Can't send (JFN 5502) to yard (Carrow, Carrow Relay) due to type (Hopper)
+5- Car (JFN 5502) can go to yard (Carrow, Carrow Yard) 0/20 moves used
+3- Car (JFN 5502) assigned to train, destination (Carrow, Carrow Yard)
+3-  
+1- Partial 1/50 cars at location (East Staging) assigned to train (HOP OUT)
+1- Route location (Linden) id 16r2 requests 10 moves, 10/10 moves are available
+5-  
+5- Find destinations for (TRNX 3) type (Gondola) load (L) at spur (Linden, Linden Team)
+5- Searching location (Carrow) route id 16r3 for possible destination
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Packing) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Box Factory) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Grain Co) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Salt Works) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Glass Works) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Pool Lead) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Box Lead) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Grain Track) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow West Lead) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Connection Lead) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Transfer Lead) due to type (Gondola)
+7- Can't set out (TRNX 3) by train (HOP OUT) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out rolling stock (TRNX 3) using Westbound train, destination track (Carrow 
+7- Station) does not service this direction 
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Gondola Lead) due to road (TRNX)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow Mill Lead) due to type (Gondola)
+7- Can't set out (TRNX 3) by train (HOP OUT) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (TRNX 3) by train (HOP OUT) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (TRNX 3) to C/I (Carrow, Carrow Caboose Track) due to type (Gondola)
+7- Can't send (TRNX 3) to spur (Carrow, Carrow RIP) due to type (Gondola)
+7- Can't send (TRNX 3) to yard (Carrow, Carrow Transfer) due to load (L)
+7- Can't send (TRNX 3) to yard (Carrow, Carrow Relay) due to type (Gondola)
+7- Can't send (TRNX 3) to yard (Carrow, Carrow Yard) due to road (TRNX)
+5- Could not find a track for (TRNX 3) at destination (Carrow)
+5- Did not assign a destination for car (TRNX 3)
+5-  
+5- Car (WSTX 1) type (Boxcar) load (L) at spur (Linden, Linden Westside) has final 
+5- destination (Carrow, Carrow West Lead) routing begins 
+7- Train (HOP OUT) can transport car (WSTX 1) from spur (Linden, Linden Westside) to 
+7- (Carrow, Carrow West Lead) 
+7- Route for car (WSTX 1): (Linden, Linden Westside)-> (Carrow, Carrow West Lead)
+7- Car (WSTX 1) load (L) has assigned destination (Carrow, Carrow West Lead) final 
+7- destination (, ) 
+3- Car (WSTX 1) assigned to train, destination (Carrow, Carrow West Lead)
+3-  
+1- Partial 1/10 cars at location (Linden) assigned to train (HOP OUT)
+1- Route location (Carrow) id 16r3 requests 18 moves, 18/20 moves are available
+5-  
+5- Find destinations for (MILX 1102) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Did not assign a destination for car (MILX 1102)
+5-  
+5- Find destinations for (MILX 1101) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Did not assign a destination for car (MILX 1101)
+5-  
+1- Partial 0/18 cars at location (Carrow) assigned to train (HOP OUT)
+1- Partial 2/40 cars
+5- Build for train (HOP OUT) took 2 mSec

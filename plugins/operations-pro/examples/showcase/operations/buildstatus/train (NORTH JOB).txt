@@ -1,0 +1,118 @@
+1- Build Report for train (NORTH JOB) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (NORTH JOB):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (NORTH JOB):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Ferris Junction)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (NORTH JOB) route (NORTH JOB):
+3- 14r1 Location (Ferris Junction) Northbound requests 20 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 14r2 Location (Pell Creek-(yard)) Northbound requests 10 pick ups, set outs, local 
+3- moves,  maximum train length 1,000 feet 
+3- 14r3 Location (Northwood) Northbound requests 20 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 14r4 Location (Ferris Junction) Southbound requests 20 pick ups, set outs, local moves,  
+3- train terminates 
+1- Route (NORTH JOB) requests 35 cars and 70 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (NORTH JOB)
+5- 0 locomotives at location (Ferris Junction):
+7-  
+5- 0 locomotives at location (Pell Creek-(yard)):
+7-  
+5- 0 locomotives at location (Northwood):
+7-  
+5-  
+5- Train (NORTH JOB) Exclude car roads: PELC
+5-  
+5- Train (NORTH JOB) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (PELC 2) at (Pell Creek-(yard), Pell Yard) type (Boxcar)  train doesn't 
+7- service road (PELC) 
+7- Exclude car (PELC 1) at (Pell Creek-(yard), Pell Yard) type (Boxcar)  train doesn't 
+7- service road (PELC) 
+5-  
+1- Found 2 cars for train (NORTH JOB)
+5- 1 cars at location (Ferris Junction):
+7- Car (GTEX 1) type (Tank Veg) at (Ferris Junction, Ferris Gate) 0 moves
+7-  
+5- 0 cars at location (Pell Creek-(yard)):
+7-  
+5- 1 cars at location (Northwood):
+7- Car (XFRX 1) type (Boxcar) at (Northwood, Northwood Shed) 0 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Ferris Junction)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (35) for train (NORTH JOB) the number available (2) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Ferris Junction) id 14r1 requests 20 moves, 20/20 moves are available
+5-  
+5- Find destinations for (GTEX 1) type (Tank Veg) empty (E) at C/I (Ferris Junction, Ferris 
+5- Gate) 
+5- Searching location (Pell Creek-(yard)) route id 14r2 for possible destination
+7- Can't send (GTEX 1) to yard (Pell Creek-(yard), Pell Yard) due to type (Tank Veg)
+5- Car (GTEX 1) can go to yard (Pell Creek-(yard), Pell Tank Track) 0/10 moves used
+5- Searching location (Northwood) route id 14r3 for possible destination
+7- Destination (Northwood) not serviced by departure track (Ferris Gate)
+5- Searching location (Ferris Junction) route id 14r4 for possible destination
+7- Car (GTEX 1) location is equal to destination (Ferris Junction) skipping this destination
+3- Car (GTEX 1) assigned to train, destination (Pell Creek-(yard), Pell Tank Track)
+3-  
+1- Partial 1/20 cars at location (Ferris Junction) assigned to train (NORTH JOB)
+1- Route location (Pell Creek-(yard)) id 14r2 requests 9 moves, 9/10 moves are available
+5-  
+5- No cars available for pick up at location (Pell Creek-(yard))
+5-  
+1- Partial 0/9 cars at location (Pell Creek-(yard)) assigned to train (NORTH JOB)
+1- Route location (Northwood) id 14r3 requests 20 moves, 20/20 moves are available
+5-  
+5- Find destinations for (XFRX 1) type (Boxcar) empty (E) at spur (Northwood, Northwood 
+5- Shed) 
+5- Searching location (Ferris Junction) route id 14r4 for possible destination
+7- Can't set out (XFRX 1) by train (NORTH JOB) to C/I (Ferris Junction, Ferris Relay)
+7- Can't send (XFRX 1) to C/I (Ferris Junction, Ferris Gate) due to type (Boxcar)
+5- Car (XFRX 1) can go to C/I (Ferris Junction, Ferris Transfer) 0/20 moves used
+3- Car (XFRX 1) assigned to train, destination (Ferris Junction, Ferris Transfer)
+3-  
+1- Partial 1/20 cars at location (Northwood) assigned to train (NORTH JOB)
+1- Route location (Ferris Junction) id 14r4 requests 19 moves, 19/20 moves are available
+5-  
+5- No cars available for pick up at location (Ferris Junction)
+5-  
+1- Partial 0/19 cars at location (Ferris Junction) assigned to train (NORTH JOB)
+1- Partial 2/35 cars
+5- Build for train (NORTH JOB) took 2 mSec

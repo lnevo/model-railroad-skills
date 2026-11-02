@@ -1,0 +1,2213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-locations.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-locations.dtd">
+<operations-config>
+  <!--Written by JMRI version 5.16+R909e15189e on Mon Nov 02 03:42:47 EST 2026-->
+  <divisions>
+    <division id="1" name="North" comment="[U21] Home division for the north branch." />
+  </divisions>
+  <locations>
+    <location id="1" name="West Staging" ops="2" dir="15" switchList="true" comment="[INFRA][U06][U07][U12][R19][U22] Staging west end." switchListComment="">
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <track id="1s1" name="West Custom" trackType="Staging" dir="15" length="400" moves="0" carShipLoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" loadOptions="58">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <carShipLoads>
+          <carLoad name="Machinery" />
+        </carShipLoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="5" />
+          <dropId id="17" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="5" />
+          <pickupId id="17" />
+        </pickupIds>
+      </track>
+      <track id="1s2" name="West Mixed" trackType="Staging" dir="15" length="400" moves="0" carShipLoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" loadOptions="54">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <carShipLoads>
+          <carLoad name="E" />
+          <carLoad name="Machinery" />
+        </carShipLoads>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="5" />
+          <dropId id="17" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="5" />
+          <pickupId id="17" />
+        </pickupIds>
+      </track>
+      <track id="1s3" name="West Swap" trackType="Staging" dir="15" length="500" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" ignoreUsedPercentage="100">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="2" />
+          <dropId id="3" />
+          <dropId id="5" />
+          <dropId id="17" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="2" />
+          <pickupId id="4" />
+          <pickupId id="5" />
+          <pickupId id="17" />
+        </pickupIds>
+      </track>
+      <track id="1s4" name="West Mode" trackType="Staging" dir="15" length="400" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="2" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="17" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="2" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="17" />
+        </pickupIds>
+      </track>
+      <track id="1s5" name="Turn A" trackType="Staging" dir="15" length="500" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="2" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="5" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="2" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="5" />
+        </pickupIds>
+      </track>
+      <track id="1s6" name="Turn B" trackType="Staging" dir="15" length="500" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="2" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="5" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="2" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="5" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="2" name="East Staging" ops="2" dir="15" switchList="true" comment="[INFRA][U06][U07][U12][R05][R08] Staging east end." switchListComment="">
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <track id="2s1" name="East Mixed" trackType="Staging" dir="15" length="400" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="5" />
+          <dropId id="12" />
+          <dropId id="16" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="5" />
+          <pickupId id="12" />
+          <pickupId id="16" />
+        </pickupIds>
+      </track>
+      <track id="2s2" name="East Swap" trackType="Staging" dir="15" length="500" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" ignoreUsedPercentage="100">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="4" />
+          <dropId id="5" />
+          <dropId id="12" />
+          <dropId id="16" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="3" />
+          <pickupId id="5" />
+          <pickupId id="12" />
+          <pickupId id="16" />
+        </pickupIds>
+      </track>
+      <track id="2s3" name="East Mode" trackType="Staging" dir="15" length="400" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="12" />
+          <dropId id="16" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="12" />
+          <pickupId id="16" />
+        </pickupIds>
+      </track>
+      <track id="2s4" name="Hop" trackType="Staging" dir="15" length="400" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="true" ignoreUsedPercentage="100">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Buffer" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="FlatBHPaper" />
+          <carType name="FlatBHWood" />
+          <carType name="FlatBulkHead" />
+          <carType name="FlatTimber" />
+          <carType name="FlatTrailer" />
+          <carType name="FlatWood" />
+          <carType name="Flatcar" />
+          <carType name="Gon-scrap" />
+          <carType name="Gondola" />
+          <carType name="HopChem" />
+          <carType name="HopCmnt" />
+          <carType name="HopCoal" />
+          <carType name="HopCoal-Ety" />
+          <carType name="HopGrain" />
+          <carType name="HopSand" />
+          <carType name="Hopper" />
+          <carType name="MOW" />
+          <carType name="MOWBox" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="ReefMech" />
+          <carType name="Reefer" />
+          <carType name="ReeferIce" />
+          <carType name="Stock" />
+          <carType name="Tank Food" />
+          <carType name="Tank Gas" />
+          <carType name="Tank Kero" />
+          <carType name="Tank Oil" />
+          <carType name="Tank Veg" />
+          <locoType name="Diesel" />
+          <locoType name="Electric" />
+          <locoType name="Engine" />
+          <locoType name="Gas Turbine" />
+          <locoType name="Steam" />
+          <locoType name="Steam-heavy" />
+          <locoType name="Steam-light" />
+          <locoType name="Steam-mixed" />
+          <locoType name="Steam-pass" />
+          <locoType name="Switcher" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="5" />
+          <dropId id="16" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="5" />
+          <pickupId id="12" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="3" name="Carrow" ops="1" dir="15" switchList="true" comment="[INFRA] Hub yard and home of the job towns." switchListComment="">
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="HopGrain" />
+        <carType name="Hopper" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="Reefer" />
+        <carType name="Stock" />
+        <carType name="Tank Oil" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="3s1" name="Carrow Yard" trackType="Yard" dir="15" length="2000" moves="100" carRoadOption="Include">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Boxcar" />
+          <carType name="Caboose" />
+          <carType name="Coal" />
+          <carType name="Coilcar" />
+          <carType name="Covered Hopper" />
+          <carType name="Diner" />
+          <carType name="Flatcar" />
+          <carType name="Gondola" />
+          <carType name="HopGrain" />
+          <carType name="Hopper" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+          <carType name="Reefer" />
+          <carType name="Stock" />
+          <carType name="Tank Oil" />
+          <locoType name="Diesel" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+          <carRoad name="WNDR" />
+        </carRoads>
+      </track>
+      <track id="3s10" name="Carrow Pool Lead" trackType="Spur" dir="15" length="300" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="POOX" />
+        </carRoads>
+      </track>
+      <track id="3s11" name="Carrow Packing" trackType="Spur" dir="15" length="150" moves="0" schedule="Packing Loads" scheduleId="29" itemId="29c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Reefer" />
+        </types>
+      </track>
+      <track id="3s12" name="Carrow Box Factory" trackType="Spur" dir="15" length="150" moves="0" carRoadOption="Include" schedule="Box Factory Loads" scheduleId="30" itemId="30c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="3s13" name="Carrow Box Lead" trackType="Spur" dir="15" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="BOXX" />
+        </carRoads>
+      </track>
+      <track id="3s14" name="Carrow Grain Co" trackType="Spur" dir="15" length="300" moves="0" carRoadOption="Include" schedule="Grain Co Loads" scheduleId="31" itemId="31c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="OAKX" />
+        </carRoads>
+      </track>
+      <track id="3s15" name="Carrow Grain Track" trackType="Spur" dir="15" length="200" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="HopGrain" />
+        </types>
+        <carRoads>
+          <carRoad name="NWRX" />
+        </carRoads>
+      </track>
+      <track id="3s16" name="Carrow West Lead" trackType="Spur" dir="15" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="WSTX" />
+        </carRoads>
+      </track>
+      <track id="3s17" name="Carrow Connection Lead" trackType="Spur" dir="15" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="CNXX" />
+        </carRoads>
+      </track>
+      <track id="3s18" name="Carrow Transfer Lead" trackType="Spur" dir="15" length="300" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="KESX" />
+        </carRoads>
+      </track>
+      <track id="3s19" name="Carrow Oil Lead" trackType="Spur" dir="15" length="100" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Tank Oil" />
+        </types>
+        <carRoads>
+          <carRoad name="OILX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="6" />
+          <dropId id="7" />
+          <dropId id="8" />
+          <dropId id="9" />
+          <dropId id="12" />
+          <dropId id="16" />
+          <dropId id="18" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="6" />
+          <pickupId id="7" />
+          <pickupId id="8" />
+          <pickupId id="9" />
+          <pickupId id="12" />
+          <pickupId id="16" />
+          <pickupId id="18" />
+        </pickupIds>
+      </track>
+      <track id="3s2" name="Carrow LCL Dock" trackType="Spur" dir="15" length="60" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="LCLX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="12" />
+          <dropId id="7" />
+          <dropId id="16" />
+          <dropId id="9" />
+          <dropId id="8" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="13" />
+          <dropId id="18" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="12" />
+          <pickupId id="7" />
+          <pickupId id="16" />
+          <pickupId id="9" />
+          <pickupId id="8" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="13" />
+          <pickupId id="18" />
+        </pickupIds>
+      </track>
+      <track id="3s20" name="Carrow Station" trackType="Spur" dir="1" length="400" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Diner" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+        </types>
+        <carRoads>
+          <carRoad name="FLYX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="6" />
+          <dropId id="7" />
+          <dropId id="8" />
+          <dropId id="9" />
+          <dropId id="12" />
+          <dropId id="13" />
+          <dropId id="16" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="6" />
+          <pickupId id="7" />
+          <pickupId id="8" />
+          <pickupId id="9" />
+          <pickupId id="12" />
+          <pickupId id="13" />
+          <pickupId id="16" />
+        </pickupIds>
+      </track>
+      <track id="3s21" name="Carrow Salt Works" trackType="Spur" dir="15" length="150" moves="0" carRoadOption="Include" schedule="Carrow Salt Works Schedule" scheduleId="36" itemId="36c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="3s22" name="Carrow Glass Works" trackType="Spur" dir="15" length="150" moves="0" carRoadOption="Include" schedule="Carrow Glass Works Schedule" scheduleId="37" itemId="37c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="3s3" name="Carrow Outside Lead" trackType="Spur" dir="15" length="100" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="OUTX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="1" />
+          <dropId id="12" />
+          <dropId id="7" />
+          <dropId id="16" />
+          <dropId id="9" />
+          <dropId id="8" />
+          <dropId id="3" />
+          <dropId id="4" />
+          <dropId id="13" />
+          <dropId id="18" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="12" />
+          <pickupId id="7" />
+          <pickupId id="16" />
+          <pickupId id="9" />
+          <pickupId id="8" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="13" />
+          <pickupId id="18" />
+        </pickupIds>
+      </track>
+      <track id="3s4" name="Carrow Caboose Track" trackType="Interchange" dir="15" length="100" moves="0" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Caboose" />
+        </types>
+        <pickupIds>
+          <pickupId id="1" />
+          <pickupId id="3" />
+          <pickupId id="4" />
+          <pickupId id="6" />
+          <pickupId id="7" />
+          <pickupId id="9" />
+          <pickupId id="12" />
+          <pickupId id="13" />
+          <pickupId id="16" />
+          <pickupId id="18" />
+        </pickupIds>
+      </track>
+      <track id="3s5" name="Carrow RIP" trackType="Spur" dir="15" length="150" moves="0" carRoadOption="Include" loadOptions="64">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="RIPX" />
+        </carRoads>
+      </track>
+      <track id="3s6" name="Carrow Transfer" trackType="Yard" dir="15" length="300" moves="0" carLoadOption="Include">
+        <types>
+          <carType name="Gondola" />
+        </types>
+        <carLoads>
+          <carLoad name="Pipe" />
+        </carLoads>
+      </track>
+      <track id="3s7" name="Carrow Relay" trackType="Yard" dir="15" length="300" moves="0" carLoadOption="Include">
+        <types>
+          <carType name="Coilcar" />
+        </types>
+        <carLoads>
+          <carLoad name="Coil" />
+        </carLoads>
+      </track>
+      <track id="3s8" name="Carrow Gondola Lead" trackType="Spur" dir="15" length="300" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Gondola" />
+        </types>
+        <carRoads>
+          <carRoad name="GNDX" />
+        </carRoads>
+      </track>
+      <track id="3s9" name="Carrow Mill Lead" trackType="Spur" dir="15" length="300" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="MILX" />
+        </carRoads>
+      </track>
+    </location>
+    <location id="4" name="Brae" ops="1" dir="3" switchList="true" comment="[INFRA][U01][U02][U03][U10][U12][R17] Town on the main." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Stock" />
+        <carType name="Tank Oil" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="4s1" name="Brae Stockyard" trackType="Spur" dir="3" length="150" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Stock" />
+        </types>
+        <carRoads>
+          <carRoad name="MODX" />
+        </carRoads>
+      </track>
+      <track id="4s10" name="Brae Oil Dealer" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Tank Oil" />
+        </types>
+        <carRoads>
+          <carRoad name="OILX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="6" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="6" />
+        </pickupIds>
+      </track>
+      <track id="4s11" name="Brae Depot" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" schedule="Brae Depot Schedule" scheduleId="39" itemId="39c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="4s2" name="Brae Engine Track" trackType="Interchange" dir="3" length="100" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" ignoreUsedPercentage="100">
+        <types>
+          <locoType name="Diesel" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="6" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="6" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="4s3" name="Brae Feed Mill" trackType="Spur" dir="3" length="200" moves="0" carLoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Feed Mill Loading" scheduleId="2" itemId="2c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <carLoads>
+          <carLoad name="E" />
+          <carLoad name="Feed" />
+        </carLoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="4s4" name="Brae Cannery" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Cannery" scheduleId="4" itemId="4c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="4s5" name="Brae Lumber" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Lumber Shipping" scheduleId="6" itemId="6c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="4s6" name="Brae Freight Shed" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" carLoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="FRHX" />
+          <carRoad name="JFN" />
+        </carRoads>
+        <carLoads>
+          <carLoad name="Crates" />
+          <carLoad name="E" />
+        </carLoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="4s7" name="Brae Team" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="KRNX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="4s8" name="Brae Day Track" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="DAYX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="4s9" name="Brae Outside" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Outside World" scheduleId="14" itemId="14c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="OUTX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="5" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="5" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="5" name="Dunmere" ops="1" dir="3" switchList="true" comment="[INFRA][U01][U02][U03][U08][U09][U10] Town on the main." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Coal" />
+        <carType name="Covered Hopper" />
+        <carType name="Tank Oil" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="5s1" name="Dunmere Yard" trackType="Yard" dir="3" length="800" moves="100" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Coal" />
+          <carType name="Covered Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+          <carRoad name="WNDR" />
+        </carRoads>
+      </track>
+      <track id="5s10" name="Freight House-(2)" trackType="Spur" dir="3" length="200" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Crates Receiving" scheduleId="13" itemId="13c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s11" name="Dunmere Team" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="KRNX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s12" name="Tuesday Dock" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Tuesday Dock" scheduleId="15" itemId="15c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="DAYX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s13" name="Dunmere Oil" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Tank Oil" />
+        </types>
+        <carRoads>
+          <carRoad name="OILX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="6" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="6" />
+        </pickupIds>
+      </track>
+      <track id="5s14" name="Dunmere Depot" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" schedule="Dunmere Depot Schedule" scheduleId="40" itemId="40c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="5s2" name="Dunmere Dairy" trackType="Spur" dir="3" length="200" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Dairy Receiving" scheduleId="3" itemId="3c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s3" name="Grocery Dock" trackType="Spur" dir="3" length="150" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Grocery Receiving" scheduleId="5" itemId="5c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s4" name="Lumber Dealer" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Lumber Receiving" scheduleId="7" itemId="7c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s5" name="Parts Depot" trackType="Spur" dir="3" length="300" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Parts Receiving" scheduleId="10" itemId="10c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s6" name="Tool Depot" trackType="Spur" dir="3" length="300" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Tools Receiving" scheduleId="11" itemId="11c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s7" name="Elevator A" trackType="Spur" dir="3" length="50" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Grain Receiving" scheduleId="12" itemId="12c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s8" name="Elevator B" trackType="Spur" dir="3" length="50" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" schedule="Grain Receiving" scheduleId="12" itemId="12c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="5s9" name="Freight House" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="FRHX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="2" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="2" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="6" name="Ferris Junction" ops="1" dir="15" switchList="true" comment="[INFRA][R02][R04][R06][R07][R08][R10][U21] Junction with the north branch." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Flatcar" />
+        <carType name="HopGrain" />
+        <carType name="Reefer" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="6s1" name="Ferris Yard" trackType="Yard" dir="15" length="800" moves="100" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="HopGrain" />
+          <carType name="Tank Oil" />
+          <locoType name="Diesel" />
+        </types>
+        <carRoads>
+          <carRoad name="BOXX" />
+          <carRoad name="JFN" />
+          <carRoad name="NWRX" />
+          <carRoad name="OILX" />
+        </carRoads>
+      </track>
+      <track id="6s2" name="Ferris Exchange" trackType="Interchange" dir="15" length="300" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Reefer" />
+        </types>
+        <dropIds>
+          <dropId id="13" />
+          <dropId id="14" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="12" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="6s3" name="Ferris Relay" trackType="Interchange" dir="15" length="300" moves="0" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Coilcar" />
+        </types>
+        <dropIds>
+          <dropId id="13" />
+          <dropId id="14" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="12" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="6s4" name="Ferris Gate" trackType="Interchange" dir="15" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" trackDestinationOption="Include">
+        <types>
+          <carType name="Tank Veg" />
+        </types>
+        <carRoads>
+          <carRoad name="GTEX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="12" />
+          <dropId id="13" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="12" />
+          <pickupId id="13" />
+        </pickupIds>
+        <destinations>
+          <destination id="10" name="Pell Creek-(yard)" />
+        </destinations>
+      </track>
+      <track id="6s5" name="Ferris Transfer" trackType="Interchange" dir="15" length="200" moves="0" carRoadOption="Include" pickupOption="routes" onlyCarWithFD="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="XFRX" />
+        </carRoads>
+        <pickupIds>
+          <pickupId id="14" />
+        </pickupIds>
+      </track>
+      <track id="6s6" name="Ferris Routed" trackType="Interchange" dir="15" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="true">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="BOXX" />
+          <carRoad name="JFN" />
+        </carRoads>
+        <dropIds>
+          <dropId id="13" />
+          <dropId id="14" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="12" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="6s7" name="Ferris Pool 1" trackType="Interchange" dir="15" length="120" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" pool="Ferris Pool" minLength="0">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="OAKX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="13" />
+          <dropId id="14" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="12" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+      <track id="6s8" name="Ferris Pool 2" trackType="Interchange" dir="15" length="120" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false" pool="Ferris Pool" minLength="0">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="OAKX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="13" />
+          <dropId id="14" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="12" />
+          <pickupId id="13" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="7" name="Linden" ops="1" dir="3" switchList="true" comment="[INFRA][R05][R15][R18][R19][U22] East end town." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Covered Hopper" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Tank Gas" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="7s1" name="Linden Refinery" trackType="Spur" dir="3" length="150" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Tank Gas" />
+        </types>
+        <carRoads>
+          <carRoad name="HZMX" />
+        </carRoads>
+      </track>
+      <track id="7s2" name="Linden Team" trackType="Spur" dir="3" length="150" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Gondola" />
+        </types>
+        <carRoads>
+          <carRoad name="TRNX" />
+        </carRoads>
+      </track>
+      <track id="7s3" name="Linden Steel" trackType="Spur" dir="3" length="200" moves="0" carRoadOption="Include" schedule="Linden Steel Schedule" scheduleId="1" itemId="1c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="HZMX" />
+        </carRoads>
+      </track>
+      <track id="7s4" name="Linden Pier" trackType="Spur" dir="2" length="150" moves="0" schedule="Linden Pier Schedule" scheduleId="32" itemId="32c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+      </track>
+      <track id="7s5" name="Linden Glazier" trackType="Spur" dir="3" length="150" moves="0" schedule="Linden Glazier Schedule" scheduleId="33" itemId="33c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+      </track>
+      <track id="7s6" name="Linden Pipe Yard" trackType="Spur" dir="3" length="200" moves="0" schedule="Linden Pipe Yard Schedule" scheduleId="34" itemId="34c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Gondola" />
+        </types>
+      </track>
+      <track id="7s7" name="Linden Westside" trackType="Spur" dir="2" length="100" moves="0" carRoadOption="Include" schedule="Linden Westside Schedule" scheduleId="35" itemId="35c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="WSTX" />
+        </carRoads>
+      </track>
+      <track id="7s8" name="Northern Connection" trackType="Interchange" dir="3" length="150" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="CNXX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="16" />
+          <dropId id="17" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="12" />
+          <pickupId id="16" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="8" name="Hollis Mill" ops="1" dir="3" switchList="true" comment="[INFRA][U05][U11][U16][U19][U24][R04][R09] South branch mill town." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Coilcar" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank Food" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="8s1" name="Hollis Yard" trackType="Yard" dir="3" length="600" moves="100" carRoadOption="Include">
+        <types>
+          <carType name="Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="8s10" name="Hollis Quarry" trackType="Spur" dir="3" length="300" moves="0" carRoadOption="Include" schedule="Quarry Shipping" scheduleId="22" itemId="22c1" itemCount="0" factor="100" scheduleMode="0" holdCustomLoads="false">
+        <types>
+          <carType name="Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="8s2" name="Hollis Track 1" trackType="Yard" dir="3" length="300" moves="100" trackPriority="High" carRoadOption="Include">
+        <types>
+          <carType name="Gondola" />
+        </types>
+        <carRoads>
+          <carRoad name="GNDX" />
+        </carRoads>
+      </track>
+      <track id="8s3" name="Hollis Track 2" trackType="Yard" dir="3" length="300" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Gondola" />
+        </types>
+        <carRoads>
+          <carRoad name="GNDX" />
+        </carRoads>
+      </track>
+      <track id="8s4" name="Mill Spur" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include" schedule="Mill Flour" scheduleId="20" itemId="20c1" itemCount="0" factor="100" scheduleMode="0" holdCustomLoads="false" ignoreUsedPercentage="100">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="MILX" />
+        </carRoads>
+      </track>
+      <track id="8s5" name="Hollis Team" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="TEMX" />
+        </carRoads>
+      </track>
+      <track id="8s6" name="Hollis Pool 1" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include" pool="Hollis Pool" minLength="100" maxLength="150">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="POOX" />
+        </carRoads>
+      </track>
+      <track id="8s7" name="Hollis Pool 2" trackType="Spur" dir="3" length="300" moves="0" carRoadOption="Include" pool="Hollis Pool" minLength="100">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="POOX" />
+        </carRoads>
+      </track>
+      <track id="8s8" name="Hollis Shop Lead" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="RIPX" />
+        </carRoads>
+      </track>
+      <track id="8s9" name="Hollis Coil Mill" trackType="Spur" dir="3" length="150" moves="0" carRoadOption="Include" schedule="Coil Mill Shipping" scheduleId="21" itemId="21c2" itemCount="0" factor="100" scheduleMode="0" holdCustomLoads="false">
+        <types>
+          <carType name="Coilcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+    </location>
+    <location id="9" name="Oakhaven" ops="1" dir="3" switchList="true" comment="[INFRA][R01][R03][R09][U11][U16] End of the south branch." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Flatcar" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="9s1" name="Oakhaven Yard" trackType="Yard" dir="3" length="600" moves="50" carRoadOption="Include">
+        <types>
+          <carType name="Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="9s2" name="Bakery" trackType="Spur" dir="3" length="300" moves="0" carRoadOption="Include" schedule="Bakery Receiving" scheduleId="16" itemId="16c1" itemCount="0" factor="100" scheduleMode="0" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="MILX" />
+        </carRoads>
+      </track>
+      <track id="9s3" name="Oakhaven Cannery" trackType="Spur" dir="3" length="150" moves="0" schedule="Cannery Peas" scheduleId="17" itemId="17c1" itemCount="0" factor="100" scheduleMode="0" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+      </track>
+      <track id="9s4" name="Oakhaven Foundry" trackType="Spur" dir="3" length="150" moves="0" carRoadOption="Include" schedule="Foundry Casting" scheduleId="18" itemId="18c2" itemCount="0" factor="100" scheduleMode="0" holdCustomLoads="false">
+        <types>
+          <carType name="Gondola" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="9s5" name="Plant Overflow" trackType="Spur" dir="3" length="50" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="9s6" name="Oakhaven Plant" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include" schedule="Plant Stone" scheduleId="19" itemId="19c1" itemCount="0" factor="100" scheduleMode="0" holdCustomLoads="false" alternative="9s5">
+        <types>
+          <carType name="Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="9s7" name="Oakhaven Team" trackType="Spur" dir="3" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Flatcar" />
+        </types>
+        <carRoads>
+          <carRoad name="TEMX" />
+        </carRoads>
+      </track>
+    </location>
+    <location id="10" name="Pell Creek-(yard)" ops="1" dir="15" switchList="true" comment="[INFRA][R16] Pell Creek yard half; prints as Pell Creek." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="10s1" name="Pell Yard" trackType="Yard" dir="15" length="600" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+          <locoType name="Diesel" />
+        </types>
+        <carRoads>
+          <carRoad name="PELC" />
+        </carRoads>
+      </track>
+      <track id="10s2" name="Pell Tank Track" trackType="Yard" dir="15" length="200" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Tank Veg" />
+        </types>
+        <carRoads>
+          <carRoad name="GTEX" />
+        </carRoads>
+      </track>
+    </location>
+    <location id="11" name="Pell Creek-(industries)" ops="1" dir="15" switchList="true" comment="[INFRA][R16] Pell Creek industries half; prints as Pell Creek." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="11s1" name="Pell Brickworks" trackType="Spur" dir="15" length="200" moves="0" carRoadOption="Include" schedule="Brickworks Receiving" scheduleId="27" itemId="27c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="PELC" />
+        </carRoads>
+      </track>
+    </location>
+    <location id="12" name="Northwood" divisionId="1" ops="1" dir="15" switchList="true" comment="[INFRA][U18][U21][R02][R04][R06][R07][R08][R10] North branch terminal; division North." switchListComment="">
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="Flatcar" />
+        <carType name="HopGrain" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="Reefer" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="12s1" name="Cold Store" trackType="Spur" dir="15" length="150" moves="0" schedule="Cold Store Receiving" scheduleId="23" itemId="23c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Reefer" />
+        </types>
+      </track>
+      <track id="12s2" name="Routed Siding" trackType="Spur" dir="15" length="150" moves="0" schedule="Routed Siding Receiving" scheduleId="25" itemId="25c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+      </track>
+      <track id="12s3" name="Grain Elevator" trackType="Spur" dir="15" length="300" moves="0" schedule="Elevator Receiving" scheduleId="26" itemId="26c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Covered Hopper" />
+        </types>
+      </track>
+      <track id="12s4" name="Gate Yard" trackType="Yard" dir="15" length="200" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Tank Veg" />
+        </types>
+        <carRoads>
+          <carRoad name="GTEX" />
+        </carRoads>
+      </track>
+      <track id="12s5" name="Northwood Shed" trackType="Spur" dir="15" length="200" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="XFRX" />
+        </carRoads>
+      </track>
+      <track id="12s6" name="Northwood Yard" trackType="Yard" dir="15" length="400" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="HopGrain" />
+        </types>
+        <carRoads>
+          <carRoad name="NWRX" />
+        </carRoads>
+      </track>
+      <track id="12s7" name="Malt House" trackType="Spur" dir="15" length="200" moves="0" carRoadOption="Include" schedule="Malt House Receiving" scheduleId="28" itemId="28c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="HopGrain" />
+        </types>
+        <carRoads>
+          <carRoad name="NWRX" />
+        </carRoads>
+      </track>
+      <track id="12s8" name="Northwood Steel" trackType="Spur" dir="15" length="150" moves="0" schedule="Steel Receiving" scheduleId="24" itemId="24c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Coilcar" />
+        </types>
+      </track>
+      <track id="12s9" name="Northwood Station" trackType="Spur" dir="15" length="400" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains">
+        <types>
+          <carType name="Baggage" />
+          <carType name="Diner" />
+          <carType name="Observation" />
+          <carType name="Passenger" />
+        </types>
+        <carRoads>
+          <carRoad name="FLYX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="14" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="14" />
+        </pickupIds>
+      </track>
+    </location>
+    <location id="13" name="Sawyer" ops="1" dir="15" switchList="true" comment="[INFRA][U04][R12] Switching town worked by one switcher." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Hopper" />
+        <carType name="Reefer" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="13s1" name="Sawyer Yard" trackType="Yard" dir="15" length="400" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Boxcar" />
+          <carType name="Hopper" />
+          <carType name="Reefer" />
+          <locoType name="Diesel" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="13s2" name="Sawyer Pasta Plant" trackType="Spur" dir="15" length="150" moves="0" schedule="Sawyer Pasta Plant Schedule" scheduleId="38" itemId="38c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+      </track>
+      <track id="13s3" name="Sawyer Team" trackType="Spur" dir="15" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Reefer" />
+        </types>
+        <carRoads>
+          <carRoad name="SWYX" />
+        </carRoads>
+      </track>
+      <track id="13s4" name="Sawyer Warehouse" trackType="Spur" dir="15" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Reefer" />
+        </types>
+        <carRoads>
+          <carRoad name="SWYX" />
+        </carRoads>
+      </track>
+      <track id="13s5" name="Sawyer Yard 1" trackType="Yard" dir="15" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="SWYX" />
+        </carRoads>
+      </track>
+      <track id="13s6" name="Sawyer Yard 2" trackType="Yard" dir="15" length="100" moves="0" carRoadOption="Include">
+        <types>
+          <carType name="Hopper" />
+        </types>
+        <carRoads>
+          <carRoad name="SWYX" />
+        </carRoads>
+      </track>
+    </location>
+    <location id="14" name="Kessock" ops="1" dir="15" switchList="true" comment="[INFRA][R11] Classification yard." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="14s1" name="Kessock A/D" trackType="Interchange" dir="15" length="400" moves="0" carRoadOption="Include" dropOption="excludeTrains" pickupOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="KESX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="10" />
+        </dropIds>
+        <pickupIds>
+          <pickupId id="9" />
+        </pickupIds>
+      </track>
+      <track id="14s2" name="Kessock Class 1" trackType="Interchange" dir="15" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="KESX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="9" />
+        </dropIds>
+      </track>
+      <track id="14s3" name="Kessock Class 2" trackType="Interchange" dir="15" length="200" moves="0" carRoadOption="Include" dropOption="excludeTrains" onlyCarWithFD="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="KESX" />
+        </carRoads>
+        <dropIds>
+          <dropId id="9" />
+        </dropIds>
+      </track>
+    </location>
+    <location id="15" name="Fiddle" ops="1" dir="15" switchList="true" comment="[INFRA][U08] Fiddle yard of virtual spurs." switchListComment="">
+      <types>
+        <carType name="Boxcar" />
+        <locoType name="Diesel" />
+      </types>
+      <track id="15s1" name="Fiddle North" trackType="Spur" dir="15" length="300" moves="0" carRoadOption="Include" schedule="Fiddle North" scheduleId="8" itemId="8c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+      <track id="15s2" name="Fiddle South" trackType="Spur" dir="15" length="300" moves="0" carRoadOption="Include" schedule="Fiddle South" scheduleId="9" itemId="9c1" itemCount="0" factor="100" scheduleMode="1" holdCustomLoads="false">
+        <types>
+          <carType name="Boxcar" />
+        </types>
+        <carRoads>
+          <carRoad name="JFN" />
+        </carRoads>
+      </track>
+    </location>
+  </locations>
+  <schedules>
+    <schedule id="1" name="Linden Steel Schedule" comment="">
+      <item id="1c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Flatcar" road="" load="Girder" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="2" name="Feed Mill Loading" comment="[U01] Feed mill: empties in, feed out to the dairy.">
+      <item id="2c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Covered Hopper" road="" load="E" ship="Feed" destinationId="5" destTrackId="5s2" comment="" hits="1" />
+    </schedule>
+    <schedule id="3" name="Dairy Receiving" comment="[U01] Dairy: feed in, empties out.">
+      <item id="3c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Covered Hopper" road="" load="Feed" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="4" name="Cannery" comment="[U02] Cannery: empties in, canned goods out to the grocery dock.">
+      <item id="4c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="Canned" destinationId="5" destTrackId="5s3" comment="" hits="1" />
+    </schedule>
+    <schedule id="5" name="Grocery Receiving" comment="[U02] Grocery dock: canned goods in, empties out.">
+      <item id="5c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Canned" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="6" name="Lumber Shipping" comment="[U03] Lumber mill: empties in, lumber out to the dealer.">
+      <item id="6c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="Lumber" destinationId="5" destTrackId="5s4" comment="" hits="2" />
+    </schedule>
+    <schedule id="7" name="Lumber Receiving" comment="[U03] Lumber dealer: lumber in, empties out.">
+      <item id="7c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Lumber" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="8" name="Fiddle North" comment="[U08] Fiddle North: always parts.">
+      <item id="8c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="Parts" destinationId="5" destTrackId="5s5" comment="" hits="0" />
+    </schedule>
+    <schedule id="9" name="Fiddle South" comment="[U08] Fiddle South: tools, only a quarter of the time.">
+      <item id="9c1" sequenceId="1" random="25" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="1" type="Boxcar" road="" load="E" ship="Tools" destinationId="5" destTrackId="5s6" comment="" hits="0" />
+    </schedule>
+    <schedule id="10" name="Parts Receiving" comment="[U08] Parts depot.">
+      <item id="10c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Parts" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="11" name="Tools Receiving" comment="[U08] Tool depot.">
+      <item id="11c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Tools" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="12" name="Grain Receiving" comment="[U09] One schedule shared by both elevators.">
+      <item id="12c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Covered Hopper" road="" load="Grain" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="13" name="Crates Receiving" comment="[U10] Freight house door 2: crates in.">
+      <item id="13c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Crates" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="14" name="Outside World" comment="[R17] Outside track: loads come in empty and go out loaded, and the reverse.">
+      <item id="14c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="L" comment="" hits="0" />
+      <item id="14c2" sequenceId="2" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="L" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="15" name="Tuesday Dock" comment="[U14] Dock that opens on Tuesday (the day is set with the days).">
+      <item id="15c1" sequenceId="1" random="" trainScheduleId="3" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="L" comment="" hits="0" />
+    </schedule>
+    <schedule id="16" name="Bakery Receiving" comment="[U11] Bakery takes the flour the mill ships.">
+      <item id="16c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Flour" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="17" name="Cannery Peas" comment="[R01] Oakhaven cannery takes peas in boxcars.">
+      <item id="17c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Peas" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="18" name="Foundry Casting" comment="[R03] Foundry takes empty gondolas and ships pipe. The destination line is added after the Linden pipe yard exists (file 55).">
+      <item id="18c2" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Gondola" road="" load="E" ship="Pipe" destinationId="7" destTrackId="7s6" comment="" hits="1" />
+    </schedule>
+    <schedule id="19" name="Plant Stone" comment="[R09] Oakhaven plant takes stone in hoppers.">
+      <item id="19c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Hopper" road="" load="Stone" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="20" name="Mill Flour" comment="[U11] Hollis flour mill ships flour to the Oakhaven bakery.">
+      <item id="20c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="Flour" destinationId="9" destTrackId="9s2" comment="" hits="0" />
+    </schedule>
+    <schedule id="21" name="Coil Mill Shipping" comment="[R04] Hollis coil mill ships coils. The destination line is added after the Northwood steel yard exists (file 55).">
+      <item id="21c2" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Coilcar" road="" load="E" ship="Coil" destinationId="12" destTrackId="12s8" comment="" hits="1" />
+    </schedule>
+    <schedule id="22" name="Quarry Shipping" comment="[R09] Hollis quarry ships stone to the Oakhaven plant.">
+      <item id="22c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Hopper" road="" load="E" ship="Stone" destinationId="9" destTrackId="9s6" comment="" hits="4" />
+    </schedule>
+    <schedule id="23" name="Cold Store Receiving" comment="[R02] Northwood Cold Store takes Produce and ships empties.">
+      <item id="23c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Reefer" road="" load="Produce" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="24" name="Steel Receiving" comment="[R04] Northwood Steel takes Coil and ships empties.">
+      <item id="24c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Coilcar" road="" load="Coil" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="25" name="Routed Siding Receiving" comment="[R08] Routed Siding takes Boxes and ships empties.">
+      <item id="25c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Boxes" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="26" name="Elevator Receiving" comment="[R10] Grain Elevator takes Wheat and ships empties.">
+      <item id="26c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Covered Hopper" road="" load="Wheat" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="27" name="Brickworks Receiving" comment="[R16] Pell Brickworks takes Bricks and ships empties.">
+      <item id="27c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Bricks" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="28" name="Malt House Receiving" comment="[U21] Malt House takes Barley and ships empties.">
+      <item id="28c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="HopGrain" road="" load="Barley" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="29" name="Packing Loads" comment="[R02] Carrow Packing takes empty reefers and ships Produce to Cold Store.">
+      <item id="29c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Reefer" road="" load="E" ship="Produce" destinationId="12" destTrackId="12s1" comment="" hits="1" />
+    </schedule>
+    <schedule id="30" name="Box Factory Loads" comment="[R08] Carrow Box Factory takes empty boxcars and ships Boxes to Routed Siding.">
+      <item id="30c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="Boxes" destinationId="12" destTrackId="12s2" comment="" hits="1" />
+    </schedule>
+    <schedule id="31" name="Grain Co Loads" comment="[R10] Carrow Grain Co takes empty covered hoppers and ships Wheat to the Grain Elevator.">
+      <item id="31c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Covered Hopper" road="" load="E" ship="Wheat" destinationId="12" destTrackId="12s3" comment="" hits="5" />
+    </schedule>
+    <schedule id="32" name="Linden Pier Schedule" comment="">
+      <item id="32c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Covered Hopper" road="" load="Salt" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="33" name="Linden Glazier Schedule" comment="">
+      <item id="33c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Glass" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="34" name="Linden Pipe Yard Schedule" comment="">
+      <item id="34c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Gondola" road="" load="Pipe" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="35" name="Linden Westside Schedule" comment="">
+      <item id="35c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="WSTX" load="E" ship="" destinationId="3" destTrackId="3s16" comment="" hits="1" />
+    </schedule>
+    <schedule id="36" name="Carrow Salt Works Schedule" comment="">
+      <item id="36c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Covered Hopper" road="" load="E" ship="Salt" destinationId="7" destTrackId="7s4" comment="" hits="1" />
+    </schedule>
+    <schedule id="37" name="Carrow Glass Works Schedule" comment="">
+      <item id="37c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="E" ship="Glass" destinationId="7" destTrackId="7s5" comment="" hits="2" />
+    </schedule>
+    <schedule id="38" name="Sawyer Pasta Plant Schedule" comment="">
+      <item id="38c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Semolina" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="39" name="Brae Depot Schedule" comment="">
+      <item id="39c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Machinery" ship="E" comment="" hits="0" />
+    </schedule>
+    <schedule id="40" name="Dunmere Depot Schedule" comment="">
+      <item id="40c1" sequenceId="1" random="" trainScheduleId="" pickupTrainScheduleId="" count="1" wait="0" type="Boxcar" road="" load="Machinery" ship="E" comment="" hits="0" />
+    </schedule>
+  </schedules>
+</operations-config>

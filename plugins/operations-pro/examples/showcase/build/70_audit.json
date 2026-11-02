@@ -1,0 +1,596 @@
+[
+ {
+  "plan": [
+   {
+    "action": "update_track",
+    "track": "West Custom",
+    "location": "West Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "TURN"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "TURN"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "West Mixed",
+    "location": "West Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "TURN"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "TURN"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "West Swap",
+    "location": "West Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-E",
+      "MODE",
+      "TURN"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-W",
+      "MODE",
+      "TURN"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "West Mode",
+    "location": "West Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "TURN"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "TURN"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Turn A",
+    "location": "West Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Turn B",
+    "location": "West Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "East Mixed",
+    "location": "East Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "EAST FREIGHT",
+      "HOP OUT"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "EAST FREIGHT",
+      "HOP OUT"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "East Swap",
+    "location": "East Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-W",
+      "MODE",
+      "EAST FREIGHT",
+      "HOP OUT"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-E",
+      "MODE",
+      "EAST FREIGHT",
+      "HOP OUT"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "East Mode",
+    "location": "East Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "EAST FREIGHT",
+      "HOP OUT"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "EAST FREIGHT",
+      "HOP OUT"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Hop",
+    "location": "East Staging",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "HOP OUT"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "SWAP-E",
+      "SWAP-W",
+      "MODE",
+      "EAST FREIGHT"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Carrow Caboose Track",
+    "location": "Carrow",
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "SWAP-E",
+      "SWAP-W",
+      "LOCAL-B",
+      "FIDDLE JOB",
+      "KESSOCK TRANSFER",
+      "EAST FREIGHT",
+      "THRU",
+      "HOP OUT",
+      "VALLEY FLYER"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Carrow Oil Lead",
+    "location": "Carrow",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "SWAP-E",
+      "SWAP-W",
+      "LOCAL-B",
+      "FIDDLE JOB",
+      "LOCAL-H",
+      "KESSOCK TRANSFER",
+      "EAST FREIGHT",
+      "HOP OUT",
+      "VALLEY FLYER"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "SWAP-E",
+      "SWAP-W",
+      "LOCAL-B",
+      "FIDDLE JOB",
+      "LOCAL-H",
+      "KESSOCK TRANSFER",
+      "EAST FREIGHT",
+      "HOP OUT",
+      "VALLEY FLYER"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Carrow Station",
+    "location": "Carrow",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "SWAP-E",
+      "SWAP-W",
+      "LOCAL-B",
+      "FIDDLE JOB",
+      "LOCAL-H",
+      "KESSOCK TRANSFER",
+      "EAST FREIGHT",
+      "THRU",
+      "HOP OUT"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "SWAP-E",
+      "SWAP-W",
+      "LOCAL-B",
+      "FIDDLE JOB",
+      "LOCAL-H",
+      "KESSOCK TRANSFER",
+      "EAST FREIGHT",
+      "THRU",
+      "HOP OUT"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Engine Track",
+    "location": "Brae",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "LOCAL-B",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "LOCAL-B",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Oil Dealer",
+    "location": "Brae",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "LOCAL-B"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "LOCAL-B"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Dunmere Oil",
+    "location": "Dunmere",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "LOCAL-B"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "LOCAL-B"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Ferris Exchange",
+    "location": "Ferris Junction",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "THRU",
+      "NORTH JOB"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Ferris Relay",
+    "location": "Ferris Junction",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "THRU",
+      "NORTH JOB"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Ferris Gate",
+    "location": "Ferris Junction",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Ferris Routed",
+    "location": "Ferris Junction",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "THRU",
+      "NORTH JOB"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Ferris Pool 1",
+    "location": "Ferris Junction",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "THRU",
+      "NORTH JOB"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Ferris Pool 2",
+    "location": "Ferris Junction",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "THRU",
+      "NORTH JOB"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Northern Connection",
+    "location": "Linden",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "HOP OUT",
+      "TURN"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "EAST FREIGHT",
+      "HOP OUT"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Northwood Station",
+    "location": "Northwood",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "NORTH JOB"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "NORTH JOB"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Kessock A/D",
+    "location": "Kessock",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "KESSOCK SWITCHER"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "KESSOCK TRANSFER"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Kessock Class 1",
+    "location": "Kessock",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "KESSOCK TRANSFER"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Kessock Class 2",
+    "location": "Kessock",
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "KESSOCK TRANSFER"
+     ]
+    }
+   }
+  ]
+ }
+]

@@ -1,0 +1,459 @@
+1- Build Report for train (EAST FREIGHT) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- The option to restrict staging to the same car types, roads, and loads as the train 
+5- being built is enabled 
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (EAST FREIGHT):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5- Service all cars with a final destination (FD)
+5-  
+5- Disabled build options for train (EAST FREIGHT):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (East Staging)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (EAST FREIGHT) route (EAST FREIGHT):
+3- 12r1 Location (Carrow) Eastbound requests 20 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 12r2 Location (Ferris Junction) Eastbound requests 20 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 12r3 Location (Linden) Eastbound requests 20 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 12r4 Staging (East Staging) Eastbound requests 50 pick ups, set outs, local moves,  
+3- train terminates 
+1- Route (EAST FREIGHT) requests 55 cars and 110 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 1 locomotives for train (EAST FREIGHT)
+5- 1 locomotives at location (Carrow):
+7- Loco (JFN 57) type (Diesel) model (GP9) at (Carrow, Carrow Yard) 200 moves
+7-  
+5- 0 locomotives at location (Ferris Junction):
+7-  
+5- 0 locomotives at location (Linden):
+7-  
+5- 0 locomotives available from staging (East Staging):
+7-  
+3-  
+1- Train terminates into staging at (East Staging), there are 4 tracks
+5- Staging track (Hop) is occupied, found 0 locomotive(s) and 1 cars
+5- Track (Hop) planned pick ups 100%. Track length 400 feet, used 44 feet, reserved 0 feet, 
+5- drops 0 feet, pulls 0 feet, available 400 feet 
+7- Train (EAST FREIGHT) can terminate to staging track (Hop)
+1- Staging track (Hop) is available at destination (East Staging)
+5-  
+5- Train (EAST FREIGHT) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (OILX 1) type (Tank Oil) by train, no pick up from spur (Carrow, Carrow Oil 
+7- Lead) 
+7- Exclude car (GTEX 1) type (Tank Veg) by train, no pick up from C/I (Ferris Junction, 
+7- Ferris Gate) 
+7- Exclude car (FLYX 5) type (Observation) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 4) type (Diner) by train, no pick up from spur (Carrow, Carrow Station)
+7- Exclude car (FLYX 3) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 2) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 1) type (Baggage) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (JFN 1301) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+5-  
+1- Found 19 cars for train (EAST FREIGHT)
+5- 17 cars at location (Carrow):
+7- Car (CNXX 1) type (Flatcar) at (Carrow, Carrow Connection Lead) 0 moves
+7- Car (BOXX 1) type (Boxcar) at (Carrow, Carrow Box Lead) 0 moves
+7- Car (NWRX 3) type (HopGrain) at (Carrow, Carrow Grain Track) 0 moves
+7- Car (NWRX 2) type (HopGrain) at (Carrow, Carrow Grain Track) 0 moves
+7- Car (NWRX 1) type (HopGrain) at (Carrow, Carrow Grain Track) 0 moves
+7- Car (JFN 5801) type (Boxcar) at (Carrow, Carrow Box Factory) 0 moves
+7- Car (JFN 5501) type (Covered Hopper) at (Carrow, Carrow Salt Works) 0 moves
+7- Car (JFN 6402) type (Boxcar) at (Carrow, Carrow Glass Works) 0 moves
+7- Car (JFN 6401) type (Boxcar) at (Carrow, Carrow Glass Works) 0 moves
+7- Car (JFN 5201) type (Reefer) at (Carrow, Carrow Packing) 0 moves
+7- Car (OAKX 5) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (OAKX 4) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (OAKX 3) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (OAKX 2) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (MILX 1102) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7- Car (OAKX 1) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (MILX 1101) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7-  
+5- 0 cars at location (Ferris Junction):
+7-  
+5- 2 cars at location (Linden):
+7- Car (TRNX 3) type (Gondola) at (Linden, Linden Team) 0 moves
+7- Car (WSTX 1) type (Boxcar) at (Linden, Linden Westside) 0 moves
+7-  
+5- 0 cars in staging (East Staging):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Carrow)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (55) for train (EAST FREIGHT) the number available (19) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Carrow) id 12r1 requests 20 moves, 20/20 moves are available
+5-  
+5- Find destinations for (CNXX 1) type (Flatcar) empty (E) at spur (Carrow, Carrow 
+5- Connection Lead) 
+5- Searching location (Ferris Junction) route id 12r2 for possible destination
+7- Can't send (CNXX 1) to C/I (Ferris Junction, Ferris Exchange) due to type (Flatcar)
+7- Can't send (CNXX 1) to C/I (Ferris Junction, Ferris Relay) due to type (Flatcar)
+7- Can't set out (CNXX 1) by train (EAST FREIGHT) to C/I (Ferris Junction, Ferris Gate)
+7- Can't send (CNXX 1) to C/I (Ferris Junction, Ferris Transfer) due to type (Flatcar)
+7- Can't send (CNXX 1) to C/I (Ferris Junction, Ferris Routed) due to type (Flatcar)
+7- Can't send (CNXX 1) to C/I (Ferris Junction, Ferris Pool 1) due to type (Flatcar)
+7- Can't send (CNXX 1) to C/I (Ferris Junction, Ferris Pool 2) due to type (Flatcar)
+7- Can't send (CNXX 1) to yard (Ferris Junction, Ferris Yard) due to type (Flatcar)
+5- Could not find a track for (CNXX 1) at destination (Ferris Junction)
+5- Searching location (Linden) route id 12r3 for possible destination
+7- Can't send (CNXX 1) to spur (Linden, Linden Steel) due to road (CNXX)
+7- Can't set out rolling stock (CNXX 1) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (CNXX 1) to spur (Linden, Linden Glazier) due to type (Flatcar)
+7- Can't send (CNXX 1) to spur (Linden, Linden Pipe Yard) due to type (Flatcar)
+7- Can't set out rolling stock (CNXX 1) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (CNXX 1) to spur (Linden, Linden Refinery) due to type (Flatcar)
+7- Can't send (CNXX 1) to spur (Linden, Linden Team) due to type (Flatcar)
+5- Car (CNXX 1) can go to C/I (Linden, Northern Connection) 0/20 moves used
+5- Searching location (East Staging) route id 12r4 for possible destination
+7- Can't send (CNXX 1) to staging (East Staging, Hop) due to car doesn't have a final 
+7- destination 
+3- Car (CNXX 1) assigned to train, destination (Linden, Northern Connection)
+3-  
+5- Find destinations for (BOXX 1) type (Boxcar) empty (E) at spur (Carrow, Carrow Box Lead)
+5- Searching location (Ferris Junction) route id 12r2 for possible destination
+7- Can't send (BOXX 1) to C/I (Ferris Junction, Ferris Exchange) due to type (Boxcar)
+7- Can't send (BOXX 1) to C/I (Ferris Junction, Ferris Relay) due to type (Boxcar)
+7- Can't set out (BOXX 1) by train (EAST FREIGHT) to C/I (Ferris Junction, Ferris Gate)
+7- Can't send (BOXX 1) to C/I (Ferris Junction, Ferris Transfer) due to road (BOXX)
+7- Can't send (BOXX 1) to C/I (Ferris Junction, Ferris Routed) due to car doesn't have a 
+7- final destination 
+7- Can't send (BOXX 1) to C/I (Ferris Junction, Ferris Pool 1) due to type (Boxcar)
+7- Can't send (BOXX 1) to C/I (Ferris Junction, Ferris Pool 2) due to type (Boxcar)
+5- Car (BOXX 1) can go to yard (Ferris Junction, Ferris Yard) 0/20 moves used
+5- Searching location (Linden) route id 12r3 for possible destination
+7- Can't send (BOXX 1) to spur (Linden, Linden Steel) due to type (Boxcar)
+7- Can't set out rolling stock (BOXX 1) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (BOXX 1) to spur (Linden, Linden Glazier) due to schedule (Linden Glazier 
+7- Schedule) in match mode, no match 
+7- Can't send (BOXX 1) to spur (Linden, Linden Pipe Yard) due to type (Boxcar)
+7- Can't set out rolling stock (BOXX 1) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (BOXX 1) to spur (Linden, Linden Refinery) due to type (Boxcar)
+7- Can't send (BOXX 1) to spur (Linden, Linden Team) due to type (Boxcar)
+7- Can't send (BOXX 1) to C/I (Linden, Northern Connection) due to type (Boxcar)
+5- Could not find a track for (BOXX 1) at destination (Linden)
+5- Searching location (East Staging) route id 12r4 for possible destination
+7- Can't send (BOXX 1) to staging (East Staging, Hop) due to car doesn't have a final 
+7- destination 
+3- Car (BOXX 1) assigned to train, destination (Ferris Junction, Ferris Yard)
+3-  
+5- Car (NWRX 3) type (HopGrain) load (Barley) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+5- Could not find a reachable staging for car (NWRX 3) load (Barley)
+7-  
+7- Ignoring spur (Oakhaven, Bakery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Oakhaven, Oakhaven Foundry) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Coil Mill) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Quarry) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Shop Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Glazier) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Pier) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Pipe Yard) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Refinery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Steel) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Westside) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Oil) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Parts Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Tool Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Sawyer, Sawyer Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Cannery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Day Track) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Freight Shed) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Lumber) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Oil Dealer) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Team) wrong division () for car (NWRX 3) load (Barley)
+7- Spur (Northwood, Cold Store) can't service car (NWRX 3) with load (Barley) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Grain Elevator) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7-  
+7- Try spur (Northwood, Malt House) division (North) for car (NWRX 3) with load (Barley) 
+7- Route for car (NWRX 3): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Malt House) 
+7- Car (NWRX 3) load (Barley) has assigned destination (Ferris Junction, Ferris Yard) final 
+7- destination (Northwood, Malt House) 
+3- Car (NWRX 3) assigned to train, destination (Ferris Junction, Ferris Yard)
+3-  
+5- Car (NWRX 2) type (HopGrain) empty (E) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 2) empty (E)
+5- Could not find a reachable staging for car (NWRX 2) empty (E)
+7-  
+7- Ignoring yard (Sawyer, Sawyer Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 1) wrong division () for car (NWRX 2) empty (E)
+7- Yard (Northwood, Gate Yard) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Try yard (Northwood, Northwood Yard) division (North) for car (NWRX 2) with empty (E) 
+7- Route for car (NWRX 2): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Northwood Yard) 
+7- Car (NWRX 2) load (E) has assigned destination (Ferris Junction, Ferris Yard) final 
+7- destination (Northwood, Northwood Yard) 
+3- Car (NWRX 2) assigned to train, destination (Ferris Junction, Ferris Yard)
+3-  
+5- Car (NWRX 1) type (HopGrain) empty (E) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 1) empty (E)
+5- Could not find a reachable staging for car (NWRX 1) empty (E)
+7-  
+7- Ignoring yard (Sawyer, Sawyer Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 1) wrong division () for car (NWRX 1) empty (E)
+7- Yard (Northwood, Gate Yard) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Try yard (Northwood, Northwood Yard) division (North) for car (NWRX 1) with empty (E) 
+7- Route for car (NWRX 1): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Northwood Yard) 
+7- Car (NWRX 1) load (E) has assigned destination (Ferris Junction, Ferris Yard) final 
+7- destination (Northwood, Northwood Yard) 
+3- Car (NWRX 1) assigned to train, destination (Ferris Junction, Ferris Yard)
+3-  
+5- Car (JFN 5801) type (Boxcar) load (Boxes) at spur (Carrow, Carrow Box Factory) has final 
+5- destination (Northwood, Routed Siding) routing begins 
+7- Route for car (JFN 5801): (Carrow, Carrow Box Factory)-> (Ferris Junction, Ferris 
+7- Routed)-> (Northwood, Routed Siding) 
+7- Car (JFN 5801) load (Boxes) has assigned destination (Ferris Junction, Ferris Routed) 
+7- final destination (Northwood, Routed Siding) 
+3- Car (JFN 5801) assigned to train, destination (Ferris Junction, Ferris Routed)
+3-  
+5- Car (JFN 5501) type (Covered Hopper) load (Salt) at spur (Carrow, Carrow Salt Works) has 
+5- final destination (Linden, Linden Pier) routing begins 
+7- Could not find a last hop C/I or yard track that can service car to destination (Linden)
+7-  
+7- Find a route for car (JFN 5501) through staging to (Linden, Linden Pier)
+7- Route for car (JFN 5501): (Carrow, Carrow Salt Works)-> (East Staging, Hop)-> (Linden, 
+7- Linden Pier) 
+7- Car (JFN 5501) load (Salt) has assigned destination (East Staging, Hop) final 
+7- destination (Linden, Linden Pier) 
+3- Car (JFN 5501) assigned to train, destination (East Staging, Hop)
+3-  
+5- Car (JFN 6402) type (Boxcar) load (Glass) at spur (Carrow, Carrow Glass Works) has final 
+5- destination (Linden, Linden Glazier) routing begins 
+7- Train (EAST FREIGHT) can transport car (JFN 6402) from spur (Carrow, Carrow Glass Works) 
+7- to (Linden, Linden Glazier) 
+7- Route for car (JFN 6402): (Carrow, Carrow Glass Works)-> (Linden, Linden Glazier)
+7- Car (JFN 6402) load (Glass) has assigned destination (Linden, Linden Glazier) final 
+7- destination (, ) 
+3- Car (JFN 6402) assigned to train, destination (Linden, Linden Glazier)
+3-  
+5- Car (JFN 6401) type (Boxcar) load (Glass) at spur (Carrow, Carrow Glass Works) has final 
+5- destination (Linden, Linden Glazier) routing begins 
+7- Train (EAST FREIGHT) can transport car (JFN 6401) from spur (Carrow, Carrow Glass Works) 
+7- to (Linden, Linden Glazier) 
+7- Route for car (JFN 6401): (Carrow, Carrow Glass Works)-> (Linden, Linden Glazier)
+7- Car (JFN 6401) load (Glass) has assigned destination (Linden, Linden Glazier) final 
+7- destination (, ) 
+3- Car (JFN 6401) assigned to train, destination (Linden, Linden Glazier)
+3-  
+5- Car (JFN 5201) type (Reefer) load (Produce) at spur (Carrow, Carrow Packing) has final 
+5- destination (Northwood, Cold Store) routing begins 
+7- Route for car (JFN 5201): (Carrow, Carrow Packing)-> (Ferris Junction, Ferris 
+7- Exchange)-> (Northwood, Cold Store) 
+7- Car (JFN 5201) load (Produce) has assigned destination (Ferris Junction, Ferris 
+7- Exchange) final destination (Northwood, Cold Store) 
+3- Car (JFN 5201) assigned to train, destination (Ferris Junction, Ferris Exchange)
+3-  
+5- Car (OAKX 5) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 5): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Car (OAKX 5) load (Wheat) has assigned destination (Ferris Junction, Ferris Pool 1) 
+7- final destination (Northwood, Grain Elevator) 
+3- Car (OAKX 5) assigned to train, destination (Ferris Junction, Ferris Pool 1)
+3-  
+5- Car (OAKX 4) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 4): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Car (OAKX 4) load (Wheat) has assigned destination (Ferris Junction, Ferris Pool 2) 
+7- final destination (Northwood, Grain Elevator) 
+3- Car (OAKX 4) assigned to train, destination (Ferris Junction, Ferris Pool 2)
+3-  
+5- Car (OAKX 3) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 3): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Car (OAKX 3) load (Wheat) has assigned destination (Ferris Junction, Ferris Pool 1) 
+7- final destination (Northwood, Grain Elevator) 
+3- Car (OAKX 3) assigned to train, destination (Ferris Junction, Ferris Pool 1)
+3-  
+5- Car (OAKX 2) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 2): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Car (OAKX 2) load (Wheat) has assigned destination (Ferris Junction, Ferris Pool 2) 
+7- final destination (Northwood, Grain Elevator) 
+3- Car (OAKX 2) assigned to train, destination (Ferris Junction, Ferris Pool 2)
+3-  
+5- Find destinations for (MILX 1102) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Searching location (Ferris Junction) route id 12r2 for possible destination
+7- Can't send (MILX 1102) to C/I (Ferris Junction, Ferris Relay) due to type (Boxcar)
+7- Can't set out (MILX 1102) by train (EAST FREIGHT) to C/I (Ferris Junction, Ferris Gate)
+7- Can't send (MILX 1102) to C/I (Ferris Junction, Ferris Transfer) due to road (MILX)
+7- Can't send (MILX 1102) to C/I (Ferris Junction, Ferris Exchange) due to type (Boxcar)
+7- Can't send (MILX 1102) to C/I (Ferris Junction, Ferris Routed) due to road (MILX)
+7- Can't send (MILX 1102) to C/I (Ferris Junction, Ferris Pool 1) due to type (Boxcar)
+7- Can't send (MILX 1102) to C/I (Ferris Junction, Ferris Pool 2) due to type (Boxcar)
+7- Can't send (MILX 1102) to yard (Ferris Junction, Ferris Yard) due to road (MILX)
+5- Could not find a track for (MILX 1102) at destination (Ferris Junction)
+5- Searching location (Linden) route id 12r3 for possible destination
+7- Can't send (MILX 1102) to spur (Linden, Linden Steel) due to type (Boxcar)
+7- Can't set out rolling stock (MILX 1102) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (MILX 1102) to spur (Linden, Linden Pipe Yard) due to type (Boxcar)
+7- Can't set out rolling stock (MILX 1102) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (MILX 1102) to spur (Linden, Linden Glazier) due to schedule (Linden Glazier 
+7- Schedule) in match mode, no match 
+7- Can't send (MILX 1102) to spur (Linden, Linden Refinery) due to type (Boxcar)
+7- Can't send (MILX 1102) to spur (Linden, Linden Team) due to type (Boxcar)
+7- Can't send (MILX 1102) to C/I (Linden, Northern Connection) due to type (Boxcar)
+5- Could not find a track for (MILX 1102) at destination (Linden)
+5- Searching location (East Staging) route id 12r4 for possible destination
+7- Can't send (MILX 1102) to staging (East Staging, Hop) due to car doesn't have a final 
+7- destination 
+5- Did not assign a destination for car (MILX 1102)
+5-  
+5- Car (OAKX 1) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 1): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Car (OAKX 1) load (Wheat) has assigned destination (Ferris Junction, Ferris Pool 1) 
+7- final destination (Northwood, Grain Elevator) 
+3- Car (OAKX 1) assigned to train, destination (Ferris Junction, Ferris Pool 1)
+3-  
+5- Find destinations for (MILX 1101) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Searching location (Ferris Junction) route id 12r2 for possible destination
+7- Can't send (MILX 1101) to C/I (Ferris Junction, Ferris Relay) due to type (Boxcar)
+7- Can't set out (MILX 1101) by train (EAST FREIGHT) to C/I (Ferris Junction, Ferris Gate)
+7- Can't send (MILX 1101) to C/I (Ferris Junction, Ferris Transfer) due to road (MILX)
+7- Can't send (MILX 1101) to C/I (Ferris Junction, Ferris Exchange) due to type (Boxcar)
+7- Can't send (MILX 1101) to C/I (Ferris Junction, Ferris Routed) due to road (MILX)
+7- Can't send (MILX 1101) to C/I (Ferris Junction, Ferris Pool 2) due to type (Boxcar)
+7- Can't send (MILX 1101) to C/I (Ferris Junction, Ferris Pool 1) due to type (Boxcar)
+7- Can't send (MILX 1101) to yard (Ferris Junction, Ferris Yard) due to road (MILX)
+5- Could not find a track for (MILX 1101) at destination (Ferris Junction)
+5- Searching location (Linden) route id 12r3 for possible destination
+7- Can't send (MILX 1101) to spur (Linden, Linden Steel) due to type (Boxcar)
+7- Can't set out rolling stock (MILX 1101) using Eastbound train, destination track (Linden 
+7- Pier) does not service this direction 
+7- Can't send (MILX 1101) to spur (Linden, Linden Pipe Yard) due to type (Boxcar)
+7- Can't set out rolling stock (MILX 1101) using Eastbound train, destination track (Linden 
+7- Westside) does not service this direction 
+7- Can't send (MILX 1101) to spur (Linden, Linden Glazier) due to schedule (Linden Glazier 
+7- Schedule) in match mode, no match 
+7- Can't send (MILX 1101) to spur (Linden, Linden Refinery) due to type (Boxcar)
+7- Can't send (MILX 1101) to spur (Linden, Linden Team) due to type (Boxcar)
+7- Can't send (MILX 1101) to C/I (Linden, Northern Connection) due to type (Boxcar)
+5- Could not find a track for (MILX 1101) at destination (Linden)
+5- Searching location (East Staging) route id 12r4 for possible destination
+7- Can't send (MILX 1101) to staging (East Staging, Hop) due to car doesn't have a final 
+7- destination 
+5- Did not assign a destination for car (MILX 1101)
+5-  
+1- Partial 15/20 cars at location (Carrow) assigned to train (EAST FREIGHT)
+1- Route location (Ferris Junction) id 12r2 requests 9 moves, 9/20 moves are available
+5-  
+5- No cars available for pick up at location (Ferris Junction)
+5-  
+1- Partial 0/9 cars at location (Ferris Junction) assigned to train (EAST FREIGHT)
+1- Route location (Linden) id 12r3 requests 17 moves, 17/20 moves are available
+5-  
+5- Find destinations for (TRNX 3) type (Gondola) load (L) at spur (Linden, Linden Team)
+5- Searching location (East Staging) route id 12r4 for possible destination
+7- Can't send (TRNX 3) to staging (East Staging, Hop) due to car doesn't have a final 
+7- destination 
+5- Did not assign a destination for car (TRNX 3)
+5-  
+7- Can't pick up (WSTX 1) using Eastbound train, track (Linden Westside) at location 
+7- (Linden) route id 12r3 does not service this train's direction 
+5-  
+1- Partial 0/17 cars at location (Linden) assigned to train (EAST FREIGHT)
+1- No pick ups from staging (East Staging)
+1- Partial 15/55 cars
+5- Build for train (EAST FREIGHT) took 7 mSec

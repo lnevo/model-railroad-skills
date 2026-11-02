@@ -1,0 +1,130 @@
+1- Build Report for train (SAWYER SWITCHER) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Switcher Service Options (Local Car Movement with Default Loads):
+5- Allow Local Classification/Interchange to C/I Moves
+5- Allow Local Spur to Spur Moves
+5- Allow Local Yard to Yard Moves
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (SAWYER SWITCHER):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (SAWYER SWITCHER):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Sawyer)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (SAWYER SWITCHER) route (SAWYER SWITCHER):
+3- 11r1 Location (Sawyer) Eastbound requests 10 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (SAWYER SWITCHER) requests 10 cars and 10 moves
+3-  
+3- Switcher (SAWYER SWITCHER) services location (Sawyer)
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (SAWYER SWITCHER)
+5- 0 locomotives at location (Sawyer):
+7-  
+5-  
+5- Train (SAWYER SWITCHER) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+5-  
+1- Found 3 cars for train (SAWYER SWITCHER)
+5- 3 cars at location (Sawyer):
+7- Car (SWYX 2) type (Hopper) at (Sawyer, Sawyer Yard 1) 0 moves
+7- Car (SWYX 1) type (Reefer) at (Sawyer, Sawyer Team) 0 moves
+7- Car (JFN 401) type (Boxcar) at (Sawyer, Sawyer Yard) 0 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Sawyer)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (10) for train (SAWYER SWITCHER) the number available (3) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Sawyer) id 11r1 requests 10 moves, 10/10 moves are available
+5-  
+5- Find destinations for (SWYX 2) type (Hopper) empty (E) at yard (Sawyer, Sawyer Yard 1)
+5- Searching location (Sawyer) route id 11r1 for possible destination
+7- Can't send (SWYX 2) to spur (Sawyer, Sawyer Pasta Plant) due to type (Hopper)
+7- Can't send (SWYX 2) to yard (Sawyer, Sawyer Yard) due to road (SWYX)
+7- Can't send (SWYX 2) to spur (Sawyer, Sawyer Team) due to type (Hopper)
+7- Can't send (SWYX 2) to spur (Sawyer, Sawyer Warehouse) due to type (Hopper)
+7- Can't send car (SWYX 2) to same track (Sawyer Yard 1)
+5- Car (SWYX 2) can go to yard (Sawyer, Sawyer Yard 2) 0/10 moves used
+3- Car (SWYX 2) assigned to train, destination (Sawyer, Sawyer Yard 2)
+3-  
+5- Find destinations for (SWYX 1) type (Reefer) empty (E) at spur (Sawyer, Sawyer Team)
+5- Searching location (Sawyer) route id 11r1 for possible destination
+7- Can't send (SWYX 1) to spur (Sawyer, Sawyer Pasta Plant) due to type (Reefer)
+7- Can't send (SWYX 1) to yard (Sawyer, Sawyer Yard) due to road (SWYX)
+7- Can't send car (SWYX 1) to same track (Sawyer Team)
+5- Car (SWYX 1) can go to spur (Sawyer, Sawyer Warehouse) 1/10 moves used
+3- Car (SWYX 1) assigned to train, destination (Sawyer, Sawyer Warehouse)
+3-  
+5- Find spur for car (JFN 401) type (Boxcar) custom load (Semolina) at yard (Sawyer, Sawyer 
+5- Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (JFN 401) with load (Semolina) due to road 
+7- (JFN) 
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (JFN 401) with load (Semolina) due 
+7- to type (Boxcar) 
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (JFN 401) with load (Semolina) 
+7- due to type (Boxcar) 
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (JFN 401) with load (Semolina) due 
+7- to type (Boxcar) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Linden, Linden Glazier) can't service car (JFN 401) with load (Semolina) due to 
+7- schedule (Linden Glazier Schedule) in match mode, no match 
+7- Spur (Linden, Linden Pier) can't service car (JFN 401) with load (Semolina) due to type 
+7- (Boxcar) 
+7- Spur (Linden, Linden Pipe Yard) can't service car (JFN 401) with load (Semolina) due to 
+7- type (Boxcar) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (JFN 401) with load (Semolina) due to type 
+7- (Boxcar) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (JFN 401) with load (Semolina) due to 
+7- road (JFN) 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur (Dunmere, Parts Depot) can't service car (JFN 401) with load (Semolina) due to 
+7- schedule (Parts Receiving) in match mode, no match 
+7- Spur (Dunmere, Tool Depot) can't service car (JFN 401) with load (Semolina) due to 
+7- schedule (Tools Receiving) in match mode, no match 
+7-  
+7- Try spur (Sawyer, Sawyer Pasta Plant) division () for car (JFN 401) with load (Semolina) 
+7- Train (SAWYER SWITCHER) can transport car (JFN 401) from yard (Sawyer, Sawyer Yard) to 
+7- (Sawyer, Sawyer Pasta Plant) 
+7- Route for car (JFN 401): (Sawyer, Sawyer Yard)-> (Sawyer, Sawyer Pasta Plant)
+7- Car (JFN 401) load (Semolina) has assigned destination (Sawyer, Sawyer Pasta Plant) 
+7- final destination (, ) 
+3- Car (JFN 401) assigned to train, destination (Sawyer, Sawyer Pasta Plant)
+3-  
+1- Partial 3/10 cars at location (Sawyer) assigned to train (SAWYER SWITCHER)
+1- Partial 3/10 cars
+5- Build for train (SAWYER SWITCHER) took 2 mSec

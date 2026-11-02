@@ -248,3 +248,8 @@ Run cost: one JMRI start is about 15 s; a chain of three sessions about two minu
 - U15: the wait step after the terminate it waits for; if JMRI stalls, drop the wait step and say so.
 - U17: the unmatched-brace experiment, if the plugin refuses it, becomes "the plugin refuses it; JMRI would print an error".
 - Any case whose expected track is not deterministic across the three chains is reworded to the set JMRI gives, never widened silently.
+
+
+## As built
+
+The railroad was built as planned with the changes listed in [`RESULTS.md`](RESULTS.md): cases reworded where real JMRI disagreed, the depots and road fences added at integration, no case dropped, no hand edit. Where this plan and `GUIDE.md` or `RESULTS.md` differ, those two win: they state what JMRI did.

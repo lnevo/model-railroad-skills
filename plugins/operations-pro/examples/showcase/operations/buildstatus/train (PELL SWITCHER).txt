@@ -1,0 +1,266 @@
+1- Build Report for train (PELL SWITCHER) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Switcher Service Options (Local Car Movement with Default Loads):
+5- Allow Local Classification/Interchange to C/I Moves
+5- Allow Local Spur to Spur Moves
+5- Allow Local Yard to Yard Moves
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (PELL SWITCHER):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (PELL SWITCHER):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Pell Creek-(industries))
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (PELL SWITCHER) route (PELL SWITCHER):
+3- 15r1 Location (Pell Creek-(yard)) Northbound requests 10 pick ups, set outs, local 
+3- moves,  maximum train length 1,000 feet 
+3- 15r2 Location (Pell Creek-(industries)) Northbound requests 10 pick ups, set outs, local 
+3- moves,  train terminates 
+1- Route (PELL SWITCHER) requests 20 cars and 20 moves
+3-  
+3- Switcher (PELL SWITCHER) services location (Pell Creek)
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (PELL SWITCHER)
+5- 0 locomotives at location (Pell Creek-(yard)):
+7-  
+5- 0 locomotives at location (Pell Creek-(industries)):
+7-  
+5-  
+5- Train (PELL SWITCHER) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+5-  
+1- Found 2 cars for train (PELL SWITCHER)
+5- 2 cars at location (Pell Creek-(yard)):
+7- Car (PELC 2) type (Boxcar) at (Pell Creek-(yard), Pell Yard) 0 moves
+7- Car (PELC 1) type (Boxcar) at (Pell Creek-(yard), Pell Yard) 0 moves
+7-  
+5- 0 cars at location (Pell Creek-(industries)):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Pell Creek-(yard))
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (20) for train (PELL SWITCHER) the number available (2) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Pell Creek-(yard)) id 15r1 requests 10 moves, 10/10 moves are available
+5-  
+5- Find spur for car (PELC 2) type (Boxcar) custom load (Bricks) at yard (Pell 
+5- Creek-(yard), Pell Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (PELC 2) with load (Bricks) due to road (PELC)
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (PELC 2) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (PELC 2) with load (Bricks) due 
+7- to type (Boxcar) 
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (PELC 2) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Linden, Linden Pier) can't service car (PELC 2) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur (Linden, Linden Pipe Yard) can't service car (PELC 2) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (PELC 2) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (PELC 2) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur (Dunmere, Parts Depot) can't service car (PELC 2) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur (Dunmere, Tool Depot) can't service car (PELC 2) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (PELC 2) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (PELC 2) with load (Bricks) due to road (PELC)
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (PELC 2) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur (Northwood, Grain Elevator) can't service car (PELC 2) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (PELC 2) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur (Northwood, Routed Siding) can't service car (PELC 2) with load (Bricks) due to 
+7- schedule (Routed Siding Receiving) in match mode, no match 
+7- Spur (Carrow, Carrow Box Factory) can't service car (PELC 2) with load (Bricks) due to 
+7- road (PELC) 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (PELC 2) with load (Bricks) due to 
+7- road (PELC) 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (PELC 2) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (PELC 2) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (PELC 2) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7-  
+7- Try spur (Pell Creek-(industries), Pell Brickworks) division () for car (PELC 2) with 
+7- load (Bricks) 
+7- Train (PELL SWITCHER) can transport car (PELC 2) from yard (Pell Creek-(yard), Pell 
+7- Yard) to (Pell Creek-(industries), Pell Brickworks) 
+7- Route for car (PELC 2): (Pell Creek-(yard), Pell Yard)-> (Pell Creek-(industries), Pell 
+7- Brickworks) 
+7- Car (PELC 2) load (Bricks) has assigned destination (Pell Creek-(industries), Pell 
+7- Brickworks) final destination (, ) 
+3- Car (PELC 2) assigned to train, destination (Pell Creek-(industries), Pell Brickworks)
+3-  
+5- Find spur for car (PELC 1) type (Boxcar) custom load (Bricks) at yard (Pell 
+5- Creek-(yard), Pell Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (PELC 1) with load (Bricks) due to road (PELC)
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (PELC 1) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (PELC 1) with load (Bricks) due 
+7- to type (Boxcar) 
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (PELC 1) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Linden, Linden Pier) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur (Linden, Linden Pipe Yard) can't service car (PELC 1) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (PELC 1) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur (Dunmere, Parts Depot) can't service car (PELC 1) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur (Dunmere, Tool Depot) can't service car (PELC 1) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (PELC 1) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (PELC 1) with load (Bricks) due to road (PELC)
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur (Northwood, Grain Elevator) can't service car (PELC 1) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (PELC 1) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur (Northwood, Routed Siding) can't service car (PELC 1) with load (Bricks) due to 
+7- schedule (Routed Siding Receiving) in match mode, no match 
+7- Spur (Carrow, Carrow Box Factory) can't service car (PELC 1) with load (Bricks) due to 
+7- road (PELC) 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (PELC 1) with load (Bricks) due to 
+7- road (PELC) 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (PELC 1) with load (Bricks) due to 
+7- type (Boxcar) 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7- Spur (Oakhaven, Oakhaven Cannery) is in sequential mode and schedule (Cannery Peas) 
+7- requests car type (Boxcar) load (Peas) 
+7- Spur (Oakhaven, Oakhaven Cannery) can't service car (PELC 1) with load (Bricks) due to 
+7- schedule (Cannery Peas) requests car type (Boxcar) load (Peas) 
+7- Spur at (Oakhaven, Oakhaven Team) no schedule
+7- Spur (Dunmere, Dunmere Dairy) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur (Dunmere, Elevator A) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur (Dunmere, Elevator B) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Dunmere, Freight House) no schedule
+7- Spur (Dunmere, Freight House-(2)) can't service car (PELC 1) with load (Bricks) due to 
+7- schedule (Crates Receiving) in match mode, no match 
+7- Spur (Dunmere, Grocery Dock) can't service car (PELC 1) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur (Dunmere, Tuesday Dock) can't service car (PELC 1) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur (Sawyer, Sawyer Pasta Plant) can't service car (PELC 1) with load (Bricks) due to 
+7- schedule (Sawyer Pasta Plant Schedule) in match mode, no match 
+7- Spur at (Sawyer, Sawyer Warehouse) no schedule
+7- Spur (Brae, Brae Feed Mill) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur (Brae, Brae Outside) can't service car (PELC 1) with load (Bricks) due to road 
+7- (PELC) 
+7- Spur at (Brae, Brae Stockyard) no schedule
+7- Spur (Northwood, Malt House) can't service car (PELC 1) with load (Bricks) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow LCL Dock) no schedule
+7- Spur at (Carrow, Carrow Outside Lead) no schedule
+7- Spur at (Carrow, Carrow RIP) no schedule
+7-  
+7- Try spur (Pell Creek-(industries), Pell Brickworks) division () for car (PELC 1) with 
+7- load (Bricks) 
+7- Train (PELL SWITCHER) can transport car (PELC 1) from yard (Pell Creek-(yard), Pell 
+7- Yard) to (Pell Creek-(industries), Pell Brickworks) 
+7- Route for car (PELC 1): (Pell Creek-(yard), Pell Yard)-> (Pell Creek-(industries), Pell 
+7- Brickworks) 
+7- Car (PELC 1) load (Bricks) has assigned destination (Pell Creek-(industries), Pell 
+7- Brickworks) final destination (, ) 
+3- Car (PELC 1) assigned to train, destination (Pell Creek-(industries), Pell Brickworks)
+3-  
+1- Partial 2/10 cars at location (Pell Creek-(yard)) assigned to train (PELL SWITCHER)
+1- Route location (Pell Creek-(industries)) id 15r2 requests 8 moves, 8/10 moves are 
+1- available 
+5-  
+5- No cars available for pick up at location (Pell Creek-(industries))
+5-  
+1- Partial 0/8 cars at location (Pell Creek-(industries)) assigned to train (PELL SWITCHER)
+1- Partial 2/20 cars
+5- Build for train (PELL SWITCHER) took 4 mSec

@@ -1,0 +1,6 @@
+[
+ {"plan": [
+  {"action": "update_train", "train": "LOCAL-B", "comment": "[U01][U02][U03][U08][U09][U10][U13][U14][U17][U20][U22][R17] Branch local through Brae and Dunmere."},
+  {"action": "update_train", "train": "LOCAL-H", "comment": "[U05][U11][U13][U16][U19][U20][U24][R01][R03][R04][R09] South branch local; carries a caboose."}
+ ]}
+]

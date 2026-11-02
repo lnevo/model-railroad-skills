@@ -89,6 +89,12 @@
     "action": "add_default_days"
    },
    {
+    "action": "set_line_days",
+    "schedule": "Tuesday Dock",
+    "line": 1,
+    "setout_day": "Tuesday"
+   },
+   {
     "action": "set_day_trains",
     "day": "Tuesday",
     "trains": [

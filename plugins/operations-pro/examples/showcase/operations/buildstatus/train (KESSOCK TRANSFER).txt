@@ -1,0 +1,160 @@
+1- Build Report for train (KESSOCK TRANSFER) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (KESSOCK TRANSFER):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (KESSOCK TRANSFER):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Kessock)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (KESSOCK TRANSFER) route (KESSOCK TRANSFER):
+3- 9r1 Location (Carrow) Eastbound requests 10 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 9r2 Location (Kessock) Eastbound requests 10 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (KESSOCK TRANSFER) requests 10 cars and 20 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 1 locomotives for train (KESSOCK TRANSFER)
+5- 1 locomotives at location (Carrow):
+7- Loco (JFN 57) type (Diesel) model (GP9) at (Carrow, Carrow Yard) 200 moves
+7-  
+5- 0 locomotives at location (Kessock):
+7-  
+5-  
+5- Train (KESSOCK TRANSFER) Include car roads: KESX
+5-  
+5- Train (KESSOCK TRANSFER) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (OILX 1) type (Tank Oil) by train, no pick up from spur (Carrow, Carrow Oil 
+7- Lead) 
+7- Exclude car (CNXX 1) at (Carrow, Carrow Connection Lead) type (Flatcar)  train doesn't 
+7- service road (CNXX) 
+7- Exclude car (BOXX 1) at (Carrow, Carrow Box Lead) type (Boxcar)  train doesn't service 
+7- road (BOXX) 
+7- Exclude car (FLYX 5) type (Observation) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 4) type (Diner) by train, no pick up from spur (Carrow, Carrow Station)
+7- Exclude car (NWRX 3) at (Carrow, Carrow Grain Track) type (HopGrain)  train doesn't 
+7- service road (NWRX) 
+7- Exclude car (FLYX 3) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (NWRX 2) at (Carrow, Carrow Grain Track) type (HopGrain)  train doesn't 
+7- service road (NWRX) 
+7- Exclude car (FLYX 2) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (NWRX 1) at (Carrow, Carrow Grain Track) type (HopGrain)  train doesn't 
+7- service road (NWRX) 
+7- Exclude car (FLYX 1) type (Baggage) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (JFN 5801) at (Carrow, Carrow Box Factory) type (Boxcar)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (JFN 1301) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+7- Exclude car (JFN 5501) at (Carrow, Carrow Salt Works) type (Covered Hopper)  train 
+7- doesn't service road (JFN) 
+7- Exclude car (JFN 6402) at (Carrow, Carrow Glass Works) type (Boxcar)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (JFN 6401) at (Carrow, Carrow Glass Works) type (Boxcar)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (JFN 5201) at (Carrow, Carrow Packing) type (Reefer)  train doesn't service 
+7- road (JFN) 
+7- Exclude car (OAKX 5) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (OAKX 4) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (OAKX 3) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (OAKX 2) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (MILX 1102) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+7- Exclude car (OAKX 1) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (MILX 1101) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+5-  
+1- Found 4 cars for train (KESSOCK TRANSFER)
+5- 4 cars at location (Carrow):
+7- Car (KESX 4) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7- Car (KESX 3) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7- Car (KESX 2) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7- Car (KESX 1) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7-  
+5- 0 cars at location (Kessock):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Carrow)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (10) for train (KESSOCK TRANSFER) the number available (4) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Carrow) id 9r1 requests 10 moves, 10/10 moves are available
+5-  
+5- Find destinations for (KESX 4) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Kessock) route id 9r2 for possible destination
+5- Car (KESX 4) can go to C/I (Kessock, Kessock A/D) 0/10 moves used
+3- Car (KESX 4) assigned to train, destination (Kessock, Kessock A/D)
+3-  
+5- Find destinations for (KESX 3) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Kessock) route id 9r2 for possible destination
+7- Can't set out (KESX 3) by train (KESSOCK TRANSFER) to C/I (Kessock, Kessock Class 1)
+7- Can't set out (KESX 3) by train (KESSOCK TRANSFER) to C/I (Kessock, Kessock Class 2)
+5- Car (KESX 3) can go to C/I (Kessock, Kessock A/D) 1/10 moves used
+3- Car (KESX 3) assigned to train, destination (Kessock, Kessock A/D)
+3-  
+5- Find destinations for (KESX 2) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Kessock) route id 9r2 for possible destination
+7- Can't set out (KESX 2) by train (KESSOCK TRANSFER) to C/I (Kessock, Kessock Class 1)
+7- Can't set out (KESX 2) by train (KESSOCK TRANSFER) to C/I (Kessock, Kessock Class 2)
+5- Car (KESX 2) can go to C/I (Kessock, Kessock A/D) 2/10 moves used
+3- Car (KESX 2) assigned to train, destination (Kessock, Kessock A/D)
+3-  
+5- Find destinations for (KESX 1) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Kessock) route id 9r2 for possible destination
+7- Can't set out (KESX 1) by train (KESSOCK TRANSFER) to C/I (Kessock, Kessock Class 1)
+7- Can't set out (KESX 1) by train (KESSOCK TRANSFER) to C/I (Kessock, Kessock Class 2)
+5- Car (KESX 1) can go to C/I (Kessock, Kessock A/D) 3/10 moves used
+3- Car (KESX 1) assigned to train, destination (Kessock, Kessock A/D)
+3-  
+1- Partial 4/10 cars at location (Carrow) assigned to train (KESSOCK TRANSFER)
+1- Route location (Kessock) id 9r2 requests 6 moves, 6/10 moves are available
+5-  
+5- No cars available for pick up at location (Kessock)
+5-  
+1- Partial 0/6 cars at location (Kessock) assigned to train (KESSOCK TRANSFER)
+1- Partial 4/10 cars
+5- Build for train (KESSOCK TRANSFER) took 2 mSec
