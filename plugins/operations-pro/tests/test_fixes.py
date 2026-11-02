@@ -3,6 +3,7 @@
 Real JMRI tests run only where JMRI is installed.
 """
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -20,6 +21,7 @@ import ops_data  # noqa: E402
 import ops_gates  # noqa: E402
 import ops_jmri  # noqa: E402
 import ops_report  # noqa: E402
+import ops_router  # noqa: E402
 import scenario_reports  # noqa: E402
 import ops_store  # noqa: E402
 from ops_store import Refused  # noqa: E402
@@ -691,3 +693,55 @@ class RealJmriFromNothing(Folder):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HomeDivisionSearch(Folder):
+    """C12's search against the Try lines real JMRI 5.16 wrote while building the same railroad
+    (tests/scenario_reports.py division_search_*): which track each car is offered first, and in what order."""
+
+    def build(self, actions):
+        self.ops.mkdir()
+        self.edit(*actions, allow=True)
+        return ops_gates.Gates(self.rr())
+
+    @staticmethod
+    def jmri_tries(report: str) -> dict[str, list[str]]:
+        tries: dict[str, list[str]] = {}
+        car = None
+        for line in report.splitlines():
+            head = re.search(r"Car \((\w+ \d+)\) type \(.*home division", line)
+            if head:
+                car = head.group(1).replace(" ", "")
+                tries[car] = []
+            found = re.search(r"Try (\w+) \(([^,]+), ([^)]+)\) division \(\w+\) for car \((\w+ \d+)\)", line)
+            if found and car:
+                tries[car].append(f"{found.group(1)} {found.group(2)}, {found.group(3)}")
+        return tries
+
+    def check(self, name: str, actions):
+        report = (Path(__file__).resolve().parent / "fixtures" / "reports" / f"{name}.txt").read_text(encoding="utf-8")
+        wanted = self.jmri_tries(report)
+        self.assertEqual(sorted(wanted), ["DV1", "DV2", "DV3", "DV4", "DV5", "DV6"])
+        gates = self.build(actions)
+        train = gates.rr.find_train("DS")
+        for car_id, expected in wanted.items():
+            car = gates.rr.cars[car_id]
+            search = ops_router.find_division_destination(gates, car, train)
+            # A Try line is written after the checks in front of it: a yard or staging track's room, a
+            # spur's status. A track's name carries its type in JMRI's line.
+            got = []
+            for entry in search["tried"]:
+                if entry["kind"] == "Spur":
+                    printed = not entry["result"].startswith(("refused", "full", "same", "car is", "through", "local"))
+                else:
+                    printed = entry["result"] == "chosen" or entry["result"].startswith("router")
+                if printed:
+                    got.append(f"{entry['kind'].lower()} {entry['track']}")
+            with self.subTest(car=car_id):
+                self.assertEqual(got, expected)
+
+    def test_a_train_ending_in_staging_tries_staging_first(self):
+        self.check("division_search_staged", scenario_reports.DIVISION_SEARCH_STAGED)
+
+    def test_a_train_ending_at_a_yard_tries_yards_first(self):
+        self.check("division_search_open", scenario_reports.DIVISION_SEARCH_OPEN)

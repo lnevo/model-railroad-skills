@@ -296,8 +296,11 @@ class Gates:
         location = self.rr.locations.get(track.location_id)
         return [t for t in location.tracks if t.pool == track.pool] if location and track.pool else []
 
-    def _pool_lends(self, track: Track, need: int) -> bool:
-        """Pool.requestTrackLength: another track in the pool gives up enough length."""
+    def _pool_lends(self, track: Track, need: int, commit: bool = False) -> bool:
+        """Pool.requestTrackLength. With commit False the lengths are only read. With commit True they
+        change as Java changes them: a full loan, or each partial steal on the way to a refusal, moves
+        length between the pool tracks, and later checks in the same router call see the new lengths
+        (the router restores them when its call ends, see ops_router.restoring_pool_lengths)."""
         limit = self.x.track.get(track.id, {}).get("maxLength", "")
         used, reserved = self.rr.used_length(track), self._reserved(track)
         if JAVA_INT.fullmatch(limit) and used + reserved + need > int(limit):
@@ -310,9 +313,15 @@ class Gates:
             minimum = int(minimum) if JAVA_INT.fullmatch(minimum) else 0
             taken = self.rr.used_length(other) + self._reserved(other)
             if taken + extra <= other.length and other.length - extra >= minimum:
+                if commit:
+                    other.length -= extra
+                    track.length += extra
                 return True
             spare = min(other.length - taken, other.length - minimum)
             if spare > 0:
+                if commit:
+                    other.length -= spare
+                    track.length += spare
                 extra -= spare
         return False
 
@@ -1220,7 +1229,11 @@ class Gates:
     def _home_division(self, car: Car, train: Train, stops: list[Stop], track: Track, goal: Stop | None,
                        target: Track | None = None) -> dict:
         """C12: findDestinationsForCarsWithHomeDivision (TBC:894-1035). A car with a division and no
-        destination gets a final destination from a fixed order of track types; none found holds it."""
+        destination gets a final destination from a fixed order of track types; none found holds it.
+        ops_router.find_division_destination runs that search track by track, so the gate says which
+        track wins and whether this train takes the car to the asked destination. It is not_checked
+        only where the files cannot settle it: every track failed for room alone, or the winner is a
+        staging track at the train's last stop before the build has chosen its terminating track."""
         rr = self.rr
         defined = self.x.divisions
         if not car.division_id or (defined is not None and car.division_id not in defined):
@@ -1231,14 +1244,38 @@ class Gates:
         if not candidates:
             return self._gate("C12", FAIL, f"no track takes the car in the order {kinds}, so it is held")
         names = ", ".join(t.name for t in candidates[:4]) + (" and more" if len(candidates) > 4 else "")
-        if target is not None and not self._division_leads_to(car, candidates, target):
-            # The search sets one of these as the final destination (TBC:950-1035), and the router then
-            # moves the car only towards it, so a destination off every path is never given.
-            return self._gate("C12", FAIL, f"the car gets a final destination from {names} ({kinds}), and "
-                                           f"{rr.locations[target.location_id].name} is not one of them or on the "
-                                           "way to one")
-        return self._gate("C12", NOT_CHECKED, f"the car gets a final destination from {names} ({kinds}); "
-                                              "the router and room then pick one")
+        # The search itself, as TBC:1003 runs it: fewest moves first, the first track that takes the car and
+        # that the router can reach with this train becomes the final destination.
+        search = ops_router.find_division_destination(self, car, train)
+        chosen, routed = search["chosen"], search["routed"]
+        unknown = "; ".join(search["uncertain"])
+        if chosen is None:
+            if search["room_only"]:
+                return self._gate("C12", NOT_CHECKED, f"{names} could take the car ({kinds}) but none has room or a "
+                                                      "route now; room changes as the build pulls and sets out cars")
+            if unknown:
+                return self._gate("C12", NOT_CHECKED, f"no track passed ({kinds}); {unknown}")
+            return self._gate("C12", FAIL, f"{names} take the car, but {train.name} cannot reach them (the router: "
+                                           f"{search['tried'][-1]['result'] if search['tried'] else 'no track'}), in the "
+                                           f"order {kinds}, so it is held")
+        where = f"{rr.locations[chosen.location_id].name}, {chosen.name}"
+        if target is None:
+            return self._gate("C12", NOT_CHECKED if unknown else PASS,
+                              f"the car gets final destination {where} ({kinds})" + (f"; {unknown}" if unknown else ""))
+        went = routed["destination"] if routed else None
+        if went:
+            # This train's drop for the car is where the router sent it (R:setDestination).
+            ok = went == rr.locations[target.location_id].name
+            reason = (f"the car gets final destination {where} ({kinds}); {train.name} takes it to {went}"
+                      + ("" if ok else f", not {rr.locations[target.location_id].name}"))
+            if unknown and ok:
+                return self._gate("C12", NOT_CHECKED, f"{reason}; {unknown}")
+            return self._gate("C12", ok, reason)
+        if self._division_leads_to(car, [chosen], target):
+            return self._gate("C12", PASS, f"the car gets final destination {where} ({kinds}); another train "
+                                           f"or a later stop takes it towards {rr.locations[target.location_id].name}")
+        return self._gate("C12", FAIL, f"the car gets final destination {where} ({kinds}), and "
+                                       f"{rr.locations[target.location_id].name} is not it or on the way to it")
 
     def division_candidates(self, car: Car, stops: list[Stop], track: Track) -> tuple[list[Track], str]:
         """The tracks findDestinationsForCarsWithHomeDivision (TBC:894-1035) may give as the final

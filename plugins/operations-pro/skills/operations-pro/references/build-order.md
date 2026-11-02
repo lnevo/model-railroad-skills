@@ -73,7 +73,7 @@ Setter names are the Java methods, useful when reading a build report or the sou
 | C9 | Stop direction served by the car's track. A local switcher is exempt | Track Train direction |
 | C10 | Staging ships this load | Staging track Ship Load Options |
 | C11 | Quick service departure: only a car whose clone a built train set out on this track waits. Pulled by the stop that set it out fails; otherwise the pull must come after the clone's set out time | Track Quick service |
-| C12 | Home division, for a car with no destination or final destination: a final destination from a fixed order of track types (empties toward the home division; loads home if away, anywhere if home; staging first when the train ends in staging). No accepting track holds the car | Edit Car, Division |
+| C12 | Home division, for a car with no destination or final destination: a final destination from a fixed order of track types (empties toward the home division; loads home if away, anywhere if home; staging first when the train ends in staging). The first track in that order, fewest moves first, that takes the car and that the router reaches with this train is chosen. None holds the car | Edit Car, Division |
 
 ### D. Destination, the default search along the route
 

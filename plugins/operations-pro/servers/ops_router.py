@@ -13,6 +13,8 @@ Entry points:
       The chain of trains to the target with no train named, or None.
   find_spur_for_load(gates, car, train, build=None)
       TBC.findFinalDestinationForCarLoad: scheduled spurs by moves, hold, staging.
+  find_division_destination(gates, car, train, build=None)
+      TBC.findDestinationsForCarsWithHomeDivision: the final destination a home division car is given.
   router_detail(gates, car, target, train)
       Both of the above for one why_not answer.
 
@@ -22,11 +24,13 @@ never tested (T:2108, 2121). With one, the named train starts empty unless lengt
 and moves are given, and its termination staging track is the one named.
 
 What files cannot settle is listed in "uncertain" rather than guessed: quick
-service timing during a build, a schedule's random draw. Pool lending (judged against the files as they stand, not after earlier set outs in the same build), planned
-pick ups and aggressive mode are worked out from the files as Track does.
+service timing during a build, a schedule's random draw. Pool lending is ported with its side effect: a loan changes the pool tracks' lengths for the rest of one
+router call (restoring_pool_lengths puts them back after it). Planned pick ups and aggressive mode are
+worked out from the files as Track does.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 
 from ops_data import INTERCHANGE, QUICK_SERVICE, SPUR, STAGING, YARD, Car, Location, Track, Train
@@ -194,7 +198,7 @@ class Router:
         used, reserved, setouts = rr.used_length(track), g._reserved(track), g._setouts(track)
         if used + reserved + need <= track.length and setouts + need <= track.length:
             return OKAY
-        if track.pool and g._pool_lends(track, need):  # Pool.requestTrackLength
+        if track.pool and g._pool_lends(track, need, commit=True):  # Pool.requestTrackLength, which keeps the move
             return OKAY
         if track.ignore_used and g._available(track) >= need:  # checkPlannedPickUps
             return OKAY
@@ -1006,6 +1010,119 @@ class Router:
         return self.set_car_destination(copy, train)
 
 
+@contextmanager
+def restoring_pool_lengths(gates):
+    """Pool.requestTrackLength moves length between pool tracks as the router asks (it keeps what it moved
+    even when it then refuses), so later checks in one router call see earlier loans. Ours is one call
+    asked of the files as they stand: the lengths are put back when the outermost call ends."""
+    depth = getattr(gates, "_pool_depth", 0)
+    gates._pool_depth = depth + 1
+    saved = [(t, t.length) for t in gates.rr.tracks.values() if t.pool] if depth == 0 else []
+    try:
+        yield
+    finally:
+        gates._pool_depth = depth
+        for track, length in saved:
+            track.length = length
+
+
+def _send_car_to_destination_track(router: Router, car: Car, track: Track, train: Train) -> tuple[bool, str, dict | None]:
+    """TBC:1298 sendCarToDestinationTrack: a yard or staging track, no schedule and no alternate."""
+    rr = router.rr
+    router._train = train
+    problem = _basic_moves(rr, car, track, train)
+    if problem:
+        return False, problem, None
+    status = router.check_destination(car, rr.locations[track.location_id], track)
+    if status != OKAY:
+        return False, f"refused: {status}", None
+    if not _space_available(rr, car, track):
+        return False, "no room for more cars in route to it", None
+    probe = replace(car, fd_id=track.location_id, fd_track_id=track.id)
+    routed = Router(router.g, router.build)
+    ok = routed.set_car_destination(probe, train)
+    detail = _result(routed, probe, ok)
+    if not probe.destination_id:
+        return False, f"router: {routed.status}", detail
+    return True, "chosen", detail
+
+
+def find_division_destination(gates, car: Car, train: Train, build: Build | None = None) -> dict:
+    """TBC.findDestinationsForCarsWithHomeDivision (TBC:894-1035) for one car as the named train builds.
+
+    Gives the final destination the build would give a car with a home division and none: the fixed
+    order of track types (by whether the train ends in staging, the car's load type and whether it sits
+    in a yard of its home division), each searched fewest moves first (sendCarToHomeDivisionTrack,
+    TBC:1003). The first track that passes basic moves, checkDestination, track space and the router
+    wins. Returns "chosen" (the Track or None), "routed" (the router's answer for it), "tried" (each
+    track passed over and why), "order" in words and "uncertain". Like find_spur_for_load, it answers
+    for the first car the build considers: moves and room change as a real build goes on, and
+    "room_only" is True when every track passed over failed only for room, which a build may change.
+    """
+    with restoring_pool_lengths(gates):
+        return _find_division_destination(gates, car, train, build)
+
+
+def _find_division_destination(gates, car: Car, train: Train, build: Build | None) -> dict:
+    rr = gates.rr
+    router = Router(gates, build)
+    router._train = train
+    out: dict = {"chosen": None, "routed": None, "tried": [], "order": "", "uncertain": [], "room_only": False}
+    here_track = rr.tracks.get(car.track_id)
+    here = rr.locations.get(car.location_id)
+    stops = rr.stops(train)
+    if here_track is None or here is None or not stops:
+        out["uncertain"].append("the car or the train has no track or route to search from")
+        return out
+    terminal = router._termination_track(train)
+    last = rr.locations.get(stops[-1].location_id)
+    staged = terminal is not None or (last is not None and last.is_staging and len(stops) > 1)
+    home_here = here.division_id == car.division_id
+    empty = gates._load_type(car) == "Empty"
+    if empty:
+        if here_track.is_yard and home_here:
+            order = [(STAGING, True), (SPUR, True)] if staged else [(SPUR, True), (STAGING, True)]
+        else:
+            order = [(STAGING, True), (YARD, True), (SPUR, True)] if staged else [
+                (YARD, True), (STAGING, True), (SPUR, True)]
+    else:
+        order = [(STAGING, not home_here), (SPUR, not home_here)] if staged else [
+            (SPUR, not home_here), (STAGING, not home_here)]
+    out["order"] = " then ".join(f"{k.lower()}{' in the home division' if h else ''}" for k, h in order)
+    room_only = True
+    for kind, need_home in order:
+        unserved: set[str] = set()
+        for track in router.tracks_by_moves(kind):
+            location = rr.locations[track.location_id]
+            if need_home and location.division_id != car.division_id:
+                continue
+            if track.location_id in unserved:
+                continue
+            if not here_track.accepts_destination(track.location_id):
+                unserved.add(track.location_id)
+                continue
+            if kind == STAGING and terminal is not None and track.location_id == terminal.location_id \
+                    and track.id != terminal.id:
+                continue
+            name = f"{location.name}, {track.name}"
+            if kind == SPUR:
+                ok, why, routed = _send_car_to_destination_spur(router, car, track, train, {"route_found": False})
+            else:
+                ok, why, routed = _send_car_to_destination_track(router, car, track, train)
+            if ok:
+                out.update(chosen=track, routed=routed, room_only=False)
+                out["tried"].append({"track": name, "kind": kind, "result": why})
+                if terminal is None and kind == STAGING and last is not None and track.location_id == last.id:
+                    out["uncertain"].append(f"{name} is at the train's last stop, and which of its staging "
+                                            "tracks the build terminates in is not yet chosen")
+                return out
+            room = why.startswith(("no room", "full", f"refused: {LENGTH}"))
+            room_only = room_only and room
+            out["tried"].append({"track": name, "kind": kind, "result": why, "room": room})
+    out["room_only"] = room_only
+    return out
+
+
 def _result(router: Router, car: Car, ok: bool) -> dict:
     rr = router.rr
     dest, dest_track = rr.locations.get(car.destination_id), rr.tracks.get(car.dest_track_id)
@@ -1027,7 +1144,8 @@ def route_car(gates, car: Car, location: Location, track: Track | None = None, t
     router = Router(gates, build)
     copy = replace(car, train_id="", fd_id=location.id, fd_track_id=track.id if track else "",
                    destination_id="", dest_track_id="")
-    ok = router.set_car_destination(copy, train)
+    with restoring_pool_lengths(gates):
+        ok = router.set_car_destination(copy, train)
     return _result(router, copy, ok)
 
 
@@ -1043,12 +1161,19 @@ def route_path(gates, car: Car, target: Track, check_target: bool = True) -> lis
     router = Router(gates)
     copy = replace(car, kernel="", lead=False, train_id="", fd_id=target.location_id, fd_track_id=target.id,
                    destination_id="", dest_track_id="")
-    if not router.set_car_destination(copy, None, check_target) or not router.path:
+    with restoring_pool_lengths(gates):
+        ok = router.set_car_destination(copy, None, check_target)
+    if not ok or not router.path:
         return None
     return router.path
 
 
 def find_spur_for_load(gates, car: Car, train: Train, build: Build | None = None) -> dict:
+    with restoring_pool_lengths(gates):
+        return _find_spur_for_load(gates, car, train, build)
+
+
+def _find_spur_for_load(gates, car: Car, train: Train, build: Build | None) -> dict:
     """TBC.findFinalDestinationForCarLoad (TBC:1051) for one car as the named train builds.
 
     Scheduled spurs everywhere, fewest moves first; a spur's Hold option or another train

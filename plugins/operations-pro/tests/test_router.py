@@ -77,7 +77,8 @@ def ask(gates, scenario: dict, car_id: str, track_id: str, train_id: str):
     target = rr.tracks[track_id]
     copy = replace(rr.cars[car_id], kernel="", lead=False, train_id="", fd_id=target.location_id,
                    fd_track_id=target.id, destination_id="", dest_track_id="")
-    ok = router.set_car_destination(copy, train)
+    with ops_router.restoring_pool_lengths(gates):  # the oracle puts the lengths back after each query
+        ok = router.set_car_destination(copy, train)
     return ok, kind(router.status), copy.dest_track_id or copy.destination_id, [p["train"] for p in router.shown or []]
 
 
