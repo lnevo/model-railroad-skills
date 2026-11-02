@@ -7,6 +7,7 @@ Fields JMRI derives are never set here. guard() checks that afterwards, independ
 from __future__ import annotations
 
 import copy
+import inspect
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -41,13 +42,73 @@ TRAIN_STATE = ("built", "status", "statusCode", "oldStatusCode", "current", "lea
                "terminationTrack", "printed", "modified", "buildFailed", "buildFailedMessage")
 
 ACTIONS: dict[str, dict] = {}
+# What a field takes, where the name alone does not say. Field names are the same across actions.
+FIELD_NOTES = {
+    "directions": "East, West, North, South joined by / (East/West), or a number from 0 to 15",
+    "direction": "one of East, West, North, South",
+    "roads": '{"option": "All", "Include" or "Exclude", "names": [...]}',
+    "loads": '{"option": "All", "Include" or "Exclude", "names": [...]}',
+    "ship_loads": '{"option": "All", "Include" or "Exclude", "names": [...]}',
+    "drop": '{"option": "any", "trains", "routes", "excludeTrains" or "excludeRoutes" (lower case first), "names": [...]}',
+    "pickup": '{"option": "any", "trains", "routes", "excludeTrains" or "excludeRoutes" (lower case first), "names": [...]}',
+    "destinations": '{"option": "All", "Include" or "Exclude", "names": [...]}',
+    "pool": '{"name": ..., "min_length": ..., "max_length": ...}; the name alone is not enough',
+    "new": "the new name",
+}
+ACTION_NOTES = {
+    "set_track_moves": {"moves": 'by track name or id: {"Carrow Yard": 200}'},
+    "add_engine": {"type": "needed with length for a model no engine has yet",
+                   "length": "needed with type for a model no engine has yet"},
+}
 
 
 def action(session: bool = False):
     def wrap(fn):
-        ACTIONS[fn.__name__] = {"run": fn, "session": session, "help": (fn.__doc__ or "").strip()}
+        ACTIONS[fn.__name__] = {"run": fn, "session": session, "help": (fn.__doc__ or "").strip(), "defined": fn,
+                                "more": []}
         return fn
     return wrap
+
+
+def declare_fields(name: str, fields, also: str | None = None) -> None:
+    """Name the fields an action reads from **fields, beside the table that reads them. also: another action
+    whose fields this one passes on."""
+    ACTIONS[name]["more"] = [*ACTIONS[name]["more"], *fields]
+    if also:
+        ACTIONS[name]["also"] = also
+
+
+def field_list(name: str) -> list[dict]:
+    """Every field of an action, from its signature and declare_fields: name, required, default, note."""
+    entry = ACTIONS[name]
+    out = []
+    for key, parameter in list(inspect.signature(entry["defined"]).parameters.items())[1:]:
+        if parameter.kind is parameter.VAR_KEYWORD:
+            continue
+        row: dict = {"name": key, "required": parameter.default is parameter.empty}
+        if not row["required"] and parameter.default not in (None, ""):
+            row["default"] = parameter.default
+        out.append(row)
+    seen = {row["name"] for row in out}
+    more = [*entry["more"], *(r["name"] for r in field_list(entry["also"]) if not r["required"])] if "also" in entry \
+        else entry["more"]
+    out += [{"name": key, "required": False} for key in dict.fromkeys(more) if key not in seen]
+    notes = {**FIELD_NOTES, **ACTION_NOTES.get(name, {})}
+    return [{**row, "note": notes[row["name"]]} if row["name"] in notes else row for row in out]
+
+
+def field_problem(name: str, item: dict) -> str:
+    """A plain refusal for a call with the wrong fields, listing the right ones."""
+    rows = field_list(name)
+    known = [r["name"] for r in rows]
+    unknown = [key for key in item if key not in known]
+    missing = [r["name"] for r in rows if r["required"] and r["name"] not in item]
+    if not unknown and not missing:
+        return ""
+    parts = [f"unknown field {', '.join(map(repr, unknown))}" if unknown else "",
+             f"missing {', '.join(map(repr, missing))}" if missing else "",
+             f"it takes: {', '.join(known) or 'no fields'}"]
+    return "; ".join(p for p in parts if p)
 
 
 def _bool(value) -> str:
@@ -415,7 +476,8 @@ class Editor:
             try:
                 lines.append(entry["run"](self, **item))
             except TypeError as exc:
-                raise Refused(f"Action {number} ({name}): {exc}") from exc
+                problem = field_problem(name, item) or f"a field has the wrong kind of value ({exc})"
+                raise Refused(f"Action {number} ({name}): {problem}") from exc
             except Refused as exc:
                 raise Refused(f"Action {number} ({name}): {exc}") from exc
         return lines

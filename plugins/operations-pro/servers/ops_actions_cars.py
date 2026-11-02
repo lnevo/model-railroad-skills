@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import split_name
 from ops_store import Refused
-from ops_actions import JAVA_INT, SETUP_FILE, Editor, action, _indent, _int_field, _names, _text
+from ops_actions import JAVA_INT, SETUP_FILE, Editor, action, declare_fields, _indent, _int_field, _names, _text
 
 
 # ---- Rolling stock ------------------------------------------------------------------
@@ -280,3 +280,7 @@ def delete_car(ed: Editor, car: str) -> str:
     holder.remove(element)
     _indent(holder, 1)
     return f"Deleted car {element.get('id')}."
+
+
+declare_fields("add_car", [*CAR_FIELDS, *CAR_FLAGS])
+declare_fields("update_car", [*CAR_FIELDS, *CAR_FLAGS])

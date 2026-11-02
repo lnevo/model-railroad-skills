@@ -1,0 +1,1033 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-trains.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-trains.dtd">
+<operations-config>
+  <!--Written by JMRI version 5.16+R909e15189e on Mon Nov 02 03:42:47 EST 2026-->
+  <options>
+    <trainOptions buildMessages="true" buildReport="false" printPreview="false" openFile="false" runFile="false" trainAction="Move" />
+    <conductorOptions showHyphenName="false" />
+    <rowColorOptions rowColorManual="true" rowColorBuidFailed="" rowColorBuilt="" rowColorTrainEnRoute="" rowColorTerminated="" rowColorReset="" />
+    <manifestCreator>
+      <directory name="csvManifests" />
+      <runFile name="MC4JMRI.xls" />
+      <commonFile name="CSVFilesFile.txt" />
+    </manifestCreator>
+    <switchlistCreator>
+      <directory name="csvSwitchLists" />
+      <runFile name="MC4JMRI.xls" />
+      <commonFile name="CSVFilesFile.txt" />
+    </switchlistCreator>
+  </options>
+  <trains>
+    <train id="1" name="CUSTOM" description="" departDay="0" departHour="07" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U06] Staging to the yard with generated custom loads." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="CUSTOM" id="1" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="2" name="MIXED" description="" departDay="0" departHour="07" departMinute="30" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U06] Staging train that also carries default empties." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="MIXED" id="2" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="3" name="SWAP-E" description="" departDay="0" departHour="08" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="2" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U07][U13] Eastbound half of the staging swap." showTimes="true" carRoadOption="Include">
+      <rowColor name="" resetRowColor="" />
+      <route name="SWAP-E" id="3" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="SWPX" />
+      </carRoads>
+    </train>
+    <train id="4" name="SWAP-W" description="" departDay="0" departHour="08" departMinute="15" builtStartYear="" builtEndYear="" numberEngines="2" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U07][U13] Westbound half of the staging swap." showTimes="true" carRoadOption="Include">
+      <rowColor name="" resetRowColor="" />
+      <route name="SWAP-W" id="4" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="SWPX" />
+      </carRoads>
+    </train>
+    <train id="5" name="MODE" description="" departDay="0" departHour="08" departMinute="30" builtStartYear="" builtEndYear="" numberEngines="1" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U12][U13] Staging train built in normal and aggressive mode." showTimes="true" carRoadOption="Include" leg2Options="1" leg2Engines="1" leg2Road="" leg2Model="" leg2CabooseRoad="" leg2Start="5r2">
+      <rowColor name="" resetRowColor="" />
+      <route name="MODE" id="5" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="MODX" />
+      </carRoads>
+    </train>
+    <train id="6" name="LOCAL-B" description="" departDay="0" departHour="09" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U01][U02][U03][U08][U09][U10][U13][U14][U17][U20][U22][R17] Branch local through Brae and Dunmere." showTimes="true" carRoadOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="LOCAL-B" id="6" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="OILX" />
+      </carRoads>
+      <railRoad name="Brae Branch Lines" />
+    </train>
+    <train id="7" name="FIDDLE JOB" description="" departDay="0" departHour="08" departMinute="45" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U08] Moves cars to and from the fiddle yard." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="FIDDLE JOB" id="7" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="8" name="LOCAL-H" description="" departDay="0" departHour="10" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="1" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U05][U11][U13][U16][U19][U20][U24][R01][R03][R04][R09] South branch local; carries a caboose." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="LOCAL-H" id="8" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="9" name="KESSOCK TRANSFER" description="" departDay="0" departHour="10" departMinute="30" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R11] Hauls cars to the classification yard." showTimes="true" carRoadOption="Include">
+      <rowColor name="" resetRowColor="" />
+      <route name="KESSOCK TRANSFER" id="9" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="KESX" />
+      </carRoads>
+    </train>
+    <train id="10" name="KESSOCK SWITCHER" description="" departDay="0" departHour="11" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R11] Yard switcher at Kessock." showTimes="true" carRoadOption="Include">
+      <rowColor name="" resetRowColor="" />
+      <route name="KESSOCK SWITCHER" id="10" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="KESX" />
+      </carRoads>
+    </train>
+    <train id="11" name="SAWYER SWITCHER" description="" departDay="0" departHour="11" departMinute="30" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U04][R12] Switcher for the town of Sawyer." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="SAWYER SWITCHER" id="11" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="12" name="EAST FREIGHT" description="" departDay="0" departHour="12" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="true" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R02][R04][R05][R06][R08][R10][R14][R15][R18][U21] East freight ending in staging." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="EAST FREIGHT" id="12" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="13" name="THRU" description="" departDay="0" departHour="12" departMinute="30" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="true" allowLocalMoves="true" allowReturn="false" allowThroughCars="false" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R13] Oil train that must not run origin to terminal." showTimes="true" carRoadOption="Include">
+      <rowColor name="" resetRowColor="" />
+      <route name="THRU" id="13" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="OILX" />
+      </carRoads>
+    </train>
+    <train id="14" name="NORTH JOB" description="" departDay="0" departHour="13" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R02][R04][R06][R07][R08][R10][U21] North branch job." showTimes="true" carRoadOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="NORTH JOB" id="14" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="PELC" />
+      </carRoads>
+    </train>
+    <train id="15" name="PELL SWITCHER" description="" departDay="0" departHour="13" departMinute="30" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R16] Local switcher between the two halves of Pell Creek." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="PELL SWITCHER" id="15" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="16" name="HOP OUT" description="" departDay="0" departHour="14" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R05][R15] Westbound train from the east staging hop." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="HOP OUT" id="16" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="17" name="TURN" description="" departDay="0" departHour="15" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="true" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[R19][U22][R18] Out and back turn between two staging tracks." showTimes="true">
+      <rowColor name="" resetRowColor="" />
+      <route name="TURN" id="17" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+    </train>
+    <train id="18" name="VALLEY FLYER" description="" departDay="0" departHour="16" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="[U18] Passenger train to Northwood." showTimes="true" carRoadOption="Include">
+      <rowColor name="" resetRowColor="" />
+      <route name="VALLEY FLYER" id="18" />
+      <types>
+        <carType name="Baggage" />
+        <carType name="Boxcar" />
+        <carType name="Buffer" />
+        <carType name="Caboose" />
+        <carType name="Coal" />
+        <carType name="Coilcar" />
+        <carType name="Covered Hopper" />
+        <carType name="Diner" />
+        <carType name="FlatBHPaper" />
+        <carType name="FlatBHWood" />
+        <carType name="FlatBulkHead" />
+        <carType name="FlatTimber" />
+        <carType name="FlatTrailer" />
+        <carType name="FlatWood" />
+        <carType name="Flatcar" />
+        <carType name="Gon-scrap" />
+        <carType name="Gondola" />
+        <carType name="HopChem" />
+        <carType name="HopCmnt" />
+        <carType name="HopCoal" />
+        <carType name="HopCoal-Ety" />
+        <carType name="HopGrain" />
+        <carType name="HopSand" />
+        <carType name="Hopper" />
+        <carType name="MOW" />
+        <carType name="MOWBox" />
+        <carType name="Observation" />
+        <carType name="Passenger" />
+        <carType name="ReefMech" />
+        <carType name="Reefer" />
+        <carType name="ReeferIce" />
+        <carType name="Stock" />
+        <carType name="Tank Food" />
+        <carType name="Tank Gas" />
+        <carType name="Tank Kero" />
+        <carType name="Tank Oil" />
+        <carType name="Tank Veg" />
+        <locoType name="Diesel" />
+        <locoType name="Electric" />
+        <locoType name="Engine" />
+        <locoType name="Gas Turbine" />
+        <locoType name="Steam" />
+        <locoType name="Steam-heavy" />
+        <locoType name="Steam-light" />
+        <locoType name="Steam-mixed" />
+        <locoType name="Steam-pass" />
+        <locoType name="Switcher" />
+      </types>
+      <carRoads>
+        <carRoad name="FLYX" />
+      </carRoads>
+    </train>
+  </trains>
+  <manualBuilds>
+    <manualBuild id="1" trainId="8" name="LOCAL-H" comment="[U16] Take the team-track flatcar first.">
+      <mbItem id="1m1" sequenceId="1" trainScheduleId="" type="Flatcar" road="TEMX" load="" routeLocationId="8r2" locTrackId="8s5" count="1" warn="true" fail="false" remove="false" />
+    </manualBuild>
+  </manualBuilds>
+  <trainScheduleOptions activeId="3" />
+  <schedules>
+    <schedule id="1" name="Sunday" trainIds="," />
+    <schedule id="2" name="Monday" trainIds="," />
+    <schedule id="3" name="Tuesday" comment="[U14] Weekday: all 18 trains." trainIds="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18," />
+    <schedule id="4" name="Wednesday" trainIds="," />
+    <schedule id="5" name="Thursday" trainIds="," />
+    <schedule id="6" name="Friday" trainIds="," />
+    <schedule id="7" name="Saturday" comment="[U14] Weekend: six trains." trainIds="3,4,12,16,14,18," />
+  </schedules>
+  <automationOptions automationStartupId="" />
+  <automations>
+    <automation id="1" name="Close Out" comment="[U15] Terminates LOCAL-B. Run by Evening Session, so its wait step has something to wait for." currentItem="1c1">
+      <item id="1c1" sequenceId="1" name="Terminate Train" actionCode="0x60d" haltFail="true" actionRan="false" actionSuccessful="false" trainId="6" />
+    </automation>
+    <automation id="2" name="Evening Session" comment="[U15] Builds LOCAL-H then LOCAL-B, runs Close Out (which terminates LOCAL-B), waits for LOCAL-B to terminate, then terminates LOCAL-H. No message or print step, so nothing opens a window." currentItem="2c1">
+      <item id="2c1" sequenceId="1" name="Build Train" actionCode="0x10d" haltFail="true" actionRan="false" actionSuccessful="false" trainId="8" />
+      <item id="2c2" sequenceId="2" name="Build Train" actionCode="0x10d" haltFail="true" actionRan="false" actionSuccessful="false" trainId="6" />
+      <item id="2c3" sequenceId="3" name="Run Automation" actionCode="0x311c" haltFail="true" actionRan="false" actionSuccessful="false" automationId="1" />
+      <item id="2c4" sequenceId="4" name="Wait for Train to Terminate" actionCode="0xc0d" haltFail="true" actionRan="false" actionSuccessful="false" trainId="6" />
+      <item id="2c5" sequenceId="5" name="Terminate Train" actionCode="0x60d" haltFail="true" actionRan="false" actionSuccessful="false" trainId="8" />
+    </automation>
+  </automations>
+</operations-config>

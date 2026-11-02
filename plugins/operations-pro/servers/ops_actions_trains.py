@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import ALL, DIRECTIONS, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, ROUTES, STAGING, TRAINS, java_int
 from ops_store import Refused
-from ops_actions import (Editor, SETUP_FILE, STOP_RANDOM, TRACK_CHILDREN, TRAIN_CHILDREN, action, _bool, _check_train_power, _day,
+from ops_actions import (Editor, SETUP_FILE, STOP_RANDOM, TRACK_CHILDREN, TRAIN_CHILDREN, action, declare_fields, _bool, _check_train_power, _day,
                          _day_id, _dict, _indent, _int_field, _mask, _names, _next, _no_choice, _place, _remove_types, _set_active,
                          _set_day_trains, _set_list, _text, _yes)
 
@@ -457,3 +457,9 @@ def set_active_day(ed: Editor, name: str | None) -> str:
         return "Active day: Any."
     _set_active(ed, _day_id(ed, name))
     return f"Active day: {_day(ed, name).get('name') if name else 'none'}."
+
+
+train_fields = [*TRAIN_FIELDS, *TRAIN_FLAGS, *TRAIN_LISTS, "types"]
+declare_fields("add_train", train_fields)
+declare_fields("update_train", train_fields)
+declare_fields("update_stop", sorted(STOP_FIELDS))

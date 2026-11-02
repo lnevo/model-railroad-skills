@@ -15,7 +15,7 @@ import ops_live
 import ops_report
 import ops_store
 from mcp_stdio import Tool, serve
-from ops_actions import ACTIONS
+from ops_actions import ACTIONS, field_list
 from ops_data import Railroad, directions, load
 from ops_gates import Gates
 
@@ -37,8 +37,23 @@ def railroad(args: dict) -> Railroad:
 
 
 def why_not(args: dict) -> object:
-    return Gates(railroad(args)).why_not(
+    out = Gates(railroad(args)).why_not(
         args["car"], args["destination"], args.get("track"), args.get("train"), args.get("real_build", True))
+    return _brief(out) if args.get("failing_only") else out
+
+
+def _brief(out: dict) -> dict:
+    """The answer without the gates that passed, the long spur list or the track-order note."""
+    short = {k: v for k, v in out.items() if k not in ("gates", "track_note", "track_order", "note")}
+    short["gates"] = [g for g in out["gates"] if g["status"] != "pass"]
+    short["gates_passed"] = len(out["gates"]) - len(short["gates"])
+    router = dict(out["router"])
+    search = router.get("spur_search")
+    if search:
+        router["spur_search"] = {k: v for k, v in search.items() if k not in ("spurs", "staging")}
+    short["router"] = router
+    short["other_trains"] = out["other_trains"][:5]
+    return short
 
 
 def audit(args: dict) -> object:
@@ -52,6 +67,14 @@ def _track(rr: Railroad, track) -> dict:
     row.update(location=rr.locations[track.location_id].name, directions=directions(track.dir),
                used_length=rr.used_length(track), cars=[str(c) for c in cars], engines=len(engines))
     return row
+
+
+def _matches(row: dict, wanted: str) -> bool:
+    """A record whose name, road and number, id or location holds the text; spaces and case do not count."""
+    key = wanted.replace(" ", "").lower()
+    keys = ("id", "name", "location", "road", "road_number", "number")
+    text = " ".join(str(row.get(k, "")) for k in keys) + str(row.get("road", "")) + str(row.get("number", ""))
+    return key in text.replace(" ", "").lower()
 
 
 def list_items(args: dict) -> object:
@@ -82,7 +105,10 @@ _list_records = list_items
 def list_items(args: dict) -> object:  # noqa: F811
     if args.get("type") in EXTRA_LISTS:
         return EXTRA_LISTS[args["type"]](railroad(args).directory)
-    return _list_records(args)
+    rows = _list_records(args)
+    if args.get("filter") and isinstance(rows, list):
+        return [row for row in rows if _matches(row, args["filter"])]
+    return rows
 
 
 # ---- Manual builds and automations (end) --------------------------------------------
@@ -98,7 +124,12 @@ def explain_build(args: dict) -> object:
     if args.get("text"):
         return ops_report.explain(args["text"], car, detail)
     path = args.get("path") or ops_report.report_path(folder(args), args["train"])
-    return ops_report.explain_file(path, car, detail)
+    out = ops_report.explain_file(path, car, detail)
+    if not args.get("path"):
+        note = ops_report.stale_note(path, ops_store.newest_change(folder(args)))
+        if note:
+            out["stale"] = note
+    return out
 
 
 # ---- On-demand backup (start) ---------------------------------------------------------
@@ -124,8 +155,11 @@ def backup_now(args: dict) -> object:
 
 def action_help(args: dict) -> object:
     wanted = args.get("session_only")
-    return {name: {"session": entry["session"], "help": entry["help"]}
-            for name, entry in sorted(ACTIONS.items()) if entry["session"] or not wanted}
+    one = args.get("action")
+    if one and one not in ACTIONS:
+        raise ValueError(f"Unknown action {one!r}")
+    return {name: {"session": entry["session"], "help": entry["help"], "fields": field_list(name)}
+            for name, entry in sorted(ACTIONS.items()) if (entry["session"] or not wanted) and one in (None, name)}
 
 
 def tools() -> list[Tool]:
@@ -146,7 +180,9 @@ def tools() -> list[Tool]:
                   "track": {"type": "string", "description": "Track name or id; omit to try every track"},
                   "train": {"type": "string", "description": "Train name or id; omit to try every train"},
                   "real_build": {"type": "boolean", "description": "Let a cached real JMRI build settle the gates "
-                                 "only a build decides (default true; needs JMRI, else they stay not_checked)"}},
+                                 "only a build decides (default true; needs JMRI, else they stay not_checked)"},
+                  "failing_only": {"type": "boolean", "description": "Leave out the gates that passed and the long "
+                                   "search lists, for a short answer"}},
               "required": ["car", "destination"]},
              why_not),
         Tool("ops_explain_build",
@@ -169,11 +205,15 @@ def tools() -> list[Tool]:
              {"type": "object", "properties": directory}, audit),
         Tool("ops_list", "List one kind of OperationsPro record from the XML files.",
              {"type": "object",
-              "properties": {**directory, "type": {"type": "string", "enum": list(LIST_TYPES)}},
+              "properties": {**directory, "type": {"type": "string", "enum": list(LIST_TYPES)},
+                             "filter": {"type": "string", "description": "Only records whose name, road and number, "
+                                        "id or location holds this text"}},
               "required": ["type"]},
              list_items),
-        Tool("ops_actions", "List every change action with its fields and whether it is a session action.",
-             {"type": "object", "properties": {"session_only": {"type": "boolean"}}}, action_help),
+        Tool("ops_actions", "List every change action with its help, each field (name, required, default, what it "
+             "takes) and whether it is a session action. Give action for just one.",
+             {"type": "object", "properties": {"session_only": {"type": "boolean"}, "action": {"type": "string"}}},
+             action_help),
         Tool("ops_plan",
              "Work out a change to the Operations files without touching them. Returns a plan id, the diff "
              "and new audit findings. Show these to the user before ops_apply.",
@@ -199,9 +239,11 @@ def tools() -> list[Tool]:
              lambda a: ops_store.apply(a["plan_id"], a.get("accept_new_errors", False)), read_only=False),
         Tool("ops_session",
              "Apply session actions, such as correcting a car, without a separate plan. Same backup and audit. "
-             "JMRI must be fully exited.",
-             {"type": "object", "properties": {**directory, **actions}, "required": ["actions"]},
-             lambda a: ops_store.quick(folder(a), a["actions"]), read_only=False),
+             "New audit errors refuse it unless the user accepts them. JMRI must be fully exited.",
+             {"type": "object", "properties": {**directory, **actions, "accept_new_errors": {"type": "boolean"}},
+              "required": ["actions"]},
+             lambda a: ops_store.quick(folder(a), a["actions"], accept_new_errors=a.get("accept_new_errors", False)),
+             read_only=False),
         Tool("ops_deliver_car",
              "Set a car on a track and run that track's schedule as Set Car does: real JMRI works out the "
              "result on a copy, then the change is applied. JMRI must be fully exited.",

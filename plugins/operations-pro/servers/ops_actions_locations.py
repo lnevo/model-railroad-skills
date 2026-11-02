@@ -7,7 +7,7 @@ from ops_data import (ALL, ANY, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE
                       TRAINS, YARD)
 from ops_store import Refused
 from ops_actions import (JAVA_INT, Editor, LOAD_BITS, SPUR_BITS, STAGING_BITS, TRACK_CHILDREN, action, _bool, _indent,
-                         _dict, _int_field, _mask, _names, _next, _remove_types, _set_list, _text)
+                         _dict, _int_field, _mask, _names, _next, _place, _remove_types, _set_list, _text)
 
 
 # ---- Locations and tracks ---------------------------------------------------------
@@ -159,6 +159,26 @@ def _service(ed: Editor, track: ET.Element, value: dict, option_attr: str, tag: 
     _set_list(track, tag, item, ids, "id", TRACK_CHILDREN, 3)
 
 
+def _track_comment(element: ET.Element, comment: str) -> None:
+    """Track.store writes every comment under <comments>, the six children together, only when one is set
+    (Track:2989-3017); the comment attribute is the old format it still reads (Track:2565-2568)."""
+    element.attrib.pop("comment", None)
+    holder = element.find("comments")
+    if holder is None:
+        if not comment:
+            return
+        holder = ET.Element("comments")
+        for tag, value in (("track", ""), ("both", ""), ("pickup", ""), ("setout", ""), ("printManifest", "true"),
+                           ("printSwitchLists", "true")):
+            ET.SubElement(holder, tag, {"comment": value})
+        _place(element, holder, TRACK_CHILDREN)
+    holder.find("track").set("comment", comment)
+    if not comment and not any(holder.find(t) is not None and holder.find(t).get("comment")
+                               for t in ("both", "pickup", "setout")):
+        element.remove(holder)
+    _indent(element, 3)
+
+
 @action()
 def update_track(ed: Editor, track: str, location: str | None = None, length: int | None = None,
                  directions: str | int | None = None, add_types: list[str] | None = None,
@@ -168,8 +188,9 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
                  schedule: str | None = "", schedule_mode: str | None = None, reservation_factor: int | None = None,
                  hold_custom: bool | None = None, alternate: str | None = "", load_options: list[str] | None = None,
                  pool: dict | None = None, ignore_used_percent: int | None = None, priority: str | None = None,
-                 blocking_order: int | None = None) -> str:
-    """Change one track. List settings take {option, names}. Destinations with option Exclude take the names to exclude."""
+                 blocking_order: int | None = None, comment: str | None = None) -> str:
+    """Change one track. List settings take {option, names}. Destinations with option Exclude take the names to exclude.
+    comment is the track's own comment, shown in JMRI's Edit Track window."""
     element = ed.track(track, location)
     kind = element.get("trackType")
     place = ed.location_of(element)
@@ -182,6 +203,8 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
         element.set("length", str(_int_field("length", length)))
     if directions is not None:
         element.set("dir", str(_mask(directions)))
+    if comment is not None:
+        _track_comment(element, _text("A track's comment", comment))
     for name in add_types:
         ed.need_type(name)
         ed.add_type_to(place, name, 2)
@@ -441,3 +464,8 @@ def reset_moves(ed: Editor, location: str | None = None) -> str:
         track.set("moves", "0")
         ed.moves_allowed.add(track.get("id"))
     return f"Reset moves on {len(tracks)} tracks."
+
+
+from ops_actions import declare_fields  # noqa: E402
+
+declare_fields("add_track", [], also="update_track")

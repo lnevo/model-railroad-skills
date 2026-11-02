@@ -1,0 +1,751 @@
+[
+ {
+  "plan": [
+   {
+    "action": "add_schedule",
+    "name": "Bakery Receiving",
+    "comment": "[U11] Bakery takes the flour the mill ships.",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Flour",
+      "ship": "E"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Oakhaven",
+    "name": "Bakery",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "MILX"
+     ]
+    },
+    "schedule": "Bakery Receiving"
+   },
+   {
+    "action": "add_schedule",
+    "name": "Cannery Peas",
+    "comment": "[R01] Oakhaven cannery takes peas in boxcars.",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Peas",
+      "ship": "E"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Oakhaven",
+    "name": "Oakhaven Cannery",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Boxcar"
+    ],
+    "schedule": "Cannery Peas"
+   },
+   {
+    "action": "add_schedule",
+    "name": "Foundry Casting",
+    "comment": "[R03] Foundry takes empty gondolas and ships pipe. The destination line is added after the Linden pipe yard exists (file 55).",
+    "lines": [
+     {
+      "type": "Gondola",
+      "receive": "E",
+      "ship": "Pipe"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Oakhaven",
+    "name": "Oakhaven Foundry",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Gondola"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "schedule": "Foundry Casting"
+   },
+   {
+    "action": "add_schedule",
+    "name": "Plant Stone",
+    "comment": "[R09] Oakhaven plant takes stone in hoppers.",
+    "lines": [
+     {
+      "type": "Hopper",
+      "receive": "Stone",
+      "ship": "E"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Oakhaven",
+    "name": "Plant Overflow",
+    "type": "Spur",
+    "length": 50,
+    "types": [
+     "Hopper"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Oakhaven",
+    "name": "Oakhaven Plant",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Hopper"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "schedule": "Plant Stone",
+    "alternate": "Plant Overflow"
+   },
+   {
+    "action": "add_track",
+    "location": "Oakhaven",
+    "name": "Oakhaven Team",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Flatcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "TEMX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Track 1",
+    "type": "Yard",
+    "length": 300,
+    "moves": 100,
+    "types": [
+     "Gondola"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "GNDX"
+     ]
+    },
+    "priority": "High"
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Track 2",
+    "type": "Yard",
+    "length": 300,
+    "moves": 0,
+    "types": [
+     "Gondola"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "GNDX"
+     ]
+    }
+   },
+   {
+    "action": "add_schedule",
+    "name": "Mill Flour",
+    "comment": "[U11] Hollis flour mill ships flour to the Oakhaven bakery.",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "Flour",
+      "destination": "Oakhaven",
+      "track": "Bakery"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Mill Spur",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "MILX"
+     ]
+    },
+    "schedule": "Mill Flour",
+    "ignore_used_percent": 100
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Team",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Flatcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "TEMX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Pool 1",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Flatcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "POOX"
+     ]
+    },
+    "pool": {
+     "name": "Hollis Pool",
+     "min_length": 100,
+     "max_length": 150
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Pool 2",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Flatcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "POOX"
+     ]
+    },
+    "pool": {
+     "name": "Hollis Pool",
+     "min_length": 100
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Shop Lead",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "RIPX"
+     ]
+    }
+   },
+   {
+    "action": "add_schedule",
+    "name": "Coil Mill Shipping",
+    "comment": "[R04] Hollis coil mill ships coils. The destination line is added after the Northwood steel yard exists (file 55).",
+    "lines": [
+     {
+      "type": "Coilcar",
+      "receive": "E",
+      "ship": "Coil"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Coil Mill",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Coilcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "schedule": "Coil Mill Shipping"
+   },
+   {
+    "action": "add_schedule",
+    "name": "Quarry Shipping",
+    "comment": "[R09] Hollis quarry ships stone to the Oakhaven plant.",
+    "lines": [
+     {
+      "type": "Hopper",
+      "receive": "E",
+      "ship": "Stone",
+      "destination": "Oakhaven",
+      "track": "Oakhaven Plant"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Quarry",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Hopper"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "schedule": "Quarry Shipping"
+   },
+   {
+    "action": "update_track",
+    "track": "Hollis Yard",
+    "location": "Hollis Mill",
+    "remove_types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Caboose Track",
+    "type": "Interchange",
+    "length": 100,
+    "types": [
+     "Caboose"
+    ]
+   },
+   {
+    "action": "setup_interchange",
+    "track": "Carrow Caboose Track",
+    "location": "Carrow",
+    "pulled_by": [
+     "LOCAL-H"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow RIP",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "RIPX"
+     ]
+    },
+    "load_options": [
+     "disable_load_change"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Transfer",
+    "type": "Yard",
+    "length": 300,
+    "types": [
+     "Gondola"
+    ],
+    "loads": {
+     "option": "Include",
+     "names": [
+      "Pipe"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Relay",
+    "type": "Yard",
+    "length": 300,
+    "types": [
+     "Coilcar"
+    ],
+    "loads": {
+     "option": "Include",
+     "names": [
+      "Coil"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Gondola Lead",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Gondola"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "GNDX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Mill Lead",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "MILX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Pool Lead",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Flatcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "POOX"
+     ]
+    }
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "plan": [
+   {
+    "action": "add_car",
+    "road": "GNDX",
+    "number": "501",
+    "type": "Gondola",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Gondola Lead",
+    "comment": "[U05]"
+   },
+   {
+    "action": "add_car",
+    "road": "GNDX",
+    "number": "502",
+    "type": "Gondola",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Gondola Lead",
+    "comment": "[U05]"
+   },
+   {
+    "action": "add_car",
+    "road": "GNDX",
+    "number": "503",
+    "type": "Gondola",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Gondola Lead",
+    "comment": "[U05]"
+   },
+   {
+    "action": "add_car",
+    "road": "MILX",
+    "number": "1101",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Mill Lead",
+    "comment": "[U11]"
+   },
+   {
+    "action": "add_car",
+    "road": "MILX",
+    "number": "1102",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Mill Lead",
+    "comment": "[U11]"
+   },
+   {
+    "action": "add_car",
+    "road": "MILX",
+    "number": "1103",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Mill Lead",
+    "comment": "[U11]"
+   },
+   {
+    "action": "add_car",
+    "road": "MILX",
+    "number": "1104",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Mill Lead",
+    "comment": "[U11]"
+   },
+   {
+    "action": "add_car",
+    "road": "POOX",
+    "number": "1901",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Pool Lead",
+    "comment": "[U19]"
+   },
+   {
+    "action": "add_car",
+    "road": "POOX",
+    "number": "1902",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Pool Lead",
+    "comment": "[U19]"
+   },
+   {
+    "action": "add_car",
+    "road": "POOX",
+    "number": "1903",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Pool Lead",
+    "comment": "[U19]"
+   },
+   {
+    "action": "add_car",
+    "road": "POOX",
+    "number": "1904",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Pool Lead",
+    "comment": "[U19]"
+   },
+   {
+    "action": "add_car",
+    "road": "POOX",
+    "number": "1905",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Pool Lead",
+    "comment": "[U19]"
+   },
+   {
+    "action": "add_car",
+    "road": "POOX",
+    "number": "1906",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Pool Lead",
+    "comment": "[U19]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "1301",
+    "type": "Caboose",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Caboose Track",
+    "comment": "[U13] caboose",
+    "caboose": true
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "1302",
+    "type": "Caboose",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Caboose Track",
+    "comment": "[U13] caboose",
+    "caboose": true
+   },
+   {
+    "action": "add_car",
+    "road": "TEMX",
+    "number": "1",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Hollis Mill",
+    "track": "Hollis Team",
+    "comment": "[U16]"
+   },
+   {
+    "action": "add_car",
+    "road": "RIPX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Hollis Mill",
+    "track": "Hollis Shop Lead",
+    "comment": "[U24]",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5101",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R01]",
+    "load": "Peas"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5901",
+    "type": "Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R09]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5902",
+    "type": "Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R09]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5903",
+    "type": "Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R09]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5904",
+    "type": "Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R09]"
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "plan": [
+   {
+    "action": "set_manual_build",
+    "train": "LOCAL-H",
+    "comment": "[U16] Take the team-track flatcar first.",
+    "lines": [
+     {
+      "type": "Flatcar",
+      "road": "TEMX",
+      "stop": "Hollis Mill",
+      "track": "Hollis Team",
+      "count": 1,
+      "warn": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "deliver": {
+   "car": "JFN 5901",
+   "location": "Hollis Mill",
+   "track": "Hollis Quarry"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 5902",
+   "location": "Hollis Mill",
+   "track": "Hollis Quarry"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 5903",
+   "location": "Hollis Mill",
+   "track": "Hollis Quarry"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 5904",
+   "location": "Hollis Mill",
+   "track": "Hollis Quarry"
+  }
+ }
+]

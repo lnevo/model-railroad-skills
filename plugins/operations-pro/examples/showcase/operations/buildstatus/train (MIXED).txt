@@ -1,0 +1,257 @@
+1- Build Report for train (MIXED) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- The option to restrict staging to the same car types, roads, and loads as the train 
+5- being built is enabled 
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (MIXED):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (MIXED):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (East Staging)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (MIXED) route (MIXED):
+3- 2r1 Staging (West Staging) Eastbound requests 50 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 2r2 Location (Brae) Eastbound requests 6 pick ups, set outs, local moves,  maximum train 
+3- length 1,000 feet 
+3- 2r3 Location (Dunmere) Eastbound requests 6 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 2r4 Staging (East Staging) Eastbound requests 50 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (MIXED) requests 56 cars and 112 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7- Exclude loco (JFN 56) type (Diesel) by train, no pick up from C/I (Brae, Brae Engine 
+7- Track) 
+7-  
+1- Found 5 locomotives for train (MIXED)
+5- 3 locomotives available from staging (West Staging):
+7- Loco (JFN 51) type (Diesel) model (GP9) at (West Staging, West Swap) 0 moves
+7- Loco (JFN 55) type (Diesel) model (GP9) at (West Staging, West Mode) 0 moves
+7- Loco (JFN 52) type (Diesel) model (GP9) at (West Staging, West Swap) 0 moves
+7-  
+5- 0 locomotives at location (Brae):
+7-  
+5- 0 locomotives at location (Dunmere):
+7-  
+5- 2 locomotives available from staging (East Staging):
+7- Loco (JFN 54) type (Diesel) model (GP9) at (East Staging, East Swap) 0 moves
+7- Loco (JFN 53) type (Diesel) model (GP9) at (East Staging, East Swap) 0 moves
+7-  
+3-  
+1- Train terminates into staging at (East Staging), there are 4 tracks
+7- Train (MIXED) can terminate to staging track (East Mixed)
+1- Staging track (East Mixed) is available at destination (East Staging)
+3-  
+1- Train will depart staging (West Staging), there are 6 tracks
+3- Staging track (West Custom) has 0 loco(s) and 4 cars
+3- Staging track (West Custom) does not service this train
+7- Staging track (West Custom) cannot service train (MIXED)
+3- Staging track (West Mixed) has 0 loco(s) and 4 cars
+5- Train (MIXED) can depart from staging track (West Mixed)
+7- Done assigning locomotives from staging
+5-  
+5- Train (MIXED) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (KRNX 3) type (Boxcar) by train, no pick up from spur (Brae, Brae Team)
+7- Exclude car (KRNX 2) type (Boxcar) by train, no pick up from spur (Brae, Brae Team)
+7- Exclude car (KRNX 1) type (Boxcar) by train, no pick up from spur (Brae, Brae Team)
+7- Exclude car (OILX 2) type (Tank Oil) by train, no pick up from spur (Brae, Brae Oil 
+7- Dealer) 
+7- Exclude car (OUTX 2) type (Boxcar) by train, no pick up from spur (Brae, Brae Outside)
+7- Exclude car (FRHX 1) type (Boxcar) by train, no pick up from spur (Brae, Brae Freight 
+7- Shed) 
+7- Exclude car (DAYX 1) type (Boxcar) by train, no pick up from spur (Brae, Brae Day Track)
+7- Exclude car (JFN 302) type (Boxcar) by train, no pick up from spur (Brae, Brae Lumber)
+7- Exclude car (JFN 301) type (Boxcar) by train, no pick up from spur (Brae, Brae Lumber)
+7- Exclude car (JFN 201) type (Boxcar) by train, no pick up from spur (Brae, Brae Cannery)
+7- Exclude car (JFN 1001) type (Boxcar) by train, no pick up from spur (Brae, Brae Freight 
+7- Shed) 
+7- Exclude car (JFN 102) type (Covered Hopper) by train, no pick up from spur (Brae, Brae 
+7- Feed Mill) 
+7-  
+7- Remove cars from the other staging tracks:
+7- Exclude car (TRNX 2) type (Gondola) from staging (West Staging, Turn A)
+7- Exclude car (TRNX 1) type (Gondola) from staging (West Staging, Turn A)
+7- Exclude car (HZMX 13) type (Flatcar) from staging (West Staging, Turn A)
+7- Exclude car (HZMX 12) type (Flatcar) from staging (West Staging, Turn A)
+7- Exclude car (HZMX 11) type (Flatcar) from staging (West Staging, Turn A)
+7- Exclude car (SWPX 6) type (Coal) from staging (West Staging, West Swap)
+7- Exclude car (SWPX 5) type (Coal) from staging (West Staging, West Swap)
+7- Exclude car (SWPX 4) type (Coal) from staging (West Staging, West Swap)
+7- Exclude car (SWPX 3) type (Coal) from staging (West Staging, West Swap)
+7- Exclude car (SWPX 2) type (Coal) from staging (West Staging, West Swap)
+7- Exclude car (SWPX 1) type (Coal) from staging (West Staging, West Swap)
+7- Exclude car (HZMX 9) type (Buffer) from staging (West Staging, Turn A)
+7- Exclude car (HZMX 3) type (Tank Gas) from staging (West Staging, Turn A)
+7- Exclude car (HZMX 2) type (Tank Gas) from staging (West Staging, Turn A)
+7- Exclude car (HZMX 1) type (Tank Gas) from staging (West Staging, Turn A)
+7- Exclude car (MODX 5) type (Stock) from staging (West Staging, West Mode)
+7- Exclude car (MODX 4) type (Stock) from staging (West Staging, West Mode)
+7- Exclude car (MODX 3) type (Stock) from staging (West Staging, West Mode)
+7- Exclude car (MODX 2) type (Stock) from staging (West Staging, West Mode)
+7- Exclude car (MODX 1) type (Stock) from staging (West Staging, West Mode)
+5-  
+5- Departing staging (West Staging, West Mixed) with 4 cars
+7- Staging car (JFN 614) type (Gondola) empty (E)
+7- Staging car (JFN 613) type (Boxcar) empty (E)
+7- Staging car (JFN 612) type (Boxcar) empty (E)
+7- Staging car (JFN 611) type (Boxcar) empty (E)
+5-  
+1- Found 4 cars for train (MIXED)
+5- 4 cars in staging (West Staging):
+7- Car (JFN 614) type (Gondola) at (West Staging, West Mixed) 0 moves
+7- Car (JFN 613) type (Boxcar) at (West Staging, West Mixed) 0 moves
+7- Car (JFN 612) type (Boxcar) at (West Staging, West Mixed) 0 moves
+7- Car (JFN 611) type (Boxcar) at (West Staging, West Mixed) 0 moves
+7-  
+5- 0 cars at location (Brae):
+7-  
+5- 0 cars at location (Dunmere):
+7-  
+5- 0 cars in staging (East Staging):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (West Staging)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (56) for train (MIXED) the number available (4) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (West Staging) id 2r1 requests 50 moves, 50/50 moves are available
+5-  
+5- Staging track (West Mixed) has the following options selected:
+5- Generate custom loads for spurs serviced by this train
+5- Generate custom loads for any staging track
+5-  
+5- Generate load for (JFN 614) type (Gondola) empty (E) at (West Staging, West Mixed) 
+5- destination () 
+5- Could not find a route to a spur that needs a custom load for car (JFN 614)
+5- Try to send car (JFN 614) to staging, found 10 tracks
+7- Ignoring terminal staging track at (East Staging) until all others are tried
+7-  
+7- Generate load for (JFN 614) type (Gondola) empty (E) at (West Staging, West Mixed) to 
+7- staging (East Staging, East Mixed) 
+7- Departure track (West Mixed) can't ship load (Pipe) to destination (East Staging, East 
+7- Mixed) 
+7- Could not generate a custom load for car (JFN 614) departing (West Mixed) to staging 
+7- (East Staging, East Mixed) 
+7- Couldn't find staging that would accept car (JFN 614) with a custom load
+7-  
+5- Find destinations for (JFN 614) type (Gondola) empty (E) at staging (West Staging, West 
+5- Mixed) 
+5- Searching location (Brae) route id 2r2 for possible destination
+7- Car (JFN 614) type (Gondola) isn't serviced by destination (Brae)
+5- Searching location (Dunmere) route id 2r3 for possible destination
+7- Car (JFN 614) type (Gondola) isn't serviced by destination (Dunmere)
+5- Searching location (East Staging) route id 2r4 for possible destination
+5- Car (JFN 614) can go to staging (East Staging, East Mixed) 0/50 moves used
+3- Car (JFN 614) assigned to train, destination (East Staging, East Mixed)
+3-  
+5- Generate load for (JFN 613) type (Boxcar) empty (E) at (West Staging, West Mixed) 
+5- destination () 
+7- Departure track (West Mixed) can't ship load (Crates) to destination (Dunmere, Freight 
+7- House-(2)) schedule id 13c1 
+7- Departure track (West Mixed) can't ship load (Canned) to destination (Dunmere, Grocery 
+7- Dock) schedule id 5c1 
+7- Departure track (West Mixed) can't ship load (Lumber) to destination (Dunmere, Lumber 
+7- Dealer) schedule id 7c1 
+7- Departure track (West Mixed) can't ship load (Parts) to destination (Dunmere, Parts 
+7- Depot) schedule id 10c1 
+7- Departure track (West Mixed) can't ship load (Tools) to destination (Dunmere, Tool 
+7- Depot) schedule id 11c1 
+7- Try spur (Dunmere, Dunmere Depot) custom load (Machinery)
+7- Train (MIXED) can transport car (JFN 613) from staging (West Staging, West Mixed) to 
+7- (Dunmere, Dunmere Depot) 
+7- Route for car (JFN 613): (West Staging, West Mixed)-> (Dunmere, Dunmere Depot)
+5- Car (JFN 613) custom load (Machinery) final destination (Dunmere, Dunmere Depot)
+7- Car (JFN 613) load (Machinery) has assigned destination (Dunmere, Dunmere Depot) final 
+7- destination (, ) 
+3- Car (JFN 613) assigned to train, destination (Dunmere, Dunmere Depot)
+3-  
+5- Generate load for (JFN 612) type (Boxcar) empty (E) at (West Staging, West Mixed) 
+5- destination () 
+7- Departure track (West Mixed) can't ship load (Crates) to destination (Dunmere, Freight 
+7- House-(2)) schedule id 13c1 
+7- Departure track (West Mixed) can't ship load (Canned) to destination (Dunmere, Grocery 
+7- Dock) schedule id 5c1 
+7- Departure track (West Mixed) can't ship load (Lumber) to destination (Dunmere, Lumber 
+7- Dealer) schedule id 7c1 
+7- Departure track (West Mixed) can't ship load (Parts) to destination (Dunmere, Parts 
+7- Depot) schedule id 10c1 
+7- Departure track (West Mixed) can't ship load (Tools) to destination (Dunmere, Tool 
+7- Depot) schedule id 11c1 
+7- Try spur (Brae, Brae Depot) custom load (Machinery)
+7- Train (MIXED) can transport car (JFN 612) from staging (West Staging, West Mixed) to 
+7- (Brae, Brae Depot) 
+7- Route for car (JFN 612): (West Staging, West Mixed)-> (Brae, Brae Depot)
+5- Car (JFN 612) custom load (Machinery) final destination (Brae, Brae Depot)
+7- Car (JFN 612) load (Machinery) has assigned destination (Brae, Brae Depot) final 
+7- destination (, ) 
+3- Car (JFN 612) assigned to train, destination (Brae, Brae Depot)
+3-  
+5- Generate load for (JFN 611) type (Boxcar) empty (E) at (West Staging, West Mixed) 
+5- destination () 
+7- Departure track (West Mixed) can't ship load (Crates) to destination (Dunmere, Freight 
+7- House-(2)) schedule id 13c1 
+7- Departure track (West Mixed) can't ship load (Canned) to destination (Dunmere, Grocery 
+7- Dock) schedule id 5c1 
+7- Departure track (West Mixed) can't ship load (Lumber) to destination (Dunmere, Lumber 
+7- Dealer) schedule id 7c1 
+7- Departure track (West Mixed) can't ship load (Parts) to destination (Dunmere, Parts 
+7- Depot) schedule id 10c1 
+7- Departure track (West Mixed) can't ship load (Tools) to destination (Dunmere, Tool 
+7- Depot) schedule id 11c1 
+7- Try spur (Dunmere, Dunmere Depot) custom load (Machinery)
+7- Train (MIXED) can transport car (JFN 611) from staging (West Staging, West Mixed) to 
+7- (Dunmere, Dunmere Depot) 
+7- Route for car (JFN 611): (West Staging, West Mixed)-> (Dunmere, Dunmere Depot)
+5- Car (JFN 611) custom load (Machinery) final destination (Dunmere, Dunmere Depot)
+7- Car (JFN 611) load (Machinery) has assigned destination (Dunmere, Dunmere Depot) final 
+7- destination (, ) 
+3- Car (JFN 611) assigned to train, destination (Dunmere, Dunmere Depot)
+3-  
+1- Partial 4/50 cars at location (West Staging) assigned to train (MIXED)
+1- Route location (Brae) id 2r2 requests 5 moves, 5/6 moves are available
+5-  
+5- No cars available for pick up at location (Brae)
+5-  
+1- Partial 0/5 cars at location (Brae) assigned to train (MIXED)
+1- Route location (Dunmere) id 2r3 requests 4 moves, 4/6 moves are available
+5-  
+5- No cars available for pick up at location (Dunmere)
+5-  
+1- Partial 0/4 cars at location (Dunmere) assigned to train (MIXED)
+1- No pick ups from staging (East Staging)
+1- Partial 4/56 cars
+5- Build for train (MIXED) took 8 mSec

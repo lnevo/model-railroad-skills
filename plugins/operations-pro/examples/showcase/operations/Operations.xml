@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-config.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-config.dtd">
+<operations-config>
+  <!--Written by JMRI version 5.16+R909e15189e on Mon Nov 02 03:42:47 EST 2026-->
+  <operations>
+    <setup comment="" />
+    <settings mainMenu="false" closeOnSave="false" autoSave="true" autoBackup="true" trainDirection="15" trainLength="1000" maxEngines="6" hpt="1.0" scale="6" carTypes="Descriptive" switchTime="3" travelTime="4" showValue="false" valueLabel="Value" showRfid="false" rfidLabel="ID Tag" lengthUnit="Feet" yearModeled="" />
+    <pickupEngFormat prefix=" [ ] Pick up" setting="Road,Number, ,Model, , ,Location,Comment," />
+    <dropEngFormat prefix=" [ ] Set out" setting="Road,Number, ,Model, , ,Destination,Comment," />
+    <pickupCarFormat prefix=" [ ] Pick up" setting="Road,Number,Type,Length,Load,Track," />
+    <dropCarFormat prefix=" [ ] Set out" setting="Road,Number,Type,Length,Color,Load,Hazardous,Destination,Comment,SetOut Msg," />
+    <localFormat prefix=" [ ] Move" setting="Road,Number,Type,Length,Color,Load,Hazardous,Location,Destination,Comment," />
+    <missingCarFormat prefix="" setting="Road,Number,Type,Length,Color,Comment," />
+    <switchList sameAsManifest="true" realTime="true" allTrains="true" pageFormat="pageNormal" printRouteLocation="true" trackSummary="true" useDepartureTime="false" />
+    <switchListPickupCarFormat prefix=" [ ] Pick up" setting="Road,Number,Type,Length,Load,Track," />
+    <switchListDropCarFormat prefix=" [ ] Set out" setting="Road,Number,Type,Length,Color,Load,Hazardous,Destination,Comment,SetOut Msg," />
+    <switchListLocalFormat prefix=" [ ] Move" setting="Road,Number,Type,Length,Color,Load,Hazardous,Location,Destination,Comment," />
+    <panel name="Panel" trainIconXY="true" trainIconAppend="false" />
+    <fontName name="Monospaced" />
+    <fontSize size="10" />
+    <pageOrientation manifest="Portrait" switchList="Portrait" />
+    <printDuplex name="one-sided" />
+    <manifestColors dropEngineColor="black" pickupEngineColor="black" dropColor="blue" pickupColor="red" localColor="green" />
+    <tab enabled="false" length="12" tab2Length="6" tab3Length="8" manifestTabLength="4" />
+    <manifest printLocComments="false" printRouteComments="false" printLoadsEmpties="false" printTimetable="false" use12hrFormat="false" printValid="true" sortByTrack="false" printPageHeader="true" printHeaders="false" printNoPageBreaks="true" truncate="false" useDepartureTime="false" useEditor="false" printCabooseLoad="false" printPassengerLoad="false" groupCarMoves="false" printLocoLast="false" hazardousMsg="(Hazardous)" />
+    <manifestFormat value="0" />
+    <headerLines printHeaderLine1="true" printHeaderLine2="true" printHeaderLine3="true" />
+    <manifestFileOptions manifestSave="false" />
+    <buildOptions aggressive="false" numberPasses="2" onTime="false" dwellTime="60" allowLocalInterchange="true" allowLocalSpur="true" allowLocalYard="true" stagingRestrictionEnabled="true" stagingTrackAvail="false" allowReturnStaging="false" promptStagingEnabled="false" promptToStagingEnabled="false" stagingTryNormal="true" generateCsvManifest="false" generateCsvSwitchList="false" />
+    <buildReport level="7" routerLevel="3" useEditor="false" indent="true" alwaysPreview="false" fontSize="10" />
+    <router carRoutingEnabled="true" carRoutingViaYards="true" carRoutingViaStaging="true" forwardToYard="true" onlyActiveTrains="false" checkCarDestination="false" />
+    <logger carLogger="false" engineLogger="false" trainLogger="false" />
+    <owner name="" />
+    <iconColor north="" south="" east="" west="" local="" terminate="" />
+    <comments misplacedCars="The following cars are currently misplaced, please contact the dispatcher if found" />
+    <display showTrackMoves="false" />
+    <CATS exactLocationName="true" />
+    <dayNameMapping />
+  </operations>
+  <manifestHeaderTextStrings />
+  <manifestTextStrings>
+    <valid text="Conductor''s copy, valid {0}" />
+  </manifestTextStrings>
+  <switchListTextStrings>
+    <noCarPickUps text="Nothing to pick up for train ({0}) here" />
+  </switchListTextStrings>
+  <control>
+    <maximumStringLengths>
+      <max_len_string_attibute length="14" />
+      <max_len_string_road_number length="10" />
+      <max_len_string_print_road_number length="6" />
+      <max_len_string_location_name length="25" />
+      <max_len_string_track_name length="25" />
+      <max_len_string_track_length_name length="5" />
+      <max_len_string_length_name length="4" />
+      <max_len_string_weight_name length="4" />
+      <max_len_string_built_name length="5" />
+      <max_len_string_train_name length="25" />
+      <max_len_string_route_name length="25" />
+      <max_len_string_automation_name length="25" />
+    </maximumStringLengths>
+    <reports fontSize="10" fontName="" />
+    <actions excelWaitTime="120" />
+    <printOptions disablePrintIfCustom="false" />
+    <speedHpt MPH="36" />
+    <display showClones="true" />
+    <days length="31" />
+  </control>
+</operations-config>

@@ -364,6 +364,7 @@ def _rename_load_checked(previous):
 
 
 ACTIONS["rename_load"]["run"] = _rename_load_checked(ACTIONS["rename_load"]["run"])
+ACTIONS["rename_load"]["more"] = ["merge"]
 ACTIONS["rename_load"]["help"] += (" Refused when the new name already exists for that type, unless merge is true: "
                                    "the two then become one, taking the renamed load's settings (load type, priority, "
                                    "hazardous flag and comments) as JMRI's Replace does.")

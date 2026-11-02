@@ -1,0 +1,75 @@
+1- Build Report for train (KESSOCK SWITCHER) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Switcher Service Options (Local Car Movement with Default Loads):
+5- Allow Local Classification/Interchange to C/I Moves
+5- Allow Local Spur to Spur Moves
+5- Allow Local Yard to Yard Moves
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (KESSOCK SWITCHER):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (KESSOCK SWITCHER):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Kessock)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (KESSOCK SWITCHER) route (KESSOCK SWITCHER):
+3- 10r1 Location (Kessock) Eastbound requests 10 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (KESSOCK SWITCHER) requests 10 cars and 10 moves
+3-  
+3- Switcher (KESSOCK SWITCHER) services location (Kessock)
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (KESSOCK SWITCHER)
+5- 0 locomotives at location (Kessock):
+7-  
+5-  
+5- Train (KESSOCK SWITCHER) Include car roads: KESX
+5-  
+5- Train (KESSOCK SWITCHER) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+5-  
+1- Found 0 cars for train (KESSOCK SWITCHER)
+5- 0 cars at location (Kessock):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Kessock)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (10) for train (KESSOCK SWITCHER) the number available (0) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Kessock) id 10r1 requests 10 moves, 10/10 moves are available
+5-  
+5- No cars available for pick up at location (Kessock)
+5-  
+1- Partial 0/10 cars at location (Kessock) assigned to train (KESSOCK SWITCHER)
+1- Partial 0/10 cars
+5- Build for train (KESSOCK SWITCHER) took 1 mSec

@@ -1,0 +1,254 @@
+1- Build Report for train (MODE) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- The option to restrict staging to the same car types, roads, and loads as the train 
+5- being built is enabled 
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (MODE):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (MODE):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (East Staging)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (MODE) route (MODE):
+3- 5r1 Staging (West Staging) Eastbound requests 50 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 5r2 Location (Brae) Eastbound requests 3 pick ups, set outs, local moves,  maximum train 
+3- length 1,000 feet 
+3- 5r3 Staging (East Staging) Eastbound requests 50 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (MODE) requests 51 cars and 103 moves
+1-  
+1- Train requirements:
+1- Train departs (West Staging) with a single locomotive, model () road ()
+1- Locomotive change at (Brae), departs with 1 loco(s), model () road ()
+5- Train (MODE) services locomotive types:
+5- Diesel, Electric, Engine, Gas Turbine, Steam, Steam-heavy, Steam-light, Steam-mixed, 
+5- Steam-pass, Switcher 
+7-  
+1- Found 2 locomotives for train (MODE)
+5- 1 locomotives available from staging (West Staging):
+7- Loco (JFN 55) type (Diesel) model (GP9) at (West Staging, West Mode) 0 moves
+7-  
+5- 1 locomotives at location (Brae):
+7- Loco (JFN 56) type (Diesel) model (GP9) at (Brae, Brae Engine Track) 0 moves
+7-  
+5- 0 locomotives available from staging (East Staging):
+7-  
+3-  
+1- Train terminates into staging at (East Staging), there are 4 tracks
+7- Train (MODE) can terminate to staging track (East Mode)
+1- Staging track (East Mode) is available at destination (East Staging)
+3-  
+1- Train will depart staging (West Staging), there are 6 tracks
+3- Staging track (West Custom) has 0 loco(s) and 4 cars
+3- Staging track (West Custom) does not service this train
+7- Staging track (West Custom) cannot service train (MODE)
+3- Staging track (West Mixed) has 0 loco(s) and 4 cars
+3- Staging track (West Mixed) does not service this train
+7- Staging track (West Mixed) cannot service train (MODE)
+3- Staging track (West Mode) has 1 loco(s) and 5 cars
+5- Train (MODE) can depart from staging track (West Mode)
+5- Search for 1 loco(s), model (), road (), departing (West Staging), destination (Brae)
+7- Can't set out (JFN 55) by train (MODE) to spur (Brae, Brae Feed Mill)
+7- Can't set out (JFN 55) by train (MODE) to spur (Brae, Brae Cannery)
+7- Can't set out (JFN 55) by train (MODE) to spur (Brae, Brae Lumber)
+7- Can't set out (JFN 55) by train (MODE) to spur (Brae, Brae Outside)
+7- Can't send loco (JFN 55) to spur (Brae, Brae Depot) due to type (Diesel)
+7- Can't send loco (JFN 55) to spur (Brae, Brae Stockyard) due to type (Diesel)
+7- Can't set out (JFN 55) by train (MODE) to spur (Brae, Brae Oil Dealer)
+5- Loco (JFN 55) can go to C/I (Brae, Brae Engine Track)
+1- Loco (JFN 55) assigned to train, departs (West Staging) destination (Brae, Brae Engine 
+1- Track) 
+7- Done assigning locomotives from staging
+3-  
+3- Locomotive change at (Brae), departs with 1 loco(s), model () road ()
+5- Search for 1 loco(s), model (), road (), departing (Brae), destination (East Staging)
+5- Loco (JFN 56) road (JFN) model (GP9) type (Diesel) at location (Brae, Brae Engine Track) 
+5- destination (East Staging) 
+1- Loco (JFN 56) assigned to train, departs (Brae) destination (East Staging, East Mode)
+7- Done assigning locomotives to train (MODE)
+5-  
+5- Train (MODE) Include car roads: MODX
+5-  
+5- Train (MODE) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (KRNX 3) type (Boxcar) by train, no pick up from spur (Brae, Brae Team)
+7- Exclude car (KRNX 2) type (Boxcar) by train, no pick up from spur (Brae, Brae Team)
+7- Exclude car (KRNX 1) type (Boxcar) by train, no pick up from spur (Brae, Brae Team)
+7- Exclude car (OILX 2) type (Tank Oil) by train, no pick up from spur (Brae, Brae Oil 
+7- Dealer) 
+7- Exclude car (OUTX 2) type (Boxcar) by train, no pick up from spur (Brae, Brae Outside)
+7- Exclude car (FRHX 1) type (Boxcar) by train, no pick up from spur (Brae, Brae Freight 
+7- Shed) 
+7- Exclude car (TRNX 2) at (West Staging, Turn A) type (Gondola)  train doesn't service 
+7- road (TRNX) 
+7- Exclude car (TRNX 1) at (West Staging, Turn A) type (Gondola)  train doesn't service 
+7- road (TRNX) 
+7- Exclude car (HZMX 13) at (West Staging, Turn A) type (Flatcar)  train doesn't service 
+7- road (HZMX) 
+7- Exclude car (HZMX 12) at (West Staging, Turn A) type (Flatcar)  train doesn't service 
+7- road (HZMX) 
+7- Exclude car (HZMX 11) at (West Staging, Turn A) type (Flatcar)  train doesn't service 
+7- road (HZMX) 
+7- Exclude car (DAYX 1) type (Boxcar) by train, no pick up from spur (Brae, Brae Day Track)
+7- Exclude car (JFN 302) type (Boxcar) by train, no pick up from spur (Brae, Brae Lumber)
+7- Exclude car (JFN 301) type (Boxcar) by train, no pick up from spur (Brae, Brae Lumber)
+7- Exclude car (JFN 201) type (Boxcar) by train, no pick up from spur (Brae, Brae Cannery)
+7- Exclude car (JFN 1001) type (Boxcar) by train, no pick up from spur (Brae, Brae Freight 
+7- Shed) 
+7- Exclude car (JFN 102) type (Covered Hopper) by train, no pick up from spur (Brae, Brae 
+7- Feed Mill) 
+7- Exclude car (HZMX 9) at (West Staging, Turn A) type (Buffer)  (P) -1 train doesn't 
+7- service road (HZMX) 
+7- Exclude car (HZMX 3) at (West Staging, Turn A) type (Tank Gas)  (H) train doesn't 
+7- service road (HZMX) 
+7- Exclude car (HZMX 2) at (West Staging, Turn A) type (Tank Gas)  (H) train doesn't 
+7- service road (HZMX) 
+7- Exclude car (HZMX 1) at (West Staging, Turn A) type (Tank Gas)  (H) train doesn't 
+7- service road (HZMX) 
+7-  
+7- Remove cars from the other staging tracks:
+5-  
+5- Departing staging (West Staging, West Mode) with 5 cars
+7- Staging car (MODX 5) type (Stock) empty (E)
+7- Staging car (MODX 4) type (Stock) empty (E)
+7- Staging car (MODX 3) type (Stock) empty (E)
+7- Staging car (MODX 2) type (Stock) empty (E)
+7- Staging car (MODX 1) type (Stock) empty (E)
+5-  
+1- Found 5 cars for train (MODE)
+5- 5 cars in staging (West Staging):
+7- Car (MODX 5) type (Stock) at (West Staging, West Mode) 0 moves
+7- Car (MODX 4) type (Stock) at (West Staging, West Mode) 0 moves
+7- Car (MODX 3) type (Stock) at (West Staging, West Mode) 0 moves
+7- Car (MODX 2) type (Stock) at (West Staging, West Mode) 0 moves
+7- Car (MODX 1) type (Stock) at (West Staging, West Mode) 0 moves
+7-  
+5- 0 cars at location (Brae):
+7-  
+5- 0 cars in staging (East Staging):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (West Staging)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (51) for train (MODE) the number available (5) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (West Staging) id 5r1 requests 50 moves, 50/50 moves are available
+5-  
+5- Find destinations for (MODX 5) type (Stock) empty (E) at staging (West Staging, West 
+5- Mode) 
+5- Searching location (Brae) route id 5r2 for possible destination
+7- Can't set out (MODX 5) by train (MODE) to spur (Brae, Brae Feed Mill)
+7- Can't set out (MODX 5) by train (MODE) to spur (Brae, Brae Cannery)
+7- Can't set out (MODX 5) by train (MODE) to spur (Brae, Brae Lumber)
+7- Can't set out (MODX 5) by train (MODE) to spur (Brae, Brae Outside)
+7- Can't send (MODX 5) to spur (Brae, Brae Depot) due to type (Stock)
+5- Car (MODX 5) can go to spur (Brae, Brae Stockyard) 0/3 moves used
+5- Searching location (East Staging) route id 5r3 for possible destination
+5- Car (MODX 5) can go to staging (East Staging, East Mode) 0/50 moves used
+3- Car (MODX 5) assigned to train, destination (East Staging, East Mode)
+3-  
+5- Find destinations for (MODX 4) type (Stock) empty (E) at staging (West Staging, West 
+5- Mode) 
+5- Searching location (Brae) route id 5r2 for possible destination
+7- Can't set out (MODX 4) by train (MODE) to spur (Brae, Brae Feed Mill)
+7- Can't set out (MODX 4) by train (MODE) to spur (Brae, Brae Cannery)
+7- Can't set out (MODX 4) by train (MODE) to spur (Brae, Brae Lumber)
+7- Can't set out (MODX 4) by train (MODE) to spur (Brae, Brae Outside)
+7- Can't send (MODX 4) to spur (Brae, Brae Depot) due to type (Stock)
+5- Car (MODX 4) can go to spur (Brae, Brae Stockyard) 0/3 moves used
+5- Searching location (East Staging) route id 5r3 for possible destination
+5- Car (MODX 4) can go to staging (East Staging, East Mode) 1/50 moves used
+3- Car (MODX 4) assigned to train, destination (Brae, Brae Stockyard)
+3-  
+5- Find destinations for (MODX 3) type (Stock) empty (E) at staging (West Staging, West 
+5- Mode) 
+5- Searching location (Brae) route id 5r2 for possible destination
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Feed Mill)
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Cannery)
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Lumber)
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Outside)
+7- Can't send (MODX 3) to spur (Brae, Brae Depot) due to type (Stock)
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Oil Dealer)
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Freight Shed)
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Team)
+7- Can't set out (MODX 3) by train (MODE) to spur (Brae, Brae Day Track)
+5- Car (MODX 3) can go to spur (Brae, Brae Stockyard) 1/3 moves used
+5- Searching location (East Staging) route id 5r3 for possible destination
+5- Car (MODX 3) can go to staging (East Staging, East Mode) 1/50 moves used
+3- Car (MODX 3) assigned to train, destination (East Staging, East Mode)
+3-  
+5- Find destinations for (MODX 2) type (Stock) empty (E) at staging (West Staging, West 
+5- Mode) 
+5- Searching location (Brae) route id 5r2 for possible destination
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Feed Mill)
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Cannery)
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Lumber)
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Outside)
+7- Can't send (MODX 2) to spur (Brae, Brae Depot) due to type (Stock)
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Oil Dealer)
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Freight Shed)
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Team)
+7- Can't set out (MODX 2) by train (MODE) to spur (Brae, Brae Day Track)
+5- Car (MODX 2) can go to spur (Brae, Brae Stockyard) 1/3 moves used
+5- Searching location (East Staging) route id 5r3 for possible destination
+5- Car (MODX 2) can go to staging (East Staging, East Mode) 2/50 moves used
+3- Car (MODX 2) assigned to train, destination (East Staging, East Mode)
+3-  
+5- Find destinations for (MODX 1) type (Stock) empty (E) at staging (West Staging, West 
+5- Mode) 
+5- Searching location (Brae) route id 5r2 for possible destination
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Feed Mill)
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Cannery)
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Lumber)
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Outside)
+7- Can't send (MODX 1) to spur (Brae, Brae Depot) due to type (Stock)
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Oil Dealer)
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Freight Shed)
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Team)
+7- Can't set out (MODX 1) by train (MODE) to spur (Brae, Brae Day Track)
+5- Car (MODX 1) can go to spur (Brae, Brae Stockyard) 1/3 moves used
+5- Searching location (East Staging) route id 5r3 for possible destination
+5- Car (MODX 1) can go to staging (East Staging, East Mode) 3/50 moves used
+3- Car (MODX 1) assigned to train, destination (East Staging, East Mode)
+3-  
+1- Partial 5/50 cars at location (West Staging) assigned to train (MODE)
+1- Route location (Brae) id 5r2 requests 2 moves, 2/3 moves are available
+5-  
+5- No cars available for pick up at location (Brae)
+5-  
+1- Partial 0/2 cars at location (Brae) assigned to train (MODE)
+1- No pick ups from staging (East Staging)
+1- Partial 5/51 cars
+5- Build for train (MODE) took 4 mSec

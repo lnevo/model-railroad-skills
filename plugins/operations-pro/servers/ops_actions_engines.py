@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from ops_data import split_name
 from ops_store import Doc, Refused
 from ops_actions import (DEFAULT_ENGINE_LENGTHS, DEFAULT_ENGINE_TYPES, DEFAULT_MODELS, ENGINE_FILE, Editor,
-                         MODEL_FIELDS, action, _bool, _indent, _int_field, _model_values, _names, _next, _place, _text)
+                         MODEL_FIELDS, action, declare_fields, _bool, _indent, _int_field, _model_values, _names, _next, _place, _text)
 from ops_actions_names import _rename_values
 from ops_actions_cars import _free, rfid_text
 
@@ -679,3 +679,7 @@ def set_load_type(ed: Editor, load: str, load_type: str, types: list[str] | None
 
 
 # ---- End of engines and divisions ---------------------------------------------------
+
+
+declare_fields("add_engine", [*ENGINE_FIELDS, *ENGINE_FLAGS])
+declare_fields("update_engine", [*ENGINE_FIELDS, *ENGINE_FLAGS])

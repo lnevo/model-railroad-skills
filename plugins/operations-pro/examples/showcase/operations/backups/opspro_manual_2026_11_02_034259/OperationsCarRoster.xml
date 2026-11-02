@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-cars.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-cars.dtd">
+<operations-config>
+  <!--Written by JMRI version 5.16+R909e15189e on Mon Nov 02 03:42:47 EST 2026-->
+  <roads>
+    <road name="AA" />
+    <road name="ACL" />
+    <road name="ADCX" />
+    <road name="ADMX" />
+    <road name="AESX" />
+    <road name="ALTON" />
+    <road name="ATM" />
+    <road name="ATR" />
+    <road name="ATSF" />
+    <road name="ATW" />
+    <road name="B&amp;O" />
+    <road name="BAR" />
+    <road name="BCK" />
+    <road name="BM" />
+    <road name="BN" />
+    <road name="BOXX" />
+    <road name="BR" />
+    <road name="BR&amp;S" />
+    <road name="BREX" />
+    <road name="BWCX" />
+    <road name="C&amp;EI" />
+    <road name="C&amp;IM" />
+    <road name="C&amp;O" />
+    <road name="CACX" />
+    <road name="CB&amp;Q" />
+    <road name="CCBX" />
+    <road name="CDLX" />
+    <road name="CG" />
+    <road name="CG&amp;W" />
+    <road name="CM" />
+    <road name="CMSF" />
+    <road name="CMWX" />
+    <road name="CN" />
+    <road name="CNJ" />
+    <road name="CNW" />
+    <road name="CNXX" />
+    <road name="CONX" />
+    <road name="COPR" />
+    <road name="CP" />
+    <road name="CRR" />
+    <road name="CTSE" />
+    <road name="CTT" />
+    <road name="CTTX" />
+    <road name="CV" />
+    <road name="D&amp;H" />
+    <road name="D&amp;M" />
+    <road name="D&amp;RGW" />
+    <road name="DAYX" />
+    <road name="EJ&amp;E" />
+    <road name="ERIE" />
+    <road name="FCX" />
+    <road name="FDD&amp;S" />
+    <road name="FEC" />
+    <road name="FLYX" />
+    <road name="FRHX" />
+    <road name="FW&amp;D" />
+    <road name="G&amp;F" />
+    <road name="GAT" />
+    <road name="GATX" />
+    <road name="GCR" />
+    <road name="GM&amp;O" />
+    <road name="GN" />
+    <road name="GNDX" />
+    <road name="GPEX" />
+    <road name="GRC" />
+    <road name="GRCX" />
+    <road name="GTEX" />
+    <road name="GTW" />
+    <road name="HZMX" />
+    <road name="IC" />
+    <road name="IGN" />
+    <road name="IN" />
+    <road name="JFN" />
+    <road name="KCS" />
+    <road name="KESX" />
+    <road name="KOT" />
+    <road name="KOTX" />
+    <road name="KRNX" />
+    <road name="LCLX" />
+    <road name="LN" />
+    <road name="LNE" />
+    <road name="LS&amp;I" />
+    <road name="LV" />
+    <road name="MEC" />
+    <road name="MILW" />
+    <road name="MILX" />
+    <road name="MKT" />
+    <road name="MNS" />
+    <road name="MODX" />
+    <road name="MP" />
+    <road name="MPA" />
+    <road name="MRL" />
+    <road name="MSL" />
+    <road name="N&amp;W" />
+    <road name="NC&amp;SL" />
+    <road name="NH" />
+    <road name="NKP" />
+    <road name="NP" />
+    <road name="NWRX" />
+    <road name="NYC" />
+    <road name="OAKX" />
+    <road name="OILX" />
+    <road name="OTT" />
+    <road name="OTTX" />
+    <road name="OUTX" />
+    <road name="PC" />
+    <road name="PELC" />
+    <road name="PFE" />
+    <road name="PM" />
+    <road name="POOX" />
+    <road name="PRR" />
+    <road name="PS&amp;N" />
+    <road name="RDG" />
+    <road name="RE" />
+    <road name="REX" />
+    <road name="RF&amp;P" />
+    <road name="RI" />
+    <road name="RIPX" />
+    <road name="RP" />
+    <road name="RPX" />
+    <road name="RTC" />
+    <road name="RTCX" />
+    <road name="RUT" />
+    <road name="SAL" />
+    <road name="SDW" />
+    <road name="SDWX" />
+    <road name="SHP" />
+    <road name="SHPX" />
+    <road name="SLSF" />
+    <road name="SOO" />
+    <road name="SOU" />
+    <road name="SP" />
+    <road name="SSW" />
+    <road name="SUNX" />
+    <road name="SWPX" />
+    <road name="SWYX" />
+    <road name="T&amp;P" />
+    <road name="TC" />
+    <road name="TEMX" />
+    <road name="TP&amp;W" />
+    <road name="TRNX" />
+    <road name="UOCX" />
+    <road name="UP" />
+    <road name="UTL" />
+    <road name="UTLX" />
+    <road name="VGN" />
+    <road name="VN" />
+    <road name="VTR" />
+    <road name="W&amp;LE" />
+    <road name="W&amp;LG" />
+    <road name="WA" />
+    <road name="WAB" />
+    <road name="WDL" />
+    <road name="WDLX" />
+    <road name="WFEX" />
+    <road name="WM" />
+    <road name="WNDR" />
+    <road name="WP" />
+    <road name="WRNX" />
+    <road name="WSTX" />
+    <road name="XFRX" />
+  </roads>
+  <types>
+    <type name="Baggage" />
+    <type name="Boxcar" />
+    <type name="Buffer" />
+    <type name="Caboose" />
+    <type name="Coal" />
+    <type name="Coilcar" />
+    <type name="Covered Hopper" />
+    <type name="Diner" />
+    <type name="FlatBHPaper" />
+    <type name="FlatBHWood" />
+    <type name="FlatBulkHead" />
+    <type name="FlatTimber" />
+    <type name="FlatTrailer" />
+    <type name="FlatWood" />
+    <type name="Flatcar" />
+    <type name="Gon-scrap" />
+    <type name="Gondola" />
+    <type name="HopChem" />
+    <type name="HopCmnt" />
+    <type name="HopCoal" />
+    <type name="HopCoal-Ety" />
+    <type name="HopGrain" />
+    <type name="HopSand" />
+    <type name="Hopper" />
+    <type name="MOW" />
+    <type name="MOWBox" />
+    <type name="Observation" />
+    <type name="Passenger" />
+    <type name="ReefMech" />
+    <type name="Reefer" />
+    <type name="ReeferIce" />
+    <type name="Stock" />
+    <type name="Tank Food" />
+    <type name="Tank Gas" />
+    <type name="Tank Kero" />
+    <type name="Tank Oil" />
+    <type name="Tank Veg" />
+  </types>
+  <colors>
+    <color name="Black" />
+    <color name="Blue" />
+    <color name="Brown" />
+    <color name="Gray" />
+    <color name="Green" />
+    <color name="Orange" />
+    <color name="Purple" />
+    <color name="Red" />
+    <color name="Silver" />
+    <color name="Tuscan" />
+    <color name="White" />
+    <color name="Yellow" />
+  </colors>
+  <lengths>
+    <length value="32" />
+    <length value="34" />
+    <length value="36" />
+    <length value="38" />
+    <length value="40" />
+    <length value="42" />
+    <length value="44" />
+    <length value="50" />
+    <length value="51" />
+    <length value="52" />
+    <length value="54" />
+    <length value="60" />
+    <length value="70" />
+  </lengths>
+  <owners>
+    <owner name="" />
+  </owners>
+  <loads>
+    <defaults empty="E" load="L" />
+    <load type="Boxcar">
+      <carLoad name="Boxes" loadType="Load" />
+      <carLoad name="Bricks" loadType="Load" />
+      <carLoad name="Canned" loadType="Load" />
+      <carLoad name="Crates" loadType="Load" />
+      <carLoad name="Flour" loadType="Load" />
+      <carLoad name="Glass" loadType="Load" />
+      <carLoad name="Lumber" loadType="Load" />
+      <carLoad name="Machinery" loadType="Load" />
+      <carLoad name="Parts" loadType="Load" />
+      <carLoad name="Peas" loadType="Load" />
+      <carLoad name="Semolina" loadType="Load" />
+      <carLoad name="Tools" loadType="Load" />
+    </load>
+    <load type="Coilcar">
+      <carLoad name="Coil" loadType="Load" />
+    </load>
+    <load type="Covered Hopper">
+      <carLoad name="Feed" loadType="Load" />
+      <carLoad name="Grain" loadType="Load" />
+      <carLoad name="Salt" loadType="Load" />
+      <carLoad name="Wheat" loadType="Load" />
+    </load>
+    <load type="Flatcar">
+      <carLoad name="Girder" loadType="Load" />
+    </load>
+    <load type="Gondola">
+      <carLoad name="Pipe" loadType="Load" />
+    </load>
+    <load type="HopGrain">
+      <carLoad name="Barley" loadType="Load" />
+    </load>
+    <load type="Hopper">
+      <carLoad name="Stone" loadType="Load" />
+    </load>
+    <load type="Reefer">
+      <carLoad name="Produce" loadType="Load" />
+    </load>
+  </loads>
+  <newKernels>
+    <kernel name="Brae Set" />
+    <kernel name="Girder Load" />
+  </newKernels>
+  <options />
+  <cars>
+    <car id="BOXX1" roadName="BOXX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s13" moves="0" date="" selected="false" comment="[R08] Default empty with no final destination: Ferris Routed refuses it." load="E" />
+    <car id="CNXX1" roadName="CNXX" roadNumber="1" type="Flatcar" length="40" weightTons="0" locationId="3" secLocationId="3s17" moves="0" date="" selected="false" comment="[R18] Car for the descriptive interchange." load="E" />
+    <car id="DAYX1" roadName="DAYX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s8" moves="0" date="" selected="false" comment="[U14]" load="E" />
+    <car id="FLYX1" roadName="FLYX" roadNumber="1" type="Baggage" length="60" weightTons="54" locationId="3" secLocationId="3s20" moves="0" date="" selected="false" blocking="-5" comment="[U18] Blocking -5." passenger="true" load="E" />
+    <car id="FLYX2" roadName="FLYX" roadNumber="2" type="Passenger" length="60" weightTons="54" locationId="3" secLocationId="3s20" moves="0" date="" selected="false" blocking="10" comment="[U18] Blocking 10." passenger="true" load="E" />
+    <car id="FLYX3" roadName="FLYX" roadNumber="3" type="Passenger" length="60" weightTons="54" locationId="3" secLocationId="3s20" moves="0" date="" selected="false" blocking="20" comment="[U18] Blocking 20." passenger="true" load="E" />
+    <car id="FLYX4" roadName="FLYX" roadNumber="4" type="Diner" length="60" weightTons="54" locationId="3" secLocationId="3s20" moves="0" date="" selected="false" blocking="40" comment="[U18] Blocking 40." passenger="true" load="E" />
+    <car id="FLYX5" roadName="FLYX" roadNumber="5" type="Observation" length="60" weightTons="54" locationId="3" secLocationId="3s20" moves="0" date="" selected="false" blocking="70" comment="[U18] Blocking 70." passenger="true" load="E" />
+    <car id="FRHX1" roadName="FRHX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s6" moves="0" date="" selected="false" comment="[U10]" load="E" />
+    <car id="GNDX501" roadName="GNDX" roadNumber="501" type="Gondola" length="40" weightTons="0" locationId="3" secLocationId="3s8" moves="0" date="" selected="false" comment="[U05]" load="E" />
+    <car id="GNDX502" roadName="GNDX" roadNumber="502" type="Gondola" length="40" weightTons="0" locationId="3" secLocationId="3s8" moves="0" date="" selected="false" comment="[U05]" load="E" />
+    <car id="GNDX503" roadName="GNDX" roadNumber="503" type="Gondola" length="40" weightTons="0" locationId="3" secLocationId="3s8" moves="0" date="" selected="false" comment="[U05]" load="E" />
+    <car id="GTEX1" roadName="GTEX" roadNumber="1" type="Tank Veg" length="40" weightTons="0" locationId="6" secLocationId="6s4" moves="0" date="" selected="false" comment="[R06] The Destinations filter on Ferris Gate admits only Pell Creek." load="E" />
+    <car id="HZMX1" roadName="HZMX" roadNumber="1" type="Tank Gas" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[U22] Hazardous loaded tank car." hazardous="true" load="L" />
+    <car id="HZMX11" roadName="HZMX" roadNumber="11" type="Flatcar" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[U22] Flatcar loaded with girders; lead of kernel Girder Load." kernel="Girder Load" leadKernel="true" load="Girder" />
+    <car id="HZMX12" roadName="HZMX" roadNumber="12" type="Flatcar" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[U22] Idler flatcar in kernel Girder Load." kernel="Girder Load" load="E" />
+    <car id="HZMX13" roadName="HZMX" roadNumber="13" type="Flatcar" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[U22] Idler flatcar in kernel Girder Load." kernel="Girder Load" load="E" />
+    <car id="HZMX2" roadName="HZMX" roadNumber="2" type="Tank Gas" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[U22] Hazardous loaded tank car." hazardous="true" load="L" />
+    <car id="HZMX3" roadName="HZMX" roadNumber="3" type="Tank Gas" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[U22] Hazardous loaded tank car." hazardous="true" load="L" />
+    <car id="HZMX9" roadName="HZMX" roadNumber="9" type="Buffer" length="40" weightTons="36" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" blocking="-1" comment="[U22] Buffer car: passenger flag and blocking -1 put it first out of staging." passenger="true" load="E" />
+    <car id="JFN1001" roadName="JFN" roadNumber="1001" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s6" moves="0" date="" selected="false" comment="[U10]" load="Crates" />
+    <car id="JFN101" roadName="JFN" roadNumber="101" type="Covered Hopper" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U01]" load="E" />
+    <car id="JFN102" roadName="JFN" roadNumber="102" type="Covered Hopper" length="40" weightTons="0" locationId="4" secLocationId="4s3" moves="0" date="" selected="false" comment="[U01]" load="Feed" nextDestId="5" nextDestTrackId="5s2" />
+    <car id="JFN1301" roadName="JFN" roadNumber="1301" type="Caboose" length="40" weightTons="36" locationId="3" secLocationId="3s4" moves="0" date="" selected="false" comment="[U13] caboose" caboose="true" load="E" />
+    <car id="JFN1302" roadName="JFN" roadNumber="1302" type="Caboose" length="40" weightTons="36" locationId="3" secLocationId="3s4" moves="0" date="" selected="false" comment="[U13] caboose" caboose="true" load="E" />
+    <car id="JFN201" roadName="JFN" roadNumber="201" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s4" moves="0" date="" selected="false" comment="[U02]" load="Canned" nextDestId="5" nextDestTrackId="5s3" />
+    <car id="JFN301" roadName="JFN" roadNumber="301" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s5" moves="0" date="" selected="false" comment="[U03]" load="Lumber" nextDestId="5" nextDestTrackId="5s4" />
+    <car id="JFN302" roadName="JFN" roadNumber="302" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s5" moves="0" date="" selected="false" comment="[U03]" load="Lumber" nextDestId="5" nextDestTrackId="5s4" />
+    <car id="JFN401" roadName="JFN" roadNumber="401" type="Boxcar" length="40" weightTons="0" locationId="13" secLocationId="13s1" moves="0" date="" selected="false" comment="[U04] Semolina car moved within Sawyer." load="Semolina" />
+    <car id="JFN5101" roadName="JFN" roadNumber="5101" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[R01]" load="Peas" />
+    <car id="JFN5201" roadName="JFN" roadNumber="5201" type="Reefer" length="40" weightTons="0" locationId="3" secLocationId="3s11" moves="0" date="" selected="false" comment="[R02] Delivered to Carrow Packing, then two trains through Ferris Exchange." load="Produce" nextDestId="12" nextDestTrackId="12s1" />
+    <car id="JFN5301" roadName="JFN" roadNumber="5301" type="Gondola" length="40" weightTons="0" locationId="9" secLocationId="9s4" moves="0" date="" selected="false" comment="[R03]" load="Pipe" nextDestId="7" nextDestTrackId="7s6" />
+    <car id="JFN5401" roadName="JFN" roadNumber="5401" type="Coilcar" length="40" weightTons="0" locationId="8" secLocationId="8s9" moves="0" date="" selected="false" comment="[R04]" load="Coil" nextDestId="12" nextDestTrackId="12s8" />
+    <car id="JFN5501" roadName="JFN" roadNumber="5501" type="Covered Hopper" length="40" weightTons="0" locationId="3" secLocationId="3s21" moves="0" date="" selected="false" comment="[R05] Salt car, delivered to Carrow Salt Works." load="Salt" nextDestId="7" nextDestTrackId="7s4" />
+    <car id="JFN5502" roadName="JFN" roadNumber="5502" type="Hopper" length="40" weightTons="0" locationId="2" secLocationId="2s4" moves="0" date="" selected="false" comment="[R05] Empty that lets HOP OUT depart in the first session." load="E" />
+    <car id="JFN5801" roadName="JFN" roadNumber="5801" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s12" moves="0" date="" selected="false" comment="[R08] Delivered to Carrow Box Factory, routed through Ferris Routed." load="Boxes" nextDestId="12" nextDestTrackId="12s2" />
+    <car id="JFN5901" roadName="JFN" roadNumber="5901" type="Hopper" length="40" weightTons="0" locationId="8" secLocationId="8s10" moves="0" date="" selected="false" comment="[R09]" load="Stone" nextDestId="9" nextDestTrackId="9s6" />
+    <car id="JFN5902" roadName="JFN" roadNumber="5902" type="Hopper" length="40" weightTons="0" locationId="8" secLocationId="8s10" moves="0" date="" selected="false" comment="[R09]" load="Stone" nextDestId="9" nextDestTrackId="9s6" />
+    <car id="JFN5903" roadName="JFN" roadNumber="5903" type="Hopper" length="40" weightTons="0" locationId="8" secLocationId="8s10" moves="0" date="" selected="false" comment="[R09]" load="Stone" nextDestId="9" nextDestTrackId="9s6" />
+    <car id="JFN5904" roadName="JFN" roadNumber="5904" type="Hopper" length="40" weightTons="0" locationId="8" secLocationId="8s10" moves="0" date="" selected="false" comment="[R09]" load="Stone" nextDestId="9" nextDestTrackId="9s6" />
+    <car id="JFN601" roadName="JFN" roadNumber="601" type="Boxcar" length="40" weightTons="0" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" comment="[U06] Empty boxcar that leaves West Custom with a generated load." load="E" />
+    <car id="JFN602" roadName="JFN" roadNumber="602" type="Boxcar" length="40" weightTons="0" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" comment="[U06] Empty boxcar that leaves West Custom with a generated load." load="E" />
+    <car id="JFN603" roadName="JFN" roadNumber="603" type="Boxcar" length="40" weightTons="0" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" comment="[U06] Empty boxcar that leaves West Custom with a generated load." load="E" />
+    <car id="JFN604" roadName="JFN" roadNumber="604" type="Boxcar" length="40" weightTons="0" locationId="1" secLocationId="1s1" moves="0" date="" selected="false" comment="[U06] Empty boxcar that leaves West Custom with a generated load." load="E" />
+    <car id="JFN611" roadName="JFN" roadNumber="611" type="Boxcar" length="40" weightTons="0" locationId="1" secLocationId="1s2" moves="0" date="" selected="false" comment="[U06] Empty boxcar on the mixed staging track; takes a generated load." load="E" />
+    <car id="JFN612" roadName="JFN" roadNumber="612" type="Boxcar" length="40" weightTons="0" locationId="1" secLocationId="1s2" moves="0" date="" selected="false" comment="[U06] Empty boxcar on the mixed staging track; takes a generated load." load="E" />
+    <car id="JFN613" roadName="JFN" roadNumber="613" type="Boxcar" length="40" weightTons="0" locationId="1" secLocationId="1s2" moves="0" date="" selected="false" comment="[U06] Empty boxcar on the mixed staging track; takes a generated load." load="E" />
+    <car id="JFN614" roadName="JFN" roadNumber="614" type="Gondola" length="40" weightTons="0" locationId="1" secLocationId="1s2" moves="0" date="" selected="false" comment="[U06] Empty gondola with no custom load; leaves as an empty." load="E" />
+    <car id="JFN6401" roadName="JFN" roadNumber="6401" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s22" moves="0" date="" selected="false" comment="[R14] Glass car one." load="Glass" nextDestId="7" nextDestTrackId="7s5" />
+    <car id="JFN6402" roadName="JFN" roadNumber="6402" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s22" moves="0" date="" selected="false" comment="[R14] Glass car two." load="Glass" nextDestId="7" nextDestTrackId="7s5" />
+    <car id="JFN801" roadName="JFN" roadNumber="801" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U08]" load="E" />
+    <car id="JFN802" roadName="JFN" roadNumber="802" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U08]" load="E" />
+    <car id="JFN803" roadName="JFN" roadNumber="803" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U08]" load="E" />
+    <car id="JFN804" roadName="JFN" roadNumber="804" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U08]" load="E" />
+    <car id="JFN805" roadName="JFN" roadNumber="805" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U08]" load="E" />
+    <car id="JFN806" roadName="JFN" roadNumber="806" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U08]" load="E" />
+    <car id="JFN901" roadName="JFN" roadNumber="901" type="Covered Hopper" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U09]" load="Grain" />
+    <car id="JFN902" roadName="JFN" roadNumber="902" type="Covered Hopper" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U09]" load="Grain" />
+    <car id="KESX1" roadName="KESX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s18" moves="0" date="" selected="false" comment="[R11] Car 1 for the classification yard." load="E" />
+    <car id="KESX2" roadName="KESX" roadNumber="2" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s18" moves="0" date="" selected="false" comment="[R11] Car 2 for the classification yard." load="E" />
+    <car id="KESX3" roadName="KESX" roadNumber="3" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s18" moves="0" date="" selected="false" comment="[R11] Car 3 for the classification yard." load="E" />
+    <car id="KESX4" roadName="KESX" roadNumber="4" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s18" moves="0" date="" selected="false" comment="[R11] Car 4 for the classification yard." load="E" />
+    <car id="KRNX1" roadName="KRNX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s7" moves="0" date="" selected="false" comment="[U13]" kernel="Brae Set" leadKernel="true" load="E" />
+    <car id="KRNX2" roadName="KRNX" roadNumber="2" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s7" moves="0" date="" selected="false" comment="[U13]" kernel="Brae Set" load="E" />
+    <car id="KRNX3" roadName="KRNX" roadNumber="3" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s7" moves="0" date="" selected="false" comment="[U13]" kernel="Brae Set" load="E" />
+    <car id="LCLX1" roadName="LCLX" roadNumber="1" type="Boxcar" length="40" weightTons="36" locationId="3" secLocationId="3s2" moves="0" date="" selected="false" comment="[U22]" passenger="true" load="E" />
+    <car id="MILX1101" roadName="MILX" roadNumber="1101" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s9" moves="0" date="" selected="false" comment="[U11]" load="E" />
+    <car id="MILX1102" roadName="MILX" roadNumber="1102" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s9" moves="0" date="" selected="false" comment="[U11]" load="E" />
+    <car id="MILX1103" roadName="MILX" roadNumber="1103" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s9" moves="0" date="" selected="false" comment="[U11]" load="E" />
+    <car id="MILX1104" roadName="MILX" roadNumber="1104" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s9" moves="0" date="" selected="false" comment="[U11]" load="E" />
+    <car id="MODX1" roadName="MODX" roadNumber="1" type="Stock" length="40" weightTons="0" locationId="1" secLocationId="1s4" moves="0" date="" selected="false" comment="[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode." load="E" />
+    <car id="MODX2" roadName="MODX" roadNumber="2" type="Stock" length="40" weightTons="0" locationId="1" secLocationId="1s4" moves="0" date="" selected="false" comment="[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode." load="E" />
+    <car id="MODX3" roadName="MODX" roadNumber="3" type="Stock" length="40" weightTons="0" locationId="1" secLocationId="1s4" moves="0" date="" selected="false" comment="[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode." load="E" />
+    <car id="MODX4" roadName="MODX" roadNumber="4" type="Stock" length="40" weightTons="0" locationId="1" secLocationId="1s4" moves="0" date="" selected="false" comment="[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode." load="E" />
+    <car id="MODX5" roadName="MODX" roadNumber="5" type="Stock" length="40" weightTons="0" locationId="1" secLocationId="1s4" moves="0" date="" selected="false" comment="[U12] Empty stock car; the first goes to Brae Stockyard, the rest to East Mode." load="E" />
+    <car id="NWRX1" roadName="NWRX" roadNumber="1" type="HopGrain" length="40" weightTons="0" locationId="3" secLocationId="3s15" divisionId="1" moves="0" date="" selected="false" comment="[U21] Home division North: an empty goes to Northwood Yard." load="E" />
+    <car id="NWRX2" roadName="NWRX" roadNumber="2" type="HopGrain" length="40" weightTons="0" locationId="3" secLocationId="3s15" divisionId="1" moves="0" date="" selected="false" comment="[U21] Home division North: an empty goes to Northwood Yard." load="E" />
+    <car id="NWRX3" roadName="NWRX" roadNumber="3" type="HopGrain" length="40" weightTons="0" locationId="3" secLocationId="3s15" divisionId="1" moves="0" date="" selected="false" comment="[U21] Home division North: a load goes to the home spur, Malt House." load="Barley" />
+    <car id="OAKX1" roadName="OAKX" roadNumber="1" type="Covered Hopper" length="44" weightTons="0" locationId="3" secLocationId="3s14" moves="0" date="" selected="false" comment="[R10] Delivered to Carrow Grain Co." load="Wheat" nextDestId="12" nextDestTrackId="12s3" />
+    <car id="OAKX2" roadName="OAKX" roadNumber="2" type="Covered Hopper" length="44" weightTons="0" locationId="3" secLocationId="3s14" moves="0" date="" selected="false" comment="[R10] Delivered to Carrow Grain Co." load="Wheat" nextDestId="12" nextDestTrackId="12s3" />
+    <car id="OAKX3" roadName="OAKX" roadNumber="3" type="Covered Hopper" length="44" weightTons="0" locationId="3" secLocationId="3s14" moves="0" date="" selected="false" comment="[R10] Delivered to Carrow Grain Co." load="Wheat" nextDestId="12" nextDestTrackId="12s3" />
+    <car id="OAKX4" roadName="OAKX" roadNumber="4" type="Covered Hopper" length="44" weightTons="0" locationId="3" secLocationId="3s14" moves="0" date="" selected="false" comment="[R10] Delivered to Carrow Grain Co." load="Wheat" nextDestId="12" nextDestTrackId="12s3" />
+    <car id="OAKX5" roadName="OAKX" roadNumber="5" type="Covered Hopper" length="44" weightTons="0" locationId="3" secLocationId="3s14" moves="0" date="" selected="false" comment="[R10] Delivered to Carrow Grain Co." load="Wheat" nextDestId="12" nextDestTrackId="12s3" />
+    <car id="OILX1" roadName="OILX" roadNumber="1" type="Tank Oil" length="40" weightTons="0" locationId="3" secLocationId="3s19" moves="0" date="" selected="false" comment="[R13] Starts at the origin; must not reach the terminal." load="E" />
+    <car id="OILX2" roadName="OILX" roadNumber="2" type="Tank Oil" length="40" weightTons="0" locationId="4" secLocationId="4s10" moves="0" date="" selected="false" comment="[R13] Picked up en route; goes only to the terminal." load="E" />
+    <car id="OUTX1" roadName="OUTX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="3" secLocationId="3s3" moves="0" date="" selected="false" comment="[R17]" load="E" />
+    <car id="OUTX2" roadName="OUTX" roadNumber="2" type="Boxcar" length="40" weightTons="0" locationId="4" secLocationId="4s9" moves="0" date="" selected="false" comment="[R17]" load="L" />
+    <car id="PELC1" roadName="PELC" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="10" secLocationId="10s1" moves="0" date="" selected="false" comment="[R16] Worked by PELL SWITCHER between the two halves of Pell Creek." load="Bricks" />
+    <car id="PELC2" roadName="PELC" roadNumber="2" type="Boxcar" length="40" weightTons="0" locationId="10" secLocationId="10s1" moves="0" date="" selected="false" comment="[R16] Worked by PELL SWITCHER between the two halves of Pell Creek." load="Bricks" />
+    <car id="POOX1901" roadName="POOX" roadNumber="1901" type="Flatcar" length="40" weightTons="0" locationId="3" secLocationId="3s10" moves="0" date="" selected="false" comment="[U19]" load="E" />
+    <car id="POOX1902" roadName="POOX" roadNumber="1902" type="Flatcar" length="40" weightTons="0" locationId="3" secLocationId="3s10" moves="0" date="" selected="false" comment="[U19]" load="E" />
+    <car id="POOX1903" roadName="POOX" roadNumber="1903" type="Flatcar" length="40" weightTons="0" locationId="3" secLocationId="3s10" moves="0" date="" selected="false" comment="[U19]" load="E" />
+    <car id="POOX1904" roadName="POOX" roadNumber="1904" type="Flatcar" length="40" weightTons="0" locationId="3" secLocationId="3s10" moves="0" date="" selected="false" comment="[U19]" load="E" />
+    <car id="POOX1905" roadName="POOX" roadNumber="1905" type="Flatcar" length="40" weightTons="0" locationId="3" secLocationId="3s10" moves="0" date="" selected="false" comment="[U19]" load="E" />
+    <car id="POOX1906" roadName="POOX" roadNumber="1906" type="Flatcar" length="40" weightTons="0" locationId="3" secLocationId="3s10" moves="0" date="" selected="false" comment="[U19]" load="E" />
+    <car id="RIPX1" roadName="RIPX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="8" secLocationId="8s8" moves="0" date="" selected="false" comment="[U24]" load="L" />
+    <car id="SWPX1" roadName="SWPX" roadNumber="1" type="Coal" length="40" weightTons="0" locationId="1" secLocationId="1s3" moves="0" date="" selected="false" comment="[U07] Loaded coal car that swaps to East Swap." load="L" />
+    <car id="SWPX11" roadName="SWPX" roadNumber="11" type="Coal" length="40" weightTons="0" locationId="2" secLocationId="2s2" moves="0" date="" selected="false" comment="[U07] Empty coal car that swaps to West Swap." load="E" />
+    <car id="SWPX12" roadName="SWPX" roadNumber="12" type="Coal" length="40" weightTons="0" locationId="2" secLocationId="2s2" moves="0" date="" selected="false" comment="[U07] Empty coal car that swaps to West Swap." load="E" />
+    <car id="SWPX13" roadName="SWPX" roadNumber="13" type="Coal" length="40" weightTons="0" locationId="2" secLocationId="2s2" moves="0" date="" selected="false" comment="[U07] Empty coal car that swaps to West Swap." load="E" />
+    <car id="SWPX14" roadName="SWPX" roadNumber="14" type="Coal" length="40" weightTons="0" locationId="2" secLocationId="2s2" moves="0" date="" selected="false" comment="[U07] Empty coal car that swaps to West Swap." load="E" />
+    <car id="SWPX15" roadName="SWPX" roadNumber="15" type="Coal" length="40" weightTons="0" locationId="2" secLocationId="2s2" moves="0" date="" selected="false" comment="[U07] Empty coal car that swaps to West Swap." load="E" />
+    <car id="SWPX16" roadName="SWPX" roadNumber="16" type="Coal" length="40" weightTons="0" locationId="2" secLocationId="2s2" moves="0" date="" selected="false" comment="[U07] Empty coal car that swaps to West Swap." load="E" />
+    <car id="SWPX2" roadName="SWPX" roadNumber="2" type="Coal" length="40" weightTons="0" locationId="1" secLocationId="1s3" moves="0" date="" selected="false" comment="[U07] Loaded coal car that swaps to East Swap." load="L" />
+    <car id="SWPX3" roadName="SWPX" roadNumber="3" type="Coal" length="40" weightTons="0" locationId="1" secLocationId="1s3" moves="0" date="" selected="false" comment="[U07] Loaded coal car that swaps to East Swap." load="L" />
+    <car id="SWPX4" roadName="SWPX" roadNumber="4" type="Coal" length="40" weightTons="0" locationId="1" secLocationId="1s3" moves="0" date="" selected="false" comment="[U07] Loaded coal car that swaps to East Swap." load="L" />
+    <car id="SWPX5" roadName="SWPX" roadNumber="5" type="Coal" length="40" weightTons="0" locationId="1" secLocationId="1s3" moves="0" date="" selected="false" comment="[U07] Loaded coal car that swaps to East Swap." load="L" />
+    <car id="SWPX6" roadName="SWPX" roadNumber="6" type="Coal" length="40" weightTons="0" locationId="1" secLocationId="1s3" moves="0" date="" selected="false" comment="[U07] Loaded coal car that swaps to East Swap." load="L" />
+    <car id="SWYX1" roadName="SWYX" roadNumber="1" type="Reefer" length="40" weightTons="0" locationId="13" secLocationId="13s3" moves="0" date="" selected="false" comment="[R12] Spur to spur car." load="E" />
+    <car id="SWYX2" roadName="SWYX" roadNumber="2" type="Hopper" length="40" weightTons="0" locationId="13" secLocationId="13s5" moves="0" date="" selected="false" comment="[R12] Yard to yard car." load="E" />
+    <car id="TEMX1" roadName="TEMX" roadNumber="1" type="Flatcar" length="40" weightTons="0" locationId="8" secLocationId="8s5" moves="0" date="" selected="false" comment="[U16]" load="E" />
+    <car id="TRNX1" roadName="TRNX" roadNumber="1" type="Gondola" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[R19] Empty gondola for Linden Team." load="E" />
+    <car id="TRNX2" roadName="TRNX" roadNumber="2" type="Gondola" length="40" weightTons="0" locationId="1" secLocationId="1s5" moves="0" date="" selected="false" comment="[R19] Empty gondola for Linden Team." load="E" />
+    <car id="TRNX3" roadName="TRNX" roadNumber="3" type="Gondola" length="40" weightTons="0" locationId="7" secLocationId="7s2" moves="0" date="" selected="false" comment="[R19] Loaded gondola that comes back to staging." load="L" />
+    <car id="WNDR1" roadName="WNDR" roadNumber="1" type="Coal" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U03]" load="E" />
+    <car id="WNDR2" roadName="WNDR" roadNumber="2" type="Coal" length="40" weightTons="0" locationId="3" secLocationId="3s1" moves="0" date="" selected="false" comment="[U03]" load="L" />
+    <car id="WSTX1" roadName="WSTX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="7" secLocationId="7s7" moves="0" date="" selected="false" comment="[R15] Westbound-only car, delivered to Linden Westside." load="L" nextDestId="3" nextDestTrackId="3s16" />
+    <car id="XFRX1" roadName="XFRX" roadNumber="1" type="Boxcar" length="40" weightTons="0" locationId="12" secLocationId="12s5" moves="0" date="" selected="false" comment="[R07] Set out on Ferris Transfer, which names NORTH JOB's route in Pick ups." load="E" />
+  </cars>
+</operations-config>

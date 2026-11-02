@@ -11,7 +11,7 @@ OperationsPro moves cars by building trains. Almost every surprise is a gate in 
 
 Ask first: staging or a loop, default loads only or custom loads, and which trains should run in what order. Then build in this order. Each step is an `ops_plan` the user sees, then `ops_apply`, with JMRI exited. Point `ops_dir` at an empty Operations folder or at one JMRI has already made.
 
-1. **Car types and custom loads:** `add_car_type`, `add_load`. The default E and L loads already exist.
+1. **Car types and custom loads:** `add_car_type`, `add_load`. The default E and L loads already exist. On an empty railroad a load has nothing to carry or take it yet, so this plan and early staging trains are blocked by audit errors that later steps clear: tell the user, and pass `accept_new_errors` to `ops_apply`. Use it only for errors a later step of this order clears.
 2. **Locations and tracks:** `add_location`, then `add_track` for yards, interchanges and staging. An industry is `add_industry`, which makes the spur and its schedule in one step. Staging that should send custom loads is `setup_custom_staging`. An interchange between two trains is `setup_interchange`. Converting an existing default-load spur to custom loads has no single action: put `add_schedule` and then `update_track` (`schedule`, `schedule_mode`) in one plan; the worked example is in `references/loads-and-schedules.md`.
 3. **Routes:** `add_route`, one per train pattern, with each stop's direction, moves and train length.
 4. **Trains:** `add_train`, which also puts the train on the pick up and set out lists of the tracks along its route.
@@ -28,7 +28,8 @@ A minimal working railroad is two locations with a yard each, one route between 
 - **Setup changes show a plan first.** Call `ops_plan`, show the user the diff and any new audit findings, then `ops_apply`. Session corrections to a car use `ops_session` without the plan step.
 - **Do not hand-edit XML with JMRI running,** and do not edit the XML at all when an action exists. JMRI rewrites whole files from memory on save and exit, and drops anything it does not store.
 - **Leave move counts alone** unless asked. They steer traffic. Only `set_track_moves` and `reset_moves` change them.
-- **Judge by the build report.** `ops_explain_build` reads the file JMRI wrote and names the gate behind each refusal; it beats anything worked out from the files. For a failed build or a long report, hand the job to the `ops-diagnoser` agent, which can only read. Two identical builds can differ, so compare sets of outcomes, not one run.
+- **Judge by the build report.** `ops_explain_build` reads the file JMRI wrote and names the gate behind each refusal; it beats anything worked out from the files. Two identical builds can differ, so compare sets of outcomes, not one run.
+- **A failed build or a long report goes to the `ops-diagnoser` agent.** When the user asks why a build failed, why cars were left behind across a train, or what a long report says, start that agent first rather than reading the report here. It can only read, and returns the cause with the setting that fixes it. A single car's question with a named train stays here with `ops_why_not`.
 - **No changes while a train is built,** apart from cars not on a train. A build keeps per-stop counters in memory only.
 - **Say what you did not run.** A dry run on a copy is not a session on the railroad.
 
@@ -54,11 +55,13 @@ Read: `ops_explain_build`, `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`
 Write with JMRI exited: `ops_apply`, `ops_session`, `ops_deliver_car`, `ops_restore`, `ops_install_agent`.
 Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops_live_report`, `ops_live_automation`.
 
-`ops_actions` lists the change actions with their fields.
+`ops_actions` lists the change actions with each field, whether it is required and what it takes; give `action` for one. Track list options start lower case (`trains`, `routes`, `excludeTrains`). A new engine model needs type and length.
+
+Reading `ops_why_not`: `first_failure` is set only when the car cannot move. When the router chains other trains, `direct_failure` says why this train cannot do it alone, and `router_path` gives the chain. `notes` holds what the gates cannot say, such as a car that stays in staging, and which train was picked when none was named; give `failing_only` for a short answer. `ops_list` takes `filter`. `ops_explain_build` sets `stale` when the files have changed since the report; a dry run writes no report there, so use the reports in its own result.
 
 ## Facts that trip everyone
 
-- A spur with a schedule refuses any car with no matching line. A spur with no schedule refuses every custom load, and flips a default E to L (or L to E) on delivery.
+- A spur with a schedule refuses any car with no matching line. A spur with no schedule refuses every custom load, unless the spur is already the car's assigned destination track (Track:2062, so a routed car can still arrive), and flips a default E to L (or L to E) on delivery.
 - `can_move: true` from `ops_why_not` means the gates pass, not that the builder will choose that track: ties go to the later stop, and at a location schedule tracks come first, then the lowest move count.
 - Default E and L cars are never routed. They take the first accepting track on the building train's own route, scheduled tracks first. A car with a final destination is always routed, whatever its load.
 - A schedule acts three times: as a gate on entry, at build when the line is assigned, and on delivery when the load changes. Set Car applies it only when the track changes and the user says yes.

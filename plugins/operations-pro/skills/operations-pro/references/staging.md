@@ -64,6 +64,8 @@ The audit reports `staging-division-unreachable`. The build summary may blame th
 
 The `setup_custom_staging` action sets a track for all-custom loads: convert arriving custom loads and default loads to empty, generate for any spur and any staging, and ship only the custom loads. Arriving default L cars must be converted too, because the generators replace only a default E, and an L that stays L would be refused at departure. With `ship_empties` the track also ships E, so an empty that finds no load leaves as an empty instead of failing the build.
 
+When a generated load finds no spur, the generator falls back to any staging track that takes it if `any_staging` is on, which is `setup_custom_staging`'s default. So a car can still leave, and a dry run still builds, where a spur-only setup would fail.
+
 ## Arrivals
 
 What happens to the load of a car that arrives in staging depends on the track's load options. The options are `swap_default` (exchange default loads), `empty_custom` (empty cars with custom loads) and `empty_default`, set with `update_track` `load_options`.

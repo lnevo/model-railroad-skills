@@ -1,0 +1,2212 @@
+1- Build Report for train (FIDDLE JOB) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (FIDDLE JOB):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (FIDDLE JOB):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Carrow)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (FIDDLE JOB) route (FIDDLE JOB):
+3- 7r1 Location (Carrow) Eastbound requests 10 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 7r2 Location (Fiddle) Eastbound requests 10 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 7r3 Location (Carrow) Westbound requests 10 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (FIDDLE JOB) requests 15 cars and 30 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 1 locomotives for train (FIDDLE JOB)
+5- 1 locomotives at location (Carrow):
+7- Loco (JFN 57) type (Diesel) model (GP9) at (Carrow, Carrow Yard) 200 moves
+7-  
+5- 0 locomotives at location (Fiddle):
+7-  
+5-  
+5- Train (FIDDLE JOB) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (OILX 1) type (Tank Oil) by train, no pick up from spur (Carrow, Carrow Oil 
+7- Lead) 
+7- Exclude car (OUTX 1) type (Boxcar) by train, no pick up from spur (Carrow, Carrow 
+7- Outside Lead) 
+7- Exclude car (FLYX 5) type (Observation) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 4) type (Diner) by train, no pick up from spur (Carrow, Carrow Station)
+7- Exclude car (FLYX 3) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 2) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (FLYX 1) type (Baggage) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (LCLX 1) type (Boxcar) by train, no pick up from spur (Carrow, Carrow LCL 
+7- Dock) 
+7- Exclude car (JFN 1302) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+7- Exclude car (JFN 1301) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+5-  
+1- Found 44 cars for train (FIDDLE JOB)
+5- 44 cars at location (Carrow):
+7- Car (CNXX 1) type (Flatcar) at (Carrow, Carrow Connection Lead) 0 moves
+7- Car (GNDX 503) type (Gondola) at (Carrow, Carrow Gondola Lead) 0 moves
+7- Car (GNDX 502) type (Gondola) at (Carrow, Carrow Gondola Lead) 0 moves
+7- Car (GNDX 501) type (Gondola) at (Carrow, Carrow Gondola Lead) 0 moves
+7- Car (BOXX 1) type (Boxcar) at (Carrow, Carrow Box Lead) 0 moves
+7- Car (POOX 1906) type (Flatcar) at (Carrow, Carrow Pool Lead) 0 moves
+7- Car (POOX 1905) type (Flatcar) at (Carrow, Carrow Pool Lead) 0 moves
+7- Car (POOX 1904) type (Flatcar) at (Carrow, Carrow Pool Lead) 0 moves
+7- Car (POOX 1903) type (Flatcar) at (Carrow, Carrow Pool Lead) 0 moves
+7- Car (POOX 1902) type (Flatcar) at (Carrow, Carrow Pool Lead) 0 moves
+7- Car (NWRX 3) type (HopGrain) at (Carrow, Carrow Grain Track) 0 moves
+7- Car (POOX 1901) type (Flatcar) at (Carrow, Carrow Pool Lead) 0 moves
+7- Car (NWRX 2) type (HopGrain) at (Carrow, Carrow Grain Track) 0 moves
+7- Car (NWRX 1) type (HopGrain) at (Carrow, Carrow Grain Track) 0 moves
+7- Car (KESX 4) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7- Car (KESX 3) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7- Car (JFN 902) type (Covered Hopper) at (Carrow, Carrow Yard) 0 moves
+7- Car (KESX 2) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7- Car (JFN 901) type (Covered Hopper) at (Carrow, Carrow Yard) 0 moves
+7- Car (KESX 1) type (Boxcar) at (Carrow, Carrow Transfer Lead) 0 moves
+7- Car (JFN 806) type (Boxcar) at (Carrow, Carrow Yard) 0 moves
+7- Car (JFN 805) type (Boxcar) at (Carrow, Carrow Yard) 0 moves
+7- Car (JFN 804) type (Boxcar) at (Carrow, Carrow Yard) 0 moves
+7- Car (JFN 803) type (Boxcar) at (Carrow, Carrow Yard) 0 moves
+7- Car (JFN 802) type (Boxcar) at (Carrow, Carrow Yard) 0 moves
+7- Car (JFN 801) type (Boxcar) at (Carrow, Carrow Yard) 0 moves
+7- Car (JFN 5801) type (Boxcar) at (Carrow, Carrow Box Factory) 0 moves
+7- Car (JFN 5501) type (Covered Hopper) at (Carrow, Carrow Salt Works) 0 moves
+7- Car (JFN 6402) type (Boxcar) at (Carrow, Carrow Glass Works) 0 moves
+7- Car (JFN 6401) type (Boxcar) at (Carrow, Carrow Glass Works) 0 moves
+7- Car (JFN 101) type (Covered Hopper) at (Carrow, Carrow Yard) 0 moves
+7- Car (JFN 5201) type (Reefer) at (Carrow, Carrow Packing) 0 moves
+7- Car (JFN 5101) type (Boxcar) at (Carrow, Carrow Yard) 0 moves
+7- Car (OAKX 5) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (OAKX 4) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (MILX 1104) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7- Car (OAKX 3) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (MILX 1103) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7- Car (OAKX 2) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (MILX 1102) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7- Car (OAKX 1) type (Covered Hopper) at (Carrow, Carrow Grain Co) 0 moves
+7- Car (MILX 1101) type (Boxcar) at (Carrow, Carrow Mill Lead) 0 moves
+7- Car (WNDR 2) type (Coal) at (Carrow, Carrow Yard) 0 moves
+7- Car (WNDR 1) type (Coal) at (Carrow, Carrow Yard) 0 moves
+7-  
+5- 0 cars at location (Fiddle):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Carrow)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (15) for train (FIDDLE JOB) the number available (44) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Carrow) id 7r1 requests 10 moves, 10/10 moves are available
+5-  
+5- Find destinations for (CNXX 1) type (Flatcar) empty (E) at spur (Carrow, Carrow 
+5- Connection Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (CNXX 1) type (Flatcar) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (CNXX 1) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (CNXX 1)
+5-  
+5- Find destinations for (GNDX 503) type (Gondola) empty (E) at spur (Carrow, Carrow 
+5- Gondola Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (GNDX 503) type (Gondola) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (GNDX 503) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (GNDX 503)
+5-  
+5- Find destinations for (GNDX 502) type (Gondola) empty (E) at spur (Carrow, Carrow 
+5- Gondola Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (GNDX 502) type (Gondola) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (GNDX 502) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (GNDX 502)
+5-  
+5- Find destinations for (GNDX 501) type (Gondola) empty (E) at spur (Carrow, Carrow 
+5- Gondola Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (GNDX 501) type (Gondola) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (GNDX 501) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (GNDX 501)
+5-  
+5- Find destinations for (BOXX 1) type (Boxcar) empty (E) at spur (Carrow, Carrow Box Lead)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (BOXX 1) to spur (Fiddle, Fiddle North) due to road (BOXX)
+7- Can't send (BOXX 1) to spur (Fiddle, Fiddle South) due to road (BOXX)
+5- Could not find a track for (BOXX 1) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (BOXX 1) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (BOXX 1)
+5-  
+5- Find destinations for (POOX 1906) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (POOX 1906) type (Flatcar) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (POOX 1906) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (POOX 1906)
+5-  
+5- Find destinations for (POOX 1905) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (POOX 1905) type (Flatcar) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (POOX 1905) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (POOX 1905)
+5-  
+5- Find destinations for (POOX 1904) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (POOX 1904) type (Flatcar) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (POOX 1904) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (POOX 1904)
+5-  
+5- Find destinations for (POOX 1903) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (POOX 1903) type (Flatcar) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (POOX 1903) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (POOX 1903)
+5-  
+5- Find destinations for (POOX 1902) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (POOX 1902) type (Flatcar) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (POOX 1902) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (POOX 1902)
+5-  
+5- Car (NWRX 3) type (HopGrain) load (Barley) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring spur (Oakhaven, Bakery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Oakhaven, Oakhaven Cannery) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Oakhaven, Oakhaven Foundry) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Oakhaven, Oakhaven Plant) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Oakhaven, Oakhaven Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Hollis Mill, Hollis Coil Mill) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 1) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 2) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Quarry) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Shop Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Hollis Mill, Mill Spur) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Glazier) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Pier) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Pipe Yard) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Refinery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Steel) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Westside) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Fiddle, Fiddle North) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Fiddle, Fiddle South) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Dairy) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Oil) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Elevator A) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Elevator B) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Freight House) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Freight House-(2)) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Dunmere, Grocery Dock) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Lumber Dealer) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Parts Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Tool Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Tuesday Dock) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Sawyer, Sawyer Pasta Plant) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Sawyer, Sawyer Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Sawyer, Sawyer Warehouse) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Cannery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Day Track) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Feed Mill) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Freight Shed) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Lumber) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Oil Dealer) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Outside) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Team) wrong division () for car (NWRX 3) load (Barley)
+7- Spur (Northwood, Cold Store) can't service car (NWRX 3) with load (Barley) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Grain Elevator) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7-  
+7- Try spur (Northwood, Malt House) division (North) for car (NWRX 3) with load (Barley) 
+7- Route for car (NWRX 3): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Malt House) 
+7- Train (FIDDLE JOB) can't transport car (NWRX 3) directly to (Ferris Junction, Ferris 
+7- Yard) 
+7- Could not set destination for car (NWRX 3) due to Train (FIDDLE JOB)
+7- Spur (Northwood, Northwood Shed) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Station) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Steel) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Routed Siding) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Ignoring spur (Carrow, Carrow Box Factory) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Box Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Connection Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Glass Works) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Gondola Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Grain Co) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Grain Track) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow LCL Dock) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Mill Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Oil Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Outside Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Packing) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Pool Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow RIP) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Salt Works) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Station) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Transfer Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow West Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Pell Creek-(industries), Pell Brickworks) wrong division () for car (NWRX 
+7- 3) load (Barley) 
+7- Ignoring spur (Brae, Brae Stockyard) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Depot) wrong division () for car (NWRX 3) load (Barley)
+5- Could not find a reachable spur for car (NWRX 3) load (Barley)
+7-  
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+5- Could not find a reachable staging for car (NWRX 3) load (Barley)
+7-  
+5- Did not assign a destination for car (NWRX 3)
+5-  
+5- Find destinations for (POOX 1901) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (POOX 1901) type (Flatcar) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (POOX 1901) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (POOX 1901)
+5-  
+5- Car (NWRX 2) type (HopGrain) empty (E) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring yard (Hollis Mill, Hollis Track 2) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 1) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 2) wrong division () for car (NWRX 2) empty (E)
+7- Yard (Northwood, Gate Yard) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Try yard (Northwood, Northwood Yard) division (North) for car (NWRX 2) with empty (E) 
+7- Route for car (NWRX 2): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Northwood Yard) 
+7- Train (FIDDLE JOB) can't transport car (NWRX 2) directly to (Ferris Junction, Ferris 
+7- Yard) 
+7- Could not set destination for car (NWRX 2) due to Train (FIDDLE JOB)
+7- Ignoring yard (Carrow, Carrow Relay) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Carrow, Carrow Transfer) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Pell Creek-(yard), Pell Tank Track) wrong division () for car (NWRX 2) 
+7- empty (E) 
+7- Ignoring yard (Pell Creek-(yard), Pell Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Oakhaven, Oakhaven Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Track 1) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Ferris Junction, Ferris Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Dunmere, Dunmere Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Carrow, Carrow Yard) wrong division () for car (NWRX 2) empty (E)
+5- Could not find a reachable yard for car (NWRX 2) empty (E)
+7-  
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 2) empty (E)
+5- Could not find a reachable staging for car (NWRX 2) empty (E)
+7-  
+7- Ignoring spur (Oakhaven, Bakery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Cannery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Foundry) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Plant) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Coil Mill) wrong division () for car (NWRX 2) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 1) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Pool 2) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Quarry) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Shop Lead) wrong division () for car (NWRX 2) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Mill Spur) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Glazier) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Pier) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Pipe Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Refinery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Steel) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Westside) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Fiddle, Fiddle North) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Fiddle, Fiddle South) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Dairy) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Oil) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Elevator A) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Elevator B) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Freight House) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Freight House-(2)) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Grocery Dock) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Lumber Dealer) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Parts Depot) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Tool Depot) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Tuesday Dock) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Pasta Plant) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Warehouse) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Cannery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Day Track) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Feed Mill) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Freight Shed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Lumber) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Oil Dealer) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Outside) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Team) wrong division () for car (NWRX 2) empty (E)
+7- Spur (Northwood, Cold Store) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Grain Elevator) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Malt House) can't service car (NWRX 2) with empty (E) due to schedule 
+7- (Malt House Receiving) in match mode, no match 
+7- Spur (Northwood, Northwood Shed) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Northwood Station) can't service car (NWRX 2) with empty (E) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Steel) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Routed Siding) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Ignoring spur (Carrow, Carrow Box Factory) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Box Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Connection Lead) wrong division () for car (NWRX 2) empty 
+7- (E) 
+7- Ignoring spur (Carrow, Carrow Glass Works) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Gondola Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Co) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Track) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow LCL Dock) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Mill Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Oil Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Outside Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Packing) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Pool Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow RIP) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Salt Works) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Station) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Transfer Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow West Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Pell Creek-(industries), Pell Brickworks) wrong division () for car (NWRX 
+7- 2) empty (E) 
+7- Ignoring spur (Brae, Brae Stockyard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Depot) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Depot) wrong division () for car (NWRX 2) empty (E)
+5- Could not find a reachable spur for car (NWRX 2) empty (E)
+7-  
+5- Did not assign a destination for car (NWRX 2)
+5-  
+5- Car (NWRX 1) type (HopGrain) empty (E) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring yard (Hollis Mill, Hollis Track 2) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 1) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 2) wrong division () for car (NWRX 1) empty (E)
+7- Yard (Northwood, Gate Yard) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Try yard (Northwood, Northwood Yard) division (North) for car (NWRX 1) with empty (E) 
+7- Route for car (NWRX 1): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Northwood Yard) 
+7- Train (FIDDLE JOB) can't transport car (NWRX 1) directly to (Ferris Junction, Ferris 
+7- Yard) 
+7- Could not set destination for car (NWRX 1) due to Train (FIDDLE JOB)
+7- Ignoring yard (Carrow, Carrow Relay) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Carrow, Carrow Transfer) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Pell Creek-(yard), Pell Tank Track) wrong division () for car (NWRX 1) 
+7- empty (E) 
+7- Ignoring yard (Pell Creek-(yard), Pell Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Oakhaven, Oakhaven Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Track 1) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Ferris Junction, Ferris Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Dunmere, Dunmere Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Carrow, Carrow Yard) wrong division () for car (NWRX 1) empty (E)
+5- Could not find a reachable yard for car (NWRX 1) empty (E)
+7-  
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 1) empty (E)
+5- Could not find a reachable staging for car (NWRX 1) empty (E)
+7-  
+7- Ignoring spur (Oakhaven, Bakery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Cannery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Foundry) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Plant) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Coil Mill) wrong division () for car (NWRX 1) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 1) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Pool 2) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Quarry) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Shop Lead) wrong division () for car (NWRX 1) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Mill Spur) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Glazier) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Pier) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Pipe Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Refinery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Steel) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Westside) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Fiddle, Fiddle North) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Fiddle, Fiddle South) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Dairy) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Oil) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Elevator A) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Elevator B) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Freight House) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Freight House-(2)) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Grocery Dock) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Lumber Dealer) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Parts Depot) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Tool Depot) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Tuesday Dock) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Pasta Plant) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Warehouse) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Cannery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Day Track) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Feed Mill) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Freight Shed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Lumber) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Oil Dealer) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Outside) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Team) wrong division () for car (NWRX 1) empty (E)
+7- Spur (Northwood, Cold Store) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Grain Elevator) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Malt House) can't service car (NWRX 1) with empty (E) due to schedule 
+7- (Malt House Receiving) in match mode, no match 
+7- Spur (Northwood, Northwood Shed) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Northwood Station) can't service car (NWRX 1) with empty (E) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Steel) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Routed Siding) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Ignoring spur (Carrow, Carrow Box Factory) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Box Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Connection Lead) wrong division () for car (NWRX 1) empty 
+7- (E) 
+7- Ignoring spur (Carrow, Carrow Glass Works) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Gondola Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Co) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Track) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow LCL Dock) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Mill Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Oil Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Outside Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Packing) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Pool Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow RIP) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Salt Works) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Station) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Transfer Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow West Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Pell Creek-(industries), Pell Brickworks) wrong division () for car (NWRX 
+7- 1) empty (E) 
+7- Ignoring spur (Brae, Brae Stockyard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Depot) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Depot) wrong division () for car (NWRX 1) empty (E)
+5- Could not find a reachable spur for car (NWRX 1) empty (E)
+7-  
+5- Did not assign a destination for car (NWRX 1)
+5-  
+5- Find destinations for (KESX 4) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (KESX 4) to spur (Fiddle, Fiddle North) due to road (KESX)
+7- Can't send (KESX 4) to spur (Fiddle, Fiddle South) due to road (KESX)
+5- Could not find a track for (KESX 4) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (KESX 4) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (KESX 4)
+5-  
+5- Find destinations for (KESX 3) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (KESX 3) to spur (Fiddle, Fiddle North) due to road (KESX)
+7- Can't send (KESX 3) to spur (Fiddle, Fiddle South) due to road (KESX)
+5- Could not find a track for (KESX 3) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (KESX 3) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (KESX 3)
+5-  
+5- Find spur for car (JFN 902) type (Covered Hopper) custom load (Grain) at yard (Carrow, 
+5- Carrow Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Cannery) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Plant) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Oakhaven, Oakhaven Team) no schedule
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (JFN 902) with load (Grain) due 
+7- to type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Pool 1) no schedule
+7- Spur at (Hollis Mill, Hollis Pool 2) no schedule
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Hollis Mill, Mill Spur) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Glazier) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Pier) can't service car (JFN 902) with load (Grain) due to schedule 
+7- (Linden Pier Schedule) in match mode, no match 
+7- Spur (Linden, Linden Pipe Yard) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Fiddle, Fiddle North) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Fiddle, Fiddle South) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Dairy) can't service car (JFN 902) with load (Grain) due to 
+7- schedule (Dairy Receiving) in match mode, no match 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur at (Dunmere, Dunmere Team) no schedule
+7-  
+7- Try spur (Dunmere, Elevator A) division () for car (JFN 902) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 902) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator A) 
+7- Route for car (JFN 902): (Carrow, Carrow Yard)-> (Dunmere, Elevator A)
+7- Train (FIDDLE JOB) can't transport car (JFN 902) directly to (Dunmere, Elevator A)
+7- Could not set destination for car (JFN 902) due to Train (LOCAL-B)
+7-  
+7- Try spur (Dunmere, Elevator B) division () for car (JFN 902) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 902) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator B) 
+7- Route for car (JFN 902): (Carrow, Carrow Yard)-> (Dunmere, Elevator B)
+7- Train (FIDDLE JOB) can't transport car (JFN 902) directly to (Dunmere, Elevator B)
+7- Could not set destination for car (JFN 902) due to Train (LOCAL-B)
+7- Spur at (Dunmere, Freight House) no schedule
+7- Spur (Dunmere, Freight House-(2)) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Dunmere, Grocery Dock) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Lumber Dealer) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Parts Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tool Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tuesday Dock) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Sawyer, Sawyer Pasta Plant) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur at (Sawyer, Sawyer Warehouse) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur (Brae, Brae Feed Mill) can't service car (JFN 902) with load (Grain) due to load 
+7- (Grain) 
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur (Brae, Brae Outside) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Northwood, Grain Elevator) can't service car (JFN 902) with load (Grain) due to 
+7- schedule (Elevator Receiving) in match mode, no match 
+7- Spur (Northwood, Malt House) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Northwood, Routed Siding) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Carrow, Carrow Box Factory) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (JFN 902) with load (Grain) due to road 
+7- (JFN) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow LCL Dock) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur at (Carrow, Carrow Outside Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur at (Carrow, Carrow RIP) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (JFN 902) with load (Grain) due to 
+7- schedule (Carrow Salt Works Schedule) in match mode, no match 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7- Spur (Pell Creek-(industries), Pell Brickworks) can't service car (JFN 902) with load 
+7- (Grain) due to type (Covered Hopper) 
+7- Spur at (Brae, Brae Stockyard) no schedule
+7- Spur (Brae, Brae Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Could not find a reachable spur for car (JFN 902) load (Grain)
+7- Hold car (JFN 902) at (Carrow, Carrow Yard) found a route to a spur that has a schedule
+5- Did not assign a destination for car (JFN 902)
+5-  
+5- Find destinations for (KESX 2) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (KESX 2) to spur (Fiddle, Fiddle North) due to road (KESX)
+7- Can't send (KESX 2) to spur (Fiddle, Fiddle South) due to road (KESX)
+5- Could not find a track for (KESX 2) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (KESX 2) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (KESX 2)
+5-  
+5- Find spur for car (JFN 901) type (Covered Hopper) custom load (Grain) at yard (Carrow, 
+5- Carrow Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Cannery) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Plant) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Oakhaven, Oakhaven Team) no schedule
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (JFN 901) with load (Grain) due 
+7- to type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Pool 1) no schedule
+7- Spur at (Hollis Mill, Hollis Pool 2) no schedule
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Hollis Mill, Mill Spur) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Glazier) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Pier) can't service car (JFN 901) with load (Grain) due to schedule 
+7- (Linden Pier Schedule) in match mode, no match 
+7- Spur (Linden, Linden Pipe Yard) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Fiddle, Fiddle North) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Fiddle, Fiddle South) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Dairy) can't service car (JFN 901) with load (Grain) due to 
+7- schedule (Dairy Receiving) in match mode, no match 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur at (Dunmere, Dunmere Team) no schedule
+7-  
+7- Try spur (Dunmere, Elevator A) division () for car (JFN 901) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 901) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator A) 
+7- Route for car (JFN 901): (Carrow, Carrow Yard)-> (Dunmere, Elevator A)
+7- Train (FIDDLE JOB) can't transport car (JFN 901) directly to (Dunmere, Elevator A)
+7- Could not set destination for car (JFN 901) due to Train (LOCAL-B)
+7-  
+7- Try spur (Dunmere, Elevator B) division () for car (JFN 901) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 901) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator B) 
+7- Route for car (JFN 901): (Carrow, Carrow Yard)-> (Dunmere, Elevator B)
+7- Train (FIDDLE JOB) can't transport car (JFN 901) directly to (Dunmere, Elevator B)
+7- Could not set destination for car (JFN 901) due to Train (LOCAL-B)
+7- Spur at (Dunmere, Freight House) no schedule
+7- Spur (Dunmere, Freight House-(2)) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Dunmere, Grocery Dock) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Lumber Dealer) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Parts Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tool Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tuesday Dock) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Sawyer, Sawyer Pasta Plant) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur at (Sawyer, Sawyer Warehouse) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur (Brae, Brae Feed Mill) can't service car (JFN 901) with load (Grain) due to load 
+7- (Grain) 
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur (Brae, Brae Outside) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Northwood, Grain Elevator) can't service car (JFN 901) with load (Grain) due to 
+7- schedule (Elevator Receiving) in match mode, no match 
+7- Spur (Northwood, Malt House) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Northwood, Routed Siding) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Carrow, Carrow Box Factory) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (JFN 901) with load (Grain) due to road 
+7- (JFN) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow LCL Dock) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur at (Carrow, Carrow Outside Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur at (Carrow, Carrow RIP) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (JFN 901) with load (Grain) due to 
+7- schedule (Carrow Salt Works Schedule) in match mode, no match 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7- Spur (Pell Creek-(industries), Pell Brickworks) can't service car (JFN 901) with load 
+7- (Grain) due to type (Covered Hopper) 
+7- Spur at (Brae, Brae Stockyard) no schedule
+7- Spur (Brae, Brae Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Could not find a reachable spur for car (JFN 901) load (Grain)
+7- Hold car (JFN 901) at (Carrow, Carrow Yard) found a route to a spur that has a schedule
+5- Did not assign a destination for car (JFN 901)
+5-  
+5- Find destinations for (KESX 1) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (KESX 1) to spur (Fiddle, Fiddle North) due to road (KESX)
+7- Can't send (KESX 1) to spur (Fiddle, Fiddle South) due to road (KESX)
+5- Could not find a track for (KESX 1) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (KESX 1) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (KESX 1)
+5-  
+5- Find destinations for (JFN 806) type (Boxcar) empty (E) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+5- Car (JFN 806) can go to spur (Fiddle, Fiddle North) 0/10 moves used
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (JFN 806) location is equal to destination (Carrow) skipping this destination
+3- Car (JFN 806) assigned to train, destination (Fiddle, Fiddle North)
+3-  
+5- Find destinations for (JFN 805) type (Boxcar) empty (E) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (JFN 805) to spur (Fiddle, Fiddle South) due to schedule (Fiddle South) in 
+7- match mode, no match Random 
+5- Car (JFN 805) can go to spur (Fiddle, Fiddle North) 1/10 moves used
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (JFN 805) location is equal to destination (Carrow) skipping this destination
+3- Car (JFN 805) assigned to train, destination (Fiddle, Fiddle North)
+3-  
+5- Find destinations for (JFN 804) type (Boxcar) empty (E) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (JFN 804) to spur (Fiddle, Fiddle South) due to schedule (Fiddle South) in 
+7- match mode, no match Random 
+5- Car (JFN 804) can go to spur (Fiddle, Fiddle North) 2/10 moves used
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (JFN 804) location is equal to destination (Carrow) skipping this destination
+3- Car (JFN 804) assigned to train, destination (Fiddle, Fiddle North)
+3-  
+5- Find destinations for (JFN 803) type (Boxcar) empty (E) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+5- Car (JFN 803) can go to spur (Fiddle, Fiddle South) 3/10 moves used
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (JFN 803) location is equal to destination (Carrow) skipping this destination
+3- Car (JFN 803) assigned to train, destination (Fiddle, Fiddle South)
+3-  
+5- Find destinations for (JFN 802) type (Boxcar) empty (E) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+5- Car (JFN 802) can go to spur (Fiddle, Fiddle South) 4/10 moves used
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (JFN 802) location is equal to destination (Carrow) skipping this destination
+3- Car (JFN 802) assigned to train, destination (Fiddle, Fiddle South)
+3-  
+5- Find destinations for (JFN 801) type (Boxcar) empty (E) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (JFN 801) to spur (Fiddle, Fiddle South) due to schedule (Fiddle South) in 
+7- match mode, no match Random 
+5- Car (JFN 801) can go to spur (Fiddle, Fiddle North) 5/10 moves used
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (JFN 801) location is equal to destination (Carrow) skipping this destination
+3- Car (JFN 801) assigned to train, destination (Fiddle, Fiddle North)
+3-  
+5- Car (JFN 5801) type (Boxcar) load (Boxes) at spur (Carrow, Carrow Box Factory) has final 
+5- destination (Northwood, Routed Siding) routing begins 
+7- Route for car (JFN 5801): (Carrow, Carrow Box Factory)-> (Ferris Junction, Ferris 
+7- Routed)-> (Northwood, Routed Siding) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5801) directly to (Ferris Junction, Ferris 
+7- Routed) 
+7- Route for car (JFN 5801): (Carrow, Carrow Box Factory)-> (Ferris Junction, Ferris 
+7- Yard)-> (Northwood, Routed Siding) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5801) directly to (Ferris Junction, Ferris 
+7- Yard) 
+5- Did not assign a destination for car (JFN 5801)
+5-  
+5- Car (JFN 5501) type (Covered Hopper) load (Salt) at spur (Carrow, Carrow Salt Works) has 
+5- final destination (Linden, Linden Pier) routing begins 
+7- Could not find a last hop C/I or yard track that can service car to destination (Linden)
+7-  
+7- Find a route for car (JFN 5501) through staging to (Linden, Linden Pier)
+7- Route for car (JFN 5501): (Carrow, Carrow Salt Works)-> (East Staging, Hop)-> (Linden, 
+7- Linden Pier) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5501) directly to (East Staging, Hop)
+5- Did not assign a destination for car (JFN 5501)
+5-  
+5- Car (JFN 6402) type (Boxcar) load (Glass) at spur (Carrow, Carrow Glass Works) has final 
+5- destination (Linden, Linden Glazier) routing begins 
+7- Train (EAST FREIGHT) can transport car (JFN 6402) from spur (Carrow, Carrow Glass Works) 
+7- to (Linden, Linden Glazier) 
+7- Route for car (JFN 6402): (Carrow, Carrow Glass Works)-> (Linden, Linden Glazier)
+7- Train (FIDDLE JOB) can't transport car (JFN 6402) directly to (Linden, Linden Glazier)
+5- Did not assign a destination for car (JFN 6402)
+5-  
+5- Car (JFN 6401) type (Boxcar) load (Glass) at spur (Carrow, Carrow Glass Works) has final 
+5- destination (Linden, Linden Glazier) routing begins 
+7- Train (EAST FREIGHT) can transport car (JFN 6401) from spur (Carrow, Carrow Glass Works) 
+7- to (Linden, Linden Glazier) 
+7- Route for car (JFN 6401): (Carrow, Carrow Glass Works)-> (Linden, Linden Glazier)
+7- Train (FIDDLE JOB) can't transport car (JFN 6401) directly to (Linden, Linden Glazier)
+5- Did not assign a destination for car (JFN 6401)
+5-  
+5- Find destinations for (JFN 101) type (Covered Hopper) empty (E) at yard (Carrow, Carrow 
+5- Yard) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (JFN 101) type (Covered Hopper) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (JFN 101) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (JFN 101)
+5-  
+5- Car (JFN 5201) type (Reefer) load (Produce) at spur (Carrow, Carrow Packing) has final 
+5- destination (Northwood, Cold Store) routing begins 
+7- Route for car (JFN 5201): (Carrow, Carrow Packing)-> (Ferris Junction, Ferris 
+7- Exchange)-> (Northwood, Cold Store) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5201) directly to (Ferris Junction, Ferris 
+7- Exchange) 
+5- Did not assign a destination for car (JFN 5201)
+5-  
+5- Find spur for car (JFN 5101) type (Boxcar) custom load (Peas) at yard (Carrow, Carrow 
+5- Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (JFN 5101) with load (Peas) due to road (JFN)
+7-  
+7- Try spur (Oakhaven, Oakhaven Cannery) division () for car (JFN 5101) with load (Peas) 
+7- Train (LOCAL-H) can transport car (JFN 5101) from yard (Carrow, Carrow Yard) to 
+7- (Oakhaven, Oakhaven Cannery) 
+7- Route for car (JFN 5101): (Carrow, Carrow Yard)-> (Oakhaven, Oakhaven Cannery)
+7- Train (FIDDLE JOB) can't transport car (JFN 5101) directly to (Oakhaven, Oakhaven 
+7- Cannery) 
+7- Could not set destination for car (JFN 5101) due to Train (LOCAL-H)
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur (Oakhaven, Oakhaven Plant) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Oakhaven, Oakhaven Team) no schedule
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (JFN 5101) with load (Peas) due 
+7- to type (Boxcar) 
+7- Spur at (Hollis Mill, Hollis Pool 1) no schedule
+7- Spur at (Hollis Mill, Hollis Pool 2) no schedule
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Hollis Mill, Mill Spur) can't service car (JFN 5101) with load (Peas) due to road 
+7- (JFN) 
+7- Spur (Linden, Linden Glazier) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Linden Glazier Schedule) in match mode, no match 
+7- Spur (Linden, Linden Pier) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur (Linden, Linden Pipe Yard) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (JFN 5101) with load (Peas) due to road 
+7- (JFN) 
+7- Spur (Dunmere, Dunmere Dairy) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur at (Dunmere, Dunmere Team) no schedule
+7- Spur (Dunmere, Elevator A) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur (Dunmere, Elevator B) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Dunmere, Freight House) no schedule
+7- Spur (Dunmere, Freight House-(2)) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Crates Receiving) in match mode, no match 
+7- Spur (Dunmere, Grocery Dock) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Grocery Receiving) in match mode, no match 
+7- Spur (Dunmere, Lumber Dealer) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Lumber Receiving) in match mode, no match 
+7- Spur (Dunmere, Parts Depot) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Parts Receiving) in match mode, no match 
+7- Spur (Dunmere, Tool Depot) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Tools Receiving) in match mode, no match 
+7- Spur (Dunmere, Tuesday Dock) can't service car (JFN 5101) with load (Peas) due to road 
+7- (JFN) 
+7- Spur (Sawyer, Sawyer Pasta Plant) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Sawyer Pasta Plant Schedule) in match mode, no match 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur at (Sawyer, Sawyer Warehouse) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Cannery) in match mode, no match 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur (Brae, Brae Feed Mill) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Lumber Shipping) in match mode, no match 
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur (Brae, Brae Outside) can't service car (JFN 5101) with load (Peas) due to road (JFN)
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur (Northwood, Grain Elevator) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur (Northwood, Malt House) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur (Northwood, Routed Siding) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Routed Siding Receiving) in match mode, no match 
+7- Spur (Carrow, Carrow Box Factory) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Box Factory Loads) in match mode, no match 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Carrow Glass Works Schedule) in match mode, no match 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow LCL Dock) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur at (Carrow, Carrow Outside Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur at (Carrow, Carrow RIP) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7- Spur (Pell Creek-(industries), Pell Brickworks) can't service car (JFN 5101) with load 
+7- (Peas) due to road (JFN) 
+7- Spur at (Brae, Brae Stockyard) no schedule
+7- Spur (Fiddle, Fiddle South) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Fiddle South) in match mode, no match Random 
+7- Spur (Fiddle, Fiddle North) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Fiddle North) in match mode, no match 
+7- Spur (Brae, Brae Depot) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Brae Depot Schedule) in match mode, no match 
+7- Spur (Dunmere, Dunmere Depot) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Dunmere Depot Schedule) in match mode, no match 
+7- Could not find a reachable spur for car (JFN 5101) load (Peas)
+7- Hold car (JFN 5101) at (Carrow, Carrow Yard) found a route to a spur that has a schedule
+5- Did not assign a destination for car (JFN 5101)
+5-  
+5- Car (OAKX 5) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 5): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 5) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 5): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 5) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 5)
+5-  
+5- Car (OAKX 4) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 4): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 4) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 4): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 4) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 4)
+5-  
+5- Find destinations for (MILX 1104) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (MILX 1104) to spur (Fiddle, Fiddle South) due to road (MILX)
+7- Can't send (MILX 1104) to spur (Fiddle, Fiddle North) due to road (MILX)
+5- Could not find a track for (MILX 1104) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (MILX 1104) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (MILX 1104)
+5-  
+5- Car (OAKX 3) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 3): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 3) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 3): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 3) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 3)
+5-  
+5- Find destinations for (MILX 1103) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (MILX 1103) to spur (Fiddle, Fiddle South) due to road (MILX)
+7- Can't send (MILX 1103) to spur (Fiddle, Fiddle North) due to road (MILX)
+5- Could not find a track for (MILX 1103) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (MILX 1103) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (MILX 1103)
+5-  
+5- Car (OAKX 2) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 2): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 2) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 2): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 2) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 2)
+5-  
+5- Find destinations for (MILX 1102) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (MILX 1102) to spur (Fiddle, Fiddle South) due to road (MILX)
+7- Can't send (MILX 1102) to spur (Fiddle, Fiddle North) due to road (MILX)
+5- Could not find a track for (MILX 1102) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (MILX 1102) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (MILX 1102)
+5-  
+5- Car (OAKX 1) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 1): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 1) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 1): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 1) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 1)
+5-  
+5- Find destinations for (MILX 1101) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Can't send (MILX 1101) to spur (Fiddle, Fiddle South) due to road (MILX)
+7- Can't send (MILX 1101) to spur (Fiddle, Fiddle North) due to road (MILX)
+5- Could not find a track for (MILX 1101) at destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (MILX 1101) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (MILX 1101)
+5-  
+5- Find destinations for (WNDR 2) type (Coal) load (L) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (WNDR 2) type (Coal) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (WNDR 2) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (WNDR 2)
+5-  
+5- Find destinations for (WNDR 1) type (Coal) empty (E) at yard (Carrow, Carrow Yard)
+5- Searching location (Fiddle) route id 7r2 for possible destination
+7- Car (WNDR 1) type (Coal) isn't serviced by destination (Fiddle)
+5- Searching location (Carrow) route id 7r3 for possible destination
+7- Car (WNDR 1) location is equal to destination (Carrow) skipping this destination
+5- Did not assign a destination for car (WNDR 1)
+5-  
+1- Partial 6/10 cars at location (Carrow) assigned to train (FIDDLE JOB)
+1- Route location (Fiddle) id 7r2 requests 4 moves, 4/10 moves are available
+5-  
+5- No cars available for pick up at location (Fiddle)
+5-  
+1- Partial 0/4 cars at location (Fiddle) assigned to train (FIDDLE JOB)
+1- Route location (Carrow) id 7r3 requests 10 moves, 10/10 moves are available
+5-  
+5- Find destinations for (CNXX 1) type (Flatcar) empty (E) at spur (Carrow, Carrow 
+5- Connection Lead) 
+5- Did not assign a destination for car (CNXX 1)
+5-  
+5- Find destinations for (GNDX 503) type (Gondola) empty (E) at spur (Carrow, Carrow 
+5- Gondola Lead) 
+5- Did not assign a destination for car (GNDX 503)
+5-  
+5- Find destinations for (GNDX 502) type (Gondola) empty (E) at spur (Carrow, Carrow 
+5- Gondola Lead) 
+5- Did not assign a destination for car (GNDX 502)
+5-  
+5- Find destinations for (GNDX 501) type (Gondola) empty (E) at spur (Carrow, Carrow 
+5- Gondola Lead) 
+5- Did not assign a destination for car (GNDX 501)
+5-  
+5- Find destinations for (BOXX 1) type (Boxcar) empty (E) at spur (Carrow, Carrow Box Lead)
+5- Did not assign a destination for car (BOXX 1)
+5-  
+5- Find destinations for (POOX 1906) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Did not assign a destination for car (POOX 1906)
+5-  
+5- Find destinations for (POOX 1905) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Did not assign a destination for car (POOX 1905)
+5-  
+5- Find destinations for (POOX 1904) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Did not assign a destination for car (POOX 1904)
+5-  
+5- Find destinations for (POOX 1903) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Did not assign a destination for car (POOX 1903)
+5-  
+5- Find destinations for (POOX 1902) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Did not assign a destination for car (POOX 1902)
+5-  
+5- Car (NWRX 3) type (HopGrain) load (Barley) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring spur (Oakhaven, Bakery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Oakhaven, Oakhaven Cannery) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Oakhaven, Oakhaven Foundry) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Oakhaven, Oakhaven Plant) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Oakhaven, Oakhaven Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Hollis Mill, Hollis Coil Mill) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 1) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 2) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Quarry) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Shop Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Hollis Mill, Hollis Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Hollis Mill, Mill Spur) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Glazier) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Pier) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Pipe Yard) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Refinery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Steel) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Linden, Linden Westside) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Dairy) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Oil) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Elevator A) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Elevator B) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Freight House) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Freight House-(2)) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Dunmere, Grocery Dock) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Lumber Dealer) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Parts Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Tool Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Tuesday Dock) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Sawyer, Sawyer Pasta Plant) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Sawyer, Sawyer Team) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Sawyer, Sawyer Warehouse) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Cannery) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Day Track) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Feed Mill) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Freight Shed) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Lumber) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Oil Dealer) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Outside) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Team) wrong division () for car (NWRX 3) load (Barley)
+7- Spur (Northwood, Cold Store) can't service car (NWRX 3) with load (Barley) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Grain Elevator) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7-  
+7- Try spur (Northwood, Malt House) division (North) for car (NWRX 3) with load (Barley) 
+7- Route for car (NWRX 3): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Malt House) 
+7- Train (FIDDLE JOB) can't transport car (NWRX 3) directly to (Ferris Junction, Ferris 
+7- Yard) 
+7- Could not set destination for car (NWRX 3) due to Train (FIDDLE JOB)
+7- Spur (Northwood, Northwood Shed) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Station) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Steel) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Routed Siding) can't service car (NWRX 3) with load (Barley) due to 
+7- type (HopGrain) 
+7- Ignoring spur (Carrow, Carrow Box Factory) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Box Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Connection Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Glass Works) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Gondola Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Grain Co) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Grain Track) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow LCL Dock) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Mill Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Oil Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Outside Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Packing) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Pool Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow RIP) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Salt Works) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow Station) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Carrow, Carrow Transfer Lead) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring spur (Carrow, Carrow West Lead) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Pell Creek-(industries), Pell Brickworks) wrong division () for car (NWRX 
+7- 3) load (Barley) 
+7- Ignoring spur (Brae, Brae Stockyard) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Fiddle, Fiddle South) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Fiddle, Fiddle North) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Brae, Brae Depot) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring spur (Dunmere, Dunmere Depot) wrong division () for car (NWRX 3) load (Barley)
+5- Could not find a reachable spur for car (NWRX 3) load (Barley)
+7-  
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 3) load (Barley)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 3) load 
+7- (Barley) 
+5- Could not find a reachable staging for car (NWRX 3) load (Barley)
+7-  
+5- Did not assign a destination for car (NWRX 3)
+5-  
+5- Find destinations for (POOX 1901) type (Flatcar) empty (E) at spur (Carrow, Carrow Pool 
+5- Lead) 
+5- Did not assign a destination for car (POOX 1901)
+5-  
+5- Car (NWRX 2) type (HopGrain) empty (E) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring yard (Hollis Mill, Hollis Track 2) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 1) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 2) wrong division () for car (NWRX 2) empty (E)
+7- Yard (Northwood, Gate Yard) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Try yard (Northwood, Northwood Yard) division (North) for car (NWRX 2) with empty (E) 
+7- Route for car (NWRX 2): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Northwood Yard) 
+7- Train (FIDDLE JOB) can't transport car (NWRX 2) directly to (Ferris Junction, Ferris 
+7- Yard) 
+7- Could not set destination for car (NWRX 2) due to Train (FIDDLE JOB)
+7- Ignoring yard (Carrow, Carrow Relay) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Carrow, Carrow Transfer) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Pell Creek-(yard), Pell Tank Track) wrong division () for car (NWRX 2) 
+7- empty (E) 
+7- Ignoring yard (Pell Creek-(yard), Pell Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Oakhaven, Oakhaven Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Track 1) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Ferris Junction, Ferris Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Dunmere, Dunmere Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring yard (Carrow, Carrow Yard) wrong division () for car (NWRX 2) empty (E)
+5- Could not find a reachable yard for car (NWRX 2) empty (E)
+7-  
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 2) empty (E)
+5- Could not find a reachable staging for car (NWRX 2) empty (E)
+7-  
+7- Ignoring spur (Oakhaven, Bakery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Cannery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Foundry) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Plant) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Coil Mill) wrong division () for car (NWRX 2) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 1) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Pool 2) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Quarry) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Shop Lead) wrong division () for car (NWRX 2) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Hollis Mill, Mill Spur) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Glazier) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Pier) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Pipe Yard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Refinery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Steel) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Linden, Linden Westside) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Dairy) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Oil) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Elevator A) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Elevator B) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Freight House) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Freight House-(2)) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Grocery Dock) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Lumber Dealer) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Parts Depot) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Tool Depot) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Tuesday Dock) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Pasta Plant) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Team) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Warehouse) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Cannery) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Day Track) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Feed Mill) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Freight Shed) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Lumber) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Oil Dealer) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Outside) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Team) wrong division () for car (NWRX 2) empty (E)
+7- Spur (Northwood, Cold Store) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Grain Elevator) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Malt House) can't service car (NWRX 2) with empty (E) due to schedule 
+7- (Malt House Receiving) in match mode, no match 
+7- Spur (Northwood, Northwood Shed) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Northwood Station) can't service car (NWRX 2) with empty (E) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Steel) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Routed Siding) can't service car (NWRX 2) with empty (E) due to type 
+7- (HopGrain) 
+7- Ignoring spur (Carrow, Carrow Box Factory) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Box Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Connection Lead) wrong division () for car (NWRX 2) empty 
+7- (E) 
+7- Ignoring spur (Carrow, Carrow Glass Works) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Gondola Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Co) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Track) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow LCL Dock) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Mill Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Oil Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Outside Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Packing) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Pool Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow RIP) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Salt Works) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Station) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow Transfer Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Carrow, Carrow West Lead) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Pell Creek-(industries), Pell Brickworks) wrong division () for car (NWRX 
+7- 2) empty (E) 
+7- Ignoring spur (Brae, Brae Stockyard) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Fiddle, Fiddle South) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Fiddle, Fiddle North) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Brae, Brae Depot) wrong division () for car (NWRX 2) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Depot) wrong division () for car (NWRX 2) empty (E)
+5- Could not find a reachable spur for car (NWRX 2) empty (E)
+7-  
+5- Did not assign a destination for car (NWRX 2)
+5-  
+5- Car (NWRX 1) type (HopGrain) empty (E) home division (North) departing foreign spur 
+5- (Carrow, Carrow Grain Track) division () 
+7- Ignoring yard (Hollis Mill, Hollis Track 2) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 1) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Sawyer, Sawyer Yard 2) wrong division () for car (NWRX 1) empty (E)
+7- Yard (Northwood, Gate Yard) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Try yard (Northwood, Northwood Yard) division (North) for car (NWRX 1) with empty (E) 
+7- Route for car (NWRX 1): (Carrow, Carrow Grain Track)-> (Ferris Junction, Ferris Yard)-> 
+7- (Northwood, Northwood Yard) 
+7- Train (FIDDLE JOB) can't transport car (NWRX 1) directly to (Ferris Junction, Ferris 
+7- Yard) 
+7- Could not set destination for car (NWRX 1) due to Train (FIDDLE JOB)
+7- Ignoring yard (Carrow, Carrow Relay) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Carrow, Carrow Transfer) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Pell Creek-(yard), Pell Tank Track) wrong division () for car (NWRX 1) 
+7- empty (E) 
+7- Ignoring yard (Pell Creek-(yard), Pell Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Oakhaven, Oakhaven Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Track 1) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Hollis Mill, Hollis Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Ferris Junction, Ferris Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Dunmere, Dunmere Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring yard (Carrow, Carrow Yard) wrong division () for car (NWRX 1) empty (E)
+5- Could not find a reachable yard for car (NWRX 1) empty (E)
+7-  
+7- Ignoring staging (East Staging, Hop) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, Turn A) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, Turn B) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Custom) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Mixed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Mode) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Mixed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Mode) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (East Staging, East Swap) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring staging (West Staging, West Swap) wrong division () for car (NWRX 1) empty (E)
+5- Could not find a reachable staging for car (NWRX 1) empty (E)
+7-  
+7- Ignoring spur (Oakhaven, Bakery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Cannery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Foundry) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Plant) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Oakhaven, Oakhaven Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Coil Mill) wrong division () for car (NWRX 1) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Pool 1) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Pool 2) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Quarry) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Hollis Shop Lead) wrong division () for car (NWRX 1) empty 
+7- (E) 
+7- Ignoring spur (Hollis Mill, Hollis Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Hollis Mill, Mill Spur) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Glazier) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Pier) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Pipe Yard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Refinery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Steel) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Linden, Linden Westside) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Dairy) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Oil) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Elevator A) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Elevator B) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Freight House) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Freight House-(2)) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Grocery Dock) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Lumber Dealer) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Parts Depot) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Tool Depot) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Tuesday Dock) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Pasta Plant) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Team) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Sawyer, Sawyer Warehouse) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Cannery) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Day Track) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Feed Mill) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Freight Shed) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Lumber) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Oil Dealer) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Outside) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Team) wrong division () for car (NWRX 1) empty (E)
+7- Spur (Northwood, Cold Store) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Grain Elevator) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Malt House) can't service car (NWRX 1) with empty (E) due to schedule 
+7- (Malt House Receiving) in match mode, no match 
+7- Spur (Northwood, Northwood Shed) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Northwood Station) can't service car (NWRX 1) with empty (E) due to 
+7- type (HopGrain) 
+7- Spur (Northwood, Northwood Steel) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Spur (Northwood, Routed Siding) can't service car (NWRX 1) with empty (E) due to type 
+7- (HopGrain) 
+7- Ignoring spur (Carrow, Carrow Box Factory) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Box Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Connection Lead) wrong division () for car (NWRX 1) empty 
+7- (E) 
+7- Ignoring spur (Carrow, Carrow Glass Works) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Gondola Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Co) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Grain Track) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow LCL Dock) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Mill Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Oil Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Outside Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Packing) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Pool Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow RIP) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Salt Works) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Station) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow Transfer Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Carrow, Carrow West Lead) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Pell Creek-(industries), Pell Brickworks) wrong division () for car (NWRX 
+7- 1) empty (E) 
+7- Ignoring spur (Brae, Brae Stockyard) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Fiddle, Fiddle South) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Fiddle, Fiddle North) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Brae, Brae Depot) wrong division () for car (NWRX 1) empty (E)
+7- Ignoring spur (Dunmere, Dunmere Depot) wrong division () for car (NWRX 1) empty (E)
+5- Could not find a reachable spur for car (NWRX 1) empty (E)
+7-  
+5- Did not assign a destination for car (NWRX 1)
+5-  
+5- Find destinations for (KESX 4) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Did not assign a destination for car (KESX 4)
+5-  
+5- Find destinations for (KESX 3) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Did not assign a destination for car (KESX 3)
+5-  
+5- Find spur for car (JFN 902) type (Covered Hopper) custom load (Grain) at yard (Carrow, 
+5- Carrow Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Cannery) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Plant) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Oakhaven, Oakhaven Team) no schedule
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (JFN 902) with load (Grain) due 
+7- to type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Pool 1) no schedule
+7- Spur at (Hollis Mill, Hollis Pool 2) no schedule
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Hollis Mill, Mill Spur) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Glazier) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Pier) can't service car (JFN 902) with load (Grain) due to schedule 
+7- (Linden Pier Schedule) in match mode, no match 
+7- Spur (Linden, Linden Pipe Yard) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Dairy) can't service car (JFN 902) with load (Grain) due to 
+7- schedule (Dairy Receiving) in match mode, no match 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur at (Dunmere, Dunmere Team) no schedule
+7-  
+7- Try spur (Dunmere, Elevator A) division () for car (JFN 902) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 902) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator A) 
+7- Route for car (JFN 902): (Carrow, Carrow Yard)-> (Dunmere, Elevator A)
+7- Train (FIDDLE JOB) can't transport car (JFN 902) directly to (Dunmere, Elevator A)
+7- Could not set destination for car (JFN 902) due to Train (LOCAL-B)
+7-  
+7- Try spur (Dunmere, Elevator B) division () for car (JFN 902) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 902) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator B) 
+7- Route for car (JFN 902): (Carrow, Carrow Yard)-> (Dunmere, Elevator B)
+7- Train (FIDDLE JOB) can't transport car (JFN 902) directly to (Dunmere, Elevator B)
+7- Could not set destination for car (JFN 902) due to Train (LOCAL-B)
+7- Spur at (Dunmere, Freight House) no schedule
+7- Spur (Dunmere, Freight House-(2)) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Dunmere, Grocery Dock) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Lumber Dealer) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Parts Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tool Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tuesday Dock) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Sawyer, Sawyer Pasta Plant) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur at (Sawyer, Sawyer Warehouse) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur (Brae, Brae Feed Mill) can't service car (JFN 902) with load (Grain) due to load 
+7- (Grain) 
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur (Brae, Brae Outside) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Northwood, Grain Elevator) can't service car (JFN 902) with load (Grain) due to 
+7- schedule (Elevator Receiving) in match mode, no match 
+7- Spur (Northwood, Malt House) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Northwood, Routed Siding) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Carrow, Carrow Box Factory) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (JFN 902) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (JFN 902) with load (Grain) due to road 
+7- (JFN) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow LCL Dock) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur at (Carrow, Carrow Outside Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur at (Carrow, Carrow RIP) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (JFN 902) with load (Grain) due to 
+7- schedule (Carrow Salt Works Schedule) in match mode, no match 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7- Spur (Pell Creek-(industries), Pell Brickworks) can't service car (JFN 902) with load 
+7- (Grain) due to type (Covered Hopper) 
+7- Spur at (Brae, Brae Stockyard) no schedule
+7- Spur (Fiddle, Fiddle South) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Fiddle, Fiddle North) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Brae, Brae Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Depot) can't service car (JFN 902) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Could not find a reachable spur for car (JFN 902) load (Grain)
+7- Hold car (JFN 902) at (Carrow, Carrow Yard) found a route to a spur that has a schedule
+5- Did not assign a destination for car (JFN 902)
+5-  
+5- Find destinations for (KESX 2) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Did not assign a destination for car (KESX 2)
+5-  
+5- Find spur for car (JFN 901) type (Covered Hopper) custom load (Grain) at yard (Carrow, 
+5- Carrow Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Cannery) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Oakhaven, Oakhaven Plant) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Oakhaven, Oakhaven Team) no schedule
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (JFN 901) with load (Grain) due 
+7- to type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Pool 1) no schedule
+7- Spur at (Hollis Mill, Hollis Pool 2) no schedule
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Hollis Mill, Mill Spur) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Glazier) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Linden, Linden Pier) can't service car (JFN 901) with load (Grain) due to schedule 
+7- (Linden Pier Schedule) in match mode, no match 
+7- Spur (Linden, Linden Pipe Yard) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Dairy) can't service car (JFN 901) with load (Grain) due to 
+7- schedule (Dairy Receiving) in match mode, no match 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur at (Dunmere, Dunmere Team) no schedule
+7-  
+7- Try spur (Dunmere, Elevator A) division () for car (JFN 901) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 901) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator A) 
+7- Route for car (JFN 901): (Carrow, Carrow Yard)-> (Dunmere, Elevator A)
+7- Train (FIDDLE JOB) can't transport car (JFN 901) directly to (Dunmere, Elevator A)
+7- Could not set destination for car (JFN 901) due to Train (LOCAL-B)
+7-  
+7- Try spur (Dunmere, Elevator B) division () for car (JFN 901) with load (Grain) 
+7- Train (LOCAL-B) can transport car (JFN 901) from yard (Carrow, Carrow Yard) to (Dunmere, 
+7- Elevator B) 
+7- Route for car (JFN 901): (Carrow, Carrow Yard)-> (Dunmere, Elevator B)
+7- Train (FIDDLE JOB) can't transport car (JFN 901) directly to (Dunmere, Elevator B)
+7- Could not set destination for car (JFN 901) due to Train (LOCAL-B)
+7- Spur at (Dunmere, Freight House) no schedule
+7- Spur (Dunmere, Freight House-(2)) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Dunmere, Grocery Dock) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Lumber Dealer) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Parts Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tool Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Tuesday Dock) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Sawyer, Sawyer Pasta Plant) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur at (Sawyer, Sawyer Warehouse) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur (Brae, Brae Feed Mill) can't service car (JFN 901) with load (Grain) due to load 
+7- (Grain) 
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur (Brae, Brae Outside) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Northwood, Grain Elevator) can't service car (JFN 901) with load (Grain) due to 
+7- schedule (Elevator Receiving) in match mode, no match 
+7- Spur (Northwood, Malt House) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Northwood, Routed Siding) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur (Carrow, Carrow Box Factory) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (JFN 901) with load (Grain) due to 
+7- type (Covered Hopper) 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (JFN 901) with load (Grain) due to road 
+7- (JFN) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow LCL Dock) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur at (Carrow, Carrow Outside Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur at (Carrow, Carrow RIP) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (JFN 901) with load (Grain) due to 
+7- schedule (Carrow Salt Works Schedule) in match mode, no match 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7- Spur (Pell Creek-(industries), Pell Brickworks) can't service car (JFN 901) with load 
+7- (Grain) due to type (Covered Hopper) 
+7- Spur at (Brae, Brae Stockyard) no schedule
+7- Spur (Fiddle, Fiddle South) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Fiddle, Fiddle North) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Brae, Brae Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Spur (Dunmere, Dunmere Depot) can't service car (JFN 901) with load (Grain) due to type 
+7- (Covered Hopper) 
+7- Could not find a reachable spur for car (JFN 901) load (Grain)
+7- Hold car (JFN 901) at (Carrow, Carrow Yard) found a route to a spur that has a schedule
+5- Did not assign a destination for car (JFN 901)
+5-  
+5- Find destinations for (KESX 1) type (Boxcar) empty (E) at spur (Carrow, Carrow Transfer 
+5- Lead) 
+5- Did not assign a destination for car (KESX 1)
+5-  
+5- Car (JFN 5801) type (Boxcar) load (Boxes) at spur (Carrow, Carrow Box Factory) has final 
+5- destination (Northwood, Routed Siding) routing begins 
+7- Route for car (JFN 5801): (Carrow, Carrow Box Factory)-> (Ferris Junction, Ferris 
+7- Routed)-> (Northwood, Routed Siding) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5801) directly to (Ferris Junction, Ferris 
+7- Routed) 
+7- Route for car (JFN 5801): (Carrow, Carrow Box Factory)-> (Ferris Junction, Ferris 
+7- Yard)-> (Northwood, Routed Siding) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5801) directly to (Ferris Junction, Ferris 
+7- Yard) 
+5- Did not assign a destination for car (JFN 5801)
+5-  
+5- Car (JFN 5501) type (Covered Hopper) load (Salt) at spur (Carrow, Carrow Salt Works) has 
+5- final destination (Linden, Linden Pier) routing begins 
+7- Could not find a last hop C/I or yard track that can service car to destination (Linden)
+7-  
+7- Find a route for car (JFN 5501) through staging to (Linden, Linden Pier)
+7- Route for car (JFN 5501): (Carrow, Carrow Salt Works)-> (East Staging, Hop)-> (Linden, 
+7- Linden Pier) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5501) directly to (East Staging, Hop)
+5- Did not assign a destination for car (JFN 5501)
+5-  
+5- Car (JFN 6402) type (Boxcar) load (Glass) at spur (Carrow, Carrow Glass Works) has final 
+5- destination (Linden, Linden Glazier) routing begins 
+7- Train (EAST FREIGHT) can transport car (JFN 6402) from spur (Carrow, Carrow Glass Works) 
+7- to (Linden, Linden Glazier) 
+7- Route for car (JFN 6402): (Carrow, Carrow Glass Works)-> (Linden, Linden Glazier)
+7- Train (FIDDLE JOB) can't transport car (JFN 6402) directly to (Linden, Linden Glazier)
+5- Did not assign a destination for car (JFN 6402)
+5-  
+5- Car (JFN 6401) type (Boxcar) load (Glass) at spur (Carrow, Carrow Glass Works) has final 
+5- destination (Linden, Linden Glazier) routing begins 
+7- Train (EAST FREIGHT) can transport car (JFN 6401) from spur (Carrow, Carrow Glass Works) 
+7- to (Linden, Linden Glazier) 
+7- Route for car (JFN 6401): (Carrow, Carrow Glass Works)-> (Linden, Linden Glazier)
+7- Train (FIDDLE JOB) can't transport car (JFN 6401) directly to (Linden, Linden Glazier)
+5- Did not assign a destination for car (JFN 6401)
+5-  
+5- Find destinations for (JFN 101) type (Covered Hopper) empty (E) at yard (Carrow, Carrow 
+5- Yard) 
+5- Did not assign a destination for car (JFN 101)
+5-  
+5- Car (JFN 5201) type (Reefer) load (Produce) at spur (Carrow, Carrow Packing) has final 
+5- destination (Northwood, Cold Store) routing begins 
+7- Route for car (JFN 5201): (Carrow, Carrow Packing)-> (Ferris Junction, Ferris 
+7- Exchange)-> (Northwood, Cold Store) 
+7- Train (FIDDLE JOB) can't transport car (JFN 5201) directly to (Ferris Junction, Ferris 
+7- Exchange) 
+5- Did not assign a destination for car (JFN 5201)
+5-  
+5- Find spur for car (JFN 5101) type (Boxcar) custom load (Peas) at yard (Carrow, Carrow 
+5- Yard) 
+7- Spur (Oakhaven, Bakery) can't service car (JFN 5101) with load (Peas) due to road (JFN)
+7-  
+7- Try spur (Oakhaven, Oakhaven Cannery) division () for car (JFN 5101) with load (Peas) 
+7- Train (LOCAL-H) can transport car (JFN 5101) from yard (Carrow, Carrow Yard) to 
+7- (Oakhaven, Oakhaven Cannery) 
+7- Route for car (JFN 5101): (Carrow, Carrow Yard)-> (Oakhaven, Oakhaven Cannery)
+7- Train (FIDDLE JOB) can't transport car (JFN 5101) directly to (Oakhaven, Oakhaven 
+7- Cannery) 
+7- Could not set destination for car (JFN 5101) due to Train (LOCAL-H)
+7- Spur (Oakhaven, Oakhaven Foundry) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur (Oakhaven, Oakhaven Plant) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Oakhaven, Oakhaven Team) no schedule
+7- Spur (Hollis Mill, Hollis Coil Mill) can't service car (JFN 5101) with load (Peas) due 
+7- to type (Boxcar) 
+7- Spur at (Hollis Mill, Hollis Pool 1) no schedule
+7- Spur at (Hollis Mill, Hollis Pool 2) no schedule
+7- Spur (Hollis Mill, Hollis Quarry) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Hollis Mill, Hollis Shop Lead) no schedule
+7- Spur at (Hollis Mill, Hollis Team) no schedule
+7- Spur (Hollis Mill, Mill Spur) can't service car (JFN 5101) with load (Peas) due to road 
+7- (JFN) 
+7- Spur (Linden, Linden Glazier) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Linden Glazier Schedule) in match mode, no match 
+7- Spur (Linden, Linden Pier) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur (Linden, Linden Pipe Yard) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Linden, Linden Refinery) no schedule
+7- Spur (Linden, Linden Steel) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Linden, Linden Team) no schedule
+7- Spur (Linden, Linden Westside) can't service car (JFN 5101) with load (Peas) due to road 
+7- (JFN) 
+7- Spur (Dunmere, Dunmere Dairy) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Dunmere, Dunmere Oil) no schedule
+7- Spur at (Dunmere, Dunmere Team) no schedule
+7- Spur (Dunmere, Elevator A) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur (Dunmere, Elevator B) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Dunmere, Freight House) no schedule
+7- Spur (Dunmere, Freight House-(2)) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Crates Receiving) in match mode, no match 
+7- Spur (Dunmere, Grocery Dock) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Grocery Receiving) in match mode, no match 
+7- Spur (Dunmere, Lumber Dealer) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Lumber Receiving) in match mode, no match 
+7- Spur (Dunmere, Parts Depot) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Parts Receiving) in match mode, no match 
+7- Spur (Dunmere, Tool Depot) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Tools Receiving) in match mode, no match 
+7- Spur (Dunmere, Tuesday Dock) can't service car (JFN 5101) with load (Peas) due to road 
+7- (JFN) 
+7- Spur (Sawyer, Sawyer Pasta Plant) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Sawyer Pasta Plant Schedule) in match mode, no match 
+7- Spur at (Sawyer, Sawyer Team) no schedule
+7- Spur at (Sawyer, Sawyer Warehouse) no schedule
+7- Spur (Brae, Brae Cannery) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Cannery) in match mode, no match 
+7- Spur at (Brae, Brae Day Track) no schedule
+7- Spur (Brae, Brae Feed Mill) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Brae, Brae Freight Shed) no schedule
+7- Spur (Brae, Brae Lumber) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Lumber Shipping) in match mode, no match 
+7- Spur at (Brae, Brae Oil Dealer) no schedule
+7- Spur (Brae, Brae Outside) can't service car (JFN 5101) with load (Peas) due to road (JFN)
+7- Spur at (Brae, Brae Team) no schedule
+7- Spur (Northwood, Cold Store) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur (Northwood, Grain Elevator) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur (Northwood, Malt House) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Northwood, Northwood Shed) no schedule
+7- Spur at (Northwood, Northwood Station) no schedule
+7- Spur (Northwood, Northwood Steel) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur (Northwood, Routed Siding) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Routed Siding Receiving) in match mode, no match 
+7- Spur (Carrow, Carrow Box Factory) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Box Factory Loads) in match mode, no match 
+7- Spur at (Carrow, Carrow Box Lead) no schedule
+7- Spur at (Carrow, Carrow Connection Lead) no schedule
+7- Spur (Carrow, Carrow Glass Works) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Carrow Glass Works Schedule) in match mode, no match 
+7- Spur at (Carrow, Carrow Gondola Lead) no schedule
+7- Spur (Carrow, Carrow Grain Co) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Grain Track) no schedule
+7- Spur at (Carrow, Carrow LCL Dock) no schedule
+7- Spur at (Carrow, Carrow Mill Lead) no schedule
+7- Spur at (Carrow, Carrow Oil Lead) no schedule
+7- Spur at (Carrow, Carrow Outside Lead) no schedule
+7- Spur (Carrow, Carrow Packing) can't service car (JFN 5101) with load (Peas) due to type 
+7- (Boxcar) 
+7- Spur at (Carrow, Carrow Pool Lead) no schedule
+7- Spur at (Carrow, Carrow RIP) no schedule
+7- Spur (Carrow, Carrow Salt Works) can't service car (JFN 5101) with load (Peas) due to 
+7- type (Boxcar) 
+7- Spur at (Carrow, Carrow Station) no schedule
+7- Spur at (Carrow, Carrow Transfer Lead) no schedule
+7- Spur at (Carrow, Carrow West Lead) no schedule
+7- Spur (Pell Creek-(industries), Pell Brickworks) can't service car (JFN 5101) with load 
+7- (Peas) due to road (JFN) 
+7- Spur at (Brae, Brae Stockyard) no schedule
+7- Spur (Fiddle, Fiddle South) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Fiddle South) in match mode, no match Random 
+7- Spur (Fiddle, Fiddle North) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Fiddle North) in match mode, no match 
+7- Spur (Brae, Brae Depot) can't service car (JFN 5101) with load (Peas) due to schedule 
+7- (Brae Depot Schedule) in match mode, no match 
+7- Spur (Dunmere, Dunmere Depot) can't service car (JFN 5101) with load (Peas) due to 
+7- schedule (Dunmere Depot Schedule) in match mode, no match 
+7- Could not find a reachable spur for car (JFN 5101) load (Peas)
+7- Hold car (JFN 5101) at (Carrow, Carrow Yard) found a route to a spur that has a schedule
+5- Did not assign a destination for car (JFN 5101)
+5-  
+5- Car (OAKX 5) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 5): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 5) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 5): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 5) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 5)
+5-  
+5- Car (OAKX 4) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 4): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 4) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 4): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 4) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 4)
+5-  
+5- Find destinations for (MILX 1104) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Did not assign a destination for car (MILX 1104)
+5-  
+5- Car (OAKX 3) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 3): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 3) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 3): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 3) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 3)
+5-  
+5- Find destinations for (MILX 1103) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Did not assign a destination for car (MILX 1103)
+5-  
+5- Car (OAKX 2) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 2): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 2) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 2): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 2) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 2)
+5-  
+5- Find destinations for (MILX 1102) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Did not assign a destination for car (MILX 1102)
+5-  
+5- Car (OAKX 1) type (Covered Hopper) load (Wheat) at spur (Carrow, Carrow Grain Co) has 
+5- final destination (Northwood, Grain Elevator) routing begins 
+7- Route for car (OAKX 1): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 1)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 1) directly to (Ferris Junction, Ferris 
+7- Pool 1) 
+7- Route for car (OAKX 1): (Carrow, Carrow Grain Co)-> (Ferris Junction, Ferris Pool 2)-> 
+7- (Northwood, Grain Elevator) 
+7- Train (FIDDLE JOB) can't transport car (OAKX 1) directly to (Ferris Junction, Ferris 
+7- Pool 2) 
+5- Did not assign a destination for car (OAKX 1)
+5-  
+5- Find destinations for (MILX 1101) type (Boxcar) empty (E) at spur (Carrow, Carrow Mill 
+5- Lead) 
+5- Did not assign a destination for car (MILX 1101)
+5-  
+5- Find destinations for (WNDR 2) type (Coal) load (L) at yard (Carrow, Carrow Yard)
+5- Did not assign a destination for car (WNDR 2)
+5-  
+5- Find destinations for (WNDR 1) type (Coal) empty (E) at yard (Carrow, Carrow Yard)
+5- Did not assign a destination for car (WNDR 1)
+5-  
+1- Partial 0/10 cars at location (Carrow) assigned to train (FIDDLE JOB)
+1- Partial 6/15 cars
+5- Build for train (FIDDLE JOB) took 36 mSec

@@ -1,0 +1,291 @@
+1- Build Report for train (VALLEY FLYER) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (VALLEY FLYER):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (VALLEY FLYER):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Carrow)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (VALLEY FLYER) route (VALLEY FLYER):
+3- 18r1 Location (Carrow) Eastbound requests 10 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 18r2 Location (Northwood) Northbound requests 10 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 18r3 Location (Carrow) Westbound requests 10 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (VALLEY FLYER) requests 15 cars and 30 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 1 locomotives for train (VALLEY FLYER)
+5- 1 locomotives at location (Carrow):
+7- Loco (JFN 57) type (Diesel) model (GP9) at (Carrow, Carrow Yard) 200 moves
+7-  
+5- 0 locomotives at location (Northwood):
+7-  
+5-  
+5- Train (VALLEY FLYER) Include car roads: FLYX
+5-  
+5- Train (VALLEY FLYER) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (JFN 1301) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+7- Exclude car (MILX 1102) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+7- Exclude car (MILX 1101) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+5-  
+1- Found 5 cars for train (VALLEY FLYER)
+5- 5 cars at location (Carrow):
+7- Car (FLYX 5) type (Observation) (P) 70 at (Carrow, Carrow Station) 0 moves
+7- Car (FLYX 4) type (Diner) (P) 40 at (Carrow, Carrow Station) 0 moves
+7- Car (FLYX 3) type (Passenger) (P) 20 at (Carrow, Carrow Station) 0 moves
+7- Car (FLYX 2) type (Passenger) (P) 10 at (Carrow, Carrow Station) 0 moves
+7- Car (FLYX 1) type (Baggage) (P) -5 at (Carrow, Carrow Station) 0 moves
+7-  
+5- 0 cars at location (Northwood):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Carrow)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (15) for train (VALLEY FLYER) the number available (5) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Carrow) id 18r1 requests 10 moves, 10/10 moves are available
+5-  
+5- Find destinations for (FLYX 5) type (Observation) (P) 70 empty (E) at spur (Carrow, 
+5- Carrow Station) 
+5- Searching location (Northwood) route id 18r2 for possible destination
+7- Can't send (FLYX 5) to spur (Northwood, Cold Store) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Northwood, Routed Siding) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Northwood, Grain Elevator) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Northwood, Northwood Steel) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Northwood, Malt House) due to type (Observation)
+7- Can't send (FLYX 5) to yard (Northwood, Gate Yard) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Northwood, Northwood Shed) due to type (Observation)
+7- Can't send (FLYX 5) to yard (Northwood, Northwood Yard) due to type (Observation)
+5- Car (FLYX 5) can go to spur (Northwood, Northwood Station) 0/10 moves used
+5- Searching location (Carrow) route id 18r3 for possible destination
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Packing) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Box Factory) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Grain Co) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Salt Works) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Glass Works) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Pool Lead) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Box Lead) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Grain Track) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Connection Lead) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Transfer Lead) due to type (Observation)
+7- Can't set out (FLYX 5) by train (VALLEY FLYER) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out rolling stock (FLYX 5) using Westbound train, destination track (Carrow 
+7- Station) does not service this direction 
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Gondola Lead) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow Mill Lead) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow West Lead) due to type (Observation)
+7- Can't set out (FLYX 5) by train (VALLEY FLYER) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (FLYX 5) by train (VALLEY FLYER) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (FLYX 5) to C/I (Carrow, Carrow Caboose Track) due to type (Observation)
+7- Can't send (FLYX 5) to spur (Carrow, Carrow RIP) due to type (Observation)
+7- Can't send (FLYX 5) to yard (Carrow, Carrow Transfer) due to type (Observation)
+7- Can't send (FLYX 5) to yard (Carrow, Carrow Relay) due to type (Observation)
+7- Can't send (FLYX 5) to yard (Carrow, Carrow Yard) due to road (FLYX)
+5- Could not find a track for (FLYX 5) at destination (Carrow)
+3- Car (FLYX 5) assigned to train, destination (Northwood, Northwood Station)
+3-  
+5- Find destinations for (FLYX 4) type (Diner) (P) 40 empty (E) at spur (Carrow, Carrow 
+5- Station) 
+5- Searching location (Northwood) route id 18r2 for possible destination
+7- Can't send (FLYX 4) to spur (Northwood, Cold Store) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Northwood, Routed Siding) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Northwood, Grain Elevator) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Northwood, Northwood Steel) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Northwood, Malt House) due to type (Diner)
+7- Can't send (FLYX 4) to yard (Northwood, Gate Yard) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Northwood, Northwood Shed) due to type (Diner)
+7- Can't send (FLYX 4) to yard (Northwood, Northwood Yard) due to type (Diner)
+5- Car (FLYX 4) can go to spur (Northwood, Northwood Station) 1/10 moves used
+5- Searching location (Carrow) route id 18r3 for possible destination
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Packing) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Box Factory) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Grain Co) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Salt Works) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Glass Works) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Pool Lead) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Box Lead) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Grain Track) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Connection Lead) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Transfer Lead) due to type (Diner)
+7- Can't set out (FLYX 4) by train (VALLEY FLYER) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out rolling stock (FLYX 4) using Westbound train, destination track (Carrow 
+7- Station) does not service this direction 
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Gondola Lead) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow Mill Lead) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow West Lead) due to type (Diner)
+7- Can't set out (FLYX 4) by train (VALLEY FLYER) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (FLYX 4) by train (VALLEY FLYER) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (FLYX 4) to C/I (Carrow, Carrow Caboose Track) due to type (Diner)
+7- Can't send (FLYX 4) to spur (Carrow, Carrow RIP) due to type (Diner)
+7- Can't send (FLYX 4) to yard (Carrow, Carrow Transfer) due to type (Diner)
+7- Can't send (FLYX 4) to yard (Carrow, Carrow Relay) due to type (Diner)
+7- Can't send (FLYX 4) to yard (Carrow, Carrow Yard) due to road (FLYX)
+5- Could not find a track for (FLYX 4) at destination (Carrow)
+3- Car (FLYX 4) assigned to train, destination (Northwood, Northwood Station)
+3-  
+5- Find destinations for (FLYX 3) type (Passenger) (P) 20 empty (E) at spur (Carrow, Carrow 
+5- Station) 
+5- Searching location (Northwood) route id 18r2 for possible destination
+7- Can't send (FLYX 3) to spur (Northwood, Cold Store) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Northwood, Routed Siding) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Northwood, Grain Elevator) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Northwood, Northwood Steel) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Northwood, Malt House) due to type (Passenger)
+7- Can't send (FLYX 3) to yard (Northwood, Gate Yard) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Northwood, Northwood Shed) due to type (Passenger)
+7- Can't send (FLYX 3) to yard (Northwood, Northwood Yard) due to type (Passenger)
+5- Car (FLYX 3) can go to spur (Northwood, Northwood Station) 2/10 moves used
+5- Searching location (Carrow) route id 18r3 for possible destination
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Packing) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Box Factory) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Grain Co) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Salt Works) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Glass Works) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Pool Lead) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Box Lead) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Grain Track) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Connection Lead) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Transfer Lead) due to type (Passenger)
+7- Can't set out (FLYX 3) by train (VALLEY FLYER) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out rolling stock (FLYX 3) using Westbound train, destination track (Carrow 
+7- Station) does not service this direction 
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Gondola Lead) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow Mill Lead) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow West Lead) due to type (Passenger)
+7- Can't set out (FLYX 3) by train (VALLEY FLYER) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (FLYX 3) by train (VALLEY FLYER) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (FLYX 3) to C/I (Carrow, Carrow Caboose Track) due to type (Passenger)
+7- Can't send (FLYX 3) to spur (Carrow, Carrow RIP) due to type (Passenger)
+7- Can't send (FLYX 3) to yard (Carrow, Carrow Transfer) due to type (Passenger)
+7- Can't send (FLYX 3) to yard (Carrow, Carrow Relay) due to type (Passenger)
+7- Can't send (FLYX 3) to yard (Carrow, Carrow Yard) due to road (FLYX)
+5- Could not find a track for (FLYX 3) at destination (Carrow)
+3- Car (FLYX 3) assigned to train, destination (Northwood, Northwood Station)
+3-  
+5- Find destinations for (FLYX 2) type (Passenger) (P) 10 empty (E) at spur (Carrow, Carrow 
+5- Station) 
+5- Searching location (Northwood) route id 18r2 for possible destination
+7- Can't send (FLYX 2) to spur (Northwood, Cold Store) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Northwood, Routed Siding) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Northwood, Grain Elevator) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Northwood, Northwood Steel) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Northwood, Malt House) due to type (Passenger)
+7- Can't send (FLYX 2) to yard (Northwood, Gate Yard) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Northwood, Northwood Shed) due to type (Passenger)
+7- Can't send (FLYX 2) to yard (Northwood, Northwood Yard) due to type (Passenger)
+5- Car (FLYX 2) can go to spur (Northwood, Northwood Station) 3/10 moves used
+5- Searching location (Carrow) route id 18r3 for possible destination
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Packing) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Box Factory) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Grain Co) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Salt Works) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Glass Works) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Pool Lead) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Box Lead) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Grain Track) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Connection Lead) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Transfer Lead) due to type (Passenger)
+7- Can't set out (FLYX 2) by train (VALLEY FLYER) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out rolling stock (FLYX 2) using Westbound train, destination track (Carrow 
+7- Station) does not service this direction 
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Gondola Lead) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow Mill Lead) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow West Lead) due to type (Passenger)
+7- Can't set out (FLYX 2) by train (VALLEY FLYER) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (FLYX 2) by train (VALLEY FLYER) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (FLYX 2) to C/I (Carrow, Carrow Caboose Track) due to type (Passenger)
+7- Can't send (FLYX 2) to spur (Carrow, Carrow RIP) due to type (Passenger)
+7- Can't send (FLYX 2) to yard (Carrow, Carrow Transfer) due to type (Passenger)
+7- Can't send (FLYX 2) to yard (Carrow, Carrow Relay) due to type (Passenger)
+7- Can't send (FLYX 2) to yard (Carrow, Carrow Yard) due to road (FLYX)
+5- Could not find a track for (FLYX 2) at destination (Carrow)
+3- Car (FLYX 2) assigned to train, destination (Northwood, Northwood Station)
+3-  
+5- Find destinations for (FLYX 1) type (Baggage) (P) -5 empty (E) at spur (Carrow, Carrow 
+5- Station) 
+5- Searching location (Northwood) route id 18r2 for possible destination
+7- Can't send (FLYX 1) to spur (Northwood, Cold Store) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Northwood, Routed Siding) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Northwood, Grain Elevator) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Northwood, Northwood Steel) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Northwood, Malt House) due to type (Baggage)
+7- Can't send (FLYX 1) to yard (Northwood, Gate Yard) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Northwood, Northwood Shed) due to type (Baggage)
+7- Can't send (FLYX 1) to yard (Northwood, Northwood Yard) due to type (Baggage)
+5- Car (FLYX 1) can go to spur (Northwood, Northwood Station) 4/10 moves used
+5- Searching location (Carrow) route id 18r3 for possible destination
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Packing) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Box Factory) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Grain Co) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Salt Works) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Glass Works) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Pool Lead) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Box Lead) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Grain Track) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Connection Lead) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Transfer Lead) due to type (Baggage)
+7- Can't set out (FLYX 1) by train (VALLEY FLYER) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out rolling stock (FLYX 1) using Westbound train, destination track (Carrow 
+7- Station) does not service this direction 
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Gondola Lead) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow Mill Lead) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow West Lead) due to type (Baggage)
+7- Can't set out (FLYX 1) by train (VALLEY FLYER) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (FLYX 1) by train (VALLEY FLYER) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (FLYX 1) to C/I (Carrow, Carrow Caboose Track) due to type (Baggage)
+7- Can't send (FLYX 1) to spur (Carrow, Carrow RIP) due to type (Baggage)
+7- Can't send (FLYX 1) to yard (Carrow, Carrow Transfer) due to type (Baggage)
+7- Can't send (FLYX 1) to yard (Carrow, Carrow Relay) due to type (Baggage)
+7- Can't send (FLYX 1) to yard (Carrow, Carrow Yard) due to road (FLYX)
+5- Could not find a track for (FLYX 1) at destination (Carrow)
+3- Car (FLYX 1) assigned to train, destination (Northwood, Northwood Station)
+3-  
+1- Partial 5/10 cars at location (Carrow) assigned to train (VALLEY FLYER)
+1- Route location (Northwood) id 18r2 requests 5 moves, 5/10 moves are available
+5-  
+5- No cars available for pick up at location (Northwood)
+5-  
+1- Partial 0/5 cars at location (Northwood) assigned to train (VALLEY FLYER)
+1- Route location (Carrow) id 18r3 requests 10 moves, 10/10 moves are available
+5-  
+5- No cars available for pick up at location (Carrow)
+5-  
+1- Partial 0/10 cars at location (Carrow) assigned to train (VALLEY FLYER)
+1- Partial 5/15 cars
+5- Build for train (VALLEY FLYER) took 3 mSec

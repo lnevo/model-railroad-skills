@@ -1,0 +1,13 @@
+[
+ {"plan": [
+  {"action": "add_industry", "location": "Brae", "name": "Brae Depot", "length": 200,
+   "lines": [{"type": "Boxcar", "receive": "Machinery", "ship": "E"}]},
+  {"action": "add_industry", "location": "Dunmere", "name": "Dunmere Depot", "length": 200,
+   "lines": [{"type": "Boxcar", "receive": "Machinery", "ship": "E"}]},
+  {"action": "update_track", "track": "Brae Depot", "location": "Brae", "roads": {"option": "Include", "names": ["JFN"]}},
+  {"action": "update_track", "track": "Dunmere Depot", "location": "Dunmere", "roads": {"option": "Include", "names": ["JFN"]}},
+  {"action": "update_track", "track": "Carrow Box Factory", "location": "Carrow", "roads": {"option": "Include", "names": ["JFN"]}},
+  {"action": "update_track", "track": "Carrow Glass Works", "location": "Carrow", "roads": {"option": "Include", "names": ["JFN"]}},
+  {"action": "update_track", "track": "Carrow Salt Works", "location": "Carrow", "roads": {"option": "Include", "names": ["JFN"]}}
+ ]}
+]

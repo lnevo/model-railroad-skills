@@ -1,0 +1,1170 @@
+[
+ {
+  "plan": [
+   {
+    "action": "set_control_limits",
+    "max_len_attribute": 14
+   },
+   {
+    "action": "add_car_type",
+    "name": "Covered Hopper"
+   },
+   {
+    "action": "add_car_type",
+    "name": "Buffer"
+   },
+   {
+    "action": "add_car_type",
+    "name": "Diner"
+   },
+   {
+    "action": "add_car_type",
+    "name": "Observation"
+   },
+   {
+    "action": "add_load",
+    "name": "Feed",
+    "types": [
+     "Covered Hopper"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Canned",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Lumber",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Semolina",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Machinery",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Parts",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Tools",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Grain",
+    "types": [
+     "Covered Hopper"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Crates",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Flour",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Barley",
+    "types": [
+     "HopGrain"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Girder",
+    "types": [
+     "Flatcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Produce",
+    "types": [
+     "Reefer"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Pipe",
+    "types": [
+     "Gondola"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Coil",
+    "types": [
+     "Coilcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Salt",
+    "types": [
+     "Covered Hopper"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Boxes",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Stone",
+    "types": [
+     "Hopper"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Wheat",
+    "types": [
+     "Covered Hopper"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Bricks",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Peas",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_load",
+    "name": "Glass",
+    "types": [
+     "Boxcar"
+    ]
+   },
+   {
+    "action": "add_division",
+    "name": "North",
+    "comment": "[U21] Home division for the north branch."
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "plan": [
+   {
+    "action": "add_location",
+    "name": "West Staging",
+    "directions": 15,
+    "comment": "[INFRA][U06][U07][U12][R19][U22] Staging west end."
+   },
+   {
+    "action": "add_location",
+    "name": "East Staging",
+    "directions": 15,
+    "comment": "[INFRA][U06][U07][U12][R05][R08] Staging east end."
+   },
+   {
+    "action": "add_location",
+    "name": "Carrow",
+    "directions": 15,
+    "comment": "[INFRA] Hub yard and home of the job towns.",
+    "types": [
+     "Boxcar",
+     "Covered Hopper",
+     "Hopper",
+     "Gondola",
+     "Coal",
+     "Coilcar",
+     "Reefer",
+     "Stock",
+     "Tank Oil",
+     "HopGrain",
+     "Caboose",
+     "Baggage",
+     "Passenger",
+     "Diner",
+     "Observation",
+     "Flatcar",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Brae",
+    "directions": "East/West",
+    "comment": "[INFRA][U01][U02][U03][U10][U12][R17] Town on the main.",
+    "types": [
+     "Boxcar",
+     "Covered Hopper",
+     "Stock",
+     "Tank Oil",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Dunmere",
+    "directions": "East/West",
+    "comment": "[INFRA][U01][U02][U03][U08][U09][U10] Town on the main.",
+    "types": [
+     "Boxcar",
+     "Covered Hopper",
+     "Coal",
+     "Tank Oil",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Ferris Junction",
+    "directions": 15,
+    "comment": "[INFRA][R02][R04][R06][R07][R08][R10][U21] Junction with the north branch.",
+    "types": [
+     "Boxcar",
+     "Reefer",
+     "Coilcar",
+     "Covered Hopper",
+     "Tank Veg",
+     "Tank Oil",
+     "HopGrain",
+     "Flatcar",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Linden",
+    "directions": "East/West",
+    "comment": "[INFRA][R05][R15][R18][R19][U22] East end town.",
+    "types": [
+     "Boxcar",
+     "Covered Hopper",
+     "Gondola",
+     "Tank Gas",
+     "Flatcar",
+     "Buffer",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Hollis Mill",
+    "directions": "East/West",
+    "comment": "[INFRA][U05][U11][U16][U19][U24][R04][R09] South branch mill town.",
+    "types": [
+     "Boxcar",
+     "Hopper",
+     "Gondola",
+     "Coilcar",
+     "Tank Food",
+     "Flatcar",
+     "Caboose",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Oakhaven",
+    "directions": "East/West",
+    "comment": "[INFRA][R01][R03][R09][U11][U16] End of the south branch.",
+    "types": [
+     "Boxcar",
+     "Hopper",
+     "Gondola",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Pell Creek-(yard)",
+    "directions": 15,
+    "comment": "[INFRA][R16] Pell Creek yard half; prints as Pell Creek.",
+    "types": [
+     "Boxcar",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Pell Creek-(industries)",
+    "directions": 15,
+    "comment": "[INFRA][R16] Pell Creek industries half; prints as Pell Creek.",
+    "types": [
+     "Boxcar",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Northwood",
+    "directions": 15,
+    "comment": "[INFRA][U18][U21][R02][R04][R06][R07][R08][R10] North branch terminal; division North.",
+    "types": [
+     "Boxcar",
+     "Reefer",
+     "Coilcar",
+     "Covered Hopper",
+     "Tank Veg",
+     "HopGrain",
+     "Flatcar",
+     "Passenger",
+     "Baggage",
+     "Diner",
+     "Observation",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Sawyer",
+    "directions": 15,
+    "comment": "[INFRA][U04][R12] Switching town worked by one switcher.",
+    "types": [
+     "Boxcar",
+     "Reefer",
+     "Hopper",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Kessock",
+    "directions": 15,
+    "comment": "[INFRA][R11] Classification yard.",
+    "types": [
+     "Boxcar",
+     "Diesel"
+    ]
+   },
+   {
+    "action": "add_location",
+    "name": "Fiddle",
+    "directions": 15,
+    "comment": "[INFRA][U08] Fiddle yard of virtual spurs.",
+    "types": [
+     "Boxcar",
+     "Diesel"
+    ]
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Yard",
+    "type": "Yard",
+    "length": 2000,
+    "moves": 100,
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN",
+      "WNDR"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Dunmere Yard",
+    "type": "Yard",
+    "length": 800,
+    "moves": 100,
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN",
+      "WNDR"
+     ]
+    },
+    "types": [
+     "Boxcar",
+     "Covered Hopper",
+     "Coal"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Ferris Junction",
+    "name": "Ferris Yard",
+    "type": "Yard",
+    "length": 800,
+    "moves": 100,
+    "types": [
+     "Tank Oil",
+     "HopGrain",
+     "Boxcar",
+     "Diesel"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN",
+      "BOXX",
+      "OILX",
+      "NWRX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Hollis Mill",
+    "name": "Hollis Yard",
+    "type": "Yard",
+    "length": 600,
+    "moves": 100,
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "types": [
+     "Boxcar",
+     "Hopper"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Oakhaven",
+    "name": "Oakhaven Yard",
+    "type": "Yard",
+    "length": 600,
+    "moves": 50,
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "types": [
+     "Hopper"
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Pell Creek-(yard)",
+    "name": "Pell Yard",
+    "type": "Yard",
+    "length": 600,
+    "roads": {
+     "option": "Include",
+     "names": [
+      "PELC"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Sawyer",
+    "name": "Sawyer Yard",
+    "type": "Yard",
+    "length": 400,
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    }
+   },
+   {
+    "action": "set_location_division",
+    "division": "North",
+    "locations": [
+     "Northwood"
+    ]
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "add_route",
+    "name": "CUSTOM",
+    "stops": [
+     {
+      "location": "West Staging",
+      "direction": "East",
+      "max_moves": 50
+     },
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 10
+     }
+    ],
+    "comment": "[U06] Staging to the yard with generated custom loads."
+   },
+   {
+    "action": "add_route",
+    "name": "MIXED",
+    "stops": [
+     {
+      "location": "West Staging",
+      "direction": "East",
+      "max_moves": 50
+     },
+     {
+      "location": "Brae",
+      "direction": "East",
+      "max_moves": 6
+     },
+     {
+      "location": "Dunmere",
+      "direction": "East",
+      "max_moves": 6
+     },
+     {
+      "location": "East Staging",
+      "direction": "East",
+      "max_moves": 50
+     }
+    ],
+    "comment": "[U06] Staging train that also carries default empties."
+   },
+   {
+    "action": "add_route",
+    "name": "SWAP-E",
+    "stops": [
+     {
+      "location": "West Staging",
+      "direction": "East",
+      "max_moves": 50
+     },
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 1
+     },
+     {
+      "location": "East Staging",
+      "direction": "East",
+      "max_moves": 50
+     }
+    ],
+    "comment": "[U07][U13] Eastbound half of the staging swap."
+   },
+   {
+    "action": "add_route",
+    "name": "SWAP-W",
+    "stops": [
+     {
+      "location": "East Staging",
+      "direction": "West",
+      "max_moves": 50
+     },
+     {
+      "location": "Carrow",
+      "direction": "West",
+      "max_moves": 1
+     },
+     {
+      "location": "West Staging",
+      "direction": "West",
+      "max_moves": 50
+     }
+    ],
+    "comment": "[U07][U13] Westbound half of the staging swap."
+   },
+   {
+    "action": "add_route",
+    "name": "MODE",
+    "stops": [
+     {
+      "location": "West Staging",
+      "direction": "East",
+      "max_moves": 50
+     },
+     {
+      "location": "Brae",
+      "direction": "East",
+      "max_moves": 3
+     },
+     {
+      "location": "East Staging",
+      "direction": "East",
+      "max_moves": 50
+     }
+    ],
+    "comment": "[U12][U13] Staging train built in normal and aggressive mode."
+   },
+   {
+    "action": "add_route",
+    "name": "LOCAL-B",
+    "stops": [
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Brae",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Dunmere",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Carrow",
+      "direction": "West",
+      "max_moves": 20
+     }
+    ],
+    "comment": "[U01][U02][U03][U08][U09][U10][U13][U14][U17][U22][R17] Branch local through Brae and Dunmere."
+   },
+   {
+    "action": "add_route",
+    "name": "FIDDLE JOB",
+    "stops": [
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "Fiddle",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "Carrow",
+      "direction": "West",
+      "max_moves": 10
+     }
+    ],
+    "comment": "[U08] Moves cars to and from the fiddle yard."
+   },
+   {
+    "action": "add_route",
+    "name": "LOCAL-H",
+    "stops": [
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Hollis Mill",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Oakhaven",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Carrow",
+      "direction": "West",
+      "max_moves": 20
+     }
+    ],
+    "comment": "[U05][U11][U13][U16][U19][U24][R01][R03][R04][R09] South branch local; carries a caboose."
+   },
+   {
+    "action": "add_route",
+    "name": "KESSOCK TRANSFER",
+    "stops": [
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "Kessock",
+      "direction": "East",
+      "max_moves": 10
+     }
+    ],
+    "comment": "[R11] Hauls cars to the classification yard."
+   },
+   {
+    "action": "add_route",
+    "name": "KESSOCK SWITCHER",
+    "stops": [
+     {
+      "location": "Kessock",
+      "direction": "East",
+      "max_moves": 10,
+      "local_moves": true
+     }
+    ],
+    "comment": "[R11] Yard switcher at Kessock."
+   },
+   {
+    "action": "add_route",
+    "name": "SAWYER SWITCHER",
+    "stops": [
+     {
+      "location": "Sawyer",
+      "direction": "East",
+      "max_moves": 10,
+      "local_moves": true
+     }
+    ],
+    "comment": "[U04][R12] Switcher for the town of Sawyer."
+   },
+   {
+    "action": "add_route",
+    "name": "EAST FREIGHT",
+    "stops": [
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Ferris Junction",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "Linden",
+      "direction": "East",
+      "max_moves": 20
+     },
+     {
+      "location": "East Staging",
+      "direction": "East",
+      "max_moves": 50
+     }
+    ],
+    "comment": "[R02][R04][R05][R06][R08][R10][R14][R15][R18][U21] East freight ending in staging."
+   },
+   {
+    "action": "add_route",
+    "name": "THRU",
+    "stops": [
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "Brae",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "Dunmere",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "Ferris Junction",
+      "direction": "East",
+      "max_moves": 10
+     }
+    ],
+    "comment": "[R13] Oil train that must not run origin to terminal."
+   },
+   {
+    "action": "add_route",
+    "name": "NORTH JOB",
+    "stops": [
+     {
+      "location": "Ferris Junction",
+      "direction": "North",
+      "max_moves": 20
+     },
+     {
+      "location": "Pell Creek-(yard)",
+      "direction": "North",
+      "max_moves": 10
+     },
+     {
+      "location": "Northwood",
+      "direction": "North",
+      "max_moves": 20
+     },
+     {
+      "location": "Ferris Junction",
+      "direction": "South",
+      "max_moves": 20
+     }
+    ],
+    "comment": "[R02][R04][R06][R07][R08][R10][U21] North branch job."
+   },
+   {
+    "action": "add_route",
+    "name": "PELL SWITCHER",
+    "stops": [
+     {
+      "location": "Pell Creek-(yard)",
+      "direction": "North",
+      "max_moves": 10
+     },
+     {
+      "location": "Pell Creek-(industries)",
+      "direction": "North",
+      "max_moves": 10
+     }
+    ],
+    "comment": "[R16] Local switcher between the two halves of Pell Creek."
+   },
+   {
+    "action": "add_route",
+    "name": "HOP OUT",
+    "stops": [
+     {
+      "location": "East Staging",
+      "direction": "West",
+      "max_moves": 50
+     },
+     {
+      "location": "Linden",
+      "direction": "West",
+      "max_moves": 10
+     },
+     {
+      "location": "Carrow",
+      "direction": "West",
+      "max_moves": 20
+     }
+    ],
+    "comment": "[R05][R15] Westbound train from the east staging hop."
+   },
+   {
+    "action": "add_route",
+    "name": "TURN",
+    "stops": [
+     {
+      "location": "West Staging",
+      "direction": "East",
+      "max_moves": 50
+     },
+     {
+      "location": "Linden",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "West Staging",
+      "direction": "West",
+      "max_moves": 50
+     }
+    ],
+    "comment": "[R19][U22][R18] Out and back turn between two staging tracks."
+   },
+   {
+    "action": "add_route",
+    "name": "VALLEY FLYER",
+    "stops": [
+     {
+      "location": "Carrow",
+      "direction": "East",
+      "max_moves": 10
+     },
+     {
+      "location": "Northwood",
+      "direction": "North",
+      "max_moves": 10
+     },
+     {
+      "location": "Carrow",
+      "direction": "West",
+      "max_moves": 10
+     }
+    ],
+    "comment": "[U18] Passenger train to Northwood."
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "add_train",
+    "name": "CUSTOM",
+    "route": "CUSTOM",
+    "depart_hour": 7,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[U06] Staging to the yard with generated custom loads."
+   },
+   {
+    "action": "add_train",
+    "name": "MIXED",
+    "route": "MIXED",
+    "depart_hour": 7,
+    "depart_minute": 30,
+    "engines": "0",
+    "comment": "[U06] Staging train that also carries default empties."
+   },
+   {
+    "action": "add_train",
+    "name": "SWAP-E",
+    "route": "SWAP-E",
+    "depart_hour": 8,
+    "depart_minute": 0,
+    "engines": "2",
+    "comment": "[U07][U13] Eastbound half of the staging swap.",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "SWPX"
+     ]
+    }
+   },
+   {
+    "action": "add_train",
+    "name": "SWAP-W",
+    "route": "SWAP-W",
+    "depart_hour": 8,
+    "depart_minute": 15,
+    "engines": "2",
+    "comment": "[U07][U13] Westbound half of the staging swap.",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "SWPX"
+     ]
+    }
+   },
+   {
+    "action": "add_train",
+    "name": "MODE",
+    "route": "MODE",
+    "depart_hour": 8,
+    "depart_minute": 30,
+    "engines": "1",
+    "comment": "[U12][U13] Staging train built in normal and aggressive mode.",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "MODX"
+     ]
+    }
+   },
+   {
+    "action": "add_train",
+    "name": "LOCAL-B",
+    "route": "LOCAL-B",
+    "depart_hour": 9,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[U01][U02][U03][U08][U09][U10][U13][U14][U17][U22][R17] Branch local through Brae and Dunmere.",
+    "roads": {
+     "option": "Exclude",
+     "names": [
+      "OILX"
+     ]
+    }
+   },
+   {
+    "action": "add_train",
+    "name": "FIDDLE JOB",
+    "route": "FIDDLE JOB",
+    "depart_hour": 9,
+    "depart_minute": 30,
+    "engines": "0",
+    "comment": "[U08] Moves cars to and from the fiddle yard."
+   },
+   {
+    "action": "add_train",
+    "name": "LOCAL-H",
+    "route": "LOCAL-H",
+    "depart_hour": 10,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[U05][U11][U13][U16][U19][U24][R01][R03][R04][R09] South branch local; carries a caboose.",
+    "requires": "caboose"
+   },
+   {
+    "action": "add_train",
+    "name": "KESSOCK TRANSFER",
+    "route": "KESSOCK TRANSFER",
+    "depart_hour": 10,
+    "depart_minute": 30,
+    "engines": "0",
+    "comment": "[R11] Hauls cars to the classification yard.",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KESX"
+     ]
+    }
+   },
+   {
+    "action": "add_train",
+    "name": "KESSOCK SWITCHER",
+    "route": "KESSOCK SWITCHER",
+    "depart_hour": 11,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[R11] Yard switcher at Kessock.",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KESX"
+     ]
+    }
+   },
+   {
+    "action": "add_train",
+    "name": "SAWYER SWITCHER",
+    "route": "SAWYER SWITCHER",
+    "depart_hour": 11,
+    "depart_minute": 30,
+    "engines": "0",
+    "comment": "[U04][R12] Switcher for the town of Sawyer."
+   },
+   {
+    "action": "add_train",
+    "name": "EAST FREIGHT",
+    "route": "EAST FREIGHT",
+    "depart_hour": 12,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[R02][R04][R05][R06][R08][R10][R14][R15][R18][U21] East freight ending in staging."
+   },
+   {
+    "action": "add_train",
+    "name": "THRU",
+    "route": "THRU",
+    "depart_hour": 12,
+    "depart_minute": 30,
+    "engines": "0",
+    "comment": "[R13] Oil train that must not run origin to terminal.",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "OILX"
+     ]
+    },
+    "allow_through_cars": false,
+    "to_terminal": true
+   },
+   {
+    "action": "add_train",
+    "name": "NORTH JOB",
+    "route": "NORTH JOB",
+    "depart_hour": 13,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[R02][R04][R06][R07][R08][R10][U21] North branch job.",
+    "roads": {
+     "option": "Exclude",
+     "names": [
+      "PELC"
+     ]
+    }
+   },
+   {
+    "action": "add_train",
+    "name": "PELL SWITCHER",
+    "route": "PELL SWITCHER",
+    "depart_hour": 13,
+    "depart_minute": 30,
+    "engines": "0",
+    "comment": "[R16] Local switcher between the two halves of Pell Creek."
+   },
+   {
+    "action": "add_train",
+    "name": "HOP OUT",
+    "route": "HOP OUT",
+    "depart_hour": 14,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[R05][R15] Westbound train from the east staging hop."
+   },
+   {
+    "action": "add_train",
+    "name": "TURN",
+    "route": "TURN",
+    "depart_hour": 15,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[R19][U22][R18] Out and back turn between two staging tracks.",
+    "allow_return": true
+   },
+   {
+    "action": "add_train",
+    "name": "VALLEY FLYER",
+    "route": "VALLEY FLYER",
+    "depart_hour": 16,
+    "depart_minute": 0,
+    "engines": "0",
+    "comment": "[U18] Passenger train to Northwood.",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "FLYX"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "set_option",
+    "group": "router",
+    "name": "carRoutingViaYards",
+    "value": true
+   },
+   {
+    "action": "set_option",
+    "group": "router",
+    "name": "carRoutingViaStaging",
+    "value": true
+   },
+   {
+    "action": "set_option",
+    "group": "buildOptions",
+    "name": "allowLocalSpur",
+    "value": true
+   },
+   {
+    "action": "set_option",
+    "group": "buildOptions",
+    "name": "allowLocalYard",
+    "value": true
+   },
+   {
+    "action": "set_option",
+    "group": "buildOptions",
+    "name": "allowLocalInterchange",
+    "value": true
+   }
+  ]
+ }
+]

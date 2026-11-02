@@ -1,0 +1,450 @@
+1- Build Report for train (SWAP-E) built on 11/02/2026 03:42
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Tuesday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- The option to restrict staging to the same car types, roads, and loads as the train 
+5- being built is enabled 
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Car routing through staging is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (SWAP-E):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (SWAP-E):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (East Staging)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (SWAP-E) route (SWAP-E):
+3- 3r1 Staging (West Staging) Eastbound requests 50 pick ups, set outs, local moves,  
+3- maximum train length 1,000 feet 
+3- 3r2 Location (Carrow) Eastbound requests 1 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 3r3 Staging (East Staging) Eastbound requests 50 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (SWAP-E) requests 50 cars and 101 moves
+1-  
+1- Train requirements:
+1- Train departs (West Staging) with 2 locomotives, model () road ()
+5- Train (SWAP-E) services locomotive types:
+5- Diesel, Electric, Engine, Gas Turbine, Steam, Steam-heavy, Steam-light, Steam-mixed, 
+5- Steam-pass, Switcher 
+7-  
+1- Found 6 locomotives for train (SWAP-E)
+5- 3 locomotives available from staging (West Staging):
+7- Loco (JFN 51) type (Diesel) model (GP9) at (West Staging, West Swap) 0 moves
+7- Loco (JFN 55) type (Diesel) model (GP9) at (West Staging, West Mode) 0 moves
+7- Loco (JFN 52) type (Diesel) model (GP9) at (West Staging, West Swap) 0 moves
+7-  
+5- 1 locomotives at location (Carrow):
+7- Loco (JFN 57) type (Diesel) model (GP9) at (Carrow, Carrow Yard) 200 moves
+7-  
+5- 2 locomotives available from staging (East Staging):
+7- Loco (JFN 54) type (Diesel) model (GP9) at (East Staging, East Swap) 0 moves
+7- Loco (JFN 53) type (Diesel) model (GP9) at (East Staging, East Swap) 0 moves
+7-  
+3-  
+1- Train terminates into staging at (East Staging), there are 4 tracks
+5- Staging track (East Swap) is occupied, found 2 locomotive(s) and 6 cars
+5- Track (East Swap) planned pick ups 100%. Track length 500 feet, used 384 feet, reserved 
+5- 0 feet, drops 0 feet, pulls 0 feet, available 500 feet 
+7- Train (SWAP-E) can terminate to staging track (East Swap)
+1- Staging track (East Swap) is available at destination (East Staging)
+3-  
+1- Train will depart staging (West Staging), there are 6 tracks
+3- Staging track (West Custom) has 0 loco(s) and 4 cars
+3- Staging track (West Custom) does not service this train
+7- Staging track (West Custom) cannot service train (SWAP-E)
+3- Staging track (West Mixed) has 0 loco(s) and 4 cars
+3- Staging track (West Mixed) does not service this train
+7- Staging track (West Mixed) cannot service train (SWAP-E)
+3- Staging track (West Swap) has 2 loco(s) and 6 cars
+5- Train (SWAP-E) can depart from staging track (West Swap)
+5- Search for 2 loco(s), model (), road (), departing (West Staging), destination (East 
+5- Staging) 
+7- Loco (JFN 51) is lead loco for consist (West Pair) and has 2 locomotives
+1- Loco (JFN 51) assigned to train, departs (West Staging) destination (East Staging, East 
+1- Swap) 
+1- Loco (JFN 52) assigned to train, departs (West Staging) destination (East Staging, East 
+1- Swap) 
+7- Done assigning locomotives from staging
+7- Done assigning locomotives to train (SWAP-E)
+5-  
+5- Train (SWAP-E) Include car roads: SWPX
+5-  
+5- Train (SWAP-E) services car types:
+5- Baggage, Boxcar, Buffer, Caboose, Coal, Coilcar, Covered Hopper, Diner, FlatBHPaper, 
+5- FlatBHWood, FlatBulkHead, FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, 
+5- Gondola, HopChem, HopCmnt, HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, 
+5- Observation, Passenger, ReefMech, Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank 
+5- Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (OILX 1) type (Tank Oil) by train, no pick up from spur (Carrow, Carrow Oil 
+7- Lead) 
+7- Exclude car (CNXX 1) at (Carrow, Carrow Connection Lead) type (Flatcar)  train doesn't 
+7- service road (CNXX) 
+7- Exclude car (OUTX 1) type (Boxcar) by train, no pick up from spur (Carrow, Carrow 
+7- Outside Lead) 
+7- Exclude car (GNDX 503) at (Carrow, Carrow Gondola Lead) type (Gondola)  train doesn't 
+7- service road (GNDX) 
+7- Exclude car (GNDX 502) at (Carrow, Carrow Gondola Lead) type (Gondola)  train doesn't 
+7- service road (GNDX) 
+7- Exclude car (GNDX 501) at (Carrow, Carrow Gondola Lead) type (Gondola)  train doesn't 
+7- service road (GNDX) 
+7- Exclude car (TRNX 2) at (West Staging, Turn A) type (Gondola)  train doesn't service 
+7- road (TRNX) 
+7- Exclude car (TRNX 1) at (West Staging, Turn A) type (Gondola)  train doesn't service 
+7- road (TRNX) 
+7- Exclude car (BOXX 1) at (Carrow, Carrow Box Lead) type (Boxcar)  train doesn't service 
+7- road (BOXX) 
+7- Exclude car (HZMX 13) at (West Staging, Turn A) type (Flatcar)  train doesn't service 
+7- road (HZMX) 
+7- Exclude car (HZMX 12) at (West Staging, Turn A) type (Flatcar)  train doesn't service 
+7- road (HZMX) 
+7- Exclude car (HZMX 11) at (West Staging, Turn A) type (Flatcar)  train doesn't service 
+7- road (HZMX) 
+7- Exclude car (POOX 1906) at (Carrow, Carrow Pool Lead) type (Flatcar)  train doesn't 
+7- service road (POOX) 
+7- Exclude car (POOX 1905) at (Carrow, Carrow Pool Lead) type (Flatcar)  train doesn't 
+7- service road (POOX) 
+7- Exclude car (POOX 1904) at (Carrow, Carrow Pool Lead) type (Flatcar)  train doesn't 
+7- service road (POOX) 
+7- Exclude car (FLYX 5) type (Observation) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (POOX 1903) at (Carrow, Carrow Pool Lead) type (Flatcar)  train doesn't 
+7- service road (POOX) 
+7- Exclude car (FLYX 4) type (Diner) by train, no pick up from spur (Carrow, Carrow Station)
+7- Exclude car (POOX 1902) at (Carrow, Carrow Pool Lead) type (Flatcar)  train doesn't 
+7- service road (POOX) 
+7- Exclude car (NWRX 3) at (Carrow, Carrow Grain Track) type (HopGrain)  train doesn't 
+7- service road (NWRX) 
+7- Exclude car (FLYX 3) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (POOX 1901) at (Carrow, Carrow Pool Lead) type (Flatcar)  train doesn't 
+7- service road (POOX) 
+7- Exclude car (NWRX 2) at (Carrow, Carrow Grain Track) type (HopGrain)  train doesn't 
+7- service road (NWRX) 
+7- Exclude car (FLYX 2) type (Passenger) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (NWRX 1) at (Carrow, Carrow Grain Track) type (HopGrain)  train doesn't 
+7- service road (NWRX) 
+7- Exclude car (FLYX 1) type (Baggage) by train, no pick up from spur (Carrow, Carrow 
+7- Station) 
+7- Exclude car (LCLX 1) type (Boxcar) by train, no pick up from spur (Carrow, Carrow LCL 
+7- Dock) 
+7- Exclude car (KESX 4) at (Carrow, Carrow Transfer Lead) type (Boxcar)  train doesn't 
+7- service road (KESX) 
+7- Exclude car (KESX 3) at (Carrow, Carrow Transfer Lead) type (Boxcar)  train doesn't 
+7- service road (KESX) 
+7- Exclude car (JFN 902) at (Carrow, Carrow Yard) type (Covered Hopper)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (KESX 2) at (Carrow, Carrow Transfer Lead) type (Boxcar)  train doesn't 
+7- service road (KESX) 
+7- Exclude car (JFN 901) at (Carrow, Carrow Yard) type (Covered Hopper)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (KESX 1) at (Carrow, Carrow Transfer Lead) type (Boxcar)  train doesn't 
+7- service road (KESX) 
+7- Exclude car (JFN 806) at (Carrow, Carrow Yard) type (Boxcar)  train doesn't service road 
+7- (JFN) 
+7- Exclude car (JFN 805) at (Carrow, Carrow Yard) type (Boxcar)  train doesn't service road 
+7- (JFN) 
+7- Exclude car (JFN 804) at (Carrow, Carrow Yard) type (Boxcar)  train doesn't service road 
+7- (JFN) 
+7- Exclude car (JFN 803) at (Carrow, Carrow Yard) type (Boxcar)  train doesn't service road 
+7- (JFN) 
+7- Exclude car (JFN 802) at (Carrow, Carrow Yard) type (Boxcar)  train doesn't service road 
+7- (JFN) 
+7- Exclude car (JFN 801) at (Carrow, Carrow Yard) type (Boxcar)  train doesn't service road 
+7- (JFN) 
+7- Exclude car (JFN 5801) at (Carrow, Carrow Box Factory) type (Boxcar)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (JFN 1302) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+7- Exclude car (JFN 1301) type (Caboose) by train, no pick up from C/I (Carrow, Carrow 
+7- Caboose Track) 
+7- Exclude car (JFN 5501) at (Carrow, Carrow Salt Works) type (Covered Hopper)  train 
+7- doesn't service road (JFN) 
+7- Exclude car (JFN 6402) at (Carrow, Carrow Glass Works) type (Boxcar)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (JFN 6401) at (Carrow, Carrow Glass Works) type (Boxcar)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (JFN 101) at (Carrow, Carrow Yard) type (Covered Hopper)  train doesn't 
+7- service road (JFN) 
+7- Exclude car (HZMX 9) at (West Staging, Turn A) type (Buffer)  (P) -1 train doesn't 
+7- service road (HZMX) 
+7- Exclude car (JFN 5201) at (Carrow, Carrow Packing) type (Reefer)  train doesn't service 
+7- road (JFN) 
+7- Exclude car (HZMX 3) at (West Staging, Turn A) type (Tank Gas)  (H) train doesn't 
+7- service road (HZMX) 
+7- Exclude car (HZMX 2) at (West Staging, Turn A) type (Tank Gas)  (H) train doesn't 
+7- service road (HZMX) 
+7- Exclude car (HZMX 1) at (West Staging, Turn A) type (Tank Gas)  (H) train doesn't 
+7- service road (HZMX) 
+7- Exclude car (JFN 5101) at (Carrow, Carrow Yard) type (Boxcar)  train doesn't service 
+7- road (JFN) 
+7- Exclude car (MODX 5) at (West Staging, West Mode) type (Stock)  train doesn't service 
+7- road (MODX) 
+7- Exclude car (MODX 4) at (West Staging, West Mode) type (Stock)  train doesn't service 
+7- road (MODX) 
+7- Exclude car (MODX 3) at (West Staging, West Mode) type (Stock)  train doesn't service 
+7- road (MODX) 
+7- Exclude car (MODX 2) at (West Staging, West Mode) type (Stock)  train doesn't service 
+7- road (MODX) 
+7- Exclude car (MODX 1) at (West Staging, West Mode) type (Stock)  train doesn't service 
+7- road (MODX) 
+7- Exclude car (OAKX 5) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (OAKX 4) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (MILX 1104) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+7- Exclude car (OAKX 3) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (MILX 1103) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+7- Exclude car (OAKX 2) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (MILX 1102) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+7- Exclude car (OAKX 1) at (Carrow, Carrow Grain Co) type (Covered Hopper)  train doesn't 
+7- service road (OAKX) 
+7- Exclude car (MILX 1101) at (Carrow, Carrow Mill Lead) type (Boxcar)  train doesn't 
+7- service road (MILX) 
+7- Exclude car (WNDR 2) at (Carrow, Carrow Yard) type (Coal)  train doesn't service road 
+7- (WNDR) 
+7- Exclude car (WNDR 1) at (Carrow, Carrow Yard) type (Coal)  train doesn't service road 
+7- (WNDR) 
+7-  
+7- Remove cars from the other staging tracks:
+5-  
+5- Departing staging (West Staging, West Swap) with 6 cars
+7- Staging car (SWPX 6) type (Coal) load (L)
+7- Staging car (SWPX 5) type (Coal) load (L)
+7- Staging car (SWPX 4) type (Coal) load (L)
+7- Staging car (SWPX 3) type (Coal) load (L)
+7- Staging car (SWPX 2) type (Coal) load (L)
+7- Staging car (SWPX 1) type (Coal) load (L)
+5-  
+1- Found 6 cars for train (SWAP-E)
+5- 6 cars in staging (West Staging):
+7- Car (SWPX 6) type (Coal) at (West Staging, West Swap) 0 moves
+7- Car (SWPX 5) type (Coal) at (West Staging, West Swap) 0 moves
+7- Car (SWPX 4) type (Coal) at (West Staging, West Swap) 0 moves
+7- Car (SWPX 3) type (Coal) at (West Staging, West Swap) 0 moves
+7- Car (SWPX 2) type (Coal) at (West Staging, West Swap) 0 moves
+7- Car (SWPX 1) type (Coal) at (West Staging, West Swap) 0 moves
+7-  
+5- 0 cars at location (Carrow):
+7-  
+5- 0 cars in staging (East Staging):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (West Staging)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (50) for train (SWAP-E) the number available (6) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (West Staging) id 3r1 requests 50 moves, 50/50 moves are available
+5-  
+5- Find destinations for (SWPX 6) type (Coal) load (L) at staging (West Staging, West Swap)
+5- Searching location (Carrow) route id 3r2 for possible destination
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Packing) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Box Factory) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Grain Co) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Salt Works) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Glass Works) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Pool Lead) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Box Lead) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Grain Track) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow West Lead) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Connection Lead) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Transfer Lead) due to type (Coal)
+7- Can't set out (SWPX 6) by train (SWAP-E) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out (SWPX 6) by train (SWAP-E) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (SWPX 6) by train (SWAP-E) to spur (Carrow, Carrow Station)
+7- Can't set out (SWPX 6) by train (SWAP-E) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (SWPX 6) to C/I (Carrow, Carrow Caboose Track) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow RIP) due to type (Coal)
+7- Can't send (SWPX 6) to yard (Carrow, Carrow Transfer) due to type (Coal)
+7- Can't send (SWPX 6) to yard (Carrow, Carrow Relay) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Gondola Lead) due to type (Coal)
+7- Can't send (SWPX 6) to spur (Carrow, Carrow Mill Lead) due to type (Coal)
+7- Can't send (SWPX 6) to yard (Carrow, Carrow Yard) due to road (SWPX)
+5- Could not find a track for (SWPX 6) at destination (Carrow)
+5- Searching location (East Staging) route id 3r3 for possible destination
+5- Car (SWPX 6) can go to staging (East Staging, East Swap) 0/50 moves used
+3- Car (SWPX 6) assigned to train, destination (East Staging, East Swap)
+3-  
+5- Find destinations for (SWPX 5) type (Coal) load (L) at staging (West Staging, West Swap)
+5- Searching location (Carrow) route id 3r2 for possible destination
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Packing) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Box Factory) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Grain Co) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Salt Works) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Glass Works) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Pool Lead) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Box Lead) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Grain Track) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow West Lead) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Connection Lead) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Transfer Lead) due to type (Coal)
+7- Can't set out (SWPX 5) by train (SWAP-E) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out (SWPX 5) by train (SWAP-E) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (SWPX 5) by train (SWAP-E) to spur (Carrow, Carrow Station)
+7- Can't set out (SWPX 5) by train (SWAP-E) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (SWPX 5) to C/I (Carrow, Carrow Caboose Track) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow RIP) due to type (Coal)
+7- Can't send (SWPX 5) to yard (Carrow, Carrow Transfer) due to type (Coal)
+7- Can't send (SWPX 5) to yard (Carrow, Carrow Relay) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Gondola Lead) due to type (Coal)
+7- Can't send (SWPX 5) to spur (Carrow, Carrow Mill Lead) due to type (Coal)
+7- Can't send (SWPX 5) to yard (Carrow, Carrow Yard) due to road (SWPX)
+5- Could not find a track for (SWPX 5) at destination (Carrow)
+5- Searching location (East Staging) route id 3r3 for possible destination
+5- Car (SWPX 5) can go to staging (East Staging, East Swap) 1/50 moves used
+3- Car (SWPX 5) assigned to train, destination (East Staging, East Swap)
+3-  
+5- Find destinations for (SWPX 4) type (Coal) load (L) at staging (West Staging, West Swap)
+5- Searching location (Carrow) route id 3r2 for possible destination
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Packing) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Box Factory) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Grain Co) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Salt Works) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Glass Works) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Pool Lead) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Box Lead) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Grain Track) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow West Lead) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Connection Lead) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Transfer Lead) due to type (Coal)
+7- Can't set out (SWPX 4) by train (SWAP-E) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out (SWPX 4) by train (SWAP-E) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (SWPX 4) by train (SWAP-E) to spur (Carrow, Carrow Station)
+7- Can't set out (SWPX 4) by train (SWAP-E) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (SWPX 4) to C/I (Carrow, Carrow Caboose Track) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow RIP) due to type (Coal)
+7- Can't send (SWPX 4) to yard (Carrow, Carrow Transfer) due to type (Coal)
+7- Can't send (SWPX 4) to yard (Carrow, Carrow Relay) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Gondola Lead) due to type (Coal)
+7- Can't send (SWPX 4) to spur (Carrow, Carrow Mill Lead) due to type (Coal)
+7- Can't send (SWPX 4) to yard (Carrow, Carrow Yard) due to road (SWPX)
+5- Could not find a track for (SWPX 4) at destination (Carrow)
+5- Searching location (East Staging) route id 3r3 for possible destination
+5- Car (SWPX 4) can go to staging (East Staging, East Swap) 2/50 moves used
+3- Car (SWPX 4) assigned to train, destination (East Staging, East Swap)
+3-  
+5- Find destinations for (SWPX 3) type (Coal) load (L) at staging (West Staging, West Swap)
+5- Searching location (Carrow) route id 3r2 for possible destination
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Packing) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Box Factory) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Grain Co) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Salt Works) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Glass Works) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Pool Lead) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Box Lead) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Grain Track) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow West Lead) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Connection Lead) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Transfer Lead) due to type (Coal)
+7- Can't set out (SWPX 3) by train (SWAP-E) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out (SWPX 3) by train (SWAP-E) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (SWPX 3) by train (SWAP-E) to spur (Carrow, Carrow Station)
+7- Can't set out (SWPX 3) by train (SWAP-E) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (SWPX 3) to C/I (Carrow, Carrow Caboose Track) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow RIP) due to type (Coal)
+7- Can't send (SWPX 3) to yard (Carrow, Carrow Transfer) due to type (Coal)
+7- Can't send (SWPX 3) to yard (Carrow, Carrow Relay) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Gondola Lead) due to type (Coal)
+7- Can't send (SWPX 3) to spur (Carrow, Carrow Mill Lead) due to type (Coal)
+7- Can't send (SWPX 3) to yard (Carrow, Carrow Yard) due to road (SWPX)
+5- Could not find a track for (SWPX 3) at destination (Carrow)
+5- Searching location (East Staging) route id 3r3 for possible destination
+5- Car (SWPX 3) can go to staging (East Staging, East Swap) 3/50 moves used
+3- Car (SWPX 3) assigned to train, destination (East Staging, East Swap)
+3-  
+5- Find destinations for (SWPX 2) type (Coal) load (L) at staging (West Staging, West Swap)
+5- Searching location (Carrow) route id 3r2 for possible destination
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Packing) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Box Factory) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Grain Co) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Salt Works) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Glass Works) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Pool Lead) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Box Lead) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Grain Track) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow West Lead) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Connection Lead) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Transfer Lead) due to type (Coal)
+7- Can't set out (SWPX 2) by train (SWAP-E) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out (SWPX 2) by train (SWAP-E) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (SWPX 2) by train (SWAP-E) to spur (Carrow, Carrow Station)
+7- Can't set out (SWPX 2) by train (SWAP-E) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (SWPX 2) to C/I (Carrow, Carrow Caboose Track) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow RIP) due to type (Coal)
+7- Can't send (SWPX 2) to yard (Carrow, Carrow Transfer) due to type (Coal)
+7- Can't send (SWPX 2) to yard (Carrow, Carrow Relay) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Gondola Lead) due to type (Coal)
+7- Can't send (SWPX 2) to spur (Carrow, Carrow Mill Lead) due to type (Coal)
+7- Can't send (SWPX 2) to yard (Carrow, Carrow Yard) due to road (SWPX)
+5- Could not find a track for (SWPX 2) at destination (Carrow)
+5- Searching location (East Staging) route id 3r3 for possible destination
+5- Car (SWPX 2) can go to staging (East Staging, East Swap) 4/50 moves used
+3- Car (SWPX 2) assigned to train, destination (East Staging, East Swap)
+3-  
+5- Find destinations for (SWPX 1) type (Coal) load (L) at staging (West Staging, West Swap)
+5- Searching location (Carrow) route id 3r2 for possible destination
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Packing) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Box Factory) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Grain Co) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Salt Works) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Glass Works) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Pool Lead) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Box Lead) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Grain Track) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow West Lead) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Connection Lead) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Transfer Lead) due to type (Coal)
+7- Can't set out (SWPX 1) by train (SWAP-E) to spur (Carrow, Carrow Oil Lead)
+7- Can't set out (SWPX 1) by train (SWAP-E) to spur (Carrow, Carrow LCL Dock)
+7- Can't set out (SWPX 1) by train (SWAP-E) to spur (Carrow, Carrow Station)
+7- Can't set out (SWPX 1) by train (SWAP-E) to spur (Carrow, Carrow Outside Lead)
+7- Can't send (SWPX 1) to C/I (Carrow, Carrow Caboose Track) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow RIP) due to type (Coal)
+7- Can't send (SWPX 1) to yard (Carrow, Carrow Transfer) due to type (Coal)
+7- Can't send (SWPX 1) to yard (Carrow, Carrow Relay) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Gondola Lead) due to type (Coal)
+7- Can't send (SWPX 1) to spur (Carrow, Carrow Mill Lead) due to type (Coal)
+7- Can't send (SWPX 1) to yard (Carrow, Carrow Yard) due to road (SWPX)
+5- Could not find a track for (SWPX 1) at destination (Carrow)
+5- Searching location (East Staging) route id 3r3 for possible destination
+5- Car (SWPX 1) can go to staging (East Staging, East Swap) 5/50 moves used
+3- Car (SWPX 1) assigned to train, destination (East Staging, East Swap)
+3-  
+1- Partial 6/50 cars at location (West Staging) assigned to train (SWAP-E)
+1- Route location (Carrow) id 3r2 requests 1 moves, 1/1 moves are available
+5-  
+5- No cars available for pick up at location (Carrow)
+5-  
+1- Partial 0/1 cars at location (Carrow) assigned to train (SWAP-E)
+1- No pick ups from staging (East Staging)
+1- Partial 6/50 cars
+5- Build for train (SWAP-E) took 9 mSec

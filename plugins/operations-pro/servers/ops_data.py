@@ -69,7 +69,7 @@ DIRECTIONS = {EAST: "East", WEST: "West", NORTH: "North", SOUTH: "South"}
 SWAP_DEFAULT, EMPTY_CUSTOM, GENERATE, GENERATE_ANY_SPUR, EMPTY_DEFAULT = 1, 2, 4, 8, 16
 GENERATE_ANY_STAGING, DISABLE_LOAD_CHANGE, QUICK_SERVICE = 32, 64, 128
 REQUIRES_CABOOSE, REQUIRES_FRED = 1, 2
-ADD_CABOOSE, REMOVE_CABOOSE = 4, 8  # Train leg option bits.
+CHANGE_ENGINES, ADD_CABOOSE, REMOVE_CABOOSE, REMOVE_ENGINES = 1, 4, 8, 32  # Train leg option bits (Train.java:128-133).
 ANY_DAY = "ANY"
 TYPE_AND_LOAD = " & "
 # JMRI writes these option values from its Bundle, so a non-English file holds other words.
@@ -120,6 +120,12 @@ def loose_car_match(ids: list[str], text: str) -> list[str]:
     """Car ids that match text when case and spaces are ignored."""
     key = text.replace(" ", "").upper()
     return [i for i in ids if i.replace(" ", "").upper() == key]
+
+
+def _track_comment(track: ET.Element) -> str:
+    """Track.load: the old attribute, then the <comments> form, which wins (Track:2566, 2790-2794)."""
+    held = track.find("comments/track")
+    return held.get("comment", "") if held is not None else track.get("comment", "")
 
 
 def _names(parent: ET.Element | None, tag: str, attr: str = "name") -> list[str]:
@@ -189,6 +195,9 @@ class Track:
     raw_alternate_id: str = ""
     load_options: int = 0
     pool: str = ""
+    pool_min_length: int = 0  # The track's minimum in the pool (Track minLength).
+    pool_max_length: int = 0  # Zero means no maximum (Track maxLength).
+    comment: str = ""
     ignore_used: int = 0
     factor: int = 100
 
@@ -656,6 +665,8 @@ class Railroad:
             raw_destination_option=e.get("trackDestinationOption", ALL),
             destination_ids=_names(e.find("destinations"), "destination", "id"),
             raw_only_fd=e.get("onlyCarWithFD") == "true",
+            pool_min_length=_int(e.get("minLength")), pool_max_length=_int(e.get("maxLength")),
+            comment=_track_comment(e),
             schedule_id=e.get("scheduleId", ""), item_id=e.get("itemId", ""),
             schedule_mode=_int(e.get("scheduleMode"), SEQUENTIAL),
             hold_custom=e.get("holdCustomLoads") == "true",
