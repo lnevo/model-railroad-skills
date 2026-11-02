@@ -901,7 +901,7 @@ class ServerTests(unittest.TestCase):
         allowed = {"__future__", "collections", "concurrent", "copy", "dataclasses", "datetime", "difflib",
                    "hashlib", "json", "os", "pathlib", "re", "shutil", "subprocess", "sys", "tempfile", "time",
                    "typing", "urllib", "uuid", "xml", "mcp_stdio", "ops_actions", "ops_data", "ops_gates",
-                   "ops_jmri", "ops_live", "ops_report", "ops_report_messages", "ops_router", "ops_store"}
+                   "ops_jmri", "ops_live", "ops_paperwork", "ops_report", "ops_report_messages", "ops_router", "ops_store"}
         for path in SERVERS.glob("*.py"):
             if path.name in ("jmri_worker.py", "jmri_agent.py"):  # These run in JMRI's jython, not the server.
                 continue

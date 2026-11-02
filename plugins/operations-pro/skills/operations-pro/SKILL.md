@@ -73,6 +73,6 @@ Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops
 
 ## Out of scope
 
-Manifest and switch list formats, printing and third-party paperwork tools, RFID and reporters, train icons on panels, locale and scale settings, migration from other programs, and version-specific bugs. Give the confirmed facts in `sessions.md` and `data-and-files.md` where they touch these, and say the rest is outside what this skill checked.
+Printing and third-party paperwork tools (the plugin writes manifest and switch list formats; see `sessions.md`), RFID and reporters, train icons on panels, locale and scale settings, migration from other programs, and version-specific bugs. Give the confirmed facts in `sessions.md` and `data-and-files.md` where they touch these, and say the rest is outside what this skill checked.
 
 Checked against JMRI 5.16 source, tag v5.16.

@@ -93,6 +93,21 @@ class SkillTest(unittest.TestCase):
         self.assertEqual([n for n in names if f"`{n}`" not in text], [])
         self.assertNotIn("does not write engines", text)
 
+    def test_day_and_manifest_actions_are_in_the_references(self):
+        import ops_actions
+        source = (ROOT / "servers" / "ops_actions.py").read_text()
+        block = source[source.index("# ---- Train schedule days and manifest formats"):
+                       source.index("# ---- End of train schedule days and manifest formats")]
+        names = re.findall(r"@action\([^)]*\)\ndef ([a-z_]+)", block)
+        self.assertEqual(len(names), 11)
+        self.assertTrue(all(n in ops_actions.ACTIONS for n in names))
+        text = "".join(p.read_text() for p in (SKILL / "references").glob("*.md"))
+        self.assertEqual([n for n in names + ["set_active_day"] if f"`{n}`" not in text], [])
+        self.assertNotIn("Days themselves are not written yet", text)
+        self.assertNotIn("Format options are outside", text)
+        readme = (ROOT / "README.md").read_text()
+        self.assertNotIn("train schedule days, manual", readme)
+
     def test_readme_counts_match_code(self):
         import ops_actions
         text = (ROOT / "README.md").read_text()
