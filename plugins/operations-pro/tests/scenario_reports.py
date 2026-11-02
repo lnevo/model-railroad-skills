@@ -124,6 +124,59 @@ DIVISION_EMPTIES = [
     {"action": "set_car_division", "division": "North", "cars": ["VR100", "VR101"]},
 ]
 
+# Cars with a home division, to hold findDestinationsForCarsWithHomeDivision (TBC:894-1035) to JMRI's own
+# search. One car for each case, so the order of Try lines in the report is the order the search runs.
+DIVISION_SEARCH_PLACES = [
+    {"action": "add_load", "name": "Wheat", "types": ["Boxcar"], "load_type": "Load"},
+    {"action": "add_location", "name": "Alden"},
+    {"action": "add_track", "location": "Alden", "name": "Alden Mill", "type": "Spur", "length": 300},
+    {"action": "add_track", "location": "Alden", "name": "Alden Yard", "type": "Yard", "length": 400},
+    {"action": "add_location", "name": "Birch"},
+    {"action": "add_track", "location": "Birch", "name": "Birch Small", "type": "Yard", "length": 30},
+    {"action": "add_track", "location": "Birch", "name": "Birch Yard", "type": "Yard", "length": 400},
+    {"action": "add_track", "location": "Birch", "name": "Birch Spur", "type": "Spur", "length": 200},
+    {"action": "add_location", "name": "Cedar"},
+    {"action": "add_track", "location": "Cedar", "name": "Cedar Yard", "type": "Yard", "length": 400},
+    {"action": "add_track", "location": "Cedar", "name": "Cedar Spur", "type": "Spur", "length": 200},
+    {"action": "add_location", "name": "Dale"},
+    {"action": "add_track", "location": "Dale", "name": "Dale Stage", "type": "Staging", "length": 400},
+    {"action": "add_division", "name": "North"},
+    {"action": "add_division", "name": "Valley"},
+    {"action": "set_location_division", "division": "North", "locations": ["Alden", "Birch", "Dale"]},
+    {"action": "set_location_division", "division": "Valley", "locations": ["Cedar"]},
+    {"action": "set_track_moves", "moves": {"Birch Yard": 4, "Alden Yard": 9, "Birch Spur": 2}},
+]
+DIVISION_SEARCH_CARS = [
+    {"action": "add_car", "road": "DV", "number": "1", "type": "Boxcar", "length": 40, "location": "Alden",
+     "track": "Alden Mill"},
+    {"action": "add_car", "road": "DV", "number": "2", "type": "Boxcar", "length": 40, "location": "Alden",
+     "track": "Alden Yard"},
+    {"action": "add_car", "road": "DV", "number": "3", "type": "Boxcar", "length": 40, "location": "Cedar",
+     "track": "Cedar Spur", "load": "Wheat"},
+    {"action": "add_car", "road": "DV", "number": "4", "type": "Boxcar", "length": 40, "location": "Alden",
+     "track": "Alden Yard", "load": "Wheat"},
+    {"action": "add_car", "road": "DV", "number": "5", "type": "Boxcar", "length": 40, "location": "Alden",
+     "track": "Alden Mill"},
+    {"action": "add_car", "road": "DV", "number": "6", "type": "Boxcar", "length": 40, "location": "Cedar",
+     "track": "Cedar Yard"},
+    {"action": "set_car_division", "division": "North", "cars": ["DV1", "DV2", "DV3", "DV4"]},
+    {"action": "set_car_division", "division": "Valley", "cars": ["DV5", "DV6"]},
+]
+# The train ends in staging, so staging is tried first for an empty.
+DIVISION_SEARCH_STAGED = DIVISION_SEARCH_PLACES + [
+    {"action": "add_route", "name": "Run", "stops": [
+        {"location": "Alden", "direction": "East"}, {"location": "Birch", "direction": "East"},
+        {"location": "Cedar", "direction": "East"}, {"location": "Dale", "direction": "East"}]},
+    {"action": "add_train", "name": "DS", "route": "Run"},
+] + DIVISION_SEARCH_CARS
+# The train ends at a yard, so yards come first for an empty.
+DIVISION_SEARCH_OPEN = DIVISION_SEARCH_PLACES + [
+    {"action": "add_route", "name": "Run", "stops": [
+        {"location": "Alden", "direction": "East"}, {"location": "Birch", "direction": "East"},
+        {"location": "Cedar", "direction": "East"}]},
+    {"action": "add_train", "name": "DS", "route": "Run"},
+] + DIVISION_SEARCH_CARS
+
 # A train that asks for two locomotives where there are none.
 NO_ENGINES = [
     {"action": "add_location", "name": "Alden"},
@@ -144,6 +197,8 @@ SCENARIOS = {
     "moves_out": (MOVES_OUT, 0, "T1"),
     "division_empties": (DIVISION_EMPTIES, 0, "E1"),
     "no_engines": (NO_ENGINES, 0, "P2"),
+    "division_search_staged": (DIVISION_SEARCH_STAGED, 0, "DS"),
+    "division_search_open": (DIVISION_SEARCH_OPEN, 0, "DS"),
 }
 
 

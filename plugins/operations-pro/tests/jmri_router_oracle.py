@@ -71,6 +71,23 @@ SCENARIOS = [
     {"name": "staging on, building, saved termination track", "building": True,
      "router": {"carRoutingViaStaging": True}, "trains": {"2": {"terminationTrack": "4s2"}}},
     {"name": "schedule id on a yard", "tracks": {"1s1": {"length": 1000}, "1s2": {"scheduleId": "2"}}},
+    # Pool.requestTrackLength keeps what it moves, even when it then refuses, so later checks in one
+    # router call see the new lengths (the oracle puts them back after each query).
+    {"name": "yard pool, a loan reshapes the pool", "tracks": {"1s1": {"length": 200, "pool": "PX"},
+     "1s2": {"length": 200, "pool": "PX"}, "1s3": {"length": 80, "pool": "PX"}}},
+    {"name": "yard pool, a loan reshapes a four track pool", "tracks": {"1s6": {"length": 60, "pool": "PX"},
+     "1s4": {"length": 200, "pool": "PX"}, "1s1": {"length": 60, "pool": "PX"}, "1s2": {"length": 200, "pool": "PX"}}},
+    {"name": "yard pool, a loan reshapes a pool with a spur", "tracks": {"1s1": {"length": 80, "pool": "PX"},
+     "1s3": {"length": 200, "pool": "PX"}, "1s2": {"length": 130, "pool": "PX"}, "1s5": {"length": 40, "pool": "PX"}}},
+    {"name": "yard and interchange pool, tight", "tracks": {"1s1": {"length": 60, "pool": "PY"},
+     "1s2": {"length": 100, "pool": "PY"}, "1s3": {"length": 100, "pool": "PY"}, "1s4": {"length": 60, "pool": "PY"}}},
+    {"name": "yard and interchange pool, tight, forward off", "router": {"forwardToYard": False},
+     "tracks": {"1s1": {"length": 60, "pool": "PY"}, "1s2": {"length": 100, "pool": "PY"},
+                "1s3": {"length": 100, "pool": "PY"}, "1s4": {"length": 60, "pool": "PY"}}},
+    {"name": "four tracks in a pool at Tolvern", "tracks": {"3s2": {"length": 50, "pool": "PT"},
+     "3s4": {"length": 50, "pool": "PT"}, "3s3": {"length": 50, "pool": "PT"}, "3s1": {"length": 50, "pool": "PT"}}},
+    {"name": "staging pool", "tracks": {"4s1": {"length": 60, "pool": "PS"}, "4s2": {"length": 200, "pool": "PS"},
+                                       "5s1": {"length": 60}, "5s2": {"length": 60}}},
 ]
 OPTIONS = {"aggressive": (Setup.isBuildAggressive, Setup.setBuildAggressive),
            "onTime": (Setup.isBuildOnTime, Setup.setBuildOnTime)}

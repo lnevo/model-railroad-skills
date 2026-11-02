@@ -1,0 +1,159 @@
+1- Build Report for train (DS) built on 11/02/2026 00:56
+1- JMRI version 5.16+R909e15189e
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- The option to restrict staging to the same car types, roads, and loads as the train 
+5- being built is enabled 
+5-  
+5- Car routing options:
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (DS):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (DS):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Dale)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (DS) route (Run):
+3- 1r1 Location (Alden) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r2 Location (Birch) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r3 Location (Cedar) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r4 Staging (Dale) Eastbound requests 50 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (Run) requests 32 cars and 65 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (DS)
+5- 0 locomotives at location (Alden):
+7-  
+5- 0 locomotives at location (Birch):
+7-  
+5- 0 locomotives at location (Cedar):
+7-  
+5- 0 locomotives available from staging (Dale):
+7-  
+3-  
+1- Train terminates into staging at (Dale), there are 1 tracks
+7- Train (DS) can terminate to staging track (Dale Stage)
+1- Staging track (Dale Stage) is available at destination (Dale)
+5-  
+5- Train (DS) services car types:
+5- Baggage, Boxcar, Caboose, Coal, Coilcar, FlatBHPaper, FlatBHWood, FlatBulkHead, 
+5- FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, Gondola, HopChem, HopCmnt, 
+5- HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, Passenger, ReefMech, 
+5- Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+5-  
+1- Found 6 cars for train (DS)
+5- 4 cars at location (Alden):
+7- Car (DV 5) type (Boxcar) at (Alden, Alden Mill) 0 moves
+7- Car (DV 4) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (DV 2) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (DV 1) type (Boxcar) at (Alden, Alden Mill) 0 moves
+7-  
+5- 0 cars at location (Birch):
+7-  
+5- 2 cars at location (Cedar):
+7- Car (DV 3) type (Boxcar) at (Cedar, Cedar Spur) 0 moves
+7- Car (DV 6) type (Boxcar) at (Cedar, Cedar Yard) 0 moves
+7-  
+5- 0 cars in staging (Dale):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Alden)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (32) for train (DS) the number available (6) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Alden) id 1r1 requests 5 moves, 5/5 moves are available
+5-  
+5- Car (DV 5) type (Boxcar) empty (E) home division (Valley) departing foreign spur (Alden, 
+5- Alden Mill) division (North) 
+7- Ignoring staging (Dale, Dale Stage) wrong division (North) for car (DV 5) empty (E)
+5- Could not find a reachable staging for car (DV 5) empty (E)
+7-  
+7- Try yard (Cedar, Cedar Yard) division (Valley) for car (DV 5) with empty (E) 
+7- Train (DS) can transport car (DV 5) from spur (Alden, Alden Mill) to (Cedar, Cedar Yard)
+7- Route for car (DV 5): (Alden, Alden Mill)-> (Cedar, Cedar Yard)
+7- Car (DV 5) load (E) has assigned destination (Cedar, Cedar Yard) final destination (, )
+3- Car (DV 5) assigned to train, destination (Cedar, Cedar Yard)
+3-  
+5- Car (DV 4) type (Boxcar) load (Wheat) home division (North) departing home yard (Alden, 
+5- Alden Yard) division (North) 
+7- Try staging (Dale, Dale Stage) division (North) for car (DV 4) with load (Wheat) 
+7- Train (DS) can transport car (DV 4) from yard (Alden, Alden Yard) to (Dale, Dale Stage)
+7- Route for car (DV 4): (Alden, Alden Yard)-> (Dale, Dale Stage)
+7- Car (DV 4) load (Wheat) has assigned destination (Dale, Dale Stage) final destination (, 
+7- ) 
+3- Car (DV 4) assigned to train, destination (Dale, Dale Stage)
+3-  
+5- Car (DV 2) type (Boxcar) empty (E) home division (North) departing home yard (Alden, 
+5- Alden Yard) division (North) 
+7- Try staging (Dale, Dale Stage) division (North) for car (DV 2) with empty (E) 
+7- Train (DS) can transport car (DV 2) from yard (Alden, Alden Yard) to (Dale, Dale Stage)
+7- Route for car (DV 2): (Alden, Alden Yard)-> (Dale, Dale Stage)
+7- Car (DV 2) load (E) has assigned destination (Dale, Dale Stage) final destination (, )
+3- Car (DV 2) assigned to train, destination (Dale, Dale Stage)
+3-  
+5- Car (DV 1) type (Boxcar) empty (E) home division (North) departing home spur (Alden, 
+5- Alden Mill) division (North) 
+7- Try staging (Dale, Dale Stage) division (North) for car (DV 1) with empty (E) 
+7- Train (DS) can transport car (DV 1) from spur (Alden, Alden Mill) to (Dale, Dale Stage)
+7- Route for car (DV 1): (Alden, Alden Mill)-> (Dale, Dale Stage)
+7- Car (DV 1) load (E) has assigned destination (Dale, Dale Stage) final destination (, )
+3- Car (DV 1) assigned to train, destination (Dale, Dale Stage)
+3-  
+1- Partial 4/5 cars at location (Alden) assigned to train (DS)
+1- Route location (Birch) id 1r2 requests 5 moves, 5/5 moves are available
+5-  
+5- No cars available for pick up at location (Birch)
+5-  
+1- Partial 0/5 cars at location (Birch) assigned to train (DS)
+1- Route location (Cedar) id 1r3 requests 4 moves, 4/5 moves are available
+5-  
+5- Car (DV 3) type (Boxcar) load (Wheat) home division (North) departing foreign spur 
+5- (Cedar, Cedar Spur) division (Valley) 
+7- Try staging (Dale, Dale Stage) division (North) for car (DV 3) with load (Wheat) 
+7- Train (DS) can transport car (DV 3) from spur (Cedar, Cedar Spur) to (Dale, Dale Stage)
+7- Route for car (DV 3): (Cedar, Cedar Spur)-> (Dale, Dale Stage)
+7- Car (DV 3) load (Wheat) has assigned destination (Dale, Dale Stage) final destination (, 
+7- ) 
+3- Car (DV 3) assigned to train, destination (Dale, Dale Stage)
+3-  
+5- Car (DV 6) type (Boxcar) empty (E) home division (Valley) departing home yard (Cedar, 
+5- Cedar Yard) division (Valley) 
+7- Ignoring staging (Dale, Dale Stage) wrong division (North) for car (DV 6) empty (E)
+5- Could not find a reachable staging for car (DV 6) empty (E)
+7-  
+7-  
+7- Try spur (Cedar, Cedar Spur) division (Valley) for car (DV 6) with empty (E) 
+7- Train (DS) can transport car (DV 6) from yard (Cedar, Cedar Yard) to (Cedar, Cedar Spur)
+7- Route for car (DV 6): (Cedar, Cedar Yard)-> (Cedar, Cedar Spur)
+7- Car (DV 6) load (E) has assigned destination (Cedar, Cedar Spur) final destination (, )
+3- Car (DV 6) assigned to train, destination (Cedar, Cedar Spur)
+3-  
+1- Partial 2/4 cars at location (Cedar) assigned to train (DS)
+1- No pick ups from staging (Dale)
+1- Partial 6/32 cars
+5- Build for train (DS) took 390 mSec
