@@ -15,7 +15,7 @@ import ops_live
 import ops_report
 import ops_store
 from mcp_stdio import Tool, serve
-from ops_actions import ACTIONS
+from ops_actions import ACTIONS, field_list
 from ops_data import Railroad, directions, load
 from ops_gates import Gates
 
@@ -129,8 +129,11 @@ def backup_now(args: dict) -> object:
 
 def action_help(args: dict) -> object:
     wanted = args.get("session_only")
-    return {name: {"session": entry["session"], "help": entry["help"]}
-            for name, entry in sorted(ACTIONS.items()) if entry["session"] or not wanted}
+    one = args.get("action")
+    if one and one not in ACTIONS:
+        raise ValueError(f"Unknown action {one!r}")
+    return {name: {"session": entry["session"], "help": entry["help"], "fields": field_list(name)}
+            for name, entry in sorted(ACTIONS.items()) if (entry["session"] or not wanted) and one in (None, name)}
 
 
 def tools() -> list[Tool]:
@@ -177,8 +180,10 @@ def tools() -> list[Tool]:
               "properties": {**directory, "type": {"type": "string", "enum": list(LIST_TYPES)}},
               "required": ["type"]},
              list_items),
-        Tool("ops_actions", "List every change action with its fields and whether it is a session action.",
-             {"type": "object", "properties": {"session_only": {"type": "boolean"}}}, action_help),
+        Tool("ops_actions", "List every change action with its help, each field (name, required, default, what it "
+             "takes) and whether it is a session action. Give action for just one.",
+             {"type": "object", "properties": {"session_only": {"type": "boolean"}, "action": {"type": "string"}}},
+             action_help),
         Tool("ops_plan",
              "Work out a change to the Operations files without touching them. Returns a plan id, the diff "
              "and new audit findings. Show these to the user before ops_apply.",

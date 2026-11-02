@@ -464,3 +464,8 @@ def reset_moves(ed: Editor, location: str | None = None) -> str:
         track.set("moves", "0")
         ed.moves_allowed.add(track.get("id"))
     return f"Reset moves on {len(tracks)} tracks."
+
+
+from ops_actions import declare_fields  # noqa: E402
+
+declare_fields("add_track", [], also="update_track")

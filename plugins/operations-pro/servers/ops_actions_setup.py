@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 from ops_store import Refused
 import ops_paperwork as paper
-from ops_actions import (Editor, SETUP_FILE, TRAIN_CHILDREN, TRAIN_ROOT_ORDER, action, _active_nodes, _bool, _day,
+from ops_actions import (Editor, SETUP_FILE, TRAIN_CHILDREN, TRAIN_ROOT_ORDER, action, declare_fields, _active_nodes, _bool, _day,
                          _day_id, _days, _indent, _insert_ordered, _int_field, _next, _place, _set_active,
                          _set_day_trains)
 
@@ -548,3 +548,6 @@ def set_train_manifest(ed: Editor, train: str, railroad_name: str | None = None,
 
 
 # ---- End of train schedule days and manifest formats ------------------------------------
+
+
+declare_fields("set_manifest_options", list(paper.FIELDS))

@@ -171,6 +171,42 @@ class StagingCause(Faults):
         self.assertNotIn("Carrow Packing", message)
 
 
+class ActionFields(Faults):
+    def test_every_action_lists_its_fields(self):
+        import operations_pro
+        actions = operations_pro.action_help({})
+        for name, row in actions.items():
+            self.assertIn("fields", row, name)
+        update = {f["name"]: f for f in actions["update_track"]["fields"]}
+        self.assertTrue(update["track"]["required"])
+        self.assertIn("lower case", update["drop"]["note"])
+        self.assertIn("comment", update)
+        self.assertIn("comment", {f["name"] for f in actions["add_track"]["fields"]})
+        self.assertIn("passenger", {f["name"] for f in actions["update_car"]["fields"]})
+        self.assertIn("max_moves", {f["name"] for f in actions["update_stop"]["fields"]})
+        self.assertEqual(list(operations_pro.action_help({"action": "set_active_day"})), ["set_active_day"])
+
+    def test_declared_fields_are_ones_the_action_accepts(self):
+        """Every field listed must not raise the unknown-field refusal, or the list would mislead."""
+        from ops_actions import ACTIONS, field_list
+        for name in ("update_car", "update_stop", "update_train"):
+            self.assertTrue(field_list(name), name)
+        self.assertEqual(len(ACTIONS), len({n for n in ACTIONS if field_list(n) is not None}))
+
+    def test_a_wrong_field_is_refused_in_plain_words(self):
+        for action, wrong in (({"action": "set_track_moves", "track": "x", "moves": {}}, "'track'"),
+                              ({"action": "add_track", "location": "Brae", "name": "x", "type": "Spur", "length": 9,
+                                "position": 1}, "'position'"),
+                              ({"action": "set_active_day"}, "missing 'name'")):
+            with self.subTest(action=action["action"]), self.assertRaises(ops_store.Refused) as caught:
+                ops_store.plan(self.copy(), [action])
+            text = str(caught.exception)
+            self.assertIn(wrong, text)
+            self.assertIn("it takes:", text)
+            self.assertNotIn("positional argument", text)
+            self.assertNotIn("keyword argument", text)
+
+
 class OnTimeAbort(unittest.TestCase):
     def test_a_refused_train_says_why(self):
         import ops_jmri

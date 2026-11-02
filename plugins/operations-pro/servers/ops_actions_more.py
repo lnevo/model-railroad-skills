@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 import ops_paperwork as paper
 from ops_store import Refused
-from ops_actions import SETUP_FILE, Editor, action, _bool, _indent, _insert_ordered, _int_field
+from ops_actions import SETUP_FILE, Editor, action, declare_fields, _bool, _indent, _insert_ordered, _int_field
 from ops_actions_engines import ENGINE_ORDER, _division, _set_division_attr
 from ops_actions_extras import _engine
 from ops_actions_setup import _set_field, _setup_root, _train_option_node
@@ -181,3 +181,6 @@ def set_train_options(ed: Editor, build_messages: bool | None = None, train_acti
         _set_field(ed, "train_action", train_action)
         done.append(f"train_action={train_action}")
     return "Set " + ", ".join(done) + "."
+
+
+declare_fields("set_control_limits", [*paper.CONTROL_LENGTHS, *paper.CONTROL_OTHER])
