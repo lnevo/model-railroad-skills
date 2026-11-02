@@ -630,7 +630,7 @@ class Gates:
     # Tables A to D, one train, one car, one track.
     def _train_gates(self, train: Train) -> tuple[list[dict], list[Stop]]:
         rr, gate = self.rr, self._gate
-        out = [gate("A1", train.build, f"{train.name} build {train.build}")]
+        out = [gate("A1", train.build, f"{train.name} build {train.build}{_day_note(rr, train)}")]
         out.append(self._build_order(train))
         stops = rr.stops(train)
         out.append(gate("A3", bool(stops), f"route {train.route_id or 'none'} has {len(stops)} stops"))
@@ -1851,3 +1851,16 @@ class Audit:
                 yield _finding("switcher-local-off", "info", train.name,
                                f"A local switcher, but {', '.join(off)} moves to the same kind of track are off.",
                                SETTINGS, "Switcher Service Options")
+
+
+# ---- Train schedule days and manifest formats ---------------------------------------
+def _day_note(rr: Railroad, train: Train) -> str:
+    """The builder reads only the Build box; a day's train list sets it when Apply runs
+    (TrainsScheduleTableFrame:370-378, ApplyTrainScheduleAction), so say when they disagree."""
+    day = getattr(rr, "days", {}).get(rr.active_schedule)
+    if day is None or (train.id in day.trains) == train.build:
+        return ""
+    turn = "off" if train.build else "on"
+    listed = "does not list it" if train.build else "lists it"
+    return f"; active day {day.name} {listed}, so Apply (apply_day) would turn Build {turn}"
+# ---- End of train schedule days and manifest formats --------------------------------

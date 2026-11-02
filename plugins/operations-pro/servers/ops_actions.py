@@ -1924,7 +1924,10 @@ def _setup_node(ed: Editor, tag: str, create: bool = True) -> ET.Element | None:
     operations = _setup_root(ed).find("operations")
     node = operations.find(tag)
     if node is None and create:
-        node = ET.Element(tag)
+        # A new element gets JMRI's default for each setting it holds, as a JMRI save writes it, so no
+        # setting falls back on another (Setup.load copies a missing engine colour from the car one).
+        node = ET.Element(tag, {attr: default for where, element, attr, kind, default in paper.FIELDS.values()
+                                if where == paper.SETUP and element == tag and kind != "path"})
         _insert_ordered(operations, node, paper.SETUP_ORDER, 2)
     return node
 

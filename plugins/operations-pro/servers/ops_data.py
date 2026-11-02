@@ -660,6 +660,9 @@ class Railroad:
             parent = operations if where == paper.SETUP else options
             node = parent.find(tag) if parent is not None else None
             value = node.get(attr) if node is not None else None
+            if value is None and node is not None and attr in ("pickupEngineColor", "dropEngineColor"):
+                # Setup.load: engine colours older than 5.11.3 take the car colour.
+                value = node.get(attr.replace("Engine", ""))
             self.manifest[name] = ManifestSetting(name, default if value is None else value, value is not None)
         for name, (tag, _) in paper.FORMAT_LINES.items():
             node = operations.find(tag) if operations is not None else None
