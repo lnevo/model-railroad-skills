@@ -113,7 +113,10 @@ class Aggregation(unittest.TestCase):
 
 @unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
 class RealBuild(unittest.TestCase):
-    def setUp(self):
+    """Tests on the same files share their builds: four JVMs for each would be most of this suite's time."""
+
+    @classmethod
+    def setUpClass(cls):
         ops_build_state.forget()
 
     def test_d3_passes_when_the_build_sets_the_car_out(self):
@@ -171,6 +174,7 @@ class RealBuild(unittest.TestCase):
 
     def test_the_run_is_cached_per_file_content(self):
         folder = FIXTURES / "space" / "operations"
+        ops_build_state.forget()
         first = ops_build_state.real_build(folder, runs=2)
         self.assertEqual(len(first), 2)
         self.assertIs(ops_build_state.real_build(folder, runs=2), first)
