@@ -1967,7 +1967,7 @@ class Audit:
                                                 for train, stop in exits)]
             cars, _ = rr.rolling_stock_on(t)
             loads = sorted({(c.type, c.load) for c in cars if c.type not in dead and not any(
-                c.type in train.types and train.accepts_load(c.load, c.type)
+                c.type in train.types and (c.caboose or c.passenger or train.accepts_load(c.load, c.type))
                 and self._location_takes(stop.location_id, c.type, c.load) for train, stop in exits)})
             if dead or loads:
                 what = ", ".join(dead + [f"{k} with {load}" for k, load in loads])

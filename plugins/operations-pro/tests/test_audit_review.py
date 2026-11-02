@@ -218,6 +218,23 @@ class ScheduleRules(AuditCase):
         self.assertEqual([f["subject"] for f in found], ["Feed Mill Loading"])
         self.assertIn("Dunmere Dairy", found[0]["message"])
 
+class InterchangeExit(AuditCase):
+    def test_a_train_load_rule_does_not_hold_a_caboose_or_passenger_car(self):
+        """TBB:943-945 skip the load test for cabooses and passenger cars, so they are not stuck by it."""
+        edits = self.edits()
+        track = edits.track("3s4")
+        track.set("trackDestinationOption", "Include")
+        wanted = ET.SubElement(track, "destinations")
+        for location in edits.root("locations").iter("location"):
+            ET.SubElement(wanted, "destination", {"id": location.get("id")})
+            for place in [location, *location.iter("track")]:
+                if place.find("types") is not None:
+                    ET.SubElement(place.find("types"), "carType", {"name": "Caboose"})
+        for train in edits.root("trains").iter("train"):
+            train.set("carLoadOption", "Include")
+        found = self.findings(edits, "interchange-no-exit")
+        self.assertFalse([f for f in found if "Caboose with" in f["message"]], found)
+
 
 if __name__ == "__main__":
     unittest.main()
