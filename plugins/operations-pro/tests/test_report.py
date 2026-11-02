@@ -312,6 +312,16 @@ class Findings(unittest.TestCase):
         self.assertIn("not a separate check", x99["departure"][-1]["text"])
         self.assertEqual(x99["terminal"], [])
 
+    def test_ambiguous_tags_settled_against_5_16_source(self):
+        # TBC:1367 is the final-destination local-move rule (D5), not the router's G9
+        self.assertEqual(ops_report.KEY_GATES["buildCarHasFinalDestNoMove"], "D5")
+        # TBB:2257, 2268 skip a schedule line while generating a load: not E10, and the line text cannot say F2 or F3
+        self.assertNotIn("buildSpurScheduleNotUsed", ops_report.KEY_GATES)
+        self.assertIn("F2-F4", ops_report.KEY_NOTES["buildSpurScheduleNotUsed"])
+        # buildErrorNoMoves has no 5.16 call site; the template stays parsed
+        self.assertEqual(ops_report.KEY_GATES["buildErrorNoMoves"], "C5")
+        self.assertIn("buildErrorNoMoves", ops_report.TEMPLATES)
+
     def test_caboose_set_aside_is_b17_not_a_type_refusal(self):  # TBB:777, TBC:117, 279
         report = parsed("7- Exclude car (BVR 9001) type (Caboose)  at location (Brackwater, Brackwater Yard A)")
         self.assertEqual([(r["car"], r["gate"]) for r in report["excluded_cars"]], [("BVR 9001", "B17")])

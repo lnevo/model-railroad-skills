@@ -835,6 +835,14 @@ class ReviewFixes(Base):
     def gate(result, code):
         return next(g for g in result["gates"] if g["gate"] == code)
 
+    def test_staging_restriction_defaults_on_when_the_file_omits_it(self):
+        # Setup.java:329 trainIntoStagingCheck = true; read from stagingRestrictionEnabled (Setup 2950).
+        rr, g = self.fresh()
+        rr.setup.get("buildOptions", {}).pop("stagingRestrictionEnabled", None)
+        self.assertTrue(rr.option("buildOptions", "stagingRestrictionEnabled", True))
+        a7 = self.gate(g.why_not("BVR1103", "West Staging", train="BV2"), "A7")
+        self.assertEqual(a7["status"], FAIL)
+
     def test_c10_generator_only_covers_a_default_empty_it_can_replace(self):
         # TrainBuilderCars 546-558, 633-637, 658: the ship check runs when both generators fail.
         rr, g = self.rr, self.gates
