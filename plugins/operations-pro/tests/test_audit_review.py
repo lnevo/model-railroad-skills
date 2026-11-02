@@ -254,6 +254,42 @@ class FileNumbers(AuditCase):
         self.assertEqual(len(found), 1)
         self.assertIn("automations", found[0]["message"])
 
+class StagingTrains(AuditCase):
+    """TB:221-235 skips a staging track that checkDepartureStagingTrack refuses, so only trains that can use
+    the track say anything about the cars on it."""
+
+    def test_a_type_no_departing_train_takes_is_no_build_failure(self):
+        """Real build: SWAP-W and HOP OUT both built around the MOW car left on East Mode."""
+        edits = self.edits()
+        for location in "137":
+            edits.drop_type(edits.location(location), "MOW")
+        for train in ("SWAP-W", "HOP OUT"):
+            edits.drop_type(edits.train(train), "MOW")
+        edits.add_car("BOXX1", "BOXX999", type="MOW", locationId="2", secLocationId="2s3", load="E")
+        self.assertEqual(self.findings(edits, "staging-type-unserved"), [])
+
+    def test_another_train_serving_the_type_does_not_hide_this_one(self):
+        """Real build: Boxcar gone from Carrow, CUSTOM failed on West Custom though other trains take Boxcars."""
+        edits = self.edits()
+        edits.drop_type(edits.location("3"), "Boxcar")
+        found = self.findings(edits, "staging-type-unserved")
+        hits = [f for f in found if f["subject"] == "West Custom"]
+        self.assertEqual([f["severity"] for f in hits], ["error"], found)
+        self.assertIn("CUSTOM", hits[0]["message"])
+
+    def test_a_division_car_counts_only_for_a_train_that_can_depart_there(self):
+        """Real build: SWAP-W built (East Mode has 0 locomotives, it needs 2). HOP OUT failed after JMRI chose
+        East Mode; it has another track it can use, so like staging-departure-blocked that is a warning."""
+        edits = self.edits()
+        divisions = edits.root("locations").find("divisions")
+        if divisions is None:
+            divisions = ET.SubElement(edits.root("locations"), "divisions")
+        ET.SubElement(divisions, "division", {"id": "99", "name": "Nowhere"})
+        edits.add_car("BOXX1", "BOXX999", locationId="2", secLocationId="2s3", load="E", divisionId="99")
+        edits.track("2s3").set("pickupOption", "trains")
+        found = self.findings(edits, "staging-division-unreachable")
+        self.assertEqual([(f["subject"], f["severity"]) for f in found], [("HOP OUT, East Mode", "warning")])
+
 
 if __name__ == "__main__":
     unittest.main()

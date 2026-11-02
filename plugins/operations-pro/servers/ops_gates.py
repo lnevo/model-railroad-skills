@@ -2146,31 +2146,44 @@ class Audit:
                   for kind in t.types if kind in rr.locations[lid].types}
         return set(rr.car_types) - served
 
+    def _can_depart(self, train: Train, first: Location) -> list[Track]:
+        """The staging tracks this train can use: TB:221-235 skips any checkDepartureStagingTrack refuses, so
+        cars on those say nothing about this train."""
+        return [t for t in first.tracks if t.is_staging and not self.g.staging_problems(train, t)]
+
     def rule_staging_types(self):
-        """A car on departure staging must leave, so a type that no track on any departing train's route
-        takes fails every build from there (B20, D7, E3)."""
+        """A car on departure staging must leave, so a type that no later stop of a train able to use that
+        track takes fails the build (B20, D7, E3): an error when every track the train can use holds such a
+        car, a warning when JMRI might pick another."""
         rr = self.rr
-        leaving: dict[str, list] = {}
+        hits: dict[tuple[str, str, str], list[str]] = {}
         for train, first, stops in self._departures():
-            leaving.setdefault(first.id, []).append((train, stops))
-        for location_id, trains in leaving.items():
-            for track in (t for t in rr.locations[location_id].tracks if t.is_staging):
-                cars, _ = rr.rolling_stock_on(track)
-                for kind in sorted({c.type for c in cars}):
-                    if all(kind in self._unserved_types(train, stops) for train, stops in trains):
-                        names = ", ".join(str(c) for c in cars if c.type == kind)
-                        yield _finding("staging-type-unserved", "error", track.name,
-                                       f"{names} ({kind}) must leave with the train, and no track on the route of "
-                                       f"{', '.join(t.name for t, _ in trains)} takes {kind}, so the build fails.",
-                                       TRACK, "Car types on a track (and its location) the train sets out at")
+            unserved = self._unserved_types(train, stops)
+            tracks = self._can_depart(train, first)
+            found = {t.id: sorted({c.type for c in rr.rolling_stock_on(t)[0]} & unserved) for t in tracks}
+            severity = "error" if all(found.values()) else "warning"
+            for track_id, kinds in found.items():
+                for kind in kinds:
+                    hits.setdefault((track_id, kind, severity), []).append(train.name)
+        for (track_id, kind, severity), trains in hits.items():
+            track = rr.tracks[track_id]
+            names = ", ".join(str(c) for c in rr.rolling_stock_on(track)[0] if c.type == kind)
+            tail = "so the build fails." if severity == "error" else "so the build fails if JMRI departs from here."
+            yield _finding("staging-type-unserved", severity, track.name,
+                           f"{names} ({kind}) must leave with the train, and no track on the route of "
+                           f"{', '.join(trains)} takes {kind}, {tail}",
+                           TRACK, "Car types on a track (and its location) the train sets out at")
 
     def rule_staging_division(self):
         """A car with a home division and no destination gets a final destination in that division
         (TBC:894-1035) and the router must reach it; from staging the car must leave, so none reachable
-        fails the build. JMRI applies the rule to a load generated in staging too."""
+        fails the build. JMRI applies the rule to a load generated in staging too. Only tracks the train can
+        depart from count, and the build is sure to fail only if all of them hold such a car."""
         rr = self.rr
         for train, first, stops in self._departures():
-            for track in (t for t in first.tracks if t.is_staging):
+            found = {}
+            tracks = self._can_depart(train, first)
+            for track in tracks:
                 bad = []
                 for car in rr.rolling_stock_on(track)[0]:
                     if not car.division_id or car.destination_id or car.fd_id or self.g._is_clone(car):
@@ -2182,13 +2195,17 @@ class Audit:
                                for t in candidates):
                         bad.append(car)
                 if bad:
-                    division = rr.divisions.get(bad[0].division_id, bad[0].division_id)
-                    yield _finding("staging-division-unreachable", "error", f"{train.name}, {track.name}",
-                                   f"{', '.join(map(str, bad[:5]))} have home division {division}, and no track in "
-                                   f"that division that takes them can be reached from {first.name}, so the "
-                                   "build fails.", LOCATION,
-                                   "Division: put a location this train or a connecting train reaches in that "
-                                   "division, or clear the cars' division")
+                    found[track.id] = bad
+            severity = "error" if len(found) == len(tracks) else "warning"
+            for track_id, bad in found.items():
+                division = rr.divisions.get(bad[0].division_id, bad[0].division_id)
+                tail = "build fails." if severity == "error" else "build fails if JMRI departs from here."
+                yield _finding("staging-division-unreachable", severity, f"{train.name}, {rr.tracks[track_id].name}",
+                               f"{', '.join(map(str, bad[:5]))} have home division {division}, and no track in "
+                               f"that division that takes them can be reached from {first.name}, so the {tail}",
+                               LOCATION,
+                               "Division: put a location this train or a connecting train reaches in that "
+                               "division, or clear the cars' division")
 
     def rule_terminal_staging(self):
         """checkTerminateStagingTrackRestrictions (TBB:2108-2156, on by default): a train ending in staging
