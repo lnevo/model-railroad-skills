@@ -1095,16 +1095,9 @@ class AutomationCases(FCase):
         folder = self.copy()
         self.edit(folder, [{"action": "set_startup_automation", "automation": "Evening Session"}])
         keep = Path(self.work.name) / "kept"
-        # Test-harness race, not a railroad fault: the automation runs on its own thread and run_worker saves as soon
-        # as its own job ends. Building the other trains keeps the worker alive, but a loaded machine can still save
-        # before the last step: try up to three times for a save that came after it. What ran is asserted exactly.
-        for _ in range(3):
-            shutil.rmtree(keep, ignore_errors=True)
-            keep.mkdir()
-            ops_jmri.run_worker(folder, {"save": True, "build": True, "only": OTHERS}, keep)
-            autos = {a["name"]: a for a in ops_data.read_automations(keep)}
-            if autos["Evening Session"]["steps"][-1]["ran"]:
-                break
+        keep.mkdir()
+        ops_jmri.run_worker(folder, {"save": True, "build": True, "only": OTHERS}, keep)
+        autos = {a["name"]: a for a in ops_data.read_automations(keep)}
         self.assertEqual([(s["do"], s["ran"], s["successful"]) for s in autos["Evening Session"]["steps"]],
                          [("build_train", True, True), ("build_train", True, True), ("run_automation", True, True),
                           ("wait_for_train_to_terminate", True, True), ("terminate_train", True, True)])

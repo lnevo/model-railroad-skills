@@ -302,3 +302,53 @@ class OnTimeAbort(unittest.TestCase):
         import ops_jmri
         self.assertEqual(ops_jmri._refused_before_build("T", {"built": False, "failed": True, "message": "Error"}, []), "")
         self.assertEqual(ops_jmri._refused_before_build("T", {"built": True, "failed": False, "message": "Built"}, []), "")
+
+
+class BackupCount(Faults):
+    def test_many_sets_warn_and_none_is_deleted(self):
+        copy = self.copy()
+        for number in range(ops_store.BACKUP_WARN):
+            (copy / "backups" / f"set{number}").mkdir(parents=True)
+        plan = ops_store.plan(copy, [{"action": "update_car", "car": "HZMX 9", "blocking": -2}])
+        self.assertTrue([w for w in plan["warnings"] if "backup sets" in w], plan["warnings"])
+        ops_store.apply(plan["plan_id"], True)
+        self.assertEqual(len(list((copy / "backups").iterdir())), ops_store.BACKUP_WARN + 1)
+
+    def test_few_sets_do_not_warn(self):
+        plan = ops_store.plan(self.copy(), [{"action": "update_car", "car": "HZMX 9", "blocking": -2}])
+        self.assertFalse([w for w in plan["warnings"] if "backup sets" in w])
+
+
+class WriteActions(Faults):
+    def test_text_keys_are_the_ones_jmri_stores(self):
+        """trains/Xml.java:19, 163: a key JMRI does not read vanishes on its next save."""
+        import ops_paperwork as paper
+        for group, tag in (("manifest", "finalDest"), ("header", "finalDest"), ("header", "comment")):
+            self.assertIn(tag, paper.TEXTS[group][1])
+        self.assertNotIn("Final_Dest", paper.TEXTS["header"][1])
+
+    def test_a_text_may_use_every_argument_jmri_passes(self):
+        """TrainManifest:198-200 passes the train's name though the default text shows only {0}."""
+        import ops_paperwork as paper
+        default = paper.TEXTS["manifest"][1]["trainTerminates"]
+        self.assertIsNone(paper.pattern_problem("Train {1} ends in {0}", default, "manifest", "trainTerminates"))
+        self.assertIn("{9}", paper.pattern_problem("Train {9}", default, "manifest", "trainTerminates"))
+
+    def test_a_schedule_line_with_an_undefined_load_is_refused(self):
+        line = {"type": "Boxcar", "receive": "NoSuchLoad"}
+        with self.assertRaises(ops_store.Refused) as caught:
+            ops_store.plan(self.copy(), [{"action": "add_schedule", "name": "Bad", "lines": [line]}])
+        self.assertIn("NoSuchLoad", str(caught.exception))
+
+
+class Rebuild(Faults):
+    def test_a_built_train_keeps_its_own_cars_for_a_rebuild(self):
+        """Train.build resets first (Train:3197), so a car on this train does not block a rebuild of it."""
+        rr = ops_data.load(SHOWCASE)
+        gates = Gates(rr)
+        train, car = rr.find_train("TURN"), rr.find_car("HZMX 9")
+        car.train_id = train.id
+        gates.x.car.setdefault(car.id, {})["routeLocationId"] = "17r1"
+        self.assertEqual(gates._staging_car(car, train, rr.tracks[car.track_id]), [])
+        car.train_id = "another"
+        self.assertTrue(gates._staging_car(car, train, rr.tracks[car.track_id]))

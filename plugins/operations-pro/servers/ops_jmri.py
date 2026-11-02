@@ -22,6 +22,7 @@ SEARCH = ("/Applications/JMRI", "/opt/JMRI", "/usr/local/JMRI", "~/JMRI", r"C:\P
 WORKER = Path(__file__).with_name("jmri_worker.py")
 TESTED = "5.16"
 TIMEOUT = 300
+REPORT_FOLDERS = ("buildstatus", "manifests", "switchLists")
 LOG_ERRORS = 40  # lines kept; a refused build order logs one for each train
 SUMMARY_CARS = 25  # cars listed per train in a dry run summary
 
@@ -57,6 +58,8 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
         root = Path(scratch)
         operations = root / "operations"
         operations.mkdir()
+        for folder in REPORT_FOLDERS:  # OperationsXml.createFile logs an error when two threads race to make one.
+            (operations / folder).mkdir()
         for name in FILES:
             if (source / name).is_file():
                 shutil.copy2(source / name, operations / name)

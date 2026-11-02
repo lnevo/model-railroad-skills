@@ -26,6 +26,7 @@ from ops_gates import Gates
 
 FILES = REQUIRED + OPTIONAL
 ROOT_TAG = "<operations-config"
+BACKUP_WARN = 25  # Backup sets before a plan says so. The plugin never deletes one.
 AUTOSAVE_WINDOW = 180  # Seconds. JMRI's autosave lands one to two minutes after a change.
 DIFF_LIMIT = 400
 # A JMRI program is Java running one of JMRI's application classes (apps.PanelPro.PanelPro,
@@ -209,6 +210,11 @@ def plan(directory: str | Path, actions: list[dict], session: bool = False, prep
             "diff_truncated": max(0, len(diff) - DIFF_LIMIT)}
 
 
+def backup_sets(base: Path) -> int:
+    folder = base / "backups"
+    return sum(p.is_dir() for p in folder.iterdir()) if folder.is_dir() else 0
+
+
 def newest_change(directory: str | Path) -> float:
     base = Path(directory)
     return max(((base / n).stat().st_mtime for n in FILES if (base / n).is_file()), default=0)
@@ -221,6 +227,10 @@ def _warnings(base: Path) -> list[str]:
     if age < AUTOSAVE_WINDOW and newest != _own_write.get(str(base)):
         out.append(f"The Operations files changed {int(age)} seconds ago. Make sure JMRI has finished "
                    "saving, on every computer that opens this folder.")
+    sets = backup_sets(base)
+    if sets >= BACKUP_WARN:
+        out.append(f"{sets} backup sets in backups/. Nothing is ever deleted for you, as each is an undo point. "
+                   "Move or delete old ones by hand when you no longer need them.")
     conflicts = [p.name for p in base.glob("*conflicted copy*")]
     if conflicts:
         out.append(f"Possible sync conflict files here: {', '.join(conflicts)}")

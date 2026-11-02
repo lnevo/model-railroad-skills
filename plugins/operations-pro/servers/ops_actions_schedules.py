@@ -20,6 +20,11 @@ def _lines(lines) -> list[dict]:
     return list(lines)
 
 
+def _type_loads(ed: Editor, kind: str) -> set[str]:
+    named = {e.get("name") for h in ed.car_root.iter("load") if h.get("type") == kind for e in h.findall("carLoad")}
+    return named | set(ed.defaults())
+
+
 def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) -> ET.Element:
     unknown = set(line) - {"type", "road", "receive", "ship", "random", "wait", "count", "setout_day", "pickup_day",
                            "destination", "track", "comment"}
@@ -30,6 +35,12 @@ def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) 
         raise Refused(f"Unknown car type {kind!r}")
     for key in ("road", "receive", "ship", "comment"):
         _text(f"A schedule line's {key}", line.get(key, ""))
+    # Schedule.checkScheduleItemValid marks a line with a load its type lacks NotValid (Schedule:365-372). Roads are
+    # left: they are registered by add_car, which comes after schedules in the skill's start order.
+    known = _type_loads(ed, kind)
+    for key in ("receive", "ship"):
+        if line.get(key) and line[key] not in known:
+            raise Refused(f"{kind} has no load {line[key]!r}, so JMRI would mark this line not valid. Add it with add_load")
     destination = line.get("destination")
     place = ed.location(destination) if destination is not None else None
     if line.get("track") is not None and place is None:

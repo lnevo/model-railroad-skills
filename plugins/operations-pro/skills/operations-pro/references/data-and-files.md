@@ -27,7 +27,7 @@ There is no seventh file. Generated folders beside them: `buildstatus`, `manifes
 ## Backups
 
 - An automatic backup set is taken when Operations initialises, default on, under `autoBackups/<date>_<nn>`.
-- `backups` fills only from the Backup button, or from the plugin, which backs up before every write so JMRI's Restore window lists those sets too.
+- `backups` fills only from the Backup button, or from the plugin, which backs up before every write so JMRI's Restore window lists those sets too. The plugin never deletes a set; from 25 sets, `ops_plan` warns so they can be cleared by hand.
 - JMRI has two restore entry points, the Restore dialog and the restore files action. Which folders each can reach was not checked.
 - To move a railroad: copy all six files into the same folder of the other install with JMRI closed. Copy them as one set. The files refer to each other by id, and ids are reused: tracks are `<location>s<n>`, and after a restart JMRI gives a deleted highest-numbered track's id to the next track added. Copying only the location and route files from a test copy into the real railroad can leave a car's track id pointing at a different track, and the car then sits on it with no warning from the audit. A car whose track no longer exists is caught (`car-unplaced`; `ops_why_not` B1). Compare the cars' tracks after a partial copy.
 - A lost or damaged file is recoverable, and the recovery tools work on the broken folder:

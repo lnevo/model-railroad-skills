@@ -9,7 +9,7 @@ E9 (quick service and aggressive pulls), D3, D9, G10 and an AUTO locomotive coun
 ## The order for one car at one stop
 
 1. Pick up allowed from this track type, then pick up direction.
-2. In the first aggressive pass, a car on an alternate track is deferred.
+2. In the first aggressive pass, a car on an alternate track is deferred once the build has completed a move at this stop.
 3. Departing staging: generate a load from staging, then staging to staging, then the ship check.
 4. Quick service departure timing.
 5. Home division search. A car with a division and no final destination gets one here, default load included.
@@ -33,7 +33,7 @@ Setter names are the Java methods, useful when reading a build report or the sou
 | A5 | Skipped stop or staging mid-route: no work there, moves consumed | No work at the stop | Edit Train, skip list |
 | A6 | Random move reduction at every worked stop: a value N takes between 0 and moves times N/100 moves. A value that is not a whole number fails the build. `not_checked` only when the draw could take every move at a stop the car needs | Fewer moves, or build fails | Edit Route, Random |
 | A7 | Terminal staging: a track whose Set outs admit this train; empty, or with planned pick ups, or in aggressive mode with staging immediately available only if every car and locomotive on it is leaving and it is not quick service; nothing else destined to it unless on-time with quick service. A track naming the train or route skips the rest; otherwise, with the staging restriction option on (the default), the location and track must take every car and locomotive type, road and load the train carries. Aggressive mode with immediate availability and a train returning to its own staging picks no track | Build fails | Staging track Set outs; empty the track or set its planned pick ups to 100 (two trains swapping tracks); the car and locomotive type lists; Settings, staging restriction |
-| A8 | Departure staging: a track with pick ups for this train, not empty, length within the route, cars within moves, loco count, direction; every locomotive free and of the train's type, model, road, owner and built range; every car (clones and non-lead kernel cars skipped) free, of the train's type, road, load, owner and built range, and able to reach its destination on this train; caboose and FRED. `not_checked` when only an AUTO locomotive count is left to decide (it depends on the cars the build loads; FIFO and LIFO order never matters in staging, TBB:1167) | Track rejected; no track means build fails | Staging track Pick ups and the cars on it |
+| A8 | Departure staging: a track with pick ups for this train, not empty, length within the route, cars within moves, loco count, direction; every locomotive free and of the train's type, model, road, owner and built range; every car (clones and non-lead kernel cars skipped) free, of the train's type, road, load, owner and built range, and able to reach its destination on this train; caboose and FRED; and, on a pool track set to FIFO or LIFO, its turn: FIFO refuses a track while another pool track's cars came first, LIFO while another's came last. Outside a pool the service order means nothing in staging. `not_checked` when only an AUTO locomotive count, pool dates that overlap, or locomotives on the track that no track takes where they come off are left to decide (the count depends on the cars the build loads, the dates on which car the build lists first, and a refused locomotive sets that departure track aside) | Track rejected; the first track that passes, by moves, is the only one used; no track means build fails. So does a car lost from the track used: A8 also fails for what B20 finds there, even a non-lead kernel car | Staging track Pick ups and the cars on it |
 | A9 | Locomotives: the count the train asks for (a number, Auto or Auto HPT), of its model and road, found at the departure and able to be set out at the terminal; otherwise `buildErrorEngines` | Build fails | Edit Train, Locomotives; the engines and their tracks (`engine-no-train`) |
 
 ### B. Car list, car removed from this build
@@ -57,10 +57,10 @@ Setter names are the Java methods, useful when reading a build report or the sou
 | B14 | FRED car on a train that does not need FRED | Edit Train, Requires |
 | B15 | Car's pick up day matches the active train schedule | Train Schedules, active; or the car's pick up day |
 | B16 | Wait count is zero. It falls by one for each build by a train that could serve the car, and the car stays | Set Car, Wait |
-| B17 | Cabooses and FRED cars move only as the train's own: a caboose when the train requires one at departure, or a leg adds one, at that stop, of the right road, to the end of its leg; a FRED car only when the train requires FRED, at departure. Every other caboose and FRED car is removed. Several that qualify: the builder takes one, preferring the lead locomotive's road | Edit Train, Requires |
+| B17 | Cabooses and FRED cars move only as the train's own: a caboose when the train requires one at departure, or a leg adds one, at that stop, of the right road, to the end of its leg; a FRED car only when the train requires FRED, at departure. Every other caboose and FRED car is removed, after the manual lines have run: a line that matches a caboose, or a FRED car on a train requiring FRED, leaves it to B19, and when more cars match than the lines take, B17 stays `not_checked`. Several that qualify: the builder takes one, preferring the lead locomotive's road | Edit Train, Requires |
 | B18 | Kernel: lead exists and all members are on one track. Non-lead members are removed; a split kernel fails the build | Edit Car, Kernel |
 | B19 | Manual build lines take matching cars first (no train, destination or final destination; type, road, load, stop, track, pick up day). A line with a destination sends the car there; with Remove set, matching cars it does not place leave the build. A line set to fail that asks for more cars than can match it fails the build. Written with `set_manual_build` | Edit Train, manual build |
-| B20 | Departure staging: only that track's cars, and all of them must stay in the list unless on-time mode is on | Staging track Pick ups |
+| B20 | Departure staging: only the cars on the track used, the first that passes A8 by moves, and all of them must stay in the list: every car there, non-lead kernel cars included, passes the B tests above but the load, FRED need, pick up day and wait. Unknown location, out of service and a destination off the route fail the build always; anything else only with on-time mode off | Staging track Pick ups |
 
 ### C. Pick up, per stop
 
@@ -83,20 +83,20 @@ Setter names are the Java methods, useful when reading a build report or the sou
 
 | Id | Test | Fix on screen |
 |---|---|---|
-| D1 | A later stop with set outs on, or the car is a caboose or FRED | Edit Route, Set outs? |
+| D1 | A later stop with set outs on, or the car is a caboose or FRED, or its assigned destination is a local move, which needs no set outs | Edit Route, Set outs? |
 | D2 | Destination stop not skipped | Edit Train, skip list |
 | D3 | Moves left at the destination stop: none at a skipped or mid-route staging stop, fewer after a random draw, and fewer again for each car the build places first. Passes only when the moves exceed every other car that could be placed before this one | Edit Route, Moves |
 | D4 | Not the same split location, unless a local switcher, passenger, caboose or FRED, or a staging return option | Build Options, Allow return to staging |
-| D5 | Local moves on at both stops when the final destination is the same location | Edit Route, Local moves? |
+| D5 | Local moves on at both stops when the final destination is the same location. A car with an assigned destination takes another path: a local move needs local moves on at the destination stop, with or without a final destination, and a passenger car is not exempt | Edit Route, Local moves? |
 | D6 | The departure track's Destinations filter admits this location. Interchange and staging only | Track Destinations on the car's current track |
 | D7 | Location takes the type | Edit Location, Car types |
 | D8 | Stop direction served by the destination location | Edit Location, Train direction |
 | D9 | Train length through the leg. The locomotives and a required caboose or FRED car are aboard before any car, so they count from the start. A failure ends the search for this car | Edit Route, Max Length |
 | D10 | Through cars allowed, origin to terminal | Build Options, Allow cars to travel from origin to terminal |
 | D11 | Send to terminal: cars picked up after the origin go only to the terminal | Build Options, Send all car pick ups to terminal |
-| D12 | Terminal staging: only the assigned track | Empty the staging track |
+| D12 | Terminal staging: only the one track the train terminates on, the first by moves that passes A7. A train returning to its own staging in aggressive mode with immediate availability terminates on its departure track, occupied or not | Empty the staging track |
 | D13 | Not the same split track name, unless passenger, caboose or FRED | Track name |
-| D14 | Track direction, and an alternate must share a direction with its spur | Track Train direction |
+| D14 | Track direction, and an alternate must share a direction with its spur. A local switcher is exempt from both, and the train's terminating staging track from both: only the location's direction (D8) counts there | Track Train direction |
 | D15 | Interchange or spur Set outs list admits this train. Yards return Any | Track Set outs list |
 | D16 | The car passes table E on this track | See E |
 | D17 | A length failure on a spur tries its alternate | Track Alternate |

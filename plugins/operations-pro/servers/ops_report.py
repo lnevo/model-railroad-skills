@@ -194,7 +194,8 @@ STATUS_RULES: list[tuple[str, str, str]] = [
     ("could not route car", "G12", "the router found no chain of trains"),
     ("router is disabled", "G12", "car routing is off in Settings"),
     ("in match mode, no match", "E10", "no schedule line matched the car"),
-    ("in sequential mode", "E10", "the current schedule line does not match the car"),
+    # sequentialMessage holds the mode's display name, "Sequential" in English (Track:564-568, 2153).
+    (" mode, car (", "E10", "the current schedule line does not match the car"),
     ("doesn't service car type", "F2", "no line of the schedule has this car type"),
     ("only on (", "F1", "the line's delivery day is not the active day"),
     ("requests car type", "F2", "the schedule line wants another type"),
@@ -219,7 +220,7 @@ STAGING_DEPARTURE = ("buildDepartStaging", "buildStagingHas", "buildTrainCanDepa
                      "buildStagingEmpty", "buildStagingTooManyCars", "buildStagingTrainTooLong", "buildStagingDepart",
                      "buildStagingCarsBefore", "buildStagingNotDirection",
                      "buildStagingTrackPool", "buildUserSelectedDeparture", "buildOnlyOneDepartureTrack",
-                     "buildErrorStagingEmpty", "buildStagingTrackDepart", "buildUserCanceledDeparture",
+                     "buildErrorStagingEmpty", "buildUserCanceledDeparture",
                      # The one line that names the car or locomotive a departure track was refused for (TBB:1777-1880).
                      "buildStagingDepartCarType", "buildStagingDepartCarRoad", "buildStagingDepartCarLoad",
                      "buildStagingDepartCarOwner", "buildStagingDepartCarBuilt", "buildStagingDepartCarDestination",
@@ -230,7 +231,8 @@ STAGING_TERMINAL = ("buildTerminateStaging", "buildStagingAvail", "buildStagingR
                     "buildStagingTrackOccupied", "buildStagingTrackReserved", "buildStagingTrackType",
                     "buildStagingTrackRoad", "buildStagingTrackLoad", "buildStagingTrackAllRoads",
                     "buildStagingTrackAllLoads", "buildErrorStagingFull", "buildErrorStagingFullNote",
-                    "buildUserSelectedArrival", "buildIgnoreStagingFirstPass", "buildDestinationType")
+                    "buildUserSelectedArrival", "buildIgnoreStagingFirstPass", "buildDestinationType",
+                    "buildStagingTrackDepart")  # TBB:2074, the terminal check: a train still leaving that track
 SEARCH_STARTS = {"buildFindDestinationForCar": "default", "buildSearchForSpur": "custom load",
                  "buildCarRoutingBegins": "router", "buildSearchTrackNewLoad": "generate load",
                  "buildSearchTrackLoadStaging": "generate load for staging", "buildCarDepartHomeDivision": "division",
@@ -256,7 +258,7 @@ ENGINE_KEYS = ("buildExcludeEngine", "buildBegineSearchEngines", "buildExcludeEn
                "buildTrainAddEngines", "buildTrainRemoveEngines", "buildTrainHelperEngines", "buildCabooseChange",
                "buildAutoBuildMsg", "buildOptionSingleLocos", "buildOptionBuildConsist", "buildTrainReqConsist",
                "buildNoTracksAtDestination")  # TrainBuilderEngines:838, an engine's destination
-FAILURE_KEYS = ("buildError", "buildStagingCouldNotFindDest", "mbuildFail", "buildFailedTryNormalMode",
+FAILURE_KEYS = ("buildError", "buildStagingCouldNotFindDest", "mbuildFail",
                 "buildErrorStagingFullNote")
 OPTION_HEADERS = {"MenuItemBuildOptions": "build", "buildStagingOptions": "staging", "buildCarRoutingOptions": "routing",
                   "buildOptionsForTrain": "enabled", "buildDisabledOptionsForTrain": "disabled",
@@ -445,6 +447,8 @@ class Walker:
         self.staging_side: str | None = None  # which staging check is open: the last of depart / terminate seen
         self.previous: Line | None = None
         self.in_train_check = False  # inside Train.isServiceable, which only the router prints (Router:265)
+        self.fred_road = ""  # the road the FRED search asks for (TBC:231)
+        self.fred_car = ""  # the car the FRED search is looking at (TBC:241)
 
     def run(self) -> dict:
         for line in self.lines:
@@ -484,6 +488,9 @@ class Walker:
         key, r = line.key, self.report
         if key in ("buildCarIsCaboose", "buildCarHasFRED"):  # TrainBuilderCars caboose and FRED search
             r.setdefault("cabooses", []).append(line.f(0))
+            self.fred_car = line.f(0) if key == "buildCarHasFRED" else ""
+        if key == "buildTrainReqFred":
+            self.fred_road = line.f(1)
         if key in ("buildNoteCaboose", "buildNoteCaboose2"):  # notes under the caboose failure
             r["requirements"].append(line.text)
             return
@@ -607,8 +614,10 @@ class Walker:
             self.exclude_heading = key
         elif key in ("buildSortCarsByLastDate",
                      "buildRouteRequest", "buildDoneAssignEnginesStaging", "buildDoneAssingEnginesTrain",
-                     "buildTrain", "NormalModeWhenBuilding", "buildFailedTryNormalMode"):
+                     "buildTrain", "NormalModeWhenBuilding"):
             pass
+        elif key == "buildFailedTryNormalMode":  # TB:512: a second attempt follows, not a failure
+            self._close_attempt()
         elif key in SEARCH_STARTS:
             self._start_attempt(line)
         elif key in PICKUP_REFUSALS:
@@ -725,6 +734,13 @@ class Walker:
             row["fix"] = (f"{gate}: {GATES[gate][0]}. The train needs no caboose or FRED car here, so the builder "
                           "drops this one; nothing refused it. Fix: Edit Train, Requires, only if this train "
                           "should take it.")
+        elif line.key == "buildExcludeCarWrongRoad" and line.f(0) == self.fred_car:
+            # TBC:270 prints the road-option line for a FRED car that is not the road the train asks for.
+            gate = "B17"
+            row.update(gate=gate, required_road=self.fred_road, note=f"the train asks for a FRED car of road "
+                       f"{self.fred_road}; its Road option does not come into it",
+                       fix=f"{gate}: {GATES[gate][0]}. Fix: Edit Train, the road named for the FRED car, or put a "
+                           f"{self.fred_road} FRED car at this stop.")
         self.report["excluded_cars"].append(row)
         self.last_excluded = row
 
@@ -888,14 +904,18 @@ def _caboose_cause(report: dict, stories: list[dict], failure: dict) -> str:
     failure; B17 on its own points at Requires, which is rarely the fix."""
     at = failure.get("at", "")
     flagged = set(report.get("cabooses", []))
+    wrong_road = [row for row in report["excluded_cars"] if row.get("required_road")]
     rows = [(row["car"], row["gate"]) for row in report["excluded_cars"]
             if row["gate"] and row["gate"] != "B17" and (not at or at in row["text"])]
     rows += [(s["car"], g) for s in stories if s["outcome"] == PICKUP_REFUSED for g in s.get("gates", [])
              if g != "B17"]
     if flagged:
         rows = [r for r in rows if r[0] in flagged]
+    named = (f"{', '.join(row['car'] for row in wrong_road)} is not road {wrong_road[0]['required_road']}, the road "
+             "this train asks for its FRED car. Fix: Edit Train, that road, or put such a car at the stop."
+             ) if wrong_road else ""
     if not rows:
-        return ""
+        return named
     by_gate: dict[str, list[str]] = {}
     for car, gate in rows:
         if car not in by_gate.setdefault(gate, []):
@@ -904,7 +924,7 @@ def _caboose_cause(report: dict, stories: list[dict], failure: dict) -> str:
     which = "the cabooses or FRED cars there" if flagged else f"cars at {at or 'the departure'}"
     return (f"No caboose or FRED car could be taken: {which} were refused, "
             + "; ".join(f"{g} {', '.join(cars)}" for g, cars in by_gate.items())
-            + f". Fix that, not Requires: {gate_fix(gate)}")
+            + f". Fix that, not Requires: {gate_fix(gate)}" + (f" {named}" if named else ""))
 
 
 def summarize(report: dict, stories: list[dict]) -> list[str]:

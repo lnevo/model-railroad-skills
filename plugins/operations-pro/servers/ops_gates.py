@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace
+from datetime import datetime
 
 import ops_build_state
 import ops_router
@@ -22,6 +23,7 @@ from ops_data import (
 PASS, FAIL, NOT_CHECKED = "pass", "fail", "not_checked"
 CLONE_MARK = "-(Clone)"  # RollingStock.CLONE: a quick service copy carries this after its number.
 JAVA_INT = re.compile(r"[+-]?\d+")  # What Integer.parseInt accepts.
+DATE_FORMATS = ("%m/%d/%Y %H:%M:%S", "%m/%d/%Y %I:%M%p", "%m/%d/%Y %H:%M")  # TrainCommon.convertStringToDate, in order.
 
 
 def _jdiv(a: int, b: int) -> int:
@@ -121,7 +123,7 @@ GATES: dict[str, tuple[str, str, str]] = {
            "tracks, so a full track counts as leaving; or empty a track. When the reason is a type, road or load: "
            "what the staging track and its location take, or Settings, staging restriction"),
     "A8": ("Departure staging has a track this train can take whole", TRACK,
-           "what the reason names for each track: the Pick ups list; a car or locomotive the train does not take "
+           "what the reason names for each track: the Pick ups list; a track's turn in a FIFO or LIFO pool; a car or locomotive the train does not take "
            "(Edit Train types, roads, loads, owners, built dates); a locomotive count other than the number on the "
            "track (ask for that number, or 0); the track direction; Moves and Max Length at the first stop"),
     "A9": ("Locomotives the train asks for are found", TRAIN,
@@ -145,12 +147,14 @@ GATES: dict[str, tuple[str, str, str]] = {
     "B15": ("Pick up day matches the active train schedule", "Train Schedules", "Active schedule, or the car's pick up day"),
     "B16": ("No wait count", CAR_SET, "Wait, which falls as trains that can serve the car build"),
     "B17": ("Caboose and FRED handled first", TRAIN,
-            "Requires; when a caboose or FRED car is there, what refused it is the cause (often B6 or C9)"),
+            "Requires, or a manual build line for the car; when a caboose or FRED car is there, what refused it is the "
+            "cause (often B6 or C9)"),
     "B18": ("Kernel together on one track", CAR, "Kernel, or move the members together"),
     "B19": ("Manual build lines", TRAIN, "Manual build lines"),
-    "B20": ("Departure staging: every car on the track must leave", "the stuck car's own refusals",
+    "B20": ("Departure staging: car is on the track used, and every car there must leave", "the stuck car's own refusals",
             "each car on a departure staging track needs a destination on this train, so fix what refused it "
-            "(its story names the gate)"),
+            "(its story names the gate); a car on another track waits until that track has the fewest moves "
+            "of those that pass"),
     "C1": ("Pick up stop not skipped", TRAIN, "Skip list"),
     "C2": ("Pick ups or local moves on at the stop", ROUTE, "Pick ups?, Local moves?"),
     "C3": ("Staging pick ups only at the start of the route", ROUTE, "Route order"),
@@ -170,7 +174,7 @@ GATES: dict[str, tuple[str, str, str]] = {
     "D4": ("Not the same split location, unless a switcher", BUILD_OPTIONS,
            "Local switcher route, or Allow cars to return to staging; or, for a car that should ride out and come "
            "back (a buffer or LCL car), Edit Car, Passenger, which exempts it"),
-    "D5": ("Local moves on, for a final destination at the same location", ROUTE, "Local moves? at both stops"),
+    "D5": ("Local moves on, for a local move to an assigned or final destination", ROUTE, "Local moves? at both stops"),
     "D6": ("Departure track's filter admits this location", TRACK_DESTS, "Accept the destination on the car's current track"),
     "D7": ("Location takes this type", LOCATION, "Car types"),
     "D8": ("Stop direction served by the destination", LOCATION, "Train direction"),
@@ -764,7 +768,128 @@ class Gates:
             problems.append(f"no caboose of road {train.caboose_road or 'any'}")
         if train.requires & REQUIRES_FRED and not fred:
             problems.append(f"no FRED car of road {train.caboose_road or 'any'}")
+        problems.extend(self._pool_order(train, track)[0])
         return problems
+
+    def departure_choice(self, train: Train) -> tuple[Track | None, list[tuple[Track, list[str]]],
+                                                      list[tuple[Track, list[str]]]]:
+        """The search of TB:231-245, as (chosen, rejected, unsure). Tracks are tried by moves and the first that
+        passes is the only one used, so nothing past it counts. A track the files cannot settle goes in unsure
+        with what is in doubt, and the search carries on as the build might. chosen is the first sure track,
+        which is the track used only when unsure is empty. With the dialog on (TB:228), the user picks."""
+        rr, stops = self.rr, self.rr.stops(train)
+        place = rr.locations.get(stops[0].location_id) if stops else None
+        tracks = [t for t in self.track_order(place) if t.is_staging] if place else []
+        asked = len(tracks) > 1 and rr.option("buildOptions", "promptStagingEnabled")
+        rejected, unsure = [], []
+        for track in tracks:
+            problems = self.staging_problems(train, track)
+            if problems:
+                rejected.append((track, problems))
+                continue
+            doubts = self.staging_doubts(train, track) + (["the build asks which track to use"] if asked else [])
+            if doubts:
+                unsure.append((track, doubts))
+                continue
+            return track, rejected, unsure
+        return None, rejected, unsure
+
+    def _returning(self, stops: list[Stop]) -> bool:
+        """Aggressive mode with staging immediately available and a train returning to its own staging: it needs
+        no terminal track of its own and comes back to the departure track (TB:165-167, TBB:137-141)."""
+        rr = self.rr
+        first, last = rr.locations.get(stops[0].location_id), rr.locations.get(stops[-1].location_id)
+        return (first is last and rr.option("buildOptions", "aggressive")
+                and rr.option("buildOptions", "stagingTrackAvail"))
+
+    def terminal_choice(self, train: Train) -> tuple[Track | None, str]:
+        """determineIfTrainTerminatesIntoStaging (TB:150-180), as (track, unsettled). A returning train takes its
+        departure track; otherwise the first track by moves that passes. unsettled names what the files
+        cannot say, and then no track is given."""
+        rr, stops = self.rr, self.rr.stops(train)
+        last = rr.locations.get(stops[-1].location_id) if stops else None
+        tracks = [t for t in self.track_order(last) if t.is_staging] if last else []
+        if len(tracks) > 1 and rr.option("buildOptions", "promptToStagingEnabled"):
+            return None, "the build asks which staging track to use"
+        if stops and self._returning(stops):
+            chosen, _, unsure = self.departure_choice(train)
+            if unsure:
+                return None, "the train returns to its departure track, which the build settles"
+            return chosen, ""
+        return next((t for t in tracks if not self.terminal_track_problems(train, t)), None), ""
+
+    def staging_losses(self, train: Train, track: Track) -> list[str]:
+        """What fails the build once this departure track is chosen: createCarList over every car on it, non-lead
+        kernel cars included. Three cases throw (TBB:832-863). Any other car removed fails it in
+        adjustCarsInStaging unless on-time mode is on (TBB:1056-1060), and the load, FRED need, pick up day and
+        wait tests are waived on this track (TBB:943)."""
+        rr, stops = self.rr, self.rr.stops(train)
+        terminal = stops[-1].location_id if stops else ""
+        on_route = {s.location_id for s in stops}
+        out = []
+        for car in rr.rolling_stock_on(track)[0]:
+            if self._is_clone(car):
+                continue
+            bound = car.destination_id
+            if car.unknown:
+                out.append(f"{car} is marked location unknown")
+            elif car.out_of_service:
+                out.append(f"{car} is out of service")
+            elif bound and bound not in on_route:
+                out.append(f"{car} has a destination off this route")
+            elif rr.option("buildOptions", "onTime"):
+                continue
+            elif car.train_id and car.train_id != train.id:
+                out.append(f"{car} is assigned to another train")
+            elif car.fred and bound and bound != terminal:
+                out.append(f"FRED car {car} is destined short of the terminal")
+            elif car.caboose and bound and bound != terminal and not train.changes_caboose:
+                out.append(f"caboose {car} is destined short of the terminal")
+            elif not (train.accepts_caboose_road(car.road) if car.caboose else train.accepts_road(car.road)):
+                out.append(f"train does not take {car} road {car.road}")
+            elif car.type not in train.types:
+                out.append(f"train does not take {car} type {car.type}")
+            elif not train.accepts_owner(car.owner):
+                out.append(f"train does not take {car} owner {car.owner}")
+            elif not train.accepts_built(car.built):
+                out.append(f"train does not take {car} built {car.built}")
+        return out
+
+    def _last_move(self, car: Car) -> datetime:
+        """RollingStock.getLastMoveDate. A blank or unreadable date keeps the default, earlier than any real one."""
+        text = self.x.car.get(car.id, {}).get("date", "")
+        for form in DATE_FORMATS:
+            try:
+                return datetime.strptime(text, form)
+            except ValueError:
+                continue
+        return datetime.min
+
+    def _pool_order(self, train: Train, track: Track) -> tuple[list[str], list[str]]:
+        """checkStagingPool (TBB:1974-2029), as (problems, doubts): FIFO departs the pool track whose cars came
+        first, LIFO the one whose cars came last. Java compares the first car it lists on each track, by the
+        priorities and moves of the build; a comparison that car could change is a doubt, not a verdict."""
+        order = self.x.track.get(track.id, {}).get("order", "Normal")
+        if not track.pool or order not in ("FIFO", "LIFO"):  # Track.getServiceOrder (Track:1850).
+            return [], []
+
+        def dates(where: Track) -> list[datetime]:  # getAvailableTrainList: no train, or this one.
+            return [self._last_move(c) for c in self.rr.rolling_stock_on(where)[0]
+                    if not c.train_id or c.train_id == train.id]
+
+        mine = dates(track)
+        problems, doubts = [], []
+        for other in self._pool(track):
+            theirs = dates(other) if other is not track else []
+            if not mine or not theirs:
+                continue
+            earlier, later = (theirs, mine) if order == "FIFO" else (mine, theirs)
+            if max(earlier) < min(later):
+                problems.append(f"{order} pool {track.pool}: {other.name} departs first")
+            elif min(earlier) < max(later):
+                doubts.append(f"{order} pool {track.pool}: the dates on {other.name} overlap this track's, so the "
+                              "first car the build lists decides")
+        return problems, doubts
 
     def staging_doubts(self, train: Train, track: Track) -> list[str]:
         """What the files cannot settle about departing this staging track, once staging_problems is empty."""
@@ -772,30 +897,43 @@ class Gates:
         doubts = []
         if not train.engines.isdigit():
             doubts.append(f"locomotive count {train.engines} is worked out during the build")
-        # FIFO/LIFO order is not a doubt: TrainBuilderBase.sortCarsOnFifoLifoTracks (TBB:1167) skips staging
-        # tracks, and a staging departure takes every car on the track whatever its order.
+        doubts.extend(self._pool_order(train, track)[1])
         doubts.extend(self._loco_change_doubts(train, track))
         return doubts
 
     def _loco_change_doubts(self, train: Train, track: Track) -> list[str]:
-        """Locomotives leaving staging need a track at the stop where they change, or setEngineDestination
-        (TBE:818-866) refuses them and this departure track is not used. The real search also takes moves into
-        account, so this is a doubt for the build to settle, not a failure."""
+        """Locomotives leaving staging need a track where they come off: the stop where they change, else the
+        terminal. Otherwise setEngineDestination (TBE:818-866) refuses them and getEngines leaves this departure
+        track unused (TB:241-247). The real search also takes moves into account, so this is a doubt for the
+        build to settle, not a failure."""
         rr, raw = self.rr, self.x.train.get(train.id, {})
-        stops = {s.id: s for s in rr.stops(train)}
+        stops = rr.stops(train)
+        by_id = {s.id: s for s in stops}
         _, engines = rr.rolling_stock_on(track)
         options = ((2, train.leg2_options), (3, train.leg3_options))
-        start = next((stops.get(raw.get(f"leg{n}Start", "")) for n, o in options if o & (CHANGE_ENGINES | REMOVE_ENGINES)),
+        start = next((by_id.get(raw.get(f"leg{n}Start", "")) for n, o in options if o & (CHANGE_ENGINES | REMOVE_ENGINES)),
                      None)
+        start = start or (stops[-1] if stops else None)
         place = rr.locations.get(start.location_id) if start else None
         if place is None or not engines:
             return []
+        tracks = place.tracks
+        if start is stops[-1] and place.is_staging:  # setEngineDestination's first arm: only the terminal track.
+            if self._returning(stops):
+                return []  # That is this track, and the locomotives are already on it.
+            terminal = self.terminal_choice(train)[0]
+            if terminal is None:
+                return []  # A7 or D12 reports that.
+            tracks = [terminal]
         length = sum(int(e.length) if e.length.isdigit() else 0 for e in engines) + 4 * (len(engines) - 1)
         loco = Car(id="locomotive", road=engines[0].road, number="0", type=engines[0].type, length=str(length))
         kinds = {e.type for e in engines}
-        takers = [t for t in place.tracks if kinds <= self.x.types.get(t.id, set()) and t.accepts_drop(train)
-                  and t.dir & start.direction and self._space(loco, t)["status"] != FAIL]
-        return [] if takers else [f"no track at {place.name} has room for the locomotives set out at the change there"]
+        switcher = self._is_switcher(train)
+        takers = [t for t in tracks if kinds <= self.x.types.get(t.id, set())
+                  and (not (t.is_interchange or t.is_spur) or t.accepts_drop(train))
+                  and (switcher or start.direction & place.dir & t.dir)
+                  and all(t.accepts_road(e.road) for e in engines) and self._space(loco, t)["status"] != FAIL]
+        return [] if takers else [f"no track at {place.name} takes the locomotives set out there"]
 
     def _staging_engines(self, train: Train, engines: list) -> list[str]:
         """checkStagingEngines (TBB:1777-1846): every locomotive on the track must suit the train."""
@@ -809,7 +947,7 @@ class Gates:
             name = f"{engine.road} {engine.number}"
             if CLONE_MARK in engine.number or e.get("clone") == "true":
                 continue
-            if e.get("routeLocationId") or (e.get("trainId") and e.get("trainId") != train.id):
+            if e.get("trainId") != train.id and (e.get("routeLocationId") or e.get("trainId")):
                 problems.append(f"locomotive {name} is assigned to another train")
             elif e.get("type", "") not in self._train_types(train):
                 problems.append(f"train does not take locomotive {name} type {e.get('type', '')}")
@@ -827,10 +965,11 @@ class Gates:
 
     def _staging_car(self, car: Car, train: Train, track: Track) -> list[str]:
         problems = []
-        if self.x.car.get(car.id, {}).get("routeLocationId"):
-            problems.append(f"{car} is already in a built train")
-        elif car.train_id and car.train_id != train.id:
+        # A rebuild resets the train first (Train:3197), so its own cars are not held by it.
+        if car.train_id and car.train_id != train.id:
             problems.append(f"{car} is assigned to another train")
+        elif self.x.car.get(car.id, {}).get("routeLocationId") and car.train_id != train.id:
+            problems.append(f"{car} is already in a built train")
         if car.type not in train.types:
             problems.append(f"train does not take {car} type {car.type}")
         if not car.caboose and not train.accepts_road(car.road):
@@ -907,8 +1046,7 @@ class Gates:
         out = []
         last = rr.locations.get(stops[-1].location_id)
         first = rr.locations.get(stops[0].location_id)
-        returning = (first is last and rr.option("buildOptions", "aggressive")
-                     and rr.option("buildOptions", "stagingTrackAvail"))
+        returning = self._returning(stops)
         if last is None or not last.is_staging:
             out.append(gate("A7", PASS, "train does not end in staging"))
         elif returning:
@@ -921,17 +1059,16 @@ class Gates:
                       "; ".join(f"{t.name}: {', '.join(self.terminal_track_problems(train, t))}" for t in tracks))
             out.append(gate("A7", bool(usable), reason))
         if first is not None and first.is_staging:
-            tracks = [t for t in first.tracks if t.is_staging]
-            report = {t.name: self.staging_problems(train, t) for t in tracks}
-            good = [t for t in tracks if not report[t.name]]
-            sure = [t for t in good if not self.staging_doubts(train, t)]
-            if sure or not good:
-                reason = (f"can depart from {', '.join(t.name for t in sure)}" if sure else
-                          "; ".join(f"{name}: {', '.join(problems)}" for name, problems in report.items()))
-                out.append(gate("A8", bool(sure), reason))
+            chosen, rejected, unsure = self.departure_choice(train)
+            if unsure:
+                out.append(self._open("A8", "; ".join(f"{t.name}: {', '.join(d)}" for t, d in unsure)))
+            elif chosen is None:
+                out.append(gate("A8", FAIL, "; ".join(f"{t.name}: {', '.join(p)}" for t, p in rejected)))
             else:
-                out.append(self._open("A8", "; ".join(
-                    f"{t.name}: {', '.join(self.staging_doubts(train, t))}" for t in good)))
+                losses = self.staging_losses(train, chosen)
+                out.append(gate("A8", not losses, f"{chosen.name} is chosen, and then the build fails: "
+                                f"{', '.join(losses)}" if losses else
+                                f"can depart from {chosen.name}, the first usable track by moves"))
         else:
             out.append(gate("A8", PASS, "train does not start in staging"))
         out.append(self._engine_gate(train))
@@ -1033,7 +1170,27 @@ class Gates:
         return out
 
     def _caboose_or_fred(self, car: Car, train: Train, stops: list[Stop], target: Track | None) -> dict:
-        """B17: addCabooseOrFredToTrain places the cabooses and FRED cars the train needs, then
+        """B17, with what a manual line can do. manualBuild runs after addCabooseOrFredToTrain and before
+        removeCaboosesAndCarsWithFred (TB:104-106), so a matching line reaches a caboose or FRED car the train
+        does not need, and B19 decides it. A FRED car on a train needing none left in createCarList (TBB:952-957)."""
+        result = self._needed_caboose_or_fred(car, train, stops, target)
+        if result["status"] != FAIL or (car.fred and not train.requires & REQUIRES_FRED):
+            return result
+        lines = [i for i in self.x.manual.get(train.id, [])
+                 if self._mb_count(i) > 0 and self._mb_matches(i, car, stops)]
+        if not lines:
+            return result
+        names = ", ".join(i.get("id", "?") for i in lines)
+        wanted = sum(self._mb_count(i) for i in lines)
+        rivals = sum(any(self._mb_matches(i, c, stops) for i in lines) and self._can_join(c, train)
+                     for c in self.rr.cars.values())
+        if rivals > wanted:
+            return self._gate("B17", NOT_CHECKED, f"{result['reason']}; but manual line {names} takes {wanted} of the "
+                                                  f"{rivals} cars that match, and the rest are dropped")
+        return self._gate("B17", PASS, f"manual line {names} reaches the car before the builder drops it; B19 decides")
+
+    def _needed_caboose_or_fred(self, car: Car, train: Train, stops: list[Stop], target: Track | None) -> dict:
+        """addCabooseOrFredToTrain places the cabooses and FRED cars the train needs, then
         removeCaboosesAndCarsWithFred drops every other one from the build (TB:104-106, TBC:42-268)."""
         rr, gate = self.rr, self._gate
         if not (car.caboose or car.fred):
@@ -1168,8 +1325,20 @@ class Gates:
         track = rr.tracks.get(car.track_id)
         if not stops or track is None or not track.is_staging or car.location_id != stops[0].location_id:
             return self._gate("B20", PASS, "car is not on departure staging")
-        problems = self.staging_problems(train, track)
-        return self._gate("B20", not problems, ", ".join(problems) or f"{track.name} can depart")
+        chosen, rejected, unsure = self.departure_choice(train)
+        problems = next((p for t, p in rejected if t is track), None)
+        if problems:
+            return self._gate("B20", FAIL, ", ".join(problems))
+        if any(t is track for t, _ in unsure) or (unsure and chosen is track):
+            return self._open("B20", f"which track departs is settled in the build: "
+                                     + "; ".join(f"{t.name}: {', '.join(d)}" for t, d in unsure))
+        if chosen is not track:
+            # adjustCarsInStaging keeps only the cars on the departure track (TBB:1036-1039).
+            name = chosen.name if chosen else next((t.name for t, _ in unsure), "another track")
+            return self._gate("B20", FAIL, f"the train departs from {name}, the first usable track by moves, "
+                                           f"and leaves the cars on {track.name}")
+        losses = self.staging_losses(train, track)
+        return self._gate("B20", not losses, ", ".join(losses) or f"{track.name} can depart, the first usable track by moves")
 
     def _pickup_gates(self, car: Car, train: Train, stops: list[Stop], stop: Stop | None,
                       goal: Stop | None, target: Track | None = None) -> list[dict]:
@@ -1179,7 +1348,6 @@ class Gates:
         here = rr.locations.get(car.location_id)
         if stop is None or track is None or here is None:
             return [gate(c, NOT_CHECKED, "no pick up stop on this route") for c in codes]
-        local = goal is not None and goal.split == stop.split
         switcher = self._is_switcher(train)
         out = [gate("C1", stop.id not in train.skips, f"stop {stop.id}")]
         out.append(gate("C2", stop.pickups or stop.local, f"pick ups {stop.pickups}, local {stop.local}"))
@@ -1187,7 +1355,14 @@ class Gates:
         out.append(gate("C4", switcher or bool(stop.direction & here.dir),
                         f"{stop.id} {directions(stop.direction)}, {here.name} {directions(here.dir)}"))
         out.append(gate("C5", stop.max_moves > 0, f"moves {stop.max_moves}"))
-        out.append(gate("C6", stop.pickups or local or car.fd_id == stop.location_id, f"pick ups {stop.pickups}"))
+        # TBC:498-500 tests what the car holds, never the what-if: Car.isLocalMove compares the assigned destination
+        # with the car's location (Car:619-622), and the final destination is compared with the stop.
+        assigned, final = rr.locations.get(car.destination_id), rr.locations.get(car.fd_id)
+        local_move = assigned is not None and assigned.split == here.split
+        at_final = final is not None and final.split == stop.split
+        out.append(gate("C6", stop.pickups or local_move or at_final,
+                        f"pick ups {stop.pickups}; assigned destination {assigned.name if assigned else 'none'}, "
+                        f"final destination {final.name if final else 'none'}"))
         out.append(self._second_pass(car, train, stop))
         out.append(self._pickup_repeat(car, train, track))
         out.append(gate("C9", switcher or bool(stop.direction & track.dir),
@@ -1362,15 +1537,25 @@ class Gates:
         exempt = _exempt(car)
         switcher = self._is_switcher(train)
         same = origin.split == stop.split
-        out = [gate("D1", stop.drops or car.fred or car.caboose, f"drops {stop.drops}")]
+        # An assigned destination takes checkCarForDestination (TBC:1496-1506): a local move needs no set outs and
+        # does need local moves at the stop, final destination or not. Car.isLocalMove: Car:619-622.
+        assigned = rr.locations.get(car.destination_id)
+        local_move = assigned is not None and assigned.split == here.split
+        out = [gate("D1", stop.drops or car.fred or car.caboose or local_move,
+                    f"drops {stop.drops}" + ("; a local move to its assigned destination needs none" if local_move else ""))]
         out.append(gate("D2", stop.id not in train.skips, f"stop {stop.id}"))
         out.append(self._moves_left(car, train, stops, origin, stop))
         returning = (train.allow_return or rr.option("buildOptions", "allowReturnStaging")) and dest.is_staging
         d4 = not same or switcher or exempt or returning
         out.append(gate("D4", d4, f"{origin.split} to {stop.split}, switcher {switcher}" + (
             "" if d4 else "; a car flagged passenger, caboose or FRED is exempt (TrainBuilderCars:1748-1754)")))
-        out.append(gate("D5", not same or not car.fd_id or exempt or (stop.local and origin.local),
-                        f"local {origin.local} and {stop.local}"))
+        if assigned is not None:
+            d5 = not local_move or stop.local or car.fred or car.caboose
+            d5_why = f"assigned destination {assigned.name}, local move {local_move}, local {stop.local}"
+        else:
+            d5 = not same or not car.fd_id or exempt or (stop.local and origin.local)
+            d5_why = f"local {origin.local} and {stop.local}"
+        out.append(gate("D5", d5, d5_why))
         out.append(gate("D6", here_track.accepts_destination(dest.id), self._filter_reason(here_track, dest)))
         out.append(gate("D7", car.type in dest.types, f"{dest.name}: type {car.type}"))
         out.append(gate("D8", switcher or bool(stop.direction & dest.dir),
@@ -1384,17 +1569,18 @@ class Gates:
         # The train terminates only on a track A7 accepts; there tryStaging refuses a local switcher's own
         # track and otherwise answers through car.checkDestination (D16).
         staged = dest.is_staging and stop is stops[-1] and track.is_staging
-        problems = self.terminal_track_problems(train, track) if staged else []
-        if staged and switcher and not exempt and car.track_id == track.id:
-            problems.append("a switcher cannot set the car out on its own staging track")
-        out.append(gate("D12", not problems, "; ".join(problems) or (
-            "the train can terminate here; table E decides" if staged else "not terminal staging")))
+        out.append(self._terminal_gate(car, train, track, staged, switcher and not exempt))
         same_name = here.split == dest.split and here_track.split == track.split and not exempt
         out.append(gate("D13", not same_name, f"{here_track.name} to {track.name}"))
         final = rr.tracks.get(car.fd_track_id)
         shared = not (final and final.alternate_id == track.id and not track.dir & final.dir)
-        out.append(gate("D14", (switcher or bool(stop.direction & dest.dir & track.dir)) and shared,
-                        f"{stop.id} {directions(stop.direction)}, {track.name} {directions(track.dir)}"))
+        # checkDropTrainDirection answers true for a switcher before anything else (TBB:1620-1622). tryStaging tests
+        # no direction at all (TBC:1818-1819, TBB:2588), though a car already holding the track takes that test
+        # in checkCarForDestination.
+        unfaced = staged and not car.dest_track_id
+        d14 = switcher or unfaced or (bool(stop.direction & dest.dir & track.dir) and shared)
+        out.append(gate("D14", d14, f"{stop.id} {directions(stop.direction)}, {track.name} {directions(track.dir)}"
+                        + ("; into terminal staging the track's direction is not tested" if unfaced else "")))
         listed = not (track.is_interchange or track.is_spur) or track.accepts_drop(train)
         out.append(gate("D15", listed, f"{track.name}: {track.drop_option}"))
         table_e = self.check_destination(car, dest, track)
@@ -1413,6 +1599,25 @@ class Gates:
         allowed = self._local_track_rule(car, train, here_track, track)
         out.append(gate("D19", allowed, f"switcher {switcher}: {here_track.type} to {track.type}"))
         return out
+
+    def _terminal_gate(self, car: Car, train: Train, track: Track, staged: bool, own_track_refused: bool) -> dict:
+        """D12: the train has one terminal track, chosen before any car (TB:165-176), and tryStaging offers that
+        alone. A local switcher cannot use it for a car already on it (TBB:2579-2587)."""
+        if not staged:
+            return self._gate("D12", PASS, "not terminal staging")
+        chosen, unsettled = self.terminal_choice(train)
+        if unsettled:
+            return self._gate("D12", NOT_CHECKED, unsettled)
+        if chosen is None:
+            return self._gate("D12", FAIL, "; ".join(self.terminal_track_problems(train, track)) or
+                              "no staging track is chosen for this train")
+        if chosen.id != track.id:
+            own = "; ".join(self.terminal_track_problems(train, track))
+            return self._gate("D12", FAIL, f"the train terminates on {chosen.name}, the only track offered"
+                                           + (f"; {track.name} is {own}" if own else ""))
+        if own_track_refused and car.track_id == track.id:
+            return self._gate("D12", FAIL, "a switcher cannot set the car out on its own staging track")
+        return self._gate("D12", PASS, "the train terminates here; table E decides")
 
     def _moves_left(self, car: Car, train: Train, stops: list[Stop], origin: Stop, stop: Stop) -> dict:
         """D3: rld.getCarMoves() < rld.getMaxCarMoves() when the car is offered (TBC:1735)."""
@@ -1753,16 +1958,17 @@ class Audit:
                            "ops_backups, then ops_restore with file to put this one file back")
 
     def rule_file_numbers(self):
-        """A number JMRI's loader parses with no catch (ScheduleItem:335-375: sequenceId, count, wait, hits).
-        Integer.parseInt throws, LocationManagerXml stops part-way, and the half-loaded roster stays in use:
-        a later save writes it over the file, losing every schedule from that line on and the tracks'
-        schedule assignments."""
-        for name, subject, value in getattr(self.rr, "unloadable", []):
+        """A number JMRI's loader parses with no catch (ScheduleItem:335-375: sequenceId, count, wait, hits;
+        TrainManualBuildItem:312, 339; AutomationItem:432). Integer.parseInt throws, the file's loader stops
+        part-way, and the half-loaded roster stays in use: a later save writes it over the file, losing
+        everything from that line on."""
+        for name, subject, value, lost in getattr(self.rr, "unloadable", []):
             yield _finding("file-number", "error", f"{name}: {subject}",
                            f"{value} is not a whole number Java can read (at most 2147483647), so JMRI cannot "
-                           f"load {name}, and its next save would erase schedules. Keep JMRI closed and fix the "
+                           f"load {name}, and its next save would erase {lost}. Keep JMRI closed and fix the "
                            "value first.", "Backups",
-                           "replace_schedule_lines with a smaller count or wait, or ops_restore a backup set")
+                           ("replace_schedule_lines with a smaller count or wait" if lost == "schedules"
+                            else "Correct the number in the file") + ", or ops_restore a backup set")
 
     def rule_leg_stops(self):
         """A leg 2 or 3 whose start or end is not a stop on the train's route. Train.load resolves them
@@ -1888,11 +2094,15 @@ class Audit:
             for item in schedule.items:
                 if not item.ship or rr.is_default_load(item.ship):
                     continue
+                # A line that names a track sends the car there and nowhere else (Car:891-892).
+                fixed = rr.tracks.get(item.dest_track_id)
+                fixed = fixed if fixed and dest and fixed.location_id == dest.id else None
                 takers = [t for t in rr.tracks.values() if t.location_id == (dest.id if dest else "")
-                          and self._track_takes(t, item.type, item.ship)]
+                          and (fixed is None or t is fixed) and self._track_takes(t, item.type, item.ship)]
                 if not takers:
+                    there = f"{fixed.name}, the line's track, does not take" if fixed else "no track there takes"
                     yield _finding("single-destination-schedule", "warning", schedule.name,
-                                   f"Every line sends cars to {where}, and no track there takes "
+                                   f"Every line sends cars to {where}, and {there} "
                                    f"{item.type} with {item.ship}, so they cannot be delivered.", SCHEDULE,
                                    "Leave Destination blank on a line so the search picks one, or let a track there take the load")
                     break
@@ -1963,7 +2173,7 @@ class Audit:
                                                 for train, stop in exits)]
             cars, _ = rr.rolling_stock_on(t)
             loads = sorted({(c.type, c.load) for c in cars if c.type not in dead and not any(
-                c.type in train.types and train.accepts_load(c.load, c.type)
+                c.type in train.types and (c.caboose or c.passenger or train.accepts_load(c.load, c.type))
                 and self._location_takes(stop.location_id, c.type, c.load) for train, stop in exits)})
             if dead or loads:
                 what = ", ".join(dead + [f"{k} with {load}" for k, load in loads])
@@ -2057,12 +2267,13 @@ class Audit:
 
     def _departures(self):
         """(train, staging location, stops) for each train with Build on whose route starts in staging.
-        A train with Build off is built only by hand or by an automation, often on purpose with an empty track."""
+        A train with Build off is built only by hand or by an automation, often on purpose with an empty track.
+        A built train is left out: a build resets it first (Train:3197), so its own cars are no obstacle."""
         rr = self.rr
         for train in rr.trains.values():
             stops = rr.stops(train)
             first = rr.locations.get(stops[0].location_id) if stops else None
-            if train.build and first is not None and first.is_staging:
+            if train.build and not train.built and first is not None and first.is_staging:
                 yield train, first, stops
 
     def rule_staging_departure(self):
@@ -2113,12 +2324,20 @@ class Audit:
                 out.append(f"{car} ({seen[key]})")
         return out
 
+    def _places_for(self, car: Car, train: Train, stops: list[Stop]) -> list[str]:
+        """Location ids a car leaving departure staging may go to. A caboose or FRED car is searched for one
+        destination, the end of its leg (TBC:88-108, 249-266), and no other stop will do."""
+        if car.caboose or car.fred:
+            legs = self.g._leg_ends(train, stops)
+            return [(legs[0][1] if legs else stops[-1]).location_id]
+        return list(dict.fromkeys(s.location_id for s in stops[1:]))
+
     def _first_refusal(self, car: Car, train: Train, stops: list[Stop]) -> str:
         """Empty when some track at a later stop passes every gate the files decide; else the closest refusal:
         fewest failures, then a track open to this train, then the later stop, since that is where the car was
         nearest to going. The first track tried says little: a spur on the way often refuses it by design."""
         closest, best = "", None
-        for position, location_id in enumerate(dict.fromkeys(s.location_id for s in stops[1:])):
+        for position, location_id in enumerate(self._places_for(car, train, stops)):
             location = self.rr.locations.get(location_id)
             if location is None:
                 continue
@@ -2130,7 +2349,54 @@ class Audit:
                 rank = (len(fails), not target.accepts_drop(train), -position)
                 if best is None or rank < best:
                     best, closest = rank, f"{fails[0]['gate']} at {target.name}: {fails[0]['reason']}"
+        if self._generated_load_leaves(car, train, stops):
+            return ""
         return closest or "no stop after the departure"
+
+    def _load_lines(self, car: Car, train: Train, track: Track, spur: Track) -> list[ScheduleItem]:
+        """The lines of spur's schedule the builder could fill this car from on track (TBB:2194-2303):
+        custom Receive, the car's type and road, a load the train and track allow, the active day. A random
+        line may or may not be drawn, so it counts."""
+        rr = self.rr
+        schedule = rr.schedules.get(spur.schedule_id)
+        if schedule is None or car.type not in spur.types or car.type not in rr.locations[spur.location_id].types:
+            return []
+        items = schedule.items
+        if spur.schedule_mode != MATCH:  # Sequential mode looks at the current line alone.
+            items = [i for i in items if i.id == spur.item_id] or items[:1]
+        return [i for i in items if i.type == car.type and i.receive and not rr.is_default_load(i.receive)
+                and i.road in ("", car.road) and train.accepts_load(i.receive, i.type)
+                and track.ships_load(i.receive, i.type)
+                and (not i.setout_day or i.setout_day == rr.active_schedule)]
+
+    def _generated_load_leaves(self, car: Car, train: Train, stops: list[Stop]) -> bool:
+        """generateCarLoadFromStaging (TBC:627-766) runs before the search for a destination (TBC:546), so an
+        empty in generating staging leaves if a spur's line gives it a load that reaches that spur. Staging
+        to staging generation (TBC:776) is not followed here."""
+        rr = self.rr
+        track = rr.tracks.get(car.track_id)
+        if track is None or not track.is_staging or not track.load_options & (GENERATE | GENERATE_ANY_SPUR) \
+                or car.load != rr.default_empty or car.destination_id or car.fd_id:
+            return False
+        places = self._places_for(car, train, stops)
+        on_route = {s.location_id for s in stops}
+        for spur in rr.tracks.values():
+            if not spur.is_spur or not track.accepts_destination(spur.location_id):
+                continue
+            if track.load_options & GENERATE and spur.location_id not in on_route:
+                continue  # TBC:686-690: this option keeps to the train's own route.
+            if (car.caboose or car.fred) and spur.location_id not in places:
+                continue  # TBC:88, 249 pass the leg end as rld.
+            for item in self._load_lines(car, train, track, spur):
+                loaded = replace(car, load=item.receive)
+                if spur.location_id in places:
+                    location = rr.locations[spur.location_id]
+                    if not any(g["status"] == FAIL and g["gate"] not in self.SKIP_FOR_STUCK
+                               for g in self.g.evaluate(loaded, train, location, spur)):
+                        return True
+                elif self.g.route_path(replace(loaded, fd_id=spur.location_id, fd_track_id=spur.id), spur):
+                    return True
+        return False
 
     def _unserved_types(self, train: Train, stops: list[Stop]) -> set[str]:
         """Car types no track at a later stop of this train takes (with its location)."""
@@ -2140,31 +2406,44 @@ class Audit:
                   for kind in t.types if kind in rr.locations[lid].types}
         return set(rr.car_types) - served
 
+    def _can_depart(self, train: Train, first: Location) -> list[Track]:
+        """The staging tracks this train can use: TB:221-235 skips any checkDepartureStagingTrack refuses, so
+        cars on those say nothing about this train."""
+        return [t for t in first.tracks if t.is_staging and not self.g.staging_problems(train, t)]
+
     def rule_staging_types(self):
-        """A car on departure staging must leave, so a type that no track on any departing train's route
-        takes fails every build from there (B20, D7, E3)."""
+        """A car on departure staging must leave, so a type that no later stop of a train able to use that
+        track takes fails the build (B20, D7, E3): an error when every track the train can use holds such a
+        car, a warning when JMRI might pick another."""
         rr = self.rr
-        leaving: dict[str, list] = {}
+        hits: dict[tuple[str, str, str], list[str]] = {}
         for train, first, stops in self._departures():
-            leaving.setdefault(first.id, []).append((train, stops))
-        for location_id, trains in leaving.items():
-            for track in (t for t in rr.locations[location_id].tracks if t.is_staging):
-                cars, _ = rr.rolling_stock_on(track)
-                for kind in sorted({c.type for c in cars}):
-                    if all(kind in self._unserved_types(train, stops) for train, stops in trains):
-                        names = ", ".join(str(c) for c in cars if c.type == kind)
-                        yield _finding("staging-type-unserved", "error", track.name,
-                                       f"{names} ({kind}) must leave with the train, and no track on the route of "
-                                       f"{', '.join(t.name for t, _ in trains)} takes {kind}, so the build fails.",
-                                       TRACK, "Car types on a track (and its location) the train sets out at")
+            unserved = self._unserved_types(train, stops)
+            tracks = self._can_depart(train, first)
+            found = {t.id: sorted({c.type for c in rr.rolling_stock_on(t)[0]} & unserved) for t in tracks}
+            severity = "error" if all(found.values()) else "warning"
+            for track_id, kinds in found.items():
+                for kind in kinds:
+                    hits.setdefault((track_id, kind, severity), []).append(train.name)
+        for (track_id, kind, severity), trains in hits.items():
+            track = rr.tracks[track_id]
+            names = ", ".join(str(c) for c in rr.rolling_stock_on(track)[0] if c.type == kind)
+            tail = "so the build fails." if severity == "error" else "so the build fails if JMRI departs from here."
+            yield _finding("staging-type-unserved", severity, track.name,
+                           f"{names} ({kind}) must leave with the train, and no track on the route of "
+                           f"{', '.join(trains)} takes {kind}, {tail}",
+                           TRACK, "Car types on a track (and its location) the train sets out at")
 
     def rule_staging_division(self):
         """A car with a home division and no destination gets a final destination in that division
         (TBC:894-1035) and the router must reach it; from staging the car must leave, so none reachable
-        fails the build. JMRI applies the rule to a load generated in staging too."""
+        fails the build. JMRI applies the rule to a load generated in staging too. Only tracks the train can
+        depart from count, and the build is sure to fail only if all of them hold such a car."""
         rr = self.rr
         for train, first, stops in self._departures():
-            for track in (t for t in first.tracks if t.is_staging):
+            found = {}
+            tracks = self._can_depart(train, first)
+            for track in tracks:
                 bad = []
                 for car in rr.rolling_stock_on(track)[0]:
                     if not car.division_id or car.destination_id or car.fd_id or self.g._is_clone(car):
@@ -2176,13 +2455,17 @@ class Audit:
                                for t in candidates):
                         bad.append(car)
                 if bad:
-                    division = rr.divisions.get(bad[0].division_id, bad[0].division_id)
-                    yield _finding("staging-division-unreachable", "error", f"{train.name}, {track.name}",
-                                   f"{', '.join(map(str, bad[:5]))} have home division {division}, and no track in "
-                                   f"that division that takes them can be reached from {first.name}, so the "
-                                   "build fails.", LOCATION,
-                                   "Division: put a location this train or a connecting train reaches in that "
-                                   "division, or clear the cars' division")
+                    found[track.id] = bad
+            severity = "error" if len(found) == len(tracks) else "warning"
+            for track_id, bad in found.items():
+                division = rr.divisions.get(bad[0].division_id, bad[0].division_id)
+                tail = "build fails." if severity == "error" else "build fails if JMRI departs from here."
+                yield _finding("staging-division-unreachable", severity, f"{train.name}, {rr.tracks[track_id].name}",
+                               f"{', '.join(map(str, bad[:5]))} have home division {division}, and no track in "
+                               f"that division that takes them can be reached from {first.name}, so the {tail}",
+                               LOCATION,
+                               "Division: put a location this train or a connecting train reaches in that "
+                               "division, or clear the cars' division")
 
     def rule_terminal_staging(self):
         """checkTerminateStagingTrackRestrictions (TBB:2108-2156, on by default): a train ending in staging
@@ -2262,12 +2545,29 @@ class Audit:
             lines = [i for i in schedule.items if i.type == car.type and i.receive == car.load
                      and i.ship and i.ship != car.load]
             ships = {i.ship for i in schedule.items if i.type == car.type}
-            if lines and car.load not in ships:
+            if lines and car.load not in ships and car.load not in self._blank_ship_flips(car, schedule):
                 yield _finding("schedule-not-applied", "warning", str(car),
                                f"Sits on {track.name} with {car.load}, which {schedule.name} line {lines[0].id} "
                                f"receives to ship {lines[0].ship}, but no line was applied, so it leaves with "
                                f"{car.load}.", CAR_SET,
                                "ops_session update_car load, or ops_deliver_car to another track and back")
+
+    def _blank_ship_flips(self, car: Car, schedule) -> set[str]:
+        """The loads a line with a blank Ship leaves behind: Car.java:998 flips an empty to the car's return
+        when loaded load and anything else to its return when empty load, so such a car was delivered."""
+        rr = self.rr
+        loaded, empty = car.rwl_load or rr.default_load, car.rwe_load or rr.default_empty
+        out = set()
+        for item in schedule.items:
+            if item.type != car.type or item.ship:
+                continue
+            if not item.receive:  # A blank Receive takes either kind.
+                out |= {loaded, empty}
+            elif self.g._load_type(replace(car, load=item.receive)) == "Empty":
+                out.add(loaded)
+            else:
+                out.add(empty)
+        return out
 
     def rule_caboose(self):
         rr = self.rr
@@ -2520,14 +2820,22 @@ class Audit:
     def rule_engine_trains(self):
         rr = self.rr
         carried = {kind for t in rr.trains.values() for kind in self.g._train_types(t)}
+        leads = {}
+        for engine in self._engines():  # RollingStockGroup.add: the first member leads until one is named lead.
+            if engine.consist and (engine.lead or engine.consist not in leads):
+                leads[engine.consist] = engine
         for engine in self._engines():
             # A type no train takes is model-type-no-train; out of service is the owner's choice.
             if engine.out_of_service or engine.type not in carried:
                 continue
+            # The builder tests only a consist's lead (TBE:226) and takes the others with it (TBE:892-899).
+            if engine.consist and leads[engine.consist] is not engine:
+                continue
             reasons = [(t.name, self._loco_refusal(t, engine)) for t in rr.trains.values()]
             if all(r for _, r in reasons):
                 text = "; ".join(f"{n}: {r}" for n, r in reasons[:4]) + ("; ..." if len(reasons) > 4 else "")
-                yield _finding("engine-no-train", "error", f"{engine.road} {engine.number}",
+                # A warning: no build needs every locomotive, and one in staging is staging-departure-blocked's.
+                yield _finding("engine-no-train", "warning", f"{engine.road} {engine.number}",
                                f"No train takes this locomotive. {text}.", TRAIN,
                                "Locomotive roads (Train Road Options), owners and built dates (Train Build "
                                "Options), or the locomotive count, model and road")
