@@ -217,7 +217,7 @@ class StagingCases(unittest.TestCase):
             self.assertEqual(len(placed), 5)
             at_yard = [c for c, w in placed.items() if w == ("Brae", "Brae Stockyard")]
             at_east = [c for c, w in placed.items() if w == ("East Staging", "East Mode")]
-            # The loco change takes two of Brae's three moves, so one car fits there; the rest go to staging.
+            # One car goes to Brae and the builder sends the rest on to staging. The loco change uses no moves.
             self.assertEqual((len(at_yard), len(at_east)), (1, 4))
             for n in range(1, 6):
                 self.assertNotEqual(a_where_is(s1, f"MODX{n}")[1], "West Mode")
@@ -1014,7 +1014,7 @@ class MergedCases(unittest.TestCase):
                 self.assertEqual(m_where(chain[0]["rr"], f"JFN{n}").split(" / ")[0], "Fiddle")
 
     def test_shared_sinks_are_where_default_cars_end_up(self):
-        """Fiddle yard and Dunmere Yard take default-E boxcars in later sessions; cases assert session one."""
+        """Fiddle yard and Carrow Box Factory take default-E boxcars in later sessions; cases assert session one."""
         for chain in SESSIONS:
             self.assertEqual(m_where(chain[0]["rr"], "WNDR1").split(" / ")[1], "Dunmere Yard")
 

@@ -8,10 +8,10 @@ A tour of an invented railroad, the Juniper Falls & Northern, built to show what
 
 1. Copy `examples/showcase/operations/` into a scratch JMRI profile, or open it with the plugin's reading tools (`ops_list`, `ops_audit`, `ops_why_not`, `ops_explain_build`). Nothing in it needs changing to work. The active day is Tuesday, and `buildstatus/` holds a build report for every train from a clean build.
 2. Pick a case. `U` is a use-case, `R` is a routing variation.
-3. Read **The difficulty**, find the objects under **Find it**, then use the tool under **Confirm it**.
-4. **Try this** names one plugin action to run on a scratch copy that breaks the pattern, with what the tool then said. The shipped folder is never in that state.
+3. Read **The difficulty**, find the objects under **Find it**, then use the tool under **Confirm it**. Name the train in `ops_why_not`: with none named the tool picks one itself, and its first failure may differ.
+4. **Try this** names one plugin action to run on a scratch copy that breaks the pattern, with what the tool then said. The shipped folder is never in that state. The action names and fields in this guide are shorthand, so check `ops_actions` before copying one (for example `update_track` takes `pickup` and a numeric `directions` bitmask). `ops_dry_run` keeps no state and does not refresh `buildstatus/`, so where a Try this quotes `ops_explain_build`, run a real build on the copy first; after a dry run it reads the old report.
 
-Every object a case uses has its code in its comment, for example `[U07]`: cars, locations, trains, routes, schedules, automations. Tracks cannot carry comments in Operations, so a track is pointed at by its name (all track names are unique). Cars of different cases are kept apart by their own roads and by train lists on the spurs, so one car is never served by two cases in the first session. After session 1 some cars shuttle on (default-E boxcars of the Brae and Dunmere cases are drawn to the Fiddle yard and Dunmere Yard); each case says which session it is asserted in.
+Objects a case uses carry its code in their comment, for example `[U07]`: cars, locations, trains, routes, automations and most schedules. Ten schedules have no code: Linden Steel, Linden Pier, Linden Glazier, Linden Pipe Yard, Linden Westside, Carrow Salt Works, Carrow Glass Works, Sawyer Pasta Plant, Brae Depot and Dunmere Depot. Tracks cannot carry comments in Operations, so a track is pointed at by its name (all track names are unique). Cars of different cases are kept apart by their own roads and by train lists on the spurs, so one car is never served by two cases in the first session. After session 1 some cars shuttle on (default-E JFN boxcars of the Brae and Dunmere cases are drawn to the Fiddle yard, Carrow Box Factory and Carrow Glass Works, and empty JFN covered hoppers to Carrow Salt Works); each case says which session it is asserted in.
 
 ## Intended audit findings
 
@@ -20,10 +20,10 @@ Every object a case uses has its code in its comment, for example `[U07]`: cars,
 | Finding | Why it stays |
 |---|---|
 | `staging-ship-excludes-empty` warning on `West Custom` | U06: an all-custom staging track refuses empties by design |
-| `single-destination-schedule` warning on `Fiddle North`, `Fiddle South` and `Grain Co Loads` | False positives of the audit. Each schedule's destination spur has a road list (JFN or OAKX), and the audit tests a sample car taken from the first car of that type in the file, which in a JMRI-saved file has another road. The build delivers every one of these cars (U08 and R10 below) |
+| `single-destination-schedule` warning on `Fiddle North`, `Fiddle South` and `Grain Co Loads` | False positives of the audit. It looks for a chain of trains using a sample car, the first car of that type in the file, and that car has another road (BOXX 1 for the Fiddle schedules, JFN 101 for Grain Co Loads). A car of the case's own road (JFN, OAKX) does find a chain, and the build delivers every one of these cars (U08 and R10 below) |
 | `train-not-on-list` info (two) on `Ferris Transfer` | R07: the pick up list names one route on purpose, so the other two routes that call at Ferris Junction are not on it |
 
-Every other train list in the railroad uses an `excludeTrains` list (a list of trains that may not use the track), which does not trip `train-not-on-list`. Naming the allowed trains instead raised 202 such infos on this railroad.
+Every other train list in the railroad uses an `excludeTrains` list (a list of trains that may not use the track), which does not trip `train-not-on-list`.
 
 ---
 
@@ -50,7 +50,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **The difficulty:** default E and L cars wander.
 **How it's done here:** JFN 301 and JFN 302 are delivered to Brae Lumber with load Lumber and a final destination, so they go to Lumber Dealer. `WNDR 1` and `WNDR 2` are default cars with no schedule; Dunmere Yard takes them, and they only ever sit on a yard.
 **Find it:** `Brae Lumber`, `Lumber Dealer`, `Lumber Shipping`, `Lumber Receiving`, `Dunmere Yard`, `JFN 301`, `JFN 302`, `WNDR 1`, `WNDR 2`
-**Confirm it:** after session 1 both Lumber cars are at Lumber Dealer as empties. `ops_why_not` WNDR 1 to Brae Lumber fails D7 first, then E2, E3, E4, E10 and F2 (type, road and load).
+**Confirm it:** after session 1 both Lumber cars are at Lumber Dealer as empties. `ops_why_not` WNDR 1 to Brae Lumber with `LOCAL-B` named fails D7 first, then E2, E3, E4, E10 and F2 (type, road and load).
 **Try this:** remove the schedule from Lumber Dealer. The plan only reports `schedule-unused` (info); in a session the Lumber cars still reach the plain spur, because it is their final destination track.
 
 ### U04. A local move inside one location
@@ -75,7 +75,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **How it's done here:** `West Custom` holds only cars that leave with a generated load (Machinery) and refuses empties; `West Mixed` ships Machinery and empties. Two depots receive Machinery.
 **Find it:** `West Custom`, `West Mixed`, `East Mixed`, `Brae Depot`, `Dunmere Depot`, `CUSTOM`, `MIXED`, `JFN 601`, `JFN 611`, `JFN 614`
 **Confirm it:** `ops_explain_build` CUSTOM car JFN 601: search "generate load" from West Custom, load Machinery, outcome assigned to Carrow Yard with final destination Brae Depot; eleven departure-track refusals C10 for other loads, then "try routing car to (Brae, Brae Depot) using two or more trains" and the route West Custom, Carrow Yard, Brae Depot. The car sits on Carrow Yard after session 1 and in session 2 `LOCAL-B` delivers it to Brae Depot (load E). `MIXED` carries JFN 611 to 613 to a depot with Machinery on the manifest, and JFN 614 (a gondola with no custom load) leaves as E to East Mixed.
-**Try this:** remove both depot schedules. `ops_plan` reports `generator-no-target` (info). The dry run does not fail: West Custom also generates for any staging track, so the car is given a load and sent toward East Swap (the build report lines "Could not find a route to a spur that needs a custom load" and "Try to send car to staging").
+**Try this:** remove both depot schedules. `ops_plan` reports only `schedule-unused` (info), twice. The dry run does not fail: West Custom also generates for any staging track, so the car is given a load and sent toward East Mixed (the build report lines "Could not find a route to a spur that needs a custom load" and "Try to send car to staging").
 
 ### U07. Two staging tracks swapping full trains
 
@@ -90,7 +90,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **The difficulty:** spreading traffic evenly.
 **How it's done here:** `Fiddle North` and `Fiddle South` are spurs whose schedule lines name the downstream track (Parts Depot, Tool Depot); the south line has random 25 and wait 1.
 **Find it:** `Fiddle North`, `Fiddle South`, `Parts Depot`, `Tool Depot`, `Parts Receiving`, `Tools Receiving`, `FIDDLE JOB`, `JFN 801`, `JFN 802`, `JFN 803`, `JFN 804`, `JFN 805`, `JFN 806`
-**Confirm it:** `FIDDLE JOB` (08:45) takes all six to the fiddle yard. Cars on Fiddle North carry Parts with final destination Parts Depot; cars on Fiddle South carry Tools with Tool Depot as final destination from session 2. Over 3 chains by session 3 every chain has at least one JFN 80x on Parts Depot and Parts cars delivered outnumber Tools cars. `ops_why_not` JFN 801 to Fiddle South: F5 not_checked "line 8c1 random 25%".
+**Confirm it:** `FIDDLE JOB` (08:45) takes all six to the fiddle yard. Cars on Fiddle North carry Parts with final destination Parts Depot; cars on Fiddle South carry Tools with Tool Depot as final destination from session 2. Over 3 chains by session 3 every chain has at least one JFN 80x on Parts Depot and Parts cars delivered outnumber Tools cars. `ops_why_not` JFN 801 to Fiddle South: F5 not_checked "line 9c1 random 25%".
 **Try this:** `replace_schedule_lines` on Fiddle South without the random line: the plan is clean and both lines then fire like Fiddle North.
 
 ### U09. One schedule for several spurs
@@ -106,7 +106,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **The difficulty:** one spur that takes both default and custom cars.
 **How it's done here:** a second virtual spur `Freight House-(2)` takes the Crates line; paperwork prints one name.
 **Find it:** `Freight House`, `Freight House-(2)`, `Crates Receiving`, `FRHX 1`, `JFN 1001`
-**Confirm it:** after session 1 FRHX 1 is on Freight House and JFN 1001 (load Crates) on Freight House-(2). The `LOCAL-B` manifest says "to Freight House" for both and never "-(2)". `ops_why_not` FRHX 1 to Freight House-(2) fails E10 and F4 ("line 12c1 receives Crates, car has E") and D16.
+**Confirm it:** after session 1 FRHX 1 is on Freight House and JFN 1001 (load Crates) on Freight House-(2). The `LOCAL-B` manifest says "to Freight House" for both and never "-(2)". `ops_why_not` FRHX 1 to Freight House-(2) fails E10 and F4 ("line 13c1 receives Crates, car has E") and D16.
 **Try this:** `rename_track` (field `new`) to `Freight House-2`: plan clean, audit unchanged (no hyphen finding for a track name).
 
 ### U11. Spurs and yards in balance
@@ -122,7 +122,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **The difficulty:** a staging train that builds in one mode only.
 **How it's done here:** `MODE` has a locomotive change at Brae and ends in staging; it builds in normal and aggressive mode.
 **Find it:** `West Mode`, `East Mode`, `Brae Stockyard`, `MODE`, `MODX 1`, `MODX 2`, `MODX 3`, `MODX 4`, `MODX 5`
-**Confirm it:** session 1: five cars leave West Mode, one to Brae Stockyard and four to East Mode (the loco change takes two of Brae's three moves). `ops_build_check` with `aggressive` on: `now_fail` empty, `changed` empty.
+**Confirm it:** session 1: five cars leave West Mode, one to Brae Stockyard and four to East Mode (the loco change uses none of Brae's three moves; the builder sends the rest on to staging). `ops_build_check` with `aggressive` on: `now_fail` empty, `changed` empty.
 **Try this:** with aggressive on, set the MODE stop at Brae max_length 100: MODE fails; `ops_explain_build` shows D9 "would exceed train's maximum length (100) feet by 4 feet when departing (Brae)" and the failure line B20 "could not find destinations for 2 car(s) departing from staging".
 
 ### U13. Caboose, kernel, locomotive change and consist
@@ -139,7 +139,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **How it's done here:** days were added with `add_default_days`; Tuesday lists all 18 trains and Saturday six; Tuesday is active and applied. The schedule line `Tuesday Dock` sets cars out on Tuesday only.
 **Find it:** `Tuesday`, `Saturday`, `Tuesday Dock`, `Brae Day Track`, `DAYX 1`, `LOCAL-B`
 **Confirm it:** `ops_list` days: Tuesday has 18 trains, Saturday 6, Tuesday is active. The build report header says "Active schedule: Tuesday". After session 1 DAYX 1 is on Tuesday Dock. `ops_why_not` DAYX 1 to Tuesday Dock with `LOCAL-B`: A1 pass, F1 pass.
-**Try this:** `set_active_day` Saturday and `apply_day` Saturday ("Applied Saturday: 6 trains to build, 12 not"): `ops_why_not` fails A1 "LOCAL-B build False" and F1 "line 1c1 set out day Tuesday, active Saturday"; JMRI then builds exactly the six Saturday trains.
+**Try this:** `set_active_day` Saturday and `apply_day` Saturday ("Applied Saturday: 6 trains to build, 12 not"): `ops_why_not` fails A1 "LOCAL-B build False" and F1 "line 15c1 set out day Tuesday, active Saturday"; JMRI then builds exactly the six Saturday trains.
 
 ### U15. An automation
 
@@ -162,7 +162,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **The difficulty:** lines overwritten, apostrophes and braces breaking text.
 **How it's done here:** red pick ups, blue set outs, green local moves, font 10, the valid line printed, a pick up line with a Track field, a doubled apostrophe in the valid phrase, one switch list phrase changed, and a railroad name on `LOCAL-B` only.
 **Find it:** `LOCAL-B`, `FIDDLE JOB`
-**Confirm it:** `ops_list` manifest shows the settings. The `LOCAL-B` manifest starts "Brae Branch Lines", prints "Conductor's copy, valid ..." with one apostrophe, and its pick ups are red and set outs blue. `FIDDLE JOB` prints the railroad's own name.
+**Confirm it:** `ops_list` manifest shows the settings. The `LOCAL-B` manifest starts "Brae Branch Lines", prints "Conductor's copy, valid ..." with one apostrophe, and its pick ups are red and set outs blue. `FIDDLE JOB` prints JMRI's default, "My JMRI Railroad", because no railroad name is set in `Operations.xml`.
 **Try this:** `set_manifest_text` valid "Valid {0" is refused by the plugin: "a { must open a numbered argument such as {0}". The changed switch list phrase was not read from a printed switch list.
 
 ### U18. Passenger blocking
@@ -178,7 +178,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **The difficulty:** pool minimum and maximum.
 **How it's done here:** pool `Hollis Pool`: Pool 1 is 100 ft (min 100, max 150), Pool 2 is 300 ft (min 100).
 **Find it:** `Hollis Pool 1`, `Hollis Pool 2`, `Hollis Pool`, `POOX 1901`, `POOX 1902`, `POOX 1903`, `POOX 1904`, `POOX 1905`, `POOX 1906`
-**Confirm it:** session 1 spreads six 40 ft flatcars three and three (the builder alternates by move count), and Pool 1 borrows: saved length Pool 1 132, Pool 2 268 (sum 400, Pool 1 between 100 and 150). `ops_list` tracks shows the pool fields.
+**Confirm it:** session 1 spreads six 40 ft flatcars three and three (the builder alternates by move count), and Pool 1 borrows: saved length Pool 1 132, Pool 2 268 (sum 400, Pool 1 between 100 and 150). `ops_list` tracks shows the pool name; the minimum and maximum lengths are in `OperationsLocationRoster.xml`.
 **Try this:** raise Pool 1 min_length to 350: refused, "its minimum lengths add up to 450, more than its tracks' 400". Removing the pool (`pool {}` on both) gives 2 cars on Pool 1 and 4 on Pool 2.
 
 ### U20. On-time build order
@@ -187,7 +187,7 @@ Every other train list in the railroad uses an `excludeTrains` list (a list of t
 **How it's done here:** departure times 08:45 (`FIDDLE JOB`), 09:00 (`LOCAL-B`), 10:00 (`LOCAL-H`); the option is shipped off.
 **Find it:** `LOCAL-B`, `LOCAL-H`, `FIDDLE JOB`
 **Confirm it:** with on-time off, building `LOCAL-H` and then `LOCAL-B` in separate sessions builds both.
-**Try this:** turn on "Build on time", build `LOCAL-H`, save, then build `LOCAL-B`: `ops_why_not` fails A2 "LOCAL-B departs at minute 540; last built train LOCAL-H departs at minute 600", and JMRI gives status "Error" with no build report (one log line only). Setting `LOCAL-B` to depart at 11 passes A2.
+**Try this:** turn on "Build on time", build `LOCAL-H`, save, then build `LOCAL-B`: `ops_why_not` fails A2 "LOCAL-B departs at minute 540; last built train LOCAL-H departs at minute 600", and JMRI gives status "Error" with no build report (one log line only). Setting `LOCAL-B` to depart at 11 passes A2. The A2 text and the fix come from a state with `LOCAL-H` built and `LOCAL-B` not, which the session tools do not leave behind; the JMRI half is `Train.java` returning before the build.
 
 ### U21. Divisions
 
@@ -238,7 +238,7 @@ Each has a car whose route is the example. `ops_why_not` with the train named gi
 
 **Find it:** `Ferris Exchange`, `Carrow Packing`, `Cold Store`, `EAST FREIGHT`, `NORTH JOB`, `JFN 5201`
 **Confirm it:** `ops_why_not` JFN 5201 to Cold Store with `EAST FREIGHT`: can_move true, router "two trains through interchange Ferris Exchange", path `EAST FREIGHT` then `NORTH JOB`, E7, E8, E9 and G12 pass. (first_failure shows D1 "no stop at Northwood after the car's stop on this route", because one train alone cannot do it; can_move follows the router.) Session 1 leaves it on Ferris Exchange with load Produce; session 2 puts it on Cold Store (load E).
-**Try this:** `setup_interchange` Ferris Exchange destinations Include Linden: `ops_plan` is blocked by `interchange-no-exit` and warns `single-destination-schedule`; `ops_why_not` fails G12 "no chain of trains found". In a build the car is sent to Hop instead of waiting.
+**Try this:** `setup_interchange` Ferris Exchange destinations Include Linden: `ops_plan` is blocked by `interchange-no-exit` and warns `single-destination-schedule`; `ops_why_not` fails G12 "no chain of trains found". In a build the car stays at Carrow Packing with no destination.
 
 ### R03. Two trains through a yard
 
@@ -257,7 +257,7 @@ Each has a car whose route is the example. `ops_why_not` with the train named gi
 
 **Find it:** `Hop`, `Linden Pier`, `Carrow Salt Works`, `EAST FREIGHT`, `HOP OUT`, `JFN 5501`, `JFN 5502`
 **Confirm it:** `ops_why_not` JFN 5501 to Linden Pier: router "two trains through staging Hop", can_move true although first_failure is D14 ("12r3 East, Linden Pier West") and G8 fails, and the router's steps say "no track found that a last train can pull to the final destination": in this case `ops_why_not` disagrees with JMRI, which delivers the car. Session 1 `EAST FREIGHT` sets it on Hop; session 2 `HOP OUT` takes it to Linden Pier.
-**Try this:** router option `carRoutingViaStaging` false: router "could not route car" and G12 fails; the real build leaves the car at Carrow Salt Works.
+**Try this:** router option `carRoutingViaStaging` false: router "could not route car" and G12 fails; `EAST FREIGHT` no longer takes the car, and in a full session `LOCAL-B` carries it to Dunmere Yard instead.
 
 ### R06. A Destinations filter as a gate
 
@@ -270,7 +270,7 @@ Each has a car whose route is the example. `ops_why_not` with the train named gi
 
 **Find it:** `Ferris Transfer`, `Northwood Shed`, `NORTH JOB`, `XFRX 1`
 **Confirm it:** session 1 `NORTH JOB` sets XFRX 1 on Ferris Transfer; session 2 the same route pulls it back to Northwood Shed. `ops_why_not` XFRX 1 to Northwood Shed with `NORTH JOB` on the session 1 state: B6 pass "last route 14, this route 14".
-**Try this:** Ferris Transfer pick ups Any on the session 1 state: B6 fails "last route 14, this route 14" and the session 2 build carries nothing.
+**Try this:** Ferris Transfer pick ups Any on the session 1 state: B6 fails "last route 14, this route 14" and the session 2 build leaves XFRX 1 behind.
 
 ### R08. The Routed option
 
@@ -288,13 +288,13 @@ Each has a car whose route is the example. `ops_why_not` with the train named gi
 ### R10. Overflow handled by a pool
 
 **Find it:** `Ferris Pool 1`, `Ferris Pool 2`, `Ferris Pool`, `Carrow Grain Co`, `Grain Elevator`, `OAKX 1`, `OAKX 2`, `OAKX 3`, `OAKX 4`, `OAKX 5`
-**Confirm it:** five 44 ft cars all fit on two 120 ft interchanges (three and two); none is left at Carrow Grain Co. Session 2: all five at Grain Elevator. `ops_list` tracks shows the pool fields.
+**Confirm it:** five 44 ft cars all fit on two 120 ft interchanges (three and two); none is left at Carrow Grain Co. Session 2: all five at Grain Elevator. `ops_list` tracks shows the pool name; the lengths are in `OperationsLocationRoster.xml`.
 **Try this:** remove the pool from both tracks: only OAKX 2 to 5 move (two each) and OAKX 1 is left behind.
 
 ### R11. An A/D track with a switcher
 
 **Find it:** `Kessock A/D`, `Kessock Class 1`, `Kessock Class 2`, `KESSOCK TRANSFER`, `KESSOCK SWITCHER`, `KESX 1`, `KESX 2`, `KESX 3`, `KESX 4`
-**Confirm it:** session 1 `KESSOCK TRANSFER` sets KESX 1 to 4 on Kessock A/D; session 2 `KESSOCK SWITCHER` moves all four to the class tracks, two each. `ops_why_not` KESX 1 to Kessock Class 1: D19 pass.
+**Confirm it:** session 1 `KESSOCK TRANSFER` sets KESX 1 to 4 on Kessock A/D; session 2 `KESSOCK SWITCHER` moves all four to the class tracks, two each. `ops_why_not` KESX 1 to Kessock Class 1 on the session 1 state: D19 pass (on the shipped state it stops at B0, because the car is still at Carrow).
 **Try this:** build option `allowLocalInterchange` false: D19 fails ("switcher True: Interchange to Interchange"), `ops_audit` reports `switcher-local-off` three times and the build moves no cars.
 
 ### R12. A local switcher
@@ -343,7 +343,7 @@ Each has a car whose route is the example. `ops_why_not` with the train named gi
 
 **Find it:** `Turn A`, `Turn B`, `Linden Team`, `TURN`, `TRNX 1`, `TRNX 2`, `TRNX 3`
 **Confirm it:** session 1 `TURN` departs Turn A, TRNX 1 and 2 go to Linden Team, TRNX 3 is picked up at Linden and ends on Turn B. Session 2 departs Turn B, TRNX 1 and 2 end on Turn A and TRNX 3 returns to Linden Team.
-**Try this:** allow_return false alone changes nothing; with HZMX 9 passenger false as well `ops_plan` reports `staging-departure-blocked` and `TURN` fails B20.
+**Try this:** allow_return false alone changes nothing. Then `ops_session update_car` HZMX 9 passenger false is refused with the `staging-departure-blocked` text, and `ops_session` has no way to accept it. Flip the passenger flag first, then allow_return: `ops_plan` reports the same finding and `TURN` fails B20.
 
 ---
 
@@ -353,12 +353,13 @@ Left out of the cases, or open in the plugin:
 
 - A permanent custom load lost on arrival in staging is an open failure in the research, so no case builds it.
 - `ops_why_not` gaps: it does not apply "service all cars with a final destination" (R14), reports `can_move` true for a car that real JMRI leaves behind when HZMX 9 is not passenger, and with local moves off alone it reports G3 failing for a switcher that real JMRI still moves (U04).
+- `ops_why_not` says A8 passes on a copy where the `MODE` build fails A8 (U13 Try this b).
 - `ops_explain_build` does not show a manual build line (U16); only the report text does.
 - For multi-train routes (R02 to R05) `ops_why_not` reports can_move true from the router while first_failure names D1 (or D14 for R05), and for R05 it disagrees with JMRI, which delivers the car; read the `router` field and the build.
 - `ops_why_not` takes no account of space used by cars placed earlier in the same build (R09: E9 passes before the build, fails in it).
-- The audit's sample car is the first car of the type in the file, so road lists on a destination spur raise `single-destination-schedule` warnings that depend on file order (see Intended audit findings).
+- The audit's sample car is the first car of the type in the file, so road lists on a route raise `single-destination-schedule` warnings that depend on file order (see Intended audit findings).
 - A stand-alone `wait_for_train_to_terminate` for a train the same automation terminated never finishes in JMRI 5.16; a second automation is the way round (U15).
 - The on-time abort in JMRI 5.16 writes no build report, so `ops_explain_build` has nothing to read (U20).
 - Actions that do not exist: a car's final destination, adding a car to a built train, train build and terminate scripts, track type change, and track comments. The showcase uses `ops_deliver_car` for final destinations and names tracks instead of tagging them.
 - Tools return long text: `ops_why_not` lists every gate, `ops_list` cars lists every field of every car. Name the train and track to keep `ops_why_not` short.
-- Interactions kept on purpose: Fiddle and Dunmere Yard take default-E boxcars from other cases after session 1, `Carrow Salt Works` and `Carrow Glass Works` take JFN covered hoppers and boxcars with E, and the `West Staging` trains run out of cars after session 1.
+- Interactions kept on purpose: the Fiddle yard, `Carrow Box Factory` and `Carrow Glass Works` take default-E JFN boxcars from other cases after session 1, `Carrow Salt Works` takes empty JFN covered hoppers, and the `West Staging` trains run out of cars after session 1.
