@@ -793,6 +793,43 @@ class Gates:
             return track, rejected, unsure
         return None, rejected, unsure
 
+    def staging_losses(self, train: Train, track: Track) -> list[str]:
+        """What fails the build once this departure track is chosen: createCarList over every car on it, non-lead
+        kernel cars included. Three cases throw (TBB:832-863). Any other car removed fails it in
+        adjustCarsInStaging unless on-time mode is on (TBB:1056-1060), and the load, FRED need, pick up day and
+        wait tests are waived on this track (TBB:943)."""
+        rr, stops = self.rr, self.rr.stops(train)
+        terminal = stops[-1].location_id if stops else ""
+        on_route = {s.location_id for s in stops}
+        out = []
+        for car in rr.rolling_stock_on(track)[0]:
+            if self._is_clone(car):
+                continue
+            bound = car.destination_id
+            if car.unknown:
+                out.append(f"{car} is marked location unknown")
+            elif car.out_of_service:
+                out.append(f"{car} is out of service")
+            elif bound and bound not in on_route:
+                out.append(f"{car} has a destination off this route")
+            elif rr.option("buildOptions", "onTime"):
+                continue
+            elif car.train_id and car.train_id != train.id:
+                out.append(f"{car} is assigned to another train")
+            elif car.fred and bound and bound != terminal:
+                out.append(f"FRED car {car} is destined short of the terminal")
+            elif car.caboose and bound and bound != terminal and not train.changes_caboose:
+                out.append(f"caboose {car} is destined short of the terminal")
+            elif not (train.accepts_caboose_road(car.road) if car.caboose else train.accepts_road(car.road)):
+                out.append(f"train does not take {car} road {car.road}")
+            elif car.type not in train.types:
+                out.append(f"train does not take {car} type {car.type}")
+            elif not train.accepts_owner(car.owner):
+                out.append(f"train does not take {car} owner {car.owner}")
+            elif not train.accepts_built(car.built):
+                out.append(f"train does not take {car} built {car.built}")
+        return out
+
     def _last_move(self, car: Car) -> datetime:
         """RollingStock.getLastMoveDate. A blank or unreadable date keeps the default, earlier than any real one."""
         text = self.x.car.get(car.id, {}).get("date", "")
@@ -989,7 +1026,10 @@ class Gates:
             elif chosen is None:
                 out.append(gate("A8", FAIL, "; ".join(f"{t.name}: {', '.join(p)}" for t, p in rejected)))
             else:
-                out.append(gate("A8", PASS, f"can depart from {chosen.name}, the first usable track by moves"))
+                losses = self.staging_losses(train, chosen)
+                out.append(gate("A8", not losses, f"{chosen.name} is chosen, and then the build fails: "
+                                f"{', '.join(losses)}" if losses else
+                                f"can depart from {chosen.name}, the first usable track by moves"))
         else:
             out.append(gate("A8", PASS, "train does not start in staging"))
         out.append(self._engine_gate(train))
@@ -1238,7 +1278,8 @@ class Gates:
             name = chosen.name if chosen else next((t.name for t, _ in unsure), "another track")
             return self._gate("B20", FAIL, f"the train departs from {name}, the first usable track by moves, "
                                            f"and leaves the cars on {track.name}")
-        return self._gate("B20", PASS, f"{track.name} can depart, the first usable track by moves")
+        losses = self.staging_losses(train, track)
+        return self._gate("B20", not losses, ", ".join(losses) or f"{track.name} can depart, the first usable track by moves")
 
     def _pickup_gates(self, car: Car, train: Train, stops: list[Stop], stop: Stop | None,
                       goal: Stop | None, target: Track | None = None) -> list[dict]:

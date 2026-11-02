@@ -258,5 +258,71 @@ class DepartureTrack(Review):
         self.assertEqual(self.gate(out, "B20")["status"], "not_checked")
 
 
+class WholeTrack(Review):
+    """createCarList runs over every car on the departure track: one lost fails the build (TBB:832-906, 1056-1060)."""
+
+    def fails_the_build(self, change):
+        def both(x):
+            turn_ends_at_carrow(x)
+            change(x)
+        folder = self.scenario(both)
+        out = self.why_not(folder, "TRNX 1", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "fail", self.gate(out, "A8")["reason"])
+        self.assertEqual(self.gate(out, "B20")["status"], "fail")
+        self.assertFalse(out["can_move"])
+        gates = Gates(ops_data.load(folder))
+        self.assertIn("A8", [g["gate"] for g in gates.build_blockers(gates.rr.find_train("TURN"))])
+        return folder
+
+    def test_an_out_of_service_car(self):
+        """Real build failed: buildErrorLocationOutOfService."""
+        self.fails_the_build(lambda x: x.car("TRNX2").set("outOfService", "true"))
+
+    def test_a_car_of_unknown_location(self):
+        self.fails_the_build(lambda x: x.car("TRNX2").set("locUnknown", "true"))
+
+    def test_a_caboose_of_an_excluded_road(self):
+        """Real build failed: buildErrorNotAllCars, after TBB:906 removes JFN 777."""
+        def change(x):
+            x.add_car("TSTC777", "JFN1301", roadNumber="777", locationId="1", secLocationId="1s5")
+            x.train("17").set("cabooseRoadOption", "Exclude")
+            ET.SubElement(ET.SubElement(x.train("17"), "cabooseRoads"), "carRoad", name="JFN")
+        self.fails_the_build(change)
+
+    def test_a_fred_car_bound_short_of_the_terminal(self):
+        """Real build failed: a FRED car with a destination that is not the terminal is removed (TBB:870)."""
+        self.fails_the_build(lambda x: x.add_car("TSTF777", "TRNX1", roadNumber="777", fred="true",
+                                                 destinationId="7", secDestinationId="7s2"))
+
+    def test_a_non_lead_kernel_car_of_an_excluded_road(self):
+        """Real build failed: A8 skips non-lead kernel cars, createCarList does not."""
+        def change(x):
+            x.train("17").set("carRoadOption", "Exclude")
+            ET.SubElement(ET.SubElement(x.train("17"), "carRoads"), "carRoad", name="ZZZ")
+            x.car("HZMX12").set("roadName", "ZZZ")
+        self.fails_the_build(change)
+
+    def test_on_time_mode_loses_only_that_car(self):
+        """TBB:1056: a removal fails the build only when on-time mode is off."""
+        def change(x):
+            turn_ends_at_carrow(x)
+            x.options(onTime="true")
+            x.train("17").set("carRoadOption", "Exclude")
+            ET.SubElement(ET.SubElement(x.train("17"), "carRoads"), "carRoad", name="ZZZ")
+            x.car("HZMX12").set("roadName", "ZZZ")
+        out = self.why_not(self.scenario(change), "TRNX 1", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "pass")
+        self.assertEqual(self.gate(out, "B20")["status"], "pass")
+
+    def test_on_time_mode_still_fails_on_an_out_of_service_car(self):
+        """buildErrorLocationOutOfService is thrown whatever the mode (TBB:843-850)."""
+        def change(x):
+            turn_ends_at_carrow(x)
+            x.options(onTime="true")
+            x.car("TRNX2").set("outOfService", "true")
+        out = self.why_not(self.scenario(change), "TRNX 1", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "fail")
+
+
 if __name__ == "__main__":
     unittest.main()
