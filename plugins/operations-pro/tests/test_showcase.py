@@ -896,14 +896,15 @@ class HopKessockSawyerCases(unittest.TestCase):
         for chain in SESSIONS:
             self.assertFalse([c for c in chain[0]["cars"]["EAST FREIGHT"] if c.startswith("WSTX1")])
             self.assertIn("WSTX1 > Carrow / Carrow West Lead", chain[0]["cars"]["HOP OUT"])
-        self.assertEqual(why_not(SHOWCASE, "WSTX 1", "Carrow", None, "EAST FREIGHT")["first_failure"]["gate"], "C9")
+        self.assertEqual(why_not(SHOWCASE, "WSTX 1", "Carrow", None, "EAST FREIGHT")["direct_failure"]["gate"], "C9")
         self.assertIsNone(why_not(SHOWCASE, "WSTX 1", "Carrow", None, "HOP OUT")["first_failure"])
 
     @JMRI
     def test_R15_experiment_both_directions(self):
         copy = variant("r15_both", [{"action": "update_track", "track": "Linden Westside", "location": "Linden",
                                      "directions": "East/West"}])
-        self.assertNotEqual(why_not(copy, "WSTX 1", "Carrow", None, "EAST FREIGHT")["first_failure"]["gate"], "C9")
+        answer = why_not(copy, "WSTX 1", "Carrow", None, "EAST FREIGHT")
+        self.assertNotEqual((answer["first_failure"] or answer["direct_failure"] or {}).get("gate"), "C9")
         session = run_chain(copy, _fresh(TMP / "r15_run"), 1)[0]
         self.assertIn("WSTX1 > East Staging / Hop", session["cars"]["EAST FREIGHT"])
 

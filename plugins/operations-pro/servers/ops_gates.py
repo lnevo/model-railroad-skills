@@ -1562,13 +1562,24 @@ class Gates:
         path = self.route_path(car, chosen_track) if self._router_eligible(car) else None
         # A home division the destination is not in (C12) holds the car whichever train or chain is tried.
         stuck = [g["gate"] for g in failed if g["gate"] in ANY_TRAIN or g["gate"] == "C12"]
+        can_move = not failed or (bool(path) and not stuck)
+        gates = self._same_build_room(car, chosen_track, gates)
+        notes = self._staging_stay_note(car, chosen_train, dest, chosen_track) if can_move else []
+        notes += self._service_all_note(car, chosen_train, gates)
+        if not train and len(trains) > 1:
+            notes.append(f"No train was named, so {chosen_train.name} is shown: it had the fewest failing gates of the "
+                         f"{len(trains)} trains. Name the train you expect for that train's own answer.")
         return {
             "car": str(car), "type": car.type, "load": car.load,
             "at": self._where(car), "destination": dest.name, "track": chosen_track.name,
-            "train": chosen_train.name, "can_move": not failed or (bool(path) and not stuck),
+            "train": chosen_train.name, "can_move": can_move,
             "direct": not failed, "routing": self.routing_mode(car), "router_path": path,
             "router": ops_router.router_detail(self, car, chosen_track, chosen_train),
-            "first_failure": failed[0] if failed else None,
+            # first_failure answers "why can't it move", so it is empty when it can. direct_failure says why
+            # this train cannot do the whole trip alone when the router chains others (see router_path).
+            "first_failure": failed[0] if failed and not can_move else None,
+            "direct_failure": failed[0] if failed and can_move else None,
+            "notes": notes,
             "gates": gates,
             "other_trains": [
                 {"train": t.name, "track": k.name, "first_failure": _first(g)} for t, k, g in table[1:]],
@@ -1583,6 +1594,48 @@ class Gates:
                     "A8) read a real JMRI build of these files when JMRI is installed, and stay not_checked "
                     "otherwise." + (f" {build_note}" if build_note else ""),
         }
+
+    def _staging_stay_note(self, car: Car, train: Train, dest: Location, track: Track) -> list[str]:
+        """TBC:1904-1914: a car sent back to its own staging location does not ride unless it is exempt."""
+        stops = self.rr.stops(train)
+        here = self.rr.locations.get(car.location_id)
+        origin = next((s for s in stops if s.location_id == car.location_id), None)
+        allowed = train.allow_return or self.rr.option("buildOptions", "allowReturnStaging")
+        if (origin is None or here is None or not here.is_staging or dest.id != here.id or not track.is_staging
+                or not allowed or not origin.drops or self._is_switcher(train) or _exempt(car)):
+            return []
+        return [f"{car} does not ride: JMRI leaves it in staging and shows a local move on the manifest, "
+                f"{self.rr.tracks[car.track_id].name} to {track.name}. Only a car flagged passenger, a caboose or a "
+                "car with FRED rides out and back."]
+
+    def _service_all_note(self, car: Car, train: Train, gates: list[dict]) -> list[str]:
+        """What a stop or train short of moves or length does to a car with a final destination. Off, the
+        router keeps it for this train (R:282-286, TBC:1420-1421); on, it may go by another way (R:307-315)."""
+        short = [g["gate"] for g in gates if g["gate"] in ("D3", "D9", "G10") and g["status"] != PASS]
+        if not car.fd_id or not short:
+            return []
+        if train.service_all:
+            return [f"Service all cars with a final destination is on for {train.name}: if the train runs short "
+                    f"({', '.join(short)}), the car moves part way, to a track that takes it on the train's route."]
+        return [f"Service all cars with a final destination is off for {train.name}: if the train runs short "
+                f"({', '.join(short)}), the car stays where it is for a later train or build."]
+
+    def _same_build_room(self, car: Car, track: Track, gates: list[dict]) -> list[dict]:
+        """E9 reads the files, so it cannot see cars the same build places first. Cars already aimed at the
+        track show when that could matter, though the real order is the build's."""
+        rr = self.rr
+        if track.id in (car.track_id, car.dest_track_id):
+            return gates
+        others = [c for c in rr.cars.values() if c.id != car.id and c.track_id != track.id and not self._is_clone(c)
+                  and track.id in (c.fd_track_id, c.dest_track_id)]
+        spare = track.length - rr.used_length(track) - self._reserved(track) - rr.kernel_length(car)
+        wanted = sum(rr.car_length(c) or 0 for c in others)
+        if not others or wanted <= spare:
+            return gates
+        return [ops_build_state.port_gate(self._open("E9", f"{g['reason']}; {len(others)} other cars are bound for "
+                                                           f"{track.name} and need {wanted}, so it depends on which "
+                                                           "the build takes first"))
+                if g["gate"] == "E9" and g["status"] == PASS else g for g in gates]
 
     def _filter_reason(self, track: Track, dest: Location) -> str:
         """The Destinations filter as the window shows it. The ids are always the accepted ones (Exclude

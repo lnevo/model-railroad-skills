@@ -65,3 +65,66 @@ class RouterGates(Faults):
         car.fd_id, car.fd_track_id = rr.find_location("Sawyer").id, rr.find_track("Sawyer Pasta Plant").id
         out = Gates(rr).why_not(car, "Sawyer", "Sawyer Pasta Plant", "SAWYER SWITCHER", False)
         self.assertFalse(out["can_move"])
+
+
+class StagingReturn(Faults):
+    def test_a_car_left_in_staging_is_said_to_stay(self):
+        """U22: JMRI logs Leave car in staging and makes a local move, Turn A to Turn B (TBC:1904-1914)."""
+        out = self.why_not(self.copy([{"action": "update_car", "car": "HZMX 9", "passenger": False}]),
+                           "HZMX 9", "West Staging", "Turn B", "TURN")
+        self.assertTrue(out["can_move"])
+        self.assertTrue(any("does not ride" in note for note in out["notes"]), out["notes"])
+
+    def test_a_passenger_car_rides(self):
+        out = self.why_not(SHOWCASE, "HZMX 9", "West Staging", "Turn B", "TURN")
+        self.assertTrue(out["can_move"])
+        self.assertEqual(out["notes"], [])
+
+
+class Chains(Faults):
+    def test_a_car_the_router_can_chain_has_no_first_failure(self):
+        for car, place, track, train in (("JFN 5401", "Northwood", "Northwood Steel", "LOCAL-H"),
+                                         ("JFN 5501", "Linden", "Linden Pier", None)):
+            with self.subTest(car=car):
+                out = self.why_not(SHOWCASE, car, place, track, train)
+                self.assertTrue(out["can_move"])
+                self.assertFalse(out["direct"])
+                self.assertIsNone(out["first_failure"])
+                self.assertIn(out["direct_failure"]["gate"], ("D1", "D14"))
+
+    def test_a_failure_stays_first_failure_when_the_car_cannot_move(self):
+        out = self.why_not(self.copy([{"action": "update_track", "location": "Ferris Junction", "track": "Ferris Relay",
+                                       "destinations": {"option": "Include", "locations": ["Linden"]}}]),
+                           "JFN 5401", "Northwood", "Northwood Steel", "LOCAL-H")
+        self.assertFalse(out["can_move"])
+        self.assertIsNotNone(out["first_failure"])
+
+
+class ServiceAll(Faults):
+    def test_the_setting_changes_the_answer(self):
+        """R14: with the stop short of moves, off holds the car (R:282-286) and on sends it part way (R:307-315)."""
+        notes = {}
+        for flag in (False, True):
+            copy = self.copy([{"action": "update_stop", "route": "EAST FREIGHT", "stop": 3, "max_moves": 1},
+                              {"action": "update_train", "train": "EAST FREIGHT", "service_all": flag}])
+            notes[flag] = self.why_not(copy, "JFN 6402", "Linden", "Linden Glazier", "EAST FREIGHT")["notes"]
+        self.assertTrue(any("stays where it is" in n for n in notes[False]), notes[False])
+        self.assertTrue(any("part way" in n for n in notes[True]), notes[True])
+
+    def test_no_note_for_a_car_without_a_final_destination(self):
+        out = self.why_not(SHOWCASE, "HZMX 9", "West Staging", "Turn B", "TURN")
+        self.assertFalse([n for n in out["notes"] if "service all" in n.lower()])
+
+
+class SameBuild(Faults):
+    def test_room_taken_by_cars_bound_for_the_same_track_is_open(self):
+        """R09: four 44 foot cars aim at a 100 foot spur, so room depends on who the build takes first."""
+        out = self.why_not(SHOWCASE, "JFN 5901", "Oakhaven", "Oakhaven Plant", "LOCAL-H")
+        gate = self.gate(out, "E9")
+        self.assertEqual(gate["status"], "not_checked")
+        self.assertIn("3 other cars", gate["reason"])
+        self.assertTrue(out["can_move"])
+
+    def test_room_is_a_pass_when_nothing_else_targets_the_track(self):
+        out = self.why_not(SHOWCASE, "JFN 401", "Sawyer", "Sawyer Pasta Plant", "SAWYER SWITCHER")
+        self.assertEqual(self.gate(out, "E9")["status"], "pass")
