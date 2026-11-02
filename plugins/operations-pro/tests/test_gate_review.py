@@ -324,5 +324,32 @@ class WholeTrack(Review):
         self.assertEqual(self.gate(out, "A8")["status"], "fail")
 
 
+class Locomotives(Review):
+    @staticmethod
+    def one_engine(x):
+        x.train("1").set("numberEngines", "1")
+        x.engine("JFN55").attrib.update(locationId="1", secLocationId="1s1")
+
+    def no_diesel(self, x, location="3"):
+        for track in x.root("locations").find(f"./locations/location[@id='{location}']").findall("track"):
+            for kind in track.find("types").findall("locoType"):
+                track.find("types").remove(kind)
+
+    def test_a_terminal_that_refuses_the_locomotive_is_not_a_pass(self):
+        """Real build failed: every Carrow track refused JFN 55 on type, so getEngines left West Custom unused
+        and no staging track remained (TBE:818-866, TB:241-247). The port leaves that to the build."""
+        def change(x):
+            self.one_engine(x)
+            self.no_diesel(x)
+        out = self.why_not(self.scenario(change), "JFN 601", "Carrow", None, "CUSTOM")
+        self.assertEqual(self.gate(out, "A8")["status"], "not_checked")
+        self.assertIn("Carrow", self.gate(out, "A8")["reason"])
+        self.assertEqual(self.gate(out, "B20")["status"], "not_checked")
+
+    def test_a_terminal_that_takes_it_stays_a_pass(self):
+        out = self.why_not(self.scenario(self.one_engine), "JFN 601", "Carrow", None, "CUSTOM")
+        self.assertEqual(self.gate(out, "A8")["status"], "pass")
+
+
 if __name__ == "__main__":
     unittest.main()
