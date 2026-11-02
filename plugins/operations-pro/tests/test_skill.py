@@ -139,6 +139,16 @@ class SkillTest(unittest.TestCase):
         readme = (ROOT / "README.md").read_text()
         self.assertNotIn("train schedule days, manual", readme)
 
+    def test_engine_division_control_creator_and_train_option_actions_are_in_the_references(self):
+        import ops_actions
+        source = (ROOT / "servers" / "ops_actions_more.py").read_text()
+        names = re.findall(r"@action\([^)]*\)\ndef ([a-z_]+)", source)
+        self.assertEqual(len(names), 4)
+        self.assertTrue(all(n in ops_actions.ACTIONS for n in names))
+        text = "".join(p.read_text() for p in (SKILL / "references").glob("*.md"))
+        self.assertEqual([n for n in names if f"`{n}`" not in text], [])
+        self.assertNotIn("The control limits (field lengths) and the day name mapping are not written", text)
+
     def test_readme_counts_match_code(self):
         import ops_actions
         text = (ROOT / "README.md").read_text()

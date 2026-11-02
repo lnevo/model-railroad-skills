@@ -798,6 +798,25 @@ class Railroad:
                 prefix, setting = node.get("prefix", prefix), node.get("setting", setting)
             self.manifest[name] = ManifestSetting(name, {"prefix": prefix, "fields": paper.tokens(setting)},
                                                   node is not None)
+        for which, (tag, children) in paper.CREATORS.items():
+            node = options.find(tag) if options is not None else None
+            values, held = {}, False
+            for child, (key, default) in children.items():
+                found = node.find(child) if node is not None else None
+                held = held or found is not None
+                values[key] = found.get("name", default) if found is not None else default
+            self.manifest[f"creator {which}"] = ManifestSetting(f"creator {which}", values, held)
+        control = setup.find("control") if setup is not None else None
+        for key, tag in paper.CONTROL_LENGTHS.items():
+            found = control.find(f"maximumStringLengths/{tag}") if control is not None else None
+            value = found.get("length") if found is not None else None
+            self.manifest[f"control {key}"] = ManifestSetting(
+                f"control {key}", paper.CONTROL_LENGTH_DEFAULTS[tag] if value is None else value, value is not None)
+        for key, (tag, attr, _, default) in paper.CONTROL_OTHER.items():
+            found = control.find(tag) if control is not None else None
+            value = found.get(attr) if found is not None else None
+            self.manifest[f"control {key}"] = ManifestSetting(f"control {key}", default if value is None else value,
+                                                              value is not None)
         self.manifest_texts: dict[str, dict[str, str]] = {}
         for group, (holder, defaults) in paper.TEXTS.items():
             node = setup.find(holder) if setup is not None else None
