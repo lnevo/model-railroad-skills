@@ -351,5 +351,38 @@ class Locomotives(Review):
         self.assertEqual(self.gate(out, "A8")["status"], "pass")
 
 
+class TerminalTrack(Review):
+    @staticmethod
+    def returning(x):
+        x.options(aggressive="true", stagingTrackAvail="true")
+        x.add_car("TSTX777", "TRNX1", roadNumber="777", locationId="7", secLocationId="7s2", load="E")
+
+    def test_a_returning_train_ends_on_its_departure_track(self):
+        """Real build: TRNX 777 assigned to Turn A, occupied at the start (TB:165-167, TBB:137-141)."""
+        out = self.why_not(self.scenario(self.returning), "TRNX 777", "West Staging", "Turn A", "TURN")
+        self.assertEqual(self.gate(out, "D12")["status"], "pass", self.gate(out, "D12")["reason"])
+        self.assertTrue(out["can_move"], out["first_failure"])
+
+    def test_not_on_the_other_track(self):
+        out = self.why_not(self.scenario(self.returning), "TRNX 777", "West Staging", "Turn B", "TURN")
+        self.assertEqual(self.gate(out, "D12")["status"], "fail")
+        self.assertIn("Turn A", self.gate(out, "D12")["reason"])
+
+    def test_only_the_first_accepted_track_is_offered(self):
+        """Real build: East Swap, the fewest moves of the two that pass, is the track at East Staging (TB:170-176)."""
+        def change(x):
+            x.track("2s1").set("moves", "9")
+            x.track("2s2").set("dropOption", "Any")
+        folder = self.scenario(change)
+        gates = Gates(ops_data.load(folder))
+        train = gates.rr.find_train("MIXED")
+        self.assertEqual(gates.terminal_choice(train)[0].name, "East Swap",
+                         [(t.name, gates.terminal_track_problems(train, t)) for t in gates.rr.find_location("East Staging").tracks])
+        self.assertEqual(self.gate(self.why_not(folder, "JFN 611", "East Staging", "East Mixed", "MIXED"), "D12")["status"],
+                         "fail")
+        self.assertEqual(self.gate(self.why_not(folder, "JFN 611", "East Staging", "East Swap", "MIXED"), "D12")["status"],
+                         "pass")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -94,7 +94,7 @@ Setter names are the Java methods, useful when reading a build report or the sou
 | D9 | Train length through the leg. The locomotives and a required caboose or FRED car are aboard before any car, so they count from the start. A failure ends the search for this car | Edit Route, Max Length |
 | D10 | Through cars allowed, origin to terminal | Build Options, Allow cars to travel from origin to terminal |
 | D11 | Send to terminal: cars picked up after the origin go only to the terminal | Build Options, Send all car pick ups to terminal |
-| D12 | Terminal staging: only the assigned track | Empty the staging track |
+| D12 | Terminal staging: only the one track the train terminates on, the first by moves that passes A7. A train returning to its own staging in aggressive mode with immediate availability terminates on its departure track, occupied or not | Empty the staging track |
 | D13 | Not the same split track name, unless passenger, caboose or FRED | Track name |
 | D14 | Track direction, and an alternate must share a direction with its spur. A local switcher is exempt from both, and the train's terminating staging track from both: only the location's direction (D8) counts there | Track Train direction |
 | D15 | Interchange or spur Set outs list admits this train. Yards return Any | Track Set outs list |

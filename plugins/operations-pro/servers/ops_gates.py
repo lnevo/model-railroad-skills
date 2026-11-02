@@ -793,6 +793,30 @@ class Gates:
             return track, rejected, unsure
         return None, rejected, unsure
 
+    def _returning(self, stops: list[Stop]) -> bool:
+        """Aggressive mode with staging immediately available and a train returning to its own staging: it needs
+        no terminal track of its own and comes back to the departure track (TB:165-167, TBB:137-141)."""
+        rr = self.rr
+        first, last = rr.locations.get(stops[0].location_id), rr.locations.get(stops[-1].location_id)
+        return (first is last and rr.option("buildOptions", "aggressive")
+                and rr.option("buildOptions", "stagingTrackAvail"))
+
+    def terminal_choice(self, train: Train) -> tuple[Track | None, str]:
+        """determineIfTrainTerminatesIntoStaging (TB:150-180), as (track, unsettled). A returning train takes its
+        departure track; otherwise the first track by moves that passes. unsettled names what the files
+        cannot say, and then no track is given."""
+        rr, stops = self.rr, self.rr.stops(train)
+        last = rr.locations.get(stops[-1].location_id) if stops else None
+        tracks = [t for t in self.track_order(last) if t.is_staging] if last else []
+        if len(tracks) > 1 and rr.option("buildOptions", "promptToStagingEnabled"):
+            return None, "the build asks which staging track to use"
+        if stops and self._returning(stops):
+            chosen, _, unsure = self.departure_choice(train)
+            if unsure:
+                return None, "the train returns to its departure track, which the build settles"
+            return chosen, ""
+        return next((t for t in tracks if not self.terminal_track_problems(train, t)), None), ""
+
     def staging_losses(self, train: Train, track: Track) -> list[str]:
         """What fails the build once this departure track is chosen: createCarList over every car on it, non-lead
         kernel cars included. Three cases throw (TBB:832-863). Any other car removed fails it in
@@ -892,14 +916,19 @@ class Gates:
         place = rr.locations.get(start.location_id) if start else None
         if place is None or not engines:
             return []
-        if start is stops[-1] and place.is_staging:
-            # Terminal staging: only the one track, whose choice A7 and D12 report (setEngineDestination's first arm).
-            return []
+        tracks = place.tracks
+        if start is stops[-1] and place.is_staging:  # setEngineDestination's first arm: only the terminal track.
+            if self._returning(stops):
+                return []  # That is this track, and the locomotives are already on it.
+            terminal = self.terminal_choice(train)[0]
+            if terminal is None:
+                return []  # A7 or D12 reports that.
+            tracks = [terminal]
         length = sum(int(e.length) if e.length.isdigit() else 0 for e in engines) + 4 * (len(engines) - 1)
         loco = Car(id="locomotive", road=engines[0].road, number="0", type=engines[0].type, length=str(length))
         kinds = {e.type for e in engines}
         switcher = self._is_switcher(train)
-        takers = [t for t in place.tracks if kinds <= self.x.types.get(t.id, set())
+        takers = [t for t in tracks if kinds <= self.x.types.get(t.id, set())
                   and (not (t.is_interchange or t.is_spur) or t.accepts_drop(train))
                   and (switcher or start.direction & place.dir & t.dir)
                   and all(t.accepts_road(e.road) for e in engines) and self._space(loco, t)["status"] != FAIL]
@@ -1015,8 +1044,7 @@ class Gates:
         out = []
         last = rr.locations.get(stops[-1].location_id)
         first = rr.locations.get(stops[0].location_id)
-        returning = (first is last and rr.option("buildOptions", "aggressive")
-                     and rr.option("buildOptions", "stagingTrackAvail"))
+        returning = self._returning(stops)
         if last is None or not last.is_staging:
             out.append(gate("A7", PASS, "train does not end in staging"))
         elif returning:
@@ -1519,11 +1547,7 @@ class Gates:
         # The train terminates only on a track A7 accepts; there tryStaging refuses a local switcher's own
         # track and otherwise answers through car.checkDestination (D16).
         staged = dest.is_staging and stop is stops[-1] and track.is_staging
-        problems = self.terminal_track_problems(train, track) if staged else []
-        if staged and switcher and not exempt and car.track_id == track.id:
-            problems.append("a switcher cannot set the car out on its own staging track")
-        out.append(gate("D12", not problems, "; ".join(problems) or (
-            "the train can terminate here; table E decides" if staged else "not terminal staging")))
+        out.append(self._terminal_gate(car, train, track, staged, switcher and not exempt))
         same_name = here.split == dest.split and here_track.split == track.split and not exempt
         out.append(gate("D13", not same_name, f"{here_track.name} to {track.name}"))
         final = rr.tracks.get(car.fd_track_id)
@@ -1553,6 +1577,23 @@ class Gates:
         allowed = self._local_track_rule(car, train, here_track, track)
         out.append(gate("D19", allowed, f"switcher {switcher}: {here_track.type} to {track.type}"))
         return out
+
+    def _terminal_gate(self, car: Car, train: Train, track: Track, staged: bool, own_track_refused: bool) -> dict:
+        """D12: the train has one terminal track, chosen before any car (TB:165-176), and tryStaging offers that
+        alone. A local switcher cannot use it for a car already on it (TBB:2579-2587)."""
+        if not staged:
+            return self._gate("D12", PASS, "not terminal staging")
+        chosen, unsettled = self.terminal_choice(train)
+        if unsettled:
+            return self._gate("D12", NOT_CHECKED, unsettled)
+        if chosen is None:
+            return self._gate("D12", FAIL, "; ".join(self.terminal_track_problems(train, track)) or
+                              "no staging track is chosen for this train")
+        if chosen.id != track.id:
+            return self._gate("D12", FAIL, f"the train terminates on {chosen.name}, the only track offered")
+        if own_track_refused and car.track_id == track.id:
+            return self._gate("D12", FAIL, "a switcher cannot set the car out on its own staging track")
+        return self._gate("D12", PASS, "the train terminates here; table E decides")
 
     def _moves_left(self, car: Car, train: Train, stops: list[Stop], origin: Stop, stop: Stop) -> dict:
         """D3: rld.getCarMoves() < rld.getMaxCarMoves() when the car is offered (TBC:1735)."""
