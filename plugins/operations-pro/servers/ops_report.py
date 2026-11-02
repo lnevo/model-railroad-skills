@@ -446,6 +446,8 @@ class Walker:
         self.staging_side: str | None = None  # which staging check is open: the last of depart / terminate seen
         self.previous: Line | None = None
         self.in_train_check = False  # inside Train.isServiceable, which only the router prints (Router:265)
+        self.fred_road = ""  # the road the FRED search asks for (TBC:231)
+        self.fred_car = ""  # the car the FRED search is looking at (TBC:241)
 
     def run(self) -> dict:
         for line in self.lines:
@@ -485,6 +487,9 @@ class Walker:
         key, r = line.key, self.report
         if key in ("buildCarIsCaboose", "buildCarHasFRED"):  # TrainBuilderCars caboose and FRED search
             r.setdefault("cabooses", []).append(line.f(0))
+            self.fred_car = line.f(0) if key == "buildCarHasFRED" else ""
+        if key == "buildTrainReqFred":
+            self.fred_road = line.f(1)
         if key in ("buildNoteCaboose", "buildNoteCaboose2"):  # notes under the caboose failure
             r["requirements"].append(line.text)
             return
@@ -726,6 +731,13 @@ class Walker:
             row["fix"] = (f"{gate}: {GATES[gate][0]}. The train needs no caboose or FRED car here, so the builder "
                           "drops this one; nothing refused it. Fix: Edit Train, Requires, only if this train "
                           "should take it.")
+        elif line.key == "buildExcludeCarWrongRoad" and line.f(0) == self.fred_car:
+            # TBC:270 prints the road-option line for a FRED car that is not the road the train asks for.
+            gate = "B17"
+            row.update(gate=gate, required_road=self.fred_road, note=f"the train asks for a FRED car of road "
+                       f"{self.fred_road}; its Road option does not come into it",
+                       fix=f"{gate}: {GATES[gate][0]}. Fix: Edit Train, the road named for the FRED car, or put a "
+                           f"{self.fred_road} FRED car at this stop.")
         self.report["excluded_cars"].append(row)
         self.last_excluded = row
 
@@ -889,14 +901,18 @@ def _caboose_cause(report: dict, stories: list[dict], failure: dict) -> str:
     failure; B17 on its own points at Requires, which is rarely the fix."""
     at = failure.get("at", "")
     flagged = set(report.get("cabooses", []))
+    wrong_road = [row for row in report["excluded_cars"] if row.get("required_road")]
     rows = [(row["car"], row["gate"]) for row in report["excluded_cars"]
             if row["gate"] and row["gate"] != "B17" and (not at or at in row["text"])]
     rows += [(s["car"], g) for s in stories if s["outcome"] == PICKUP_REFUSED for g in s.get("gates", [])
              if g != "B17"]
     if flagged:
         rows = [r for r in rows if r[0] in flagged]
+    named = (f"{', '.join(row['car'] for row in wrong_road)} is not road {wrong_road[0]['required_road']}, the road "
+             "this train asks for its FRED car. Fix: Edit Train, that road, or put such a car at the stop."
+             ) if wrong_road else ""
     if not rows:
-        return ""
+        return named
     by_gate: dict[str, list[str]] = {}
     for car, gate in rows:
         if car not in by_gate.setdefault(gate, []):
@@ -905,7 +921,7 @@ def _caboose_cause(report: dict, stories: list[dict], failure: dict) -> str:
     which = "the cabooses or FRED cars there" if flagged else f"cars at {at or 'the departure'}"
     return (f"No caboose or FRED car could be taken: {which} were refused, "
             + "; ".join(f"{g} {', '.join(cars)}" for g, cars in by_gate.items())
-            + f". Fix that, not Requires: {gate_fix(gate)}")
+            + f". Fix that, not Requires: {gate_fix(gate)}" + (f" {named}" if named else ""))
 
 
 def summarize(report: dict, stories: list[dict]) -> list[str]:

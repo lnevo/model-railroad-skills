@@ -35,6 +35,28 @@ class ReportReader(unittest.TestCase):
                   "does not match: type(Boxcar) schedule() road() receive(Coal)")
         self.assertEqual(ops_report.status_gate(status)[0], "E10")
 
+    FRED_ROAD = ("1- Train (LOCAL-B) requires car with FRED, road (UP) departing (Carrow) destination (Carrow)",
+                 "5- Car (BOXX 999) has a FRED, road (BOXX) at location (Carrow, Carrow Yard)",
+                 "7- Exclude car (BOXX 999) at (Carrow, Carrow Yard) type (Boxcar)  (F) train doesn't service road (BOXX)",
+                 "1- Train (LOCAL-B) requires FRED, can't meet requirements at departure (Carrow) and/or "
+                 "termination (Carrow)",
+                 "1- Build failed for train (LOCAL-B)")
+
+    def test_fred_wrong_road_is_the_required_road_not_the_road_option(self):
+        """TBC:270 reuses buildExcludeCarWrongRoad for a car that is not the road the train asks for; TBB:908,
+        the same text, is the Road option. Only the first follows buildCarHasFRED, and there the fix is the
+        required road, not B9."""
+        report = parsed(*self.FRED_ROAD)
+        self.assertEqual(report["excluded_cars"][0]["gate"], "B17")
+        summary = " ".join(ops_report.explain("\n".join(self.FRED_ROAD) + "\n")["summary"])
+        self.assertNotIn("B9", summary)
+        self.assertIn("road UP", summary)
+
+    def test_a_road_option_refusal_stays_b9(self):
+        report = parsed("7- Exclude car (BOXX 999) at (Carrow, Carrow Yard) type (Boxcar)  (F) train doesn't "
+                        "service road (BOXX)")
+        self.assertEqual(report["excluded_cars"][0]["gate"], "B9")
+
 
 if __name__ == "__main__":
     unittest.main()
