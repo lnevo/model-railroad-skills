@@ -102,10 +102,11 @@ def _int_field(name: str, value, minimum: int = 0, maximum: int = JAVA_INT[1]) -
 # file names (build report, manifest, switch list), where every one but "." breaks the file. The "."
 # rule is only the edit window's, so it is let through.
 FILE_CHARS = '<>:"\\/|?*'
-# Control.java: the edit windows' name lengths, which Operations.xml can raise under <control>.
+# Control.java: the edit windows' name lengths, which Operations.xml can raise under <control>. A schedule
+# name has none here: add_industry and mirror_schedule make theirs from a track name.
 NAME_LIMITS = {"location": ("max_len_string_location_name", 25), "track": ("max_len_string_track_name", 25),
                "train": ("max_len_string_train_name", 25), "route": ("max_len_string_route_name", 25),
-               "schedule": ("max_len_string_location_name", 25), "type": ("max_len_string_attibute", 12),
+               "type": ("max_len_string_attibute", 12),
                "load": ("max_len_string_attibute", 12), "road": ("max_len_string_attibute", 12),
                "road number": ("max_len_string_road_number", 10)}
 SPLIT_LIMIT = ("location", "track", "type", "load", "road", "road number")  # Checked on the part before "-".
@@ -309,7 +310,7 @@ class Editor:
             part = split_name(name)
         else:
             part = name
-        limit = self.name_limit(kind)
+        limit = self.name_limit(kind) if kind in NAME_LIMITS else len(part)
         if len(part) > limit:
             raise Refused(f"A {kind} name can be at most {limit} characters{' before a hyphen' if part != name else ''}"
                           f" in JMRI's windows; {part!r} has {len(part)}")

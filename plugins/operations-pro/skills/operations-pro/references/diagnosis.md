@@ -128,6 +128,8 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `consist-split` | Consist members on different tracks; a train taking the lead adds the others at the lead's stop, wherever they sit |
 | `pool-minimum-over-length` | A pool whose track minimums add up to more than its tracks' lengths, JMRI's "ERROR: Minimum > Length" |
 | `file-missing`, `file-unreadable` | A roster file that is gone or will not parse; the audit read it as empty, and JMRI would load nothing from it and could save the empty roster over it. Put that one file back with `ops_restore` and `file` |
+| `file-number` | A schedule line's count, wait, sequence or hits that Java cannot read as an int (above 2147483647, a fraction, text). JMRI stops loading the location file, and its next save erases every schedule from there on. Keep JMRI closed and fix the value |
+| `leg-stop` | A train's leg 2 or 3 starts or ends at a stop that is not on its route. JMRI drops the stop and the leg's change fails the build; set the leg again with `set_train_leg` |
 
 ## When the report and the tools disagree
 
