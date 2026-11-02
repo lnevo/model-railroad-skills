@@ -209,6 +209,15 @@ class ScheduleRules(AuditCase):
         edits.car("BOXX1").attrib.update(locationId="3", secLocationId="3s11", load="L")
         self.assertEqual(len(self.findings(edits, "schedule-not-applied")), 1)
 
+    def test_a_fixed_track_that_refuses_the_car_is_reported(self):
+        """Car.java:891-892 sends the car to the line's track, so another track at that place is no help:
+        Dunmere Dairy refused Covered Hopper while Dunmere Yard takes it."""
+        edits = self.edits()
+        edits.drop_type(edits.track("5s2"), "Covered Hopper")
+        found = self.findings(edits, "single-destination-schedule")
+        self.assertEqual([f["subject"] for f in found], ["Feed Mill Loading"])
+        self.assertIn("Dunmere Dairy", found[0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

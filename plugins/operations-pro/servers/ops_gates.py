@@ -1888,11 +1888,15 @@ class Audit:
             for item in schedule.items:
                 if not item.ship or rr.is_default_load(item.ship):
                     continue
+                # A line that names a track sends the car there and nowhere else (Car:891-892).
+                fixed = rr.tracks.get(item.dest_track_id)
+                fixed = fixed if fixed and dest and fixed.location_id == dest.id else None
                 takers = [t for t in rr.tracks.values() if t.location_id == (dest.id if dest else "")
-                          and self._track_takes(t, item.type, item.ship)]
+                          and (fixed is None or t is fixed) and self._track_takes(t, item.type, item.ship)]
                 if not takers:
+                    there = f"{fixed.name}, the line's track, does not take" if fixed else "no track there takes"
                     yield _finding("single-destination-schedule", "warning", schedule.name,
-                                   f"Every line sends cars to {where}, and no track there takes "
+                                   f"Every line sends cars to {where}, and {there} "
                                    f"{item.type} with {item.ship}, so they cannot be delivered.", SCHEDULE,
                                    "Leave Destination blank on a line so the search picks one, or let a track there take the load")
                     break
