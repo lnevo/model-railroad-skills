@@ -7,8 +7,8 @@ import xml.etree.ElementTree as ET
 from ops_data import ALL, DIRECTIONS, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, ROUTES, STAGING, TRAINS, java_int
 from ops_store import Refused
 from ops_actions import (Editor, SETUP_FILE, STOP_RANDOM, TRACK_CHILDREN, TRAIN_CHILDREN, action, _bool, _check_train_power, _day,
-                         _day_id, _indent, _int_field, _mask, _next, _no_choice, _place, _remove_types, _set_active,
-                         _set_day_trains, _set_list, _yes)
+                         _day_id, _dict, _indent, _int_field, _mask, _names, _next, _no_choice, _place, _remove_types, _set_active,
+                         _set_day_trains, _set_list, _text, _yes)
 
 
 # ---- Routes and trains --------------------------------------------------------------
@@ -19,6 +19,7 @@ STOP_FIELDS = {"direction", "max_moves", "max_length", "pickups", "drops", "loca
 
 
 def _stop_values(element: ET.Element, stop: dict) -> None:
+    _dict("A route stop", stop)
     unknown = set(stop) - STOP_FIELDS - {"location"}
     if unknown:
         raise Refused(f"Unknown stop fields: {', '.join(sorted(unknown))}")
@@ -32,14 +33,14 @@ def _stop_values(element: ET.Element, stop: dict) -> None:
         if key in stop:
             element.set(attr, str(_int_field(key, stop[key])))
     if "comment" in stop:
-        element.set("comment", str(stop["comment"]))
+        element.set("comment", _text("A stop's comment", stop["comment"]))
     if "random" in stop:
         random = str(stop["random"])
         if random not in STOP_RANDOM:
             raise Refused(f"random must be Off or 10 to 100 by tens, not {random!r}")
         element.set("randomControl", random)
     if "depart_time" in stop:
-        element.set("departTime", stop["depart_time"])
+        element.set("departTime", _text("depart_time", stop["depart_time"]))
     for key, attr in (("pickups", "pickups"), ("drops", "drops"), ("local_moves", "localMoves")):
         if key in stop:
             element.set(attr, _yes(stop[key]))
@@ -64,6 +65,8 @@ def _stop_defaults(ed: Editor, place: ET.Element) -> dict[str, str]:
 
 
 def _new_stop(ed: Editor, route: ET.Element, number: int, sequence: int, stop: dict) -> ET.Element:
+    if not isinstance(stop, dict) or "location" not in stop:
+        raise Refused(f"Each stop needs a location, as {{\"location\": ...}}, not {stop!r}")
     place = ed.location(stop["location"])
     defaults = _stop_defaults(ed, place)
     element = ET.Element("location", {
@@ -85,8 +88,9 @@ def add_route(ed: Editor, name: str, stops: list[dict], comment: str = "") -> st
     name = ed.check_name("route", name)
     if name in [r.get("name") for r in ed.routes()]:
         raise Refused(f"Route {name!r} already exists")
-    if not stops:
-        raise Refused("A route needs at least one stop")
+    _text("comment", comment)
+    if not isinstance(stops, (list, tuple)) or not stops:
+        raise Refused("A route needs at least one stop, given as a list")
     holder = ed.section(ed.route_root, "routes")
     identity = str(_next(r.get("id") for r in ed.routes()))
     element = ET.SubElement(holder, "route", {"id": identity, "name": name, "comment": comment})
@@ -101,6 +105,10 @@ def update_stop(ed: Editor, route: str, stop: str | int, **fields) -> str:
     """Change a route stop, named by location or by position from 1. A location the route revisits needs the position."""
     element = ed.route(route)
     stops = sorted(element.findall("location"), key=lambda s: int(s.get("sequenceId", 0)))
+    if not fields:
+        raise Refused("Nothing to change")
+    if isinstance(stop, bool) or not isinstance(stop, (int, str)):
+        raise Refused(f"stop must be a location name or a position from 1, not {stop!r}")
     if isinstance(stop, int):
         if not 1 <= stop <= len(stops):
             raise Refused(f"Route has {len(stops)} stops")
@@ -215,6 +223,8 @@ def _train_value(ed: Editor, key: str, value) -> str:
         if number > top:
             raise Refused(f"{key} must be 0 to {top}, not {value!r}")
         return f"{number:02d}"
+    if key in ("description", "comment", "engine_road", "engine_model", "caboose_road"):
+        return _text(key, value)
     if key in ("built_start", "built_end"):
         text = "" if value is None else str(value).strip()
         if text and (isinstance(value, bool) or not text.isdigit() or java_int(text) is None):
@@ -235,20 +245,21 @@ def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> list[str]:
             element.set(TRAIN_FLAGS[key], _bool(value))
         elif key in TRAIN_LISTS:
             attr, tag, item = TRAIN_LISTS[key]
+            value = _dict(key, value)
             option = value.get("option", ALL)
             if option not in (ALL, INCLUDE, EXCLUDE):
                 raise Refused("option must be All, Include or Exclude")
             element.attrib.pop(attr, None)
-            names = value.get("names", []) if option != ALL else []
+            names = _names("names", value.get("names", [])) if option != ALL else []
             if option != ALL:
                 element.set(attr, option)
             _set_list(element, tag, item, names, "name", TRAIN_CHILDREN, 2)
         elif key == "add_types":
-            for kind in value:
+            for kind in _names(key, value):
                 ed.need_type(kind)
                 ed.add_type_to(element, kind, 2)
         elif key == "remove_types":
-            _remove_types(element, value)
+            _remove_types(element, _names(key, value))
         else:
             raise Refused(f"Unknown train field {key!r}")
     if fields.get("engines") == AUTO_HPT and _departs_staging(ed, element):
@@ -305,6 +316,8 @@ def add_train(ed: Editor, name: str, route: str, like: str | None = None, serve_
     target = ed.route(route)
     holder = ed.section(ed.train_root, "trains", ("options",))
     identity = str(_next(t.get("id") for t in ed.trains()))
+    if like is not None:
+        _text("like", like)
     source = ed.train(like) if like else None
     cleared: list[str] = []
     if source is not None:
@@ -377,6 +390,7 @@ def set_train_skips(ed: Editor, train: str, stops: list[str]) -> str:
     element = ed.train(train)
     link = element.find("route")
     route = ed.route(link.get("id"))
+    _names("stops", stops)
     for child in list(link):
         link.remove(child)
     if stops:
@@ -436,6 +450,8 @@ def set_active_day(ed: Editor, name: str | None) -> str:
     """Set the active train schedule (day) by name or id, Any (cars may be picked up any day), or none."""
     # TrainScheduleManager.load reads the root element after TrainManager reads the old one under
     # options, so the root one is what JMRI uses; _set_active writes both where both exist.
+    if name is not None and not isinstance(name, str):
+        raise Refused(f"A day must be given by name or id as text, not {name!r}")
     if name and str(name).lower() == "any":
         _set_active(ed, "ANY")
         return "Active day: Any."

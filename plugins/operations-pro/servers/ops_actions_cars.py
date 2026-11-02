@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import split_name
 from ops_store import Refused
-from ops_actions import JAVA_INT, SETUP_FILE, Editor, action, _indent, _int_field
+from ops_actions import JAVA_INT, SETUP_FILE, Editor, action, _indent, _int_field, _names, _text
 
 
 # ---- Rolling stock ------------------------------------------------------------------
@@ -35,6 +35,8 @@ def _car_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
                 text = rfid_text(value)
             elif key in CAR_NUMBERS:
                 text = str(_int_field(key, value, *CAR_NUMBERS[key]))
+            elif value is None or isinstance(value, (bool, list, tuple, dict)):
+                raise Refused(f"{key} must be text or a number, not {value!r}. Give an empty string to clear it")
             else:
                 text = str(value)
             element.attrib.pop(attr, None)
@@ -105,7 +107,9 @@ def add_car(ed: Editor, road: str, number: str, type: str, length: int, location
     """Add a car. New roads, colours, owners and lengths are registered too. A location needs a track, and the
     car must suit it (type, and no longer than the track), as JMRI's Add Car window checks; force places it anyway."""
     road = ed.check_name("road", road)
-    number = ed.check_name("road number", str(number))
+    if isinstance(number, int) and not isinstance(number, bool) and number >= 0:
+        number = str(number)
+    number = ed.check_name("road number", number)
     length = _int_field("length", length, *CAR_NUMBERS["length"])
     identity = f"{road}{number}"
     if identity in [c.get("id") for c in ed.cars()]:
@@ -210,7 +214,10 @@ def clear_final_destination(ed: Editor, car: str) -> str:
 @action()
 def set_kernel(ed: Editor, name: str, cars: list[str], lead: str | None = None) -> str:
     """Make a kernel from cars. They must share a track, or the build fails. Replaces the kernel's members."""
-    members = [ed.car(c) for c in cars]
+    _text("A kernel name", name, blank=False)
+    if lead is not None:
+        _text("lead", lead)
+    members = [ed.car(c) for c in _names("cars", cars)]
     if len(members) < 2:
         raise Refused("A kernel needs at least two cars")
     # TBB:1213-1231: every car needs a track, one location, and the same split track name.
@@ -243,6 +250,7 @@ def set_kernel(ed: Editor, name: str, cars: list[str], lead: str | None = None) 
 @action()
 def clear_kernel(ed: Editor, name: str) -> str:
     """Break up a kernel."""
+    _text("A kernel name", name, blank=False)
     count = 0
     for car in ed.cars():
         if car.get("kernel") == name:
@@ -251,10 +259,12 @@ def clear_kernel(ed: Editor, name: str) -> str:
             car.attrib.pop("leadKernel", None)
             count += 1
     holder = ed.car_root.find("newKernels")
+    named = [k for k in holder.findall("kernel") if k.get("name") == name] if holder is not None else []
+    if not count and not named:
+        raise Refused(f"No kernel {name!r}")
     if holder is not None:
-        for kernel in list(holder.findall("kernel")):
-            if kernel.get("name") == name:
-                holder.remove(kernel)
+        for kernel in named:
+            holder.remove(kernel)
         _indent(holder, 1)
     return f"Kernel {name} removed from {count} cars."
 

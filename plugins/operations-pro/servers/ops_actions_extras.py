@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from ops_data import TYPE_AND_LOAD
 from ops_store import Refused
 from ops_actions import (ACTIONS, ENGINE_FILE, SETUP_FILE, Editor, action, _indent, _int_field, _model_values,
-                         _no_choice, _offered_models)
+                         _no_choice, _offered_models, _text)
 from ops_actions_automations import _manual_items, _wrap
 
 
@@ -91,9 +91,12 @@ def set_train_leg(ed: Editor, train: str, leg: int, locos: str = "none", caboose
     n = _int_field("leg", leg)
     if n not in (2, 3):
         raise Refused("leg must be 2 or 3: the departure is leg 1 and is set with update_train")
-    if locos not in LEG_LOCOS:
+    for label, given_text in (("model", model), ("road", road), ("caboose_road", caboose_road)):
+        if given_text is not None and not isinstance(given_text, str):
+            raise Refused(f"{label} must be text, not {given_text!r}")
+    if not isinstance(locos, str) or locos not in LEG_LOCOS:
         raise Refused(f"locos must be one of {', '.join(LEG_LOCOS)}")
-    if caboose not in LEG_CABOOSE:
+    if not isinstance(caboose, str) or caboose not in LEG_CABOOSE:
         raise Refused(f"caboose must be one of {', '.join(LEG_CABOOSE)}")
     if locos == "helpers" and caboose != "keep":
         raise Refused("The window has no caboose choice beside helpers; set the caboose change on the other leg")
@@ -260,6 +263,8 @@ def set_engine_moves(ed: Editor, moves: dict[str, int]) -> str:
     (EngineManager.getAvailableTrainList), so a high count rests a locomotive and a low one puts it to work."""
     if ENGINE_FILE not in ed.docs:
         raise Refused("There is no engine file yet")
+    if not isinstance(moves, dict) or not moves:
+        raise Refused("Give at least one engine and its move count, as {\"BV101\": 5}")
     for name, value in moves.items():
         # EnginesTableModel:546 takes any whole number, as Integer.parseInt does.
         _engine(ed, name).set("moves", str(_int_field("moves", value, minimum=-2**31)))
@@ -302,6 +307,9 @@ def _load_users(ed: Editor, name: str, types: set[str], plain_too: bool) -> list
 def delete_load(ed: Editor, name: str, car_type: str | None = None) -> str:
     """Delete a custom load, for one car type or every type that has it. Refused while a car, a schedule line, a track
     or train load list or a manual build line names it: change those first."""
+    _text("A load name", name, blank=False)
+    if car_type is not None:
+        _text("car_type", car_type)
     if name in ed.defaults():
         raise Refused("A default load cannot be deleted; JMRI keeps one empty and one load name for every type")
     holders = _load_holders(ed, name, car_type)
@@ -419,6 +427,8 @@ for _name in ("add_track", "update_track", "delete_track"):
 # ---- Route stop times (start) -------------------------------------------------------
 
 def _check_times(stops) -> None:
+    if not isinstance(stops, (list, tuple)) or not all(isinstance(s, dict) for s in stops):
+        raise Refused(f"stops must be a list of objects, each with a location, not {stops!r}")
     for stop in stops:
         value = stop.get("depart_time")
         # RouteEditTableModel.getTimeComboBox: blank, or 00:00 to 23:59.

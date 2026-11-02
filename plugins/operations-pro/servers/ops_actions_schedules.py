@@ -5,11 +5,19 @@ import xml.etree.ElementTree as ET
 
 from ops_data import ALL, ANY, EXCLUDE, INCLUDE, INTERCHANGE, SPUR, STAGING, TRAINS
 from ops_store import Refused
-from ops_actions import Editor, SCHEDULE_RANDOM, action, _day_id, _indent, _int_field, _next
+from ops_actions import Editor, SCHEDULE_RANDOM, action, _day_id, _indent, _int_field, _names, _next, _text
 from ops_actions_locations import add_track, update_track
 
 
 # ---- Schedules --------------------------------------------------------------------
+
+
+def _lines(lines) -> list[dict]:
+    if not isinstance(lines, (list, tuple)) or not all(isinstance(x, dict) for x in lines):
+        raise Refused(f"lines must be a list of objects, each with a type, not {lines!r}")
+    if not lines:
+        raise Refused("A schedule needs at least one line")
+    return list(lines)
 
 
 def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) -> ET.Element:
@@ -17,9 +25,11 @@ def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) 
                            "destination", "track", "comment"}
     if unknown:
         raise Refused(f"Unknown schedule line fields: {', '.join(sorted(unknown))}")
-    kind = line["type"]
-    if kind not in ed.car_types():
+    kind = line.get("type")
+    if not isinstance(kind, str) or kind not in ed.car_types():
         raise Refused(f"Unknown car type {kind!r}")
+    for key in ("road", "receive", "ship", "comment"):
+        _text(f"A schedule line's {key}", line.get(key, ""))
     destination = line.get("destination")
     place = ed.location(destination) if destination else None
     if line.get("track") and place is None:
@@ -54,10 +64,10 @@ def add_schedule(ed: Editor, name: str, lines: list[dict], comment: str = "") ->
     """Add a schedule. Each line: type, and any of road, receive, ship, random, wait, count, setout_day, pickup_day, destination, track.
     count and wait are whole numbers up to 2147483647 (Java's int): JMRI cannot load a file holding more."""
     name = ed.check_name("schedule", name)
+    _text("comment", comment)
     if name in [s.get("name") for s in ed.schedules()]:
         raise Refused(f"Schedule {name!r} already exists; JMRI would share one schedule by name")
-    if not lines:
-        raise Refused("A schedule needs at least one line")
+    lines = _lines(lines)
     holder = ed.section(ed.loc_root, "schedules", ("locations", "divisions"))
     identity = str(_next(s.get("id") for s in ed.schedules()))
     element = ET.SubElement(holder, "schedule", {"id": identity, "name": name, "comment": comment})
@@ -71,8 +81,7 @@ def add_schedule(ed: Editor, name: str, lines: list[dict], comment: str = "") ->
 def replace_schedule_lines(ed: Editor, schedule: str, lines: list[dict]) -> str:
     """Replace a schedule's lines. Refused while a car holds a line. Tracks restart at line one; moves stay."""
     element = ed.schedule(schedule)
-    if not lines:
-        raise Refused("A schedule needs at least one line")
+    lines = _lines(lines)
     old = {i.get("id") for i in element.findall("item")}
     _no_holders(ed, element)
     identity = element.get("id")
@@ -131,7 +140,11 @@ def add_industry(ed: Editor, location: str, name: str, length: int, lines: list[
                  mode: str = "match", alternate: str | None = None, hold_custom: bool = False,
                  directions: str | int | None = None) -> str:
     """Add a spur and its schedule in one step. Types default to those in the lines."""
-    wanted = types if types is not None else sorted({line["type"] for line in lines})
+    ed.check_name("track", name)
+    lines = _lines(lines)
+    if types is not None:
+        types = _names("types", types)
+    wanted = types if types is not None else sorted({str(line.get("type")) for line in lines})
     schedule = f"{name} Schedule"
     add_schedule(ed, schedule, lines)
     add_track(ed, location, name, SPUR, length, types=wanted, directions=directions)
@@ -147,6 +160,10 @@ def mirror_schedule(ed: Editor, spur: str, sources: list[str] | None = None, loc
                     name: str | None = None) -> str:
     """Give a storage spur a schedule that receives what source spurs ship and ships what they receive."""
     target = ed.track(spur, location)
+    if sources is not None:
+        sources = _names("sources", sources)
+    if name is not None:
+        _text("name", name, blank=False)
     if target.get("trackType") != SPUR:
         raise Refused(f"{target.get('name')} is not a spur")
     chosen = [ed.track(s) for s in sources] if sources else [
@@ -191,6 +208,11 @@ def setup_custom_staging(ed: Editor, track: str, location: str | None = None, sh
     if any_staging:
         options.append("generate_any_staging")
     empty, loaded = ed.defaults()
+    if ship_loads is not None:
+        known = {e.get("name") for e in ed.car_root.iter("carLoad")} | set(ed.defaults())
+        for load in _names("ship_loads", ship_loads):
+            if load not in known:
+                raise Refused(f"Unknown load {load!r}. Add it with add_load first")
     if ship_loads:
         names = list(ship_loads) + ([empty] if ship_empties and empty not in ship_loads else [])
         ship = {"option": INCLUDE, "names": sorted(names)}  # JMRI's save sorts the list.
@@ -213,6 +235,9 @@ def setup_interchange(ed: Editor, track: str, location: str | None = None, set_o
     if element.get("trackType") != INTERCHANGE:
         raise Refused(f"{element.get('name')} is not an interchange")
     settings: dict = {}
+    for label, given in (("set_out_by", set_out_by), ("pulled_by", pulled_by), ("destinations", destinations)):
+        if given is not None:
+            _names(label, given)
     if set_out_by is not None:
         settings["drop"] = {"option": TRAINS, "names": set_out_by} if set_out_by else {"option": ANY}
     if pulled_by is not None:
