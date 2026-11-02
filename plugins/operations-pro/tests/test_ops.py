@@ -47,7 +47,10 @@ class ParserTests(Base):
         self.assertEqual((self.rr.default_empty, self.rr.default_load), ("Mty", "L"))
 
     def test_missing_file_is_named(self):
+        """A folder with no roster file is a railroad from nothing; one that lost a file is refused."""
         with tempfile.TemporaryDirectory() as empty:
+            for name in ops_data.REQUIRED[:3]:
+                (Path(empty) / name).write_bytes((DEMO / "operations" / name).read_bytes())
             with self.assertRaisesRegex(FileNotFoundError, "OperationsCarRoster.xml"):
                 ops_data.load(empty)
 

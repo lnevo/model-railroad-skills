@@ -420,7 +420,8 @@ class ReviewFixes(Case):
     def test_custom_staging_empties_default_loads_and_keeps_other_bits(self):
         self.rewrite("OperationsLocationRoster.xml", 'name="West Stage 1" trackType="Staging" dir="3" length="500" moves="0"',
                      'name="West Stage 1" trackType="Staging" dir="3" length="500" moves="0" loadOptions="128"')
-        self.edit({"action": "setup_custom_staging", "track": "West Stage 1"})
+        ops_store.apply(self.plan({"action": "setup_custom_staging", "track": "West Stage 1"})["plan_id"],
+                        allow_new_errors=True)  # BVR 1101 sits there loaded, and the ship options now refuse L: JMRI fails BV1, the audit says so.
         track = self.raw_track("West Stage 1")
         self.assertEqual(int(track.get("loadOptions")), 2 | 8 | 16 | 32 | 128)
         self.assertEqual(track.get("carShipLoadOption"), "Exclude")
@@ -875,7 +876,7 @@ class RealJmri(Case):
         return result, keep
 
     def test_every_action_survives_a_jmri_load_and_save(self):
-        self.edit(*EVERYTHING)
+        ops_store.apply(self.plan(*EVERYTHING)["plan_id"], allow_new_errors=True)  # BVR 1101 sits there loaded, and the ship options now refuse L: JMRI fails BV1, the audit says so.
         ours = self.rr()
         result, keep = self.read_back()
         self.assertEqual(result["log_errors"], [])

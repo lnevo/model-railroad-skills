@@ -189,6 +189,12 @@ def deliver_car(directory: str | Path, car: str, location: str, track: str) -> d
     target = rr.find_car(car)
     if target.train_id or target.destination_id:
         raise Refused(f"{target} is assigned to a train. Reset or terminate that train first.")
+    here = rr.tracks.get(target.track_id)
+    if here is not None and here.name == track and rr.locations[here.location_id].name == location:
+        # CarSetFrame.applySchedule (CarSetFrame:600-604) runs only when the track changes.
+        raise Refused(f"{target} is already on {track}, and Set Car applies a schedule only when the track "
+                      "changes. To load a car parked there before the schedule was added, set its load with "
+                      "ops_session update_car, or deliver it to another track and back.")
     with tempfile.TemporaryDirectory(prefix="opspro-saved-") as saved:
         keep = Path(saved)
         result = run_worker(rr.directory, {"car": target.id, "location": location, "track": track, "save": True}, keep)

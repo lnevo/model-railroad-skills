@@ -42,7 +42,8 @@ def why_not(args: dict) -> object:
 
 
 def audit(args: dict) -> object:
-    return Gates(railroad(args)).audit()
+    """Tolerant: a missing or unreadable file is a finding, the case the audit is most needed for."""
+    return Gates(load(folder(args), tolerant=True)).audit()
 
 
 def _track(rr: Railroad, track) -> dict:
@@ -214,12 +215,16 @@ def tools() -> list[Tool]:
         Tool("ops_backups", "List backup sets.", {"type": "object", "properties": directory},
              lambda a: ops_store.backups(folder(a))),
         Tool("ops_restore",
-             "Put a backup set back. JMRI must be fully exited. The current state is backed up first.",
+             "Put a backup set back, or with file only that one file (for one lost or unreadable file; the others "
+             "keep the newer state, so audit after). Works when the current files are broken. JMRI must be fully "
+             "exited. The current state is backed up first.",
              {"type": "object",
               "properties": {**directory, "set": {"type": "string"},
-                             "folder": {"type": "string", "enum": ["backups", "autoBackups"]}},
+                             "folder": {"type": "string", "enum": ["backups", "autoBackups"]},
+                             "file": {"type": "string", "enum": list(ops_store.FILES)}},
               "required": ["set"]},
-             lambda a: ops_store.restore(folder(a), a["set"], a.get("folder", "backups")), read_only=False),
+             lambda a: ops_store.restore(folder(a), a["set"], a.get("folder", "backups"), a.get("file")),
+             read_only=False),
         Tool("ops_install_agent",
              "Copy the live agent beside the Operations files and plan the startup entry that runs it. "
              "Show the plan, then ops_apply it with JMRI exited. Needed for ops_train build and reset, "

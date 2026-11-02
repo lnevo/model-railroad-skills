@@ -7,11 +7,13 @@ Fields JMRI derives are never set here. guard() checks that afterwards, independ
 from __future__ import annotations
 
 import copy
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ops_data import (ALL, ANY, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, INTERCHANGE, ROUTES, SPUR,
                       STAGING, TRAINS, TYPE_AND_LOAD, YARD, DIRECTIONS, split_name)
+from ops_data import blank_file, is_fresh
 from ops_store import Doc, FILES, Refused
 import ops_paperwork as paper
 
@@ -132,7 +134,27 @@ class Editor:
     def __init__(self, base: Path):
         self.base = base
         self.docs = {n: Doc(base / n) for n in FILES if (base / n).is_file()}
+        if is_fresh(base):  # A railroad from nothing: JMRI writes all six files on its first save.
+            for name in FILES:
+                self.docs.setdefault(name, Doc(base / name, blank_file(name)))
         self.moves_allowed: set[str] = set()  # Track ids whose moves an action was asked to change.
+        self.deleted_tracks: set[str] = set()  # Track ids deleted in this plan.
+        self._backup_ids: set[str] | None = None
+
+    def retired_tracks(self, location_id: str) -> list[str]:
+        """Track ids at a location that no longer exist: deleted in this plan, or found in a backup set's
+        location file. JMRI counts track ids per location while it runs (Location.addTrack:772) and
+        recounts from the highest on load, so after a restart it would hand out a deleted id again."""
+        if self._backup_ids is None:
+            self._backup_ids = set()
+            for parent in ("backups", "autoBackups"):
+                for path in (self.base / parent).glob(f"*/{LOCATIONS}"):
+                    try:
+                        self._backup_ids.update(re.findall(r'<track id="([^"]+)"', path.read_text("utf-8", "replace")))
+                    except OSError:
+                        pass
+        prefix = f"{location_id}s"
+        return [i for i in self.deleted_tracks | self._backup_ids if i.startswith(prefix) and i[len(prefix):].isdigit()]
 
     # File sections.
     @property
