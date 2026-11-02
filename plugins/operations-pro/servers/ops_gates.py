@@ -947,7 +947,7 @@ class Gates:
             name = f"{engine.road} {engine.number}"
             if CLONE_MARK in engine.number or e.get("clone") == "true":
                 continue
-            if e.get("routeLocationId") or (e.get("trainId") and e.get("trainId") != train.id):
+            if e.get("trainId") != train.id and (e.get("routeLocationId") or e.get("trainId")):
                 problems.append(f"locomotive {name} is assigned to another train")
             elif e.get("type", "") not in self._train_types(train):
                 problems.append(f"train does not take locomotive {name} type {e.get('type', '')}")
@@ -965,10 +965,11 @@ class Gates:
 
     def _staging_car(self, car: Car, train: Train, track: Track) -> list[str]:
         problems = []
-        if self.x.car.get(car.id, {}).get("routeLocationId"):
-            problems.append(f"{car} is already in a built train")
-        elif car.train_id and car.train_id != train.id:
+        # A rebuild resets the train first (Train:3197), so its own cars are not held by it.
+        if car.train_id and car.train_id != train.id:
             problems.append(f"{car} is assigned to another train")
+        elif self.x.car.get(car.id, {}).get("routeLocationId") and car.train_id != train.id:
+            problems.append(f"{car} is already in a built train")
         if car.type not in train.types:
             problems.append(f"train does not take {car} type {car.type}")
         if not car.caboose and not train.accepts_road(car.road):

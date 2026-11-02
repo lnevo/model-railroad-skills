@@ -339,3 +339,16 @@ class WriteActions(Faults):
         with self.assertRaises(ops_store.Refused) as caught:
             ops_store.plan(self.copy(), [{"action": "add_schedule", "name": "Bad", "lines": [line]}])
         self.assertIn("NoSuchLoad", str(caught.exception))
+
+
+class Rebuild(Faults):
+    def test_a_built_train_keeps_its_own_cars_for_a_rebuild(self):
+        """Train.build resets first (Train:3197), so a car on this train does not block a rebuild of it."""
+        rr = ops_data.load(SHOWCASE)
+        gates = Gates(rr)
+        train, car = rr.find_train("TURN"), rr.find_car("HZMX 9")
+        car.train_id = train.id
+        gates.x.car.setdefault(car.id, {})["routeLocationId"] = "17r1"
+        self.assertEqual(gates._staging_car(car, train, rr.tracks[car.track_id]), [])
+        car.train_id = "another"
+        self.assertTrue(gates._staging_car(car, train, rr.tracks[car.track_id]))
