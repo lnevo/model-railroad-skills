@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import ALL, DIRECTIONS, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, ROUTES, TRAINS
 from ops_store import Refused
-from ops_actions import (Editor, STOP_RANDOM, TRACK_CHILDREN, TRAIN_CHILDREN, action, _bool, _check_train_power, _day,
+from ops_actions import (Editor, SETUP_FILE, STOP_RANDOM, TRACK_CHILDREN, TRAIN_CHILDREN, action, _bool, _check_train_power, _day,
                          _day_id, _indent, _int_field, _mask, _next, _no_choice, _place, _remove_types, _set_active,
                          _set_day_trains, _set_list, _yes)
 
@@ -147,6 +147,51 @@ TRAIN_LISTS = {"roads": ("carRoadOption", "carRoads", "carRoad"), "caboose_roads
                "loco_roads": ("locoRoadOption", "locoRoads", "locoRoad")}
 
 
+# Train.AUTO and Train.AUTO_HPT (JmritOperationsTrainsBundle: Auto, Auto HPT). The builder compares the
+# count with these exactly and otherwise parses it as a number, so "AUTO HPT" stops the build with a
+# NumberFormatException.
+AUTO, AUTO_HPT = "Auto", "Auto HPT"
+# Train.NO_CABOOSE_OR_FRED, CABOOSE, FRED (Train:184-186): the three Requires buttons in Edit Train.
+REQUIRES = {"none": 0, "caboose": 1, "fred": 2}
+
+
+def _max_engines(ed: Editor) -> int:
+    doc = ed.docs.get(SETUP_FILE)
+    settings = doc.root.find("./operations/settings") if doc is not None else None
+    text = settings.get("maxEngines", "6") if settings is not None else "6"
+    return int(text) if text.isdigit() else 6
+
+
+def _train_value(ed: Editor, key: str, value) -> str:
+    """What Edit Train accepts for each field (TrainEditFrame:168-181, 242-245; Train.setDepartureTime;
+    TrainEditBuildOptionsFrame:902-907). Anything else is refused rather than written."""
+    if key == "engines":
+        top = _max_engines(ed)
+        text = str(value).strip() if not isinstance(value, bool) else ""
+        if text in (AUTO, AUTO_HPT) or (text.isdigit() and int(text) <= top and text == str(int(text))):
+            return text
+        raise Refused(f"engines must be 0 to {top} (Settings, maximum locomotives), {AUTO} or {AUTO_HPT}, "
+                      f"spelled so, not {value!r}")
+    if key == "requires":
+        if isinstance(value, str) and value.strip().lower() in REQUIRES:
+            return str(REQUIRES[value.strip().lower()])
+        if not isinstance(value, bool) and str(value).strip() in ("0", "1", "2"):
+            return str(value).strip()
+        raise Refused(f"requires must be none (0), caboose (1) or fred (2), not {value!r}")
+    if key in ("depart_hour", "depart_minute"):
+        top = 23 if key == "depart_hour" else 59
+        number = _int_field(key, value)
+        if number > top:
+            raise Refused(f"{key} must be 0 to {top}, not {value!r}")
+        return f"{number:02d}"
+    if key in ("built_start", "built_end"):
+        text = str(value).strip()
+        if text and not text.isdigit():
+            raise Refused(f"{key} must be a year or blank, not {value!r}")
+        return text
+    return str(value)
+
+
 def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> list[str]:
     """Set the fields, then check locomotive model and road on the result. Returns warnings."""
     for key in ("engine_model", "engine_road"):
@@ -154,7 +199,7 @@ def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> list[str]:
             fields = {**fields, key: _no_choice(ed, key, fields[key])}
     for key, value in fields.items():
         if key in TRAIN_FIELDS:
-            element.set(TRAIN_FIELDS[key], str(value))
+            element.set(TRAIN_FIELDS[key], _train_value(ed, key, value))
         elif key in TRAIN_FLAGS:
             element.set(TRAIN_FLAGS[key], _bool(value))
         elif key in TRAIN_LISTS:
@@ -175,9 +220,23 @@ def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> list[str]:
             _remove_types(element, value)
         else:
             raise Refused(f"Unknown train field {key!r}")
+    if fields.get("engines") == AUTO_HPT and _departs_staging(ed, element):
+        raise Refused(f"Edit Train offers {AUTO_HPT} only for a train that does not depart staging; a staging "
+                      "track's locomotives all leave with the train, so give the number on that track, or 0")
     if "engine_model" in fields or "engine_road" in fields:
         return _check_train_power(ed, element)
     return []
+
+
+def _departs_staging(ed: Editor, train: ET.Element) -> bool:
+    link = train.find("route")
+    if link is None:
+        return False
+    stops = sorted(ed.route(link.get("id")).findall("location"), key=lambda e: int(e.get("sequenceId", "0")))
+    if not stops:
+        return False
+    place = next((x for x in ed.locations() if x.get("id") == stops[0].get("locationId")), None)
+    return place is not None and any(t.get("trackType") == "Staging" for t in place.findall("track"))
 
 
 def _serve_tracks(ed: Editor, train: ET.Element, like: ET.Element | None) -> int:

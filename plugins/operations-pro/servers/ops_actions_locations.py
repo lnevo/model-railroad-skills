@@ -16,10 +16,12 @@ from ops_actions import (Editor, LOAD_BITS, SPUR_BITS, STAGING_BITS, TRACK_CHILD
 @action()
 def add_location(ed: Editor, name: str, types: list[str] | None = None, directions: str | int = 15,
                  like: str | None = None, comment: str = "") -> str:
-    """Add a location. Types come from types, or like, or every car type."""
+    """Add a location. Types come from types, or like, or, as a new location in JMRI does (Location:116-123),
+    every car type and every locomotive type, so a train that carries locomotives can end here."""
     if name in [x.get("name") for x in ed.locations()]:
         raise Refused(f"Location {name!r} already exists")
-    wanted = types if types is not None else (ed.type_entries(ed.location(like)) if like else ed.car_types())
+    wanted = types if types is not None else (ed.type_entries(ed.location(like)) if like else
+                                              ed.car_types() + [t for t in ed.loco_types() if t not in ed.car_types()])
     number = _next(x.get("id") for x in ed.locations())
     # No ops attribute: Location(Element) never reads it and store() derives it from the tracks.
     element = ET.Element("location", {"id": str(number), "name": name, "dir": str(_mask(directions)),
@@ -80,7 +82,10 @@ def rename_location(ed: Editor, location: str, new: str) -> str:
 @action()
 def add_track(ed: Editor, location: str, name: str, type: str, length: int, types: list[str] | None = None,
               directions: str | int | None = None, moves: int = 0, **settings) -> str:
-    """Add a track. Other location tracks keep their move counts, unlike adding one in JMRI's window."""
+    """Add a track. Other location tracks keep their move counts, unlike adding one in JMRI's window.
+    Without types it takes the location's types, car and locomotive: a new JMRI track takes every type and
+    the location filters them (Track:238-247, 935-943). Its id is never one a deleted track had here, in
+    this plan or in a backup set, so a file copied from another state cannot put a car on it."""
     if type not in (SPUR, YARD, INTERCHANGE, STAGING):
         raise Refused(f"type must be {SPUR}, {YARD}, {INTERCHANGE} or {STAGING}")
     place = ed.location(location)
@@ -91,11 +96,11 @@ def add_track(ed: Editor, location: str, name: str, type: str, length: int, type
         raise Refused("JMRI's windows keep staging and other track types at separate locations")
     if length < 0:
         raise Refused("length cannot be negative")
-    number = _next((t.get("id") for t in place.findall("track")), "s")
+    number = _next([*(t.get("id") for t in place.findall("track")), *ed.retired_tracks(place.get("id"))], "s")
     identity = f"{place.get('id')}s{number}"
     element = ET.Element("track", {"id": identity, "name": name, "trackType": type,
                                    "dir": str(_mask(directions) if directions is not None else place.get("dir", "15")),
-                                   "length": str(length), "moves": str(moves)})
+                                   "length": str(length), "moves": str(_moves(moves))})
     if type in (INTERCHANGE, STAGING):
         element.set("onlyCarWithFD", "false")
     place.append(element)
@@ -363,6 +368,7 @@ def delete_track(ed: Editor, track: str, location: str | None = None) -> str:
         raise Refused(f"Still used by: {', '.join(uses[:12])}")
     place = ed.location_of(element)
     place.remove(element)
+    ed.deleted_tracks.add(element.get("id"))  # Location._IdNumber keeps counting within a session.
     _indent(place, 2)
     return f"Deleted track {element.get('name')}."
 
@@ -389,12 +395,23 @@ def delete_location(ed: Editor, location: str) -> str:
     return f"Deleted location {element.get('name')}."
 
 
+JAVA_INT = (-2 ** 31, 2 ** 31 - 1)
+
+
+def _moves(value) -> int:
+    number = _int_field("moves", value, minimum=JAVA_INT[0])
+    if number > JAVA_INT[1]:
+        raise Refused(f"moves must be at most {JAVA_INT[1]}")
+    return number
+
+
 @action()
 def set_track_moves(ed: Editor, moves: dict[str, int]) -> str:
-    """Set the move counts that bias the builder, by track name or id. The only action that changes them."""
+    """Set the move counts that bias the builder, by track name or id. The only action that changes them.
+    Any whole number: Track.setMoves takes an int, and a negative count makes a track sort first."""
     for name, value in moves.items():
         track = ed.track(name)
-        track.set("moves", str(_int_field("moves", value)))
+        track.set("moves", str(_moves(value)))
         ed.moves_allowed.add(track.get("id"))
     return f"Set moves on {len(moves)} tracks."
 

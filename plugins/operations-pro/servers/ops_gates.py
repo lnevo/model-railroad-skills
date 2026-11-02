@@ -1496,6 +1496,17 @@ class Audit:
     def _fed_types(self) -> set[str]:
         return {car.type for car in self.rr.cars.values()}
 
+    def rule_files(self):
+        """A file the audit read as empty because it is missing or will not parse (Railroad tolerant).
+        JMRI logs an error for such a file, loads nothing from it and carries on, and its next save
+        writes the empty roster over the file."""
+        for name, problem in sorted(getattr(self.rr, "broken", {}).items()):
+            rule = "file-missing" if problem == "missing" else "file-unreadable"
+            yield _finding(rule, "error", name,
+                           f"{name} is {problem}, so this audit read it as empty. JMRI would load nothing from it "
+                           "and could save the empty roster over it. Keep JMRI closed.", "Backups",
+                           "ops_backups, then ops_restore with file to put this one file back")
+
     def rule_type_carriage(self):
         rr = self.rr
         for kind in sorted(self._fed_types()):
@@ -1738,6 +1749,38 @@ class Audit:
                 yield _finding("staging-departure-blocked", "error", train.name,
                                f"No track at {first.name} can depart, so the build will fail. {text}",
                                TRACK, "Pick ups and the cars on the track")
+
+    def rule_terminal_staging(self):
+        """checkTerminateStagingTrackRestrictions (TBB:2108-2156, on by default): a train ending in staging
+        needs a track there that takes every type, road and load it carries. A track whose set out list
+        names the train or its route skips the check. A train whose Build box is off is left out."""
+        rr = self.rr
+        if not rr.option("buildOptions", "stagingRestrictionEnabled", True):
+            return
+        for train in rr.trains.values():
+            stops = rr.stops(train)
+            last = rr.locations.get(stops[-1].location_id) if len(stops) > 1 else None
+            if not train.build or last is None or not last.is_staging:
+                continue
+            first = rr.locations.get(stops[0].location_id)
+            if first is last and rr.option("buildOptions", "aggressive") and rr.option("buildOptions", "stagingTrackAvail"):
+                continue
+            report = {}
+            for t in (t for t in last.tracks if t.is_staging):
+                if not t.accepts_drop(train):
+                    report[t.name] = ["set out list refuses the train"]
+                elif t.drop_option not in (TRAINS, ROUTES):
+                    report[t.name] = self.g._staging_restrictions(train, t)
+                else:
+                    report[t.name] = []
+            if report and all(report.values()):
+                text = "; ".join(f"{k}: {', '.join(v)}" for k, v in report.items())
+                yield _finding("terminal-staging-refuses-train", "error", train.name,
+                               f"No staging track at {last.name} takes everything the train carries, so the build "
+                               f"fails (A7). {text}", TRACK,
+                               "Car and locomotive types, roads and loads on the track and its location, or the "
+                               "train's own types; or Settings, staging track restrictions "
+                               "(buildOptions stagingRestrictionEnabled)")
 
     def rule_caboose(self):
         rr = self.rr

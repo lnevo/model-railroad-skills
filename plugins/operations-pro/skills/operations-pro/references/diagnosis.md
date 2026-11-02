@@ -85,6 +85,7 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `blank-receive-on-staging-fed-spur` | Load generation cannot target this line |
 | `custom-empty-flagged-load`, `load-flagged-empty`, `renamed-default-collision` | Load type and name traps |
 | `generator-no-target`, `staging-ship-excludes-empty`, `staging-departure-blocked` | Staging traps |
+| `terminal-staging-refuses-train` | With the staging restriction on (the default), no staging track at a train's terminal takes every car and locomotive type, road and load the train carries, so the build fails at A7; a track whose set out list names the train or its route is exempt |
 | `caboose-road-mismatch` | A required caboose road no caboose on the route has |
 | `route-direction-mismatch`, `route-stop-dead`, `track-direction-unserved` | A stop the location cannot serve, a stop with no moves possible, a track no stop serves |
 | `list-stale-id` | A pick up or set out list naming a deleted train or route |
@@ -98,6 +99,7 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `engine-no-train` | A locomotive whose type some train takes, but every train refuses it by loco road list, owner, built dates, or the model and road it asks for (count 0 asks for none, except from departure staging); out of service engines are left out |
 | `engine-location-refuses-type`, `engine-on-refusing-track` | A locomotive at a location, or on a track, that does not take its type: Set Locomotive refuses the spot without force, and no train sets it out there |
 | `consist-split` | Consist members on different tracks; a train taking the lead adds the others at the lead's stop, wherever they sit |
+| `file-missing`, `file-unreadable` | A roster file that is gone or will not parse; the audit read it as empty, and JMRI would load nothing from it and could save the empty roster over it. Put that one file back with `ops_restore` and `file` |
 
 ## When the report and the tools disagree
 

@@ -13,6 +13,50 @@ from pathlib import Path
 REQUIRED = ("OperationsLocationRoster.xml", "OperationsRouteRoster.xml",
             "OperationsTrainRoster.xml", "OperationsCarRoster.xml")
 OPTIONAL = ("Operations.xml", "OperationsEngineRoster.xml")
+# The six files JMRI 5.16 writes when it saves a railroad with nothing in it (a headless save of an
+# empty folder), less the "Written by" comment. A folder with none of the four rosters starts from these.
+BLANK = Path(__file__).with_name("blank")
+# What JMRI keeps beside the files in its operations folder, so such a folder still counts as empty.
+OPERATIONS_ITEMS = {"backups", "autoBackups", "buildstatus", "manifests", "switchLists", "csvManifests",
+                    "csvSwitchLists", "logger", "jython", ".DS_Store"}
+
+
+def blank_file(name: str) -> bytes:
+    return (BLANK / name).read_bytes()
+
+
+def operations_folder(directory: str | Path) -> Path:
+    """The folder that holds, or will hold, the Operations files. Reads none of them."""
+    base = Path(directory).expanduser()
+    if (base / "operations").is_dir() and not (base / REQUIRED[0]).exists():
+        return base / "operations"
+    if _is_profile(base) and not any((base / n).exists() for n in REQUIRED + OPTIONAL):
+        return base / "operations"  # A JMRI profile whose Operations were never saved: JMRI writes there.
+    return base
+
+
+def _is_profile(base: Path) -> bool:
+    return (base / "profile.properties").is_file() or (base / "profile").is_dir()
+
+
+def is_fresh(base: Path) -> bool:
+    """No roster file at all: a railroad that has never been saved, not a damaged one."""
+    return not any((base / n).is_file() for n in REQUIRED)
+
+
+def _check_fresh(base: Path) -> None:
+    """Starting from nothing writes six files here, so the folder must look like an Operations folder."""
+    if not base.is_dir():
+        if base.name == "operations" and _is_profile(base.parent):
+            return
+        raise FileNotFoundError(f"{base} is not a folder. Make it, or give the folder holding the Operations files")
+    if base.name.lower() == "operations":
+        return
+    others = sorted(p.name for p in base.iterdir() if p.name not in OPERATIONS_ITEMS and p.name not in OPTIONAL)
+    if others:
+        raise FileNotFoundError(
+            f"{base} has no Operations files and holds other things ({', '.join(others[:5])}). Give the "
+            "operations folder of a JMRI profile, or an empty folder, to start a railroad from nothing")
 
 ALL, INCLUDE, EXCLUDE = "All", "Include", "Exclude"
 ANY, TRAINS, ROUTES, EXCLUDE_TRAINS, EXCLUDE_ROUTES = (
@@ -395,15 +439,31 @@ class TrainManifest:
 class Railroad:
     """Everything in one operations directory, with lookups by id or name."""
 
-    def __init__(self, directory: str | Path):
-        base = Path(directory).expanduser()
-        if (base / "operations").is_dir() and not (base / REQUIRED[0]).exists():
-            base = base / "operations"
+    def __init__(self, directory: str | Path, tolerant: bool = False):
+        """An empty folder reads as the empty railroad JMRI writes. A folder that lost some files is
+        refused, since writing to it would lose what they held, unless tolerant: then each missing or
+        unreadable file reads as empty and is named in broken, for the audit to report."""
+        base = operations_folder(directory)
+        self.fresh = is_fresh(base)
+        self.tolerant = tolerant
+        self.broken: dict[str, str] = {}  # File name to what is wrong with it.
+        self._blank: set[str] = set()  # Files read from the blank set.
         missing = [name for name in REQUIRED if not (base / name).is_file()]
-        if missing:
-            raise FileNotFoundError(f"{base} is missing {', '.join(missing)}")
+        if self.fresh:
+            _check_fresh(base)
+            self._blank = {name for name in REQUIRED + OPTIONAL if not (base / name).is_file()}
+        elif missing:
+            if not tolerant:
+                raise FileNotFoundError(
+                    f"{base} is missing {', '.join(missing)}. The other files refer to what it held, so restore "
+                    "it from a backup set first: ops_backups lists them, and ops_restore with file puts one back")
+            self.broken.update({name: "missing" for name in missing})
+            self._blank.update(missing)
         self.directory = base
         self.warnings: list[str] = []
+        if self.fresh:
+            self.warnings.append("No Operations files here yet, so this is the empty railroad JMRI 5.16 writes. "
+                                 "The first ops_apply writes all six files.")
         self.name = ""
         self.setup: dict[str, dict[str, str]] = {}
         self.locations: dict[str, Location] = {}
@@ -424,7 +484,7 @@ class Railroad:
         self.default_empty = "E"
         self.default_load = "L"
         for name in OPTIONAL:
-            if not (base / name).is_file():
+            if not (base / name).is_file() and not self.fresh:
                 self.warnings.append(f"{name} not found; using JMRI defaults for what it holds")
         self._read_setup()
         self._read_locations()
@@ -463,8 +523,19 @@ class Railroad:
                 check(f"load {kind} {load.name}", "loadType", load.load_type, LOAD_TYPES)
 
     def _root(self, name: str) -> ET.Element | None:
+        if name in self._blank:
+            return ET.fromstring(blank_file(name))
         path = self.directory / name
-        return ET.parse(path).getroot() if path.is_file() else None
+        if not path.is_file():
+            return None
+        try:
+            return ET.parse(path).getroot()
+        except ET.ParseError as exc:
+            if not self.tolerant:
+                raise ET.ParseError(f"{path}: {exc}. Restore it from a backup set: ops_backups lists them, "
+                                    "and ops_restore with file puts one back") from exc
+            self.broken[name] = f"unreadable ({exc})"
+            return ET.fromstring(blank_file(name))
 
     def _read_setup(self) -> None:
         root = self._root("Operations.xml")
@@ -763,8 +834,8 @@ class Railroad:
                        dest_track_id="", kernel="", lead=False)
 
 
-def load(directory: str | Path) -> Railroad:
-    return Railroad(directory)
+def load(directory: str | Path, tolerant: bool = False) -> Railroad:
+    return Railroad(directory, tolerant)
 
 
 # ---- Manual builds and automations (start) ------------------------------------------

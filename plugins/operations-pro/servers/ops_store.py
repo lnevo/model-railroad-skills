@@ -21,15 +21,22 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
-from ops_data import OPTIONAL, REQUIRED, Railroad, load
+from ops_data import OPTIONAL, REQUIRED, Railroad, load, operations_folder
 from ops_gates import Gates
 
 FILES = REQUIRED + OPTIONAL
 ROOT_TAG = "<operations-config"
 AUTOSAVE_WINDOW = 180  # Seconds. JMRI's autosave lands one to two minutes after a change.
 DIFF_LIMIT = 400
-JMRI_PROCESS = re.compile(r"jmri\.jar|apps\.[A-Za-z0-9_.]*(PanelPro|DecoderPro|SoundPro|LccPro|JmriFaceless)"
-                          r"|(PanelPro|DecoderPro|SoundPro|LccPro|JmriFaceless)\.app", re.I)
+# A JMRI program is Java running one of JMRI's application classes (apps.PanelPro.PanelPro,
+# apps.gui3.dp3.DecoderPro3, apps.JmriFaceless, ...: the CLASSNAME the launchers pass; the launchers' quick
+# Java version check is left out). The launcher scripts and LaunchJMRI.exe
+# start that Java process and are not counted themselves, nor is a shell or editor naming jmri.jar.
+JMRI_APP = re.compile(r"(?:^|\s)apps\.(?!JavaVersionCheckWindow\b)(?:[A-Za-z0-9_]+\.)*[A-Za-z0-9_]+(?=\s|$)")
+JAVA = re.compile(r'^\s*"?(?:[^"]*[\\/])?javaw?(?:\.exe)?"?(?:\s|$)', re.I)
+# This plugin's own JMRI runs: a scratch home folder from tempfile with the opspro- prefix (ops_jmri,
+# the live and oracle tests) or a jython script run against a copy. None can hold the user's folder.
+SCRATCH = re.compile(r'-D(?:user\.home|jmri\.prefsdir)="?[^"=]*?[\\/]opspro-|org\.python\.util\.jython')
 
 
 class Refused(Exception):
@@ -72,6 +79,14 @@ def resolve(directory: str | Path) -> Path:
     return load(directory).directory
 
 
+def locate(directory: str | Path) -> Path:
+    """The Operations folder, without reading the files: backups and restores must work when one is broken."""
+    base = operations_folder(directory)
+    if not base.is_dir():
+        raise Refused(f"{base} is not a folder")
+    return base
+
+
 def hashes(base: Path) -> dict[str, str]:
     return {n: sha((base / n).read_bytes()) for n in FILES if (base / n).is_file()}
 
@@ -88,7 +103,12 @@ def running_jmri(listing: str | None = None) -> list[str]:
             listing = subprocess.run(command, capture_output=True, text=True, timeout=20, check=True).stdout
         except (OSError, subprocess.SubprocessError) as exc:
             raise Refused(f"Could not check whether JMRI is running ({exc}). Nothing was changed.") from exc
-    return [line.strip()[:120] for line in listing.splitlines() if JMRI_PROCESS.search(line)]
+    return [line.strip()[:120] for line in listing.splitlines() if is_jmri(line)]
+
+
+def is_jmri(line: str) -> bool:
+    """A JMRI program that could hold the user's Operations files in memory."""
+    return bool(JAVA.search(line) and JMRI_APP.search(line) and not SCRATCH.search(line))
 
 
 def _audit(directory: Path) -> tuple[set, list[dict]]:
@@ -187,7 +207,7 @@ def plan(directory: str | Path, actions: list[dict], session: bool = False, prep
 
 def _warnings(base: Path) -> list[str]:
     out = []
-    age = time.time() - max((base / n).stat().st_mtime for n in FILES if (base / n).is_file())
+    age = time.time() - max(((base / n).stat().st_mtime for n in FILES if (base / n).is_file()), default=0)
     if age < AUTOSAVE_WINDOW:
         out.append(f"The Operations files changed {int(age)} seconds ago. Make sure JMRI has finished "
                    "saving, on every computer that opens this folder.")
@@ -199,6 +219,8 @@ def _warnings(base: Path) -> list[str]:
 
 def backup(base: Path, tag: str = "before-change") -> str:
     """A set in JMRI's own backups folder, so JMRI's Restore dialog can see it too."""
+    if not any((base / n).is_file() for n in FILES):
+        return ""  # Nothing yet: a railroad started from nothing.
     stamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     name = f"opspro_{tag}_{stamp}"
     target = base / "backups" / name
@@ -224,6 +246,8 @@ def _replace(base: Path, name: str, data: bytes) -> None:
 
 
 def _restore_set(base: Path, set_name: str) -> list[str]:
+    if not set_name:
+        return []
     source = base / "backups" / set_name
     names = [n for n in FILES if (source / n).is_file()]
     for name in names:
@@ -259,6 +283,7 @@ def apply(plan_id: str, allow_new_errors: bool = False) -> dict:
     if not manifest["session"] and built_trains(base):
         raise Refused("A train has been built since this plan was made. Reset it first.")
     before_keys, before = _audit(base)
+    base.mkdir(exist_ok=True)  # A profile's operations folder that JMRI has not made yet.
     set_name = backup(base)
     replaced: list[str] = []
     try:
@@ -305,7 +330,8 @@ def quick(directory: str | Path, actions: list[dict], prepare=None) -> dict:
 
 
 def backups(directory: str | Path) -> list[dict]:
-    base = resolve(directory)
+    """Every set in backups and autoBackups. Reads no Operations file, so it works on a broken folder."""
+    base = locate(directory)
     out = []
     for parent in ("backups", "autoBackups"):
         folder = base / parent
@@ -314,21 +340,44 @@ def backups(directory: str | Path) -> list[dict]:
                 if entry.is_dir():
                     out.append({"set": entry.name, "folder": parent,
                                 "saved": datetime.fromtimestamp(entry.stat().st_mtime).isoformat(timespec="seconds"),
-                                "files": sorted(p.name for p in entry.glob("*.xml"))})
+                                "files": sorted(p.name for p in entry.glob("*.xml")),
+                                "complete": all((entry / n).is_file() for n in REQUIRED)})
     return out
 
 
-def restore(directory: str | Path, set_name: str, folder: str = "backups") -> dict:
-    base = resolve(directory)
+def restore(directory: str | Path, set_name: str, folder: str = "backups", file: str | None = None) -> dict:
+    """Put a backup set back, or with file only that one file. Reads only the set, so it works when the
+    current files are missing or unreadable. The current state is backed up first."""
+    base = locate(directory)
     if folder not in ("backups", "autoBackups") or Path(set_name).name != set_name:
         raise Refused("Give a set name from ops_backups")
     source = base / folder / set_name
-    if not source.is_dir() or not all((source / n).is_file() for n in REQUIRED):
-        raise Refused(f"{set_name} is not a complete backup set")
+    if not source.is_dir():
+        raise Refused(f"No set {set_name} in {folder}")
+    if file is not None:
+        if file not in FILES:
+            raise Refused(f"file must be one of {', '.join(FILES)}")
+        if not (source / file).is_file():
+            raise Refused(f"{set_name} has no {file}")
+        try:
+            ET.parse(source / file)
+        except ET.ParseError as exc:
+            raise Refused(f"{set_name}/{file} will not parse ({exc}), so it must not replace the current file") from exc
+        names = [file]
+    else:
+        if not all((source / n).is_file() for n in REQUIRED):
+            raise Refused(f"{set_name} is not a complete backup set")
+        try:
+            Railroad(source)  # A set that will not parse must not replace good files.
+        except (ET.ParseError, FileNotFoundError) as exc:
+            raise Refused(f"{set_name} will not load ({exc})") from exc
+        names = [n for n in FILES if (source / n).is_file()]
     _preflight(base)
-    Railroad(source)  # A set that will not parse must not replace good files.
     safety = backup(base, "before-restore")
-    for name in FILES:
-        if (source / name).is_file():
-            _replace(base, name, (source / name).read_bytes())
-    return {"restored": set_name, "backup_of_previous_state": safety}
+    for name in names:
+        _replace(base, name, (source / name).read_bytes())
+    out = {"restored": set_name, "files": names, "backup_of_previous_state": safety}
+    if file is not None:
+        out["note"] = ("Only this file came back. The others still hold the newer state, and they refer to "
+                       "locations, tracks, trains and cars by id, so run ops_audit before starting JMRI.")
+    return out
