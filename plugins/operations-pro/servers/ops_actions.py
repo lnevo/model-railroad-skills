@@ -1221,7 +1221,11 @@ TRAIN_LISTS = {"roads": ("carRoadOption", "carRoads", "carRoad"), "caboose_roads
                "loco_roads": ("locoRoadOption", "locoRoads", "locoRoad")}
 
 
-def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
+def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> list[str]:
+    """Set the fields, then check locomotive model and road on the result. Returns warnings."""
+    for key in ("engine_model", "engine_road"):
+        if key in fields:
+            fields = {**fields, key: _no_choice(ed, key, fields[key])}
     for key, value in fields.items():
         if key in TRAIN_FIELDS:
             element.set(TRAIN_FIELDS[key], str(value))
@@ -1245,6 +1249,9 @@ def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
             _remove_types(element, value)
         else:
             raise Refused(f"Unknown train field {key!r}")
+    if "engine_model" in fields or "engine_road" in fields:
+        return _check_train_power(ed, element)
+    return []
 
 
 def _serve_tracks(ed: Editor, train: ET.Element, like: ET.Element | None) -> int:
@@ -1302,19 +1309,19 @@ def add_train(ed: Editor, name: str, route: str, like: str | None = None, serve_
     if source is None:
         for kind in ed.car_types() + ed.loco_types():
             ed.add_type_to(element, kind, 2)
-    _train_fields(ed, element, fields)
+    notes = _train_fields(ed, element, fields)
     _indent(holder, 1)
     served = _serve_tracks(ed, element, source) if serve_tracks else 0
-    return f"Added train {name} (id {identity}); added to {served} track lists."
+    return " ".join([f"Added train {name} (id {identity}); added to {served} track lists.", *notes])
 
 
 @action()
 def update_train(ed: Editor, train: str, **fields) -> str:
     """Change train settings: description, engines, requires, departure, flags, types and road, load and owner lists."""
     element = ed.train(train)
-    _train_fields(ed, element, fields)
+    notes = _train_fields(ed, element, fields)
     _indent(element, 2)
-    return f"Updated train {element.get('name')}."
+    return " ".join([f"Updated train {element.get('name')}.", *notes])
 
 
 @action()
@@ -2384,6 +2391,64 @@ def _engine_put(ed: Editor, element: ET.Element, location: str, track: str) -> t
     target = ed._one(place.findall("track"), track, "track")
     _set_ordered(element, {"locationId": place.get("id"), "secLocationId": target.get("id")}, ENGINE_ORDER)
     return place, target
+
+
+# A train's locomotive model and road, as JMRI's Edit Train window offers and checks them
+# (TrainEditFrame:251-261, 573-579, 628-676). Train.NONE is "", shown as a blank first item.
+def _offered_models(ed: Editor) -> list[str]:
+    """EngineModels.getComboBox: the roster's model list, refilled with JMRI's defaults when empty
+    (RollingStockAttribute.getNames), and the defaults when there is no engine file yet."""
+    names = []
+    if ENGINE_FILE in ed.docs:
+        names = [e.get("name") for e in ed.docs[ENGINE_FILE].root.findall("./models/model")]
+    return names or list(DEFAULT_MODELS)
+
+
+def _no_choice(ed: Editor, key: str, value) -> str:
+    """Blank is the window's no-choice item. "None" (any case) means the same unless a model or
+    road really has that name."""
+    text = "" if value is None else str(value)
+    real = _offered_models(ed) if key == "engine_model" else [e.get("roadName") for e in ed.engines()]
+    return "" if text.strip().lower() == "none" and text not in real else text
+
+
+def _check_train_power(ed: Editor, train: ET.Element) -> list[str]:
+    count, model, road = (train.get("numberEngines", "0"), train.get("engineModel", ""),
+                          train.get("engineRoad", ""))
+    name = train.get("name")
+    if count == "0" and (model or road):
+        raise Refused(f"Train {name} needs 0 locomotives, and JMRI's Edit Train window clears the model and road "
+                      "then. Set engines first, or leave engine_model and engine_road blank.")
+    notes = []
+    if model:
+        offered = _offered_models(ed)
+        if model not in offered:
+            raise Refused(f"Unknown locomotive model {model!r}. The Edit Train window offers only the roster's "
+                          f"models ({', '.join(offered[:12])}{', ...' if len(offered) > 12 else ''}) or blank for "
+                          "any. Add an engine of that model first with add_engine.")
+        kind = _model_values(ed, model)[0].get("type")
+        if kind not in ed.type_entries(train):
+            raise Refused(f"Train {name} does not service locomotive model {model} type ({kind or 'none'}). "
+                          "Add that locomotive type to the train, or pick another model.")
+        if not any(e.get("model") == model for e in ed.engines()):
+            notes.append(f"Warning: no engine of model {model} is in the roster, so the train will not build "
+                         "until one is added.")
+    if road:
+        # EngineManager.updateEngineRoadComboBox: only roads of engines of the chosen model, or of any engine.
+        roads = sorted({e.get("roadName") for e in ed.engines() if not model or e.get("model") == model})
+        if road not in roads:
+            raise Refused(f"No locomotive {'of model ' + model + ' ' if model else ''}has road {road!r}. The Edit "
+                          f"Train window offers {', '.join(roads) or 'no roads'}, or blank for any.")
+        option = train.get("locoRoadOption", ALL)
+        listed = road in [r.get("name") for r in train.findall("./locoRoads/locoRoad")]
+        if option != ALL and listed != (option == INCLUDE):
+            raise Refused(f"Train {name} does not service locomotives with road {road}; its loco road list "
+                          f"({option}) refuses it.")
+        types = ed.type_entries(train)
+        if not any(e.get("roadName") == road and e.get("type") in types for e in ed.engines()):
+            raise Refused(f"No road {road} in the locomotive roster that also meets the locomotive types "
+                          f"serviced by train {name}.")
+    return notes
 
 
 @action()

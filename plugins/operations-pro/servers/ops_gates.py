@@ -99,6 +99,7 @@ ANY_TRAIN = {"B1", "B2", "B3", "B15", "B16", "B18", *(f"E{n}" for n in range(1, 
              *(f"F{n}" for n in range(1, 6))}
 
 CAR, CAR_SET = "Edit Car", "Set Car"
+ENGINE_SET = "Set Locomotive"
 TRAIN, BUILD_OPTIONS = "Edit Train", "Edit Train > Train Build Options"
 TRAIN_ROADS, TRAIN_LOADS = "Edit Train > Train Road Options", "Edit Train > Train Load Options"
 ROUTE, LOCATION = "Edit Route", "Edit Location"
@@ -1873,6 +1874,118 @@ class Audit:
                 yield _finding("switcher-local-off", "info", train.name,
                                f"A local switcher, but {', '.join(off)} moves to the same kind of track are off.",
                                SETTINGS, "Switcher Service Options")
+
+    # ---- Locomotives against acceptance (JMRI 5.16) ----------------------------------
+    # Locomotive types are read from the files (Extras), as the staging checks do: ops_data keeps
+    # only car types on locations, tracks and trains.
+    def _engines(self) -> list:
+        return [e for e in self.rr.engines.values()
+                if CLONE_MARK not in e.number and self.g.x.engine.get(e.id, {}).get("clone") != "true"]
+
+    def _track_takes_loco(self, track: Track, kind: str) -> bool:
+        """Track.isTypeNameAccepted (Track:977): the location must take the type too."""
+        return kind in self.g.x.types.get(track.location_id, set()) and kind in self.g.x.types.get(track.id, set())
+
+    def _loco_slots(self, train: Train) -> list[tuple[str, str]]:
+        """(model, road) for each locomotive request the builder makes (TrainBuilderEngines:388-480):
+        the departure, and each leg whose options change, add, help or remove locomotives. A request
+        for 0 still takes every locomotive on a departure staging track (getEngines:154-160)."""
+        raw = self.g.x.train.get(train.id, {})
+        stops = self.rr.stops(train)
+        first = self.rr.locations.get(stops[0].location_id) if stops else None
+        slots = []
+        if raw.get("numberEngines", "0") != "0" or (first is not None and first.is_staging):
+            slots.append((raw.get("engineModel", ""), raw.get("engineRoad", "")))
+        for leg, options in (("leg2", train.leg2_options), ("leg3", train.leg3_options)):
+            if options & (1 | 2 | 16 | 32) and raw.get(f"{leg}Engines", "0") != "0":
+                slots.append((raw.get(f"{leg}Model", ""), raw.get(f"{leg}Road", "")))
+        return slots
+
+    def _loco_refusal(self, train: Train, engine) -> str:
+        """Why this train never takes this locomotive: getAndRemoveEnginesFromList (TBE:31-67) for
+        type, loco road, owner and built, then getEngines (TBE:201-211) for the model and road it names.
+        Empty when the train can take it."""
+        e = self.g.x.engine.get(engine.id, {})
+        raw = self.g.x.train.get(train.id, {})
+        if engine.type not in self.g._train_types(train):
+            return f"type {engine.type}"
+        option = raw.get("locoRoadOption", ALL)
+        if option != ALL and (engine.road in self.g.x.loco_roads.get(train.id, [])) != (option == "Include"):
+            return f"locomotive road {engine.road}"
+        if not train.accepts_owner(e.get("owner", "")):
+            return f"owner {e.get('owner', '')}"
+        if not train.accepts_built(e.get("built", "")):
+            return f"built {e.get('built', '')}"
+        slots = self._loco_slots(train)
+        if not slots:
+            return "asks for no locomotives"
+        if not any(model in ("", engine.model) and road in ("", engine.road) for model, road in slots):
+            return "needs " + " or ".join(" ".join(x for x in (road, model) if x) for model, road in slots)
+        return ""
+
+    def _model_types(self) -> dict[str, str]:
+        """EngineModels: the last engine loaded sets each model's type (Engine.java:448)."""
+        return {e.model: e.type for e in self._engines() if e.model and e.type}
+
+    def rule_model_types(self):
+        rr = self.rr
+        for model, kind in sorted(self._model_types().items()):
+            if not any(kind in self.g._train_types(t) for t in rr.trains.values()):
+                yield _finding("model-type-no-train", "error", model,
+                               f"Model {model} is type {kind}, and no train takes {kind}, so no train uses these "
+                               "locomotives.", TRAIN, "Locomotive types")
+            if not any(self._track_takes_loco(t, kind) for t in rr.tracks.values()):
+                yield _finding("model-type-no-track", "error", model,
+                               f"Model {model} is type {kind}, and no track takes {kind}, so a train cannot set "
+                               "these locomotives out anywhere.", TRACK,
+                               "Locomotive types serviced by this track, and the location's")
+
+    def rule_engine_trains(self):
+        rr = self.rr
+        carried = {kind for t in rr.trains.values() for kind in self.g._train_types(t)}
+        for engine in self._engines():
+            # A type no train takes is model-type-no-train; out of service is the owner's choice.
+            if engine.out_of_service or engine.type not in carried:
+                continue
+            reasons = [(t.name, self._loco_refusal(t, engine)) for t in rr.trains.values()]
+            if all(r for _, r in reasons):
+                text = "; ".join(f"{n}: {r}" for n, r in reasons[:4]) + ("; ..." if len(reasons) > 4 else "")
+                yield _finding("engine-no-train", "error", f"{engine.road} {engine.number}",
+                               f"No train takes this locomotive. {text}.", TRAIN,
+                               "Locomotive roads (Train Road Options), owners and built dates (Train Build "
+                               "Options), or the locomotive count, model and road")
+
+    def rule_engine_places(self):
+        rr = self.rr
+        for engine in self._engines():
+            location, track = rr.locations.get(engine.location_id), rr.tracks.get(engine.track_id)
+            if location is None or track is None:
+                continue
+            name = f"{engine.road} {engine.number}"
+            if engine.type not in self.g.x.types.get(location.id, set()):
+                yield _finding("engine-location-refuses-type", "warning", name,
+                               f"Sits at {location.name}, which does not take type {engine.type}. Set Locomotive "
+                               "refuses the spot without force, and no train sets it out there.", LOCATION,
+                               "Select the rolling stock serviced by this location")
+            elif not self._track_takes_loco(track, engine.type):
+                yield _finding("engine-on-refusing-track", "warning", name,
+                               f"Sits on {track.name}, which does not take type {engine.type}. Set Locomotive "
+                               "refuses the spot without force, and no train sets it out there.", TRACK,
+                               "Locomotive types serviced by this track")
+
+    def rule_consists(self):
+        rr = self.rr
+        for consist in sorted({e.consist for e in self._engines() if e.consist}):
+            members = [e for e in self._engines() if e.consist == consist]
+            places = {(e.location_id, e.track_id) for e in members}
+            if len(places) > 1:
+                where = ", ".join(f"{e.road} {e.number} on " + (rr.tracks[e.track_id].name if e.track_id in
+                                                                 rr.tracks else "no track") for e in members)
+                yield _finding("consist-split", "warning", consist,
+                               f"Members are on different tracks ({where}). A train that takes the lead adds the "
+                               "others at the lead's stop, wherever they sit (TrainBuilderEngines addEngineToTrain).",
+                               ENGINE_SET, "Location and track, and answer yes to move the whole consist")
+    # ---- End of locomotives against acceptance ---------------------------------------
 
 
 # ---- Train schedule days and manifest formats ---------------------------------------
