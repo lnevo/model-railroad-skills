@@ -8,7 +8,7 @@ from ops_store import Doc, Refused
 from ops_actions import (DEFAULT_ENGINE_LENGTHS, DEFAULT_ENGINE_TYPES, DEFAULT_MODELS, ENGINE_FILE, Editor,
                          MODEL_FIELDS, action, _bool, _indent, _int_field, _model_values, _next, _place)
 from ops_actions_names import _rename_values
-from ops_actions_cars import _free
+from ops_actions_cars import _free, rfid_text
 
 
 # ---- Engines --------------------------------------------------------------------------
@@ -31,6 +31,10 @@ ENGINE_FIELDS = {"built": "built", "owner": "owner", "comment": "comment", "valu
 ENGINE_FLAGS = {"out_of_service": "outOfService", "location_unknown": "locUnknown"}
 # Control.java:46 and OperationsXml.checkFileName: what JMRI's edit window accepts as a road number.
 ROAD_NUMBER_MAX = 10
+# Control.max_len_string_attibute and RollingStockAttributeEditFrame.checkItemName (173-190): the window refuses a
+# type with " & " (CarLoad.SPLIT_CHAR) or whose part before the first hyphen is longer than 12, and a model longer
+# than 12. JMRI loads and keeps longer names, and its CSV import does not check types, but its windows refuse them.
+ATTRIBUTE_MAX = 12
 RESERVED = '.<>:"\\/|?*'
 NEW_ENGINE_FILE = """<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet href="/xml/XSLT/operations-engines.xsl" type="text/xsl"?>
@@ -153,7 +157,7 @@ def _apply_model(ed: Editor, element: ET.Element, values: dict) -> None:
 def _engine_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
     for key, value in fields.items():
         if key in ENGINE_FIELDS:
-            text = str(value)
+            text = rfid_text(value) if key == "rfid" else str(value)
             _set_ordered(element, {ENGINE_FIELDS[key]: text or None}, ENGINE_ORDER)
             if key == "owner" and text:
                 ed.register("owners", "owner", text)
@@ -164,6 +168,24 @@ def _engine_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
                           "model. Change it with update_engine_model.")
         else:
             raise Refused(f"Unknown engine field {key!r}. Destinations, trains and build state go through JMRI.")
+
+
+def _type_name(ed: Editor, name: str) -> None:
+    if " & " in name:
+        raise Refused("A locomotive type cannot contain ' & ': tracks and trains use it to join a type and a load, "
+                      "and JMRI's window refuses it")
+    if len(name.split("-")[0]) > ATTRIBUTE_MAX:
+        raise Refused(f"JMRI's window takes a locomotive type of at most {ATTRIBUTE_MAX} characters before any "
+                      "hyphen")
+
+
+def _new_model_name(ed: Editor, model: str) -> None:
+    """A model not yet in the roster must pass the window's length rule."""
+    if model in _engine_names(ed, "models", "model") or any(e.get("model") == model for e in ed.engines()):
+        return
+    if len(model) > ATTRIBUTE_MAX:
+        raise Refused(f"JMRI's window takes a locomotive model of at most {ATTRIBUTE_MAX} characters, and its "
+                      f"roster import shortens longer ones; {model!r} has {len(model)}")
 
 
 def _engine_types_at(ed: Editor, element: ET.Element, location: ET.Element, track: ET.Element) -> None:
@@ -197,6 +219,7 @@ def add_engine_type(ed: Editor, name: str, like: str | None = None) -> str:
                       "so a car type and a loco type with one name could not be told apart")
     if like is not None and like not in _engine_names(ed, "types", "type"):
         raise Refused(f"Unknown locomotive type {like!r}")
+    _type_name(ed, name)
     _engine_register(ed, "types", "type", name)
     done = [0, 0, 0]
     if like:
@@ -219,6 +242,7 @@ def rename_engine_type(ed: Editor, old: str, new: str) -> str:
         raise Refused(f"Unknown locomotive type {old!r}")
     if not new.strip() or new in _engine_names(ed, "types", "type") or new in ed.car_types():
         raise Refused(f"Type {new!r} already exists or is blank")
+    _type_name(ed, new)
     count = _rename_values(_engine_root(ed), {"type": ("name",), "engine": ("type",)}, old, new)
     count += _rename_values(ed.loc_root, {"locoType": ("name",)}, old, new)
     count += _rename_values(ed.train_root, {"locoType": ("name",)}, old, new)
@@ -266,6 +290,7 @@ def add_engine(ed: Editor, road: str, number: str, model: str, type: str | None 
         raise Refused(f"Engine {identity} already exists")
     if not model.strip():
         raise Refused("An engine needs a model: JMRI keeps its horsepower and weight there and drops them without one")
+    _new_model_name(ed, model)
     if (location is None) != (track is None):
         raise Refused("Give both location and track, or neither")
     given = {k: v for k, v in (("type", type), ("length", length), ("hp", hp), ("weight_tons", weight_tons),
@@ -308,6 +333,7 @@ def update_engine(ed: Editor, engine: str, model: str | None = None, **fields) -
     if model is not None and model != element.get("model"):
         if not model.strip():
             raise Refused("An engine needs a model")
+        _new_model_name(ed, model)
         mine = {k: element.get(a, "false" if k == "b_unit" else "") for k, a in MODEL_FIELDS.items()}
         known, source = _model_values(ed, model)
         if source == "engines":
@@ -349,16 +375,39 @@ def update_engine_model(ed: Editor, model: str, type: str | None = None, length:
 
 @action()
 def rename_engine_model(ed: Editor, old: str, new: str) -> str:
-    """Rename a model on its engines and in the model, second-leg and third-leg model of every train."""
+    """Rename a model on its engines and in the model, second-leg and third-leg model of every train. Onto a JMRI
+    default model (such as GP30) the engines take that model's built-in type, length, hp and weight with B unit
+    off, as the window's Replace does; onto a new name they keep their own values (the window keeps type, length
+    and hp there but loses weight and B unit)."""
     if old not in _engine_names(ed, "models", "model") and not any(e.get("model") == old for e in ed.engines()):
         raise Refused(f"Unknown model {old!r}")
     if not new.strip() or new in _engine_names(ed, "models", "model"):
         raise Refused(f"Model {new!r} already exists or is blank")
+    _new_model_name(ed, new)
+    engines = [e for e in ed.engines() if e.get("model") == old]
+    known, source = _model_values(ed, new)
+    note = ""
+    if engines and source == "default":
+        # EngineAttributeEditFrame.replaceItem (96-118): a model JMRI already knows keeps its own values, and
+        # every JMRI default model is known from the start (EngineModels.loadDefaults).
+        if known["type"] not in _engine_names(ed, "types", "type"):
+            raise Refused(f"{new} is a JMRI default model of type {known['type']}, which this roster no longer has; "
+                          "add that locomotive type first, or rename to another name")
+        for element in engines:
+            _engine_free(element)
+            _apply_model(ed, element, known)
+        note = (f" {new} is a JMRI default model, so its engines now have JMRI's values for it: type {known['type']}, "
+                f"length {known['length']}, hp {known['hp']}, weight {known['weight_tons']}, no B unit.")
+        names = {t.get("id"): t for t in ed.tracks()}
+        away = [e.get("id") for e in engines if e.get("secLocationId") in names
+                and known["type"] not in ed.type_entries(names[e.get("secLocationId")])]
+        if away:
+            note += f" These sit on tracks that do not take {known['type']}: {', '.join(away[:8])}."
     count = _rename_values(_engine_root(ed), {"model": ("name",), "engine": ("model",)}, old, new)
     # Train.replaceModel: engineModel, leg2Model and leg3Model.
     count += _rename_values(ed.train_root, {"train": ("engineModel", "leg2Model", "leg3Model")}, old, new)
     _engine_register(ed, "models", "model", new)
-    return f"Renamed model {old} to {new}: {count} places."
+    return f"Renamed model {old} to {new}: {count} places.{note}"
 
 
 @action()

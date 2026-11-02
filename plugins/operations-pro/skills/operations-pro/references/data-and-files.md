@@ -103,7 +103,7 @@ Types: car, cars, carType, engine, engines, kernel, location, locations, rolling
 - The plugin has no import action. To load a car list, turn each row into an `add_car` action (all rows in one `ops_plan`); fields such as built, weight, comment and the load carry over. Applied through the plan, 180 rows is a normal job.
 - JMRI's own CSV import takes the car columns plus division, schedule id, RWE, RWL, destination, final destination and train. Its error "missing one or more of the first four required car attributes" says a line lacked the first four columns; the delimiter or a header row are the first things to look at (not checked against the source), and the plugin does not diagnose it.
 - Routes import; an existing route is not overwritten. Trains and schedules export only.
-- The RFID attribute on a car is the lower-case `rfid`, shown once RFID is enabled in Settings.
+- The RFID attribute on a car is the lower-case `rfid`, shown once RFID is enabled in Settings. JMRI keeps it as the IdTag's system name, `ID` and the text (unchanged when it already starts with `ID`), so the actions write that form and JMRI's first save does not change it.
 
 ## Car history
 

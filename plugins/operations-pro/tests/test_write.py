@@ -711,6 +711,46 @@ class Engines(Case):
         with self.assertRaisesRegex(Refused, "No engine has model"):
             self.plan({"action": "update_engine_model", "model": "SD45", "hp": 4000})
 
+    def test_names_follow_the_windows_rules(self):
+        # RollingStockAttributeEditFrame.checkItemName: no " & " in a type, 12 characters before any hyphen.
+        for name, message in (("Gas & Turbine", "cannot contain ' & '"), ("GasTurbineXYZ", "at most 12")):
+            with self.assertRaisesRegex(Refused, message):
+                self.plan({"action": "add_engine_type", "name": name})
+            with self.assertRaisesRegex(Refused, message):
+                self.plan({"action": "rename_engine_type", "old": "Diesel", "new": name})
+        self.edit({"action": "add_engine_type", "name": "Steam-very-long-kind"})
+        for item in ({"action": "add_engine", "road": "BV", "number": "9", "model": "MikadoClass282",
+                      "type": "Diesel", "length": 60},
+                     {"action": "update_engine", "engine": "BV101", "model": "MikadoClass282"},
+                     {"action": "rename_engine_model", "old": "GP9", "new": "MikadoClass282"}):
+            with self.assertRaisesRegex(Refused, "model of at most 12"):
+                self.plan(item)
+        self.edit({"action": "add_engine", "road": "BV", "number": "9", "model": "Mikado282", "type": "Diesel",
+                   "length": 60})
+
+    def test_rename_onto_a_jmri_default_model_takes_its_values(self):
+        # EngineAttributeEditFrame.replaceItem: GP30 is known from EngineModels.loadDefaults.
+        result = self.edit({"action": "rename_engine_model", "old": "GP9", "new": "GP30"})
+        self.assertIn("JMRI's values", " ".join(result["summary"]))
+        for identity in ("BV101", "BV102", "BV103"):
+            engine = self.engine(identity)
+            self.assertEqual({k: engine.get(k) for k in ("model", "type", "length", "hp", "weightTons", "bUnit")},
+                             {"model": "GP30", "type": "Diesel", "length": "56", "hp": "2250", "weightTons": "130",
+                              "bUnit": "false"})
+        self.setUp()
+        self.edit({"action": "rename_engine_model", "old": "GP9", "new": "GP9m"})
+        self.assertEqual((self.engine("BV101").get("hp"), self.engine("BV101").get("weightTons")), ("1750", "120"))
+
+    def test_rfid_is_written_as_jmri_stores_it(self):
+        # RollingStock.setRfid keeps the IdTag's system name: ID and the text.
+        self.edit({"action": "update_engine", "engine": "BV101", "rfid": "0410F2"},
+                  {"action": "update_engine", "engine": "BV102", "rfid": "IDPRE1"},
+                  {"action": "update_car", "car": "BVR1001", "rfid": "77AB01"})
+        self.assertEqual((self.engine("BV101").get("rfid"), self.engine("BV102").get("rfid")), ("ID0410F2", "IDPRE1"))
+        car = next(c for c in ET.parse(self.ops / "OperationsCarRoster.xml").getroot().iter("car")
+                   if c.get("id") == "BVR1001")
+        self.assertEqual(car.get("rfid"), "ID77AB01")
+
     def test_consists_place_and_delete(self):
         self.edit(*ENGINE_PLAN[:3])
         with self.assertRaisesRegex(Refused, "same track"):
@@ -874,6 +914,18 @@ class RealJmri(Case):
         keep.mkdir()
         result = ops_jmri.run_worker(self.ops, {"save": True}, keep)
         return result, keep
+
+    def test_rfid_and_a_default_model_rename_are_kept_by_a_jmri_save(self):
+        self.edit({"action": "rename_engine_model", "old": "GP9", "new": "GP30"},
+                  {"action": "update_engine", "engine": "BV101", "rfid": "0410F2"},
+                  {"action": "update_car", "car": "BVR1001", "rfid": "77AB01"})
+        result, keep = self.read_back()
+        self.assertEqual(result["log_errors"], [])
+        rows = lambda folder, tag: {e.get("id"): dict(e.attrib) for e in  # noqa: E731
+                                    ET.parse(Path(folder) / f"Operations{tag}Roster.xml").getroot().iter(tag.lower())}
+        self.assertEqual(rows(self.ops, "Engine"), rows(keep, "Engine"))
+        self.assertEqual(rows(keep, "Engine")["BV101"]["rfid"], "ID0410F2")
+        self.assertEqual(rows(keep, "Car")["BVR1001"]["rfid"], rows(self.ops, "Car")["BVR1001"]["rfid"])
 
     def test_every_action_survives_a_jmri_load_and_save(self):
         ops_store.apply(self.plan(*EVERYTHING)["plan_id"], allow_new_errors=True)  # BVR 1101 sits there loaded, and the ship options now refuse L: JMRI fails BV1, the audit says so.
