@@ -1,0 +1,66 @@
+[
+ {
+  "plan": [
+   {
+    "action": "replace_schedule_lines",
+    "schedule": "Foundry Casting",
+    "lines": [
+     {
+      "type": "Gondola",
+      "receive": "E",
+      "ship": "Pipe",
+      "destination": "Linden",
+      "track": "Linden Pipe Yard"
+     }
+    ]
+   },
+   {
+    "action": "replace_schedule_lines",
+    "schedule": "Coil Mill Shipping",
+    "lines": [
+     {
+      "type": "Coilcar",
+      "receive": "E",
+      "ship": "Coil",
+      "destination": "Northwood",
+      "track": "Northwood Steel"
+     }
+    ]
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5301",
+    "type": "Gondola",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R03]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5401",
+    "type": "Coilcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R04]"
+   }
+  ]
+ },
+ {
+  "deliver": {
+   "car": "JFN 5301",
+   "location": "Oakhaven",
+   "track": "Oakhaven Foundry"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 5401",
+   "location": "Hollis Mill",
+   "track": "Hollis Coil Mill"
+  }
+ }
+]
