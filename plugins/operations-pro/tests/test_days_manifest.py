@@ -82,7 +82,8 @@ class Days(Case):
         self.assertEqual([f["subject"] for f in hits], ["BVR 3012"])
 
     def test_names_are_checked(self):
-        for name, why in (("Monday", "already exists"), ("  ", "needs a name"), ("Any", "Any is the active")):
+        for name, why in (("Monday", "already exists"), ("  ", "needs a name"),
+                          ("Any", "set_line_days .Any. would name this schedule")):
             with self.assertRaisesRegex(Refused, why):
                 self.plan({"action": "add_day", "name": name})
         with self.assertRaisesRegex(Refused, "No train"):

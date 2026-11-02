@@ -53,7 +53,10 @@ def _day_name(ed: Editor, name: str, current: ET.Element | None = None) -> str:
     if not text:
         raise Refused("A train schedule needs a name")
     if text in ANY_WORDS or text.lower() == "any":
-        raise Refused("Any is the active setting that lets cars go every day; name the schedule something else")
+        raise Refused("JMRI accepts a schedule named Any, but here the name would mean two things: set_active_day "
+                      "'Any' selects the Any setting (cars go every day), while set_line_days 'Any' would name this "
+                      "schedule, and JMRI's build report prints 'Active schedule: Any' for both. Name the schedule "
+                      "something else")
     if any(d.get("name") == text and d is not current for d in _days(ed)):
         raise Refused(f"Train schedule {text!r} already exists; JMRI finds schedules by name")
     return text
