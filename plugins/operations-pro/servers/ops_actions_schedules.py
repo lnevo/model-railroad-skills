@@ -169,7 +169,8 @@ def add_industry(ed: Editor, location: str, name: str, length: int, lines: list[
 @action()
 def mirror_schedule(ed: Editor, spur: str, sources: list[str] | None = None, location: str | None = None,
                     name: str | None = None) -> str:
-    """Give a storage spur a schedule that receives what source spurs ship and ships what they receive."""
+    """Give a storage spur a schedule that receives what source spurs ship and ships what they receive. A source
+    line with a blank ship load gives a line with a blank receive load, which takes any load of the type."""
     target = ed.track(spur, location)
     if sources is not None:
         sources = _names("sources", sources)

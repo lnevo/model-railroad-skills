@@ -19,7 +19,7 @@ There is no seventh file. Generated folders beside them: `buildstatus`, `manifes
 
 - Each file is read once, when Operations loads. There is no file watcher. An edit made outside JMRI while it runs is ignored until restart and overwritten by the next save of that file.
 - A file is written only when its dirty flag is set, and then the whole file is regenerated from the objects. Attributes JMRI does not store are gone. Formatting and order change, so compare parsed content, not text.
-- Autosave is on by default: check every minute, wait another minute if dirty, skip while a train builds, then save. So a change reaches disk after one to two minutes.
+- Autosave is on by default: check every minute, wait another minute if dirty, skip while a train builds, then save. So a change usually reaches disk within two minutes, and a running build delays it.
 - Exit always saves dirty files through a shutdown task. Autosave off does not protect an outside edit.
 - Restore is not a reload. JMRI must be fully exited before any file change, and started again afterwards.
 - Writing a file makes a `.bak` of the previous one first.
@@ -101,7 +101,7 @@ Types: car, cars, carType, engine, engines, kernel, location, locations, rolling
 ## Import and export
 
 - The plugin has no import action. To load a car list, turn each row into an `add_car` action (all rows in one `ops_plan`); fields such as built, weight, comment and the load carry over. Applied through the plan, 180 rows is a normal job.
-- JMRI's own CSV import takes the car columns plus division, schedule id, RWE, RWL, destination, final destination and train. Its error "missing one or more of the first four required car attributes" says a line lacked the first four columns; the delimiter or a header row are the first things to look at (not checked against the source), and the plugin does not diagnose it.
+- JMRI's own CSV import takes the car columns plus division, schedule id, RWE, RWL, destination, final destination, train and RFID. Columns past the first eight or so need comma mode. Its error "missing one or more of the first four required car attributes" means a line had fewer than four fields (number, road, type, length), and the import stops there. Check the delimiter: only a `.csv` name or a `comma` line uses commas, otherwise spaces split the line. A header is skipped only if it starts with `Number`; another header is read as a car. The plugin does not diagnose this.
 - Routes import; an existing route is not overwritten. Trains and schedules export only.
 - The RFID attribute on a car is the lower-case `rfid`, shown once RFID is enabled in Settings. JMRI keeps it as the IdTag's system name, `ID` and the text (unchanged when it already starts with `ID`), so the actions write that form and JMRI's first save does not change it.
 

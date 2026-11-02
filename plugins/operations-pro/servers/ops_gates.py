@@ -387,12 +387,17 @@ class Gates:
     def _move_competitors(self, car: Car, train: Train, stops: list[Stop], origin: Stop, stop: Stop) -> int:
         """Most other cars that can take a move at stop before this car is placed.
 
-        The builder works the route in order, so only cars standing at the car's stop or earlier are
+        A normal build works the route in order, so only cars standing at the car's stop or earlier are
         placed first, and each stop gives out at most its moves in pick ups.
         """
         rr = self.rr
         dest = rr.locations.get(stop.location_id)
-        upto = stops[:stops.index(origin) + 1]
+        reach = stops.index(origin) + 1
+        # A multiple pass build walks the whole route on each pass, with only part of each stop's moves on the
+        # first (TB:490-496, 563-573), so cars from stops after this car's can reach the stop ahead of it.
+        if rr.option("buildOptions", "aggressive") and self.x.train.get(train.id, {}).get("buildNormal") != "true":
+            reach = max(reach, stops.index(stop))
+        upto = stops[:reach]
         places = {s.location_id for s in upto}
         count = sum(1 for c in rr.cars.values() if c.id != car.id and c.location_id in places
                     and self._can_join(c, train) and (dest is None or c.type in dest.types))
@@ -425,7 +430,8 @@ class Gates:
         if count is not None and first is not None and first.is_staging:
             most += sum(self._engine_length(e) for e in rr.engines.values() if e.location_id == first.id)
         for flag, kind in ((REQUIRES_CABOOSE, "caboose"), (REQUIRES_FRED, "fred")):
-            if not train.requires & flag or legs:
+            # Asked about the caboose or FRED car itself, it stands in for the rival: the train takes one.
+            if not train.requires & flag or legs or getattr(car, kind):
                 continue
             pool = [c for c in rr.cars.values() if c.location_id == stops[0].location_id and getattr(c, kind)
                     and (not train.caboose_road or c.road == train.caboose_road) and c.id != car.id]
@@ -1177,12 +1183,12 @@ class Gates:
         if result["status"] != FAIL or (car.fred and not train.requires & REQUIRES_FRED):
             return result
         lines = [i for i in self.x.manual.get(train.id, [])
-                 if self._mb_count(i) > 0 and self._mb_matches(i, car, stops)]
+                 if self._mb_count(i) > 0 and self._mb_matches(i, car, train, stops)]
         if not lines:
             return result
         names = ", ".join(i.get("id", "?") for i in lines)
         wanted = sum(self._mb_count(i) for i in lines)
-        rivals = sum(any(self._mb_matches(i, c, stops) for i in lines) and self._can_join(c, train)
+        rivals = sum(any(self._mb_matches(i, c, train, stops) for i in lines) and self._can_join(c, train)
                      for c in self.rr.cars.values())
         if rivals > wanted:
             return self._gate("B17", NOT_CHECKED, f"{result['reason']}; but manual line {names} takes {wanted} of the "
@@ -1233,10 +1239,14 @@ class Gates:
         where = ", ".join(s.name for s, _, _ in legs)
         return gate("B17", FAIL, f"the train takes a {kind} only at {where}, so the builder drops this one")
 
-    def _mb_matches(self, item: dict, other: Car, stops: list[Stop]) -> bool:
-        """TrainBuilder.checkItem, for a car in the train's car list (on the route, no train, no destinations)."""
+    def _mb_matches(self, item: dict, other: Car, train: Train, stops: list[Stop]) -> bool:
+        """TrainBuilder.checkItem, for a car in the train's car list (on the route, no train, no destinations).
+        A rebuild resets the train first (Train:3197), and Car.reset:1088 restores the previous final
+        destination, so a car on this train counts as it will stand then."""
         rr = self.rr
-        if other.train_id or other.destination_id or other.fd_id or not other.track_id:
+        own = bool(other.train_id) and other.train_id == train.id
+        final = self.x.car.get(other.id, {}).get("previousNextDestId", "") if own else other.fd_id
+        if final or not other.track_id or (not own and (other.train_id or other.destination_id)):
             return False
         if not any(s.location_id == other.location_id for s in stops):
             return False
@@ -1260,7 +1270,7 @@ class Gates:
     def _manual_short(self, train: Train, stops: list[Stop]) -> dict:
         """Manual lines set to fail the build that more cars than can match them (mbuildFail)."""
         short = [i for i in self.x.manual.get(train.id, []) if i.get("fail") == "true" and self._mb_count(i) > 0
-                 and sum(self._mb_matches(i, c, stops) and self._can_join(c, train)
+                 and sum(self._mb_matches(i, c, train, stops) and self._can_join(c, train)
                          for c in self.rr.cars.values()) < self._mb_count(i)]
         reason = ("manual line " + ", ".join(i.get("id", "?") for i in short) +
                   " asks for more cars than match it and is set to fail the build") if short else ""
@@ -1277,7 +1287,7 @@ class Gates:
             return short
 
         def matches(item: dict, other: Car) -> bool:
-            return self._mb_matches(item, other, stops)
+            return self._mb_matches(item, other, train, stops)
 
         count = self._mb_count
         for item in items:
@@ -2285,6 +2295,16 @@ class Audit:
             report = {t.name: self.g.staging_problems(train, t) for t in tracks}
             if tracks and all(report.values()):
                 text = "; ".join(f"{k}: {', '.join(v)}" for k, v in report.items())
+                arriving = self._arrivals(train, first)
+                # A train can fill a track that refuses nothing but its emptiness (TBB:1721), locomotives included.
+                if arriving and any(v[0] == "track is empty" and not any("direction" in p for p in v)
+                                    for v in report.values()):
+                    yield _finding("staging-departure-blocked", "warning", train.name,
+                                   f"No track at {first.name} can depart while it stands empty, so a build now fails. "
+                                   f"That is normal between sessions if {', '.join(arriving)} fills one first. {text}",
+                                   TRACK,
+                                   "Build order: run the arriving train first")
+                    continue
                 yield _finding("staging-departure-blocked", "error", train.name,
                                f"No track at {first.name} can depart, so the build will fail. {text}",
                                TRACK, "Pick ups and the cars on the track")
@@ -2303,6 +2323,12 @@ class Audit:
                                f"If JMRI departs from one of these tracks the build fails, since a car there has "
                                f"no destination on this train. {text}", TRACK,
                                "What refused each car: ops_why_not for it, then that gate's fix")
+
+    def _arrivals(self, train: Train, place: Location) -> list[str]:
+        """Other enabled trains that end at this location, and so can fill a track there before this one builds."""
+        rr = self.rr
+        return sorted(t.name for t in rr.trains.values() if t.id != train.id and t.build and
+                      (ends := rr.stops(t)) and len(ends) > 1 and ends[-1].location_id == place.id)
 
     SKIP_FOR_STUCK = {"A6", "A7", "A8", "A9", "B20", "C12", "D3", "D9", "E9"}  # session or build state, or own rules
 
@@ -2592,6 +2618,27 @@ class Audit:
                                    f"Requires a {road} caboose at {stop.name} ({where}) and none is there; the "
                                    "builder looks only at that stop, not along the route.",
                                    TRAIN, "Caboose road")
+
+    def rule_leg_caboose_stop(self):
+        """A caboose change happens at the leg's start. To add one, getCaboose looks only at that stop
+        (TBC:112-175); to remove one, it is set out there. A location that refuses every caboose type can
+        hold none for the first and take none for the second, and the build fails."""
+        rr = self.rr
+        kinds = {c.type for c in rr.cars.values() if c.caboose}
+        for train in rr.trains.values():
+            by_id = {s.id: s for s in rr.stops(train)}
+            for leg in train.legs:
+                stop = by_id.get(leg["start"])
+                place = rr.locations.get(stop.location_id) if stop else None
+                if place is None or not kinds or not leg["options"] & (ADD_CABOOSE | REMOVE_CABOOSE):
+                    continue
+                if not kinds & set(place.types) and not any(
+                        c.caboose and c.location_id == place.id for c in rr.cars.values()):
+                    change = "pick up" if leg["options"] & ADD_CABOOSE else "set out"
+                    yield _finding("leg-caboose-stop", "error", train.name,
+                                   f"Leg {leg['leg']} changes the caboose at {stop.name}, but {place.name} takes no "
+                                   f"caboose type, so the train cannot {change} one there and the build fails.",
+                                   LOCATION, "Car types: add the caboose type at this location")
 
     def rule_directions(self):
         rr = self.rr

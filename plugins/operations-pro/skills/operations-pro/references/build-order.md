@@ -26,7 +26,7 @@ Setter names are the Java methods, useful when reading a build report or the sou
 
 | Id | Test | On failure | Fix on screen |
 |---|---|---|---|
-| A1 | Build box ticked. Only Build All and automations honour it | Not built | Trains window, Build |
+| A1 | Build box ticked. Only Build All and the Build Train if Selected step honour it | Not built | Trains window, Build |
 | A2 | On-time mode: departs no earlier than the latest departure among built trains. In every mode a build waits up to 120 s for another train still building, then fails. The departure is the first stop's time if the route sets one, else the train's. Decided from the files; only a train still building is not | Build aborts | Settings, Build on time; train departure times |
 | A3 | Route exists, has stops, departure and terminal resolve | Build fails | Edit Train, Route |
 | A4 | Every stop's location still exists | Build fails | Edit Route |

@@ -59,7 +59,7 @@ A build in aggressive mode shows half the moves on the first pass. Two identical
 | Schedule never fires | Car was already parked when the schedule was added; wait count; set out day against the active day; random | Deliver the car with `ops_deliver_car` |
 | Nothing builds | Build boxes cleared by Apply on the wrong day; wrong active schedule | Report header; `set_active_day`, then `apply_day` |
 | New train takes nothing | Train missing from the tracks' Pick ups and Set outs lists; a copy named with a hyphen difference | Audit `train-not-on-list`; `add_train` adds the lists |
-| Caboose not found | Not flagged caboose; caboose road list; track direction or pick up list | Audit `caboose-road-mismatch` |
+| Caboose not found | Not flagged caboose; caboose road list; track direction or pick up list | Audit `caboose-road-mismatch`, `leg-caboose-stop` |
 | Build fails on a kernel | Members on different tracks | Audit `kernel-split` |
 | Build finds no locomotive | Model or road the train asks for; type, loco road, owner or built dates refuse every engine; consist size not exactly the count; out of service | Audit `engine-no-train`, `model-type-no-train`, `model-type-no-track` |
 | Every car refused at a spur | Length typo; type not on the track; load option | Audit `type-no-track`, `car-on-refusing-track` |

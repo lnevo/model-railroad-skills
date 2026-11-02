@@ -355,5 +355,7 @@ Left out of the cases, or open in the plugin:
 - A stand-alone `wait_for_train_to_terminate` for a train the same automation terminated never finishes in JMRI 5.16; a second automation is the way round (U15).
 - The on-time abort in JMRI 5.16 writes no build report, so `ops_explain_build` has nothing to read; a dry run gives `refused_before_build` (U20).
 - Actions that do not exist: a car's final destination, adding a car to a built train, train build and terminate scripts and track type change. The showcase uses `ops_deliver_car` for final destinations, and names tracks instead of tagging them, though `update_track` can now set a comment.
+- `ops_why_not` does not follow a load generated for a staging-to-staging move, so it can miss why such a car stays.
+- Two cases show `not_checked` and are left to a real build: a locomotive with no track at the terminal, which fails that build, and overlapping dates in a staging pool.
 - Tools return long text by default. `ops_why_not` takes `failing_only`, and `ops_list` takes `filter`.
 - Interactions kept on purpose: the Fiddle yard, `Carrow Box Factory` and `Carrow Glass Works` take default-E JFN boxcars from other cases after session 1, `Carrow Salt Works` takes empty JFN covered hoppers, and the `West Staging` trains run out of cars after session 1.
