@@ -170,7 +170,7 @@ GATES: dict[str, tuple[str, str, str]] = {
     "D4": ("Not the same split location, unless a switcher", BUILD_OPTIONS,
            "Local switcher route, or Allow cars to return to staging; or, for a car that should ride out and come "
            "back (a buffer or LCL car), Edit Car, Passenger, which exempts it"),
-    "D5": ("Local moves on, for a final destination at the same location", ROUTE, "Local moves? at both stops"),
+    "D5": ("Local moves on, for a local move to an assigned or final destination", ROUTE, "Local moves? at both stops"),
     "D6": ("Departure track's filter admits this location", TRACK_DESTS, "Accept the destination on the car's current track"),
     "D7": ("Location takes this type", LOCATION, "Car types"),
     "D8": ("Stop direction served by the destination", LOCATION, "Train direction"),
@@ -1368,15 +1368,25 @@ class Gates:
         exempt = _exempt(car)
         switcher = self._is_switcher(train)
         same = origin.split == stop.split
-        out = [gate("D1", stop.drops or car.fred or car.caboose, f"drops {stop.drops}")]
+        # An assigned destination takes checkCarForDestination (TBC:1496-1506): a local move needs no set outs and
+        # does need local moves at the stop, final destination or not. Car.isLocalMove: Car:619-622.
+        assigned = rr.locations.get(car.destination_id)
+        local_move = assigned is not None and assigned.split == here.split
+        out = [gate("D1", stop.drops or car.fred or car.caboose or local_move,
+                    f"drops {stop.drops}" + ("; a local move to its assigned destination needs none" if local_move else ""))]
         out.append(gate("D2", stop.id not in train.skips, f"stop {stop.id}"))
         out.append(self._moves_left(car, train, stops, origin, stop))
         returning = (train.allow_return or rr.option("buildOptions", "allowReturnStaging")) and dest.is_staging
         d4 = not same or switcher or exempt or returning
         out.append(gate("D4", d4, f"{origin.split} to {stop.split}, switcher {switcher}" + (
             "" if d4 else "; a car flagged passenger, caboose or FRED is exempt (TrainBuilderCars:1748-1754)")))
-        out.append(gate("D5", not same or not car.fd_id or exempt or (stop.local and origin.local),
-                        f"local {origin.local} and {stop.local}"))
+        if assigned is not None:
+            d5 = not local_move or stop.local or car.fred or car.caboose
+            d5_why = f"assigned destination {assigned.name}, local move {local_move}, local {stop.local}"
+        else:
+            d5 = not same or not car.fd_id or exempt or (stop.local and origin.local)
+            d5_why = f"local {origin.local} and {stop.local}"
+        out.append(gate("D5", d5, d5_why))
         out.append(gate("D6", here_track.accepts_destination(dest.id), self._filter_reason(here_track, dest)))
         out.append(gate("D7", car.type in dest.types, f"{dest.name}: type {car.type}"))
         out.append(gate("D8", switcher or bool(stop.direction & dest.dir),

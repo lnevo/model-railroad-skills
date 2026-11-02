@@ -83,11 +83,11 @@ Setter names are the Java methods, useful when reading a build report or the sou
 
 | Id | Test | Fix on screen |
 |---|---|---|
-| D1 | A later stop with set outs on, or the car is a caboose or FRED | Edit Route, Set outs? |
+| D1 | A later stop with set outs on, or the car is a caboose or FRED, or its assigned destination is a local move, which needs no set outs | Edit Route, Set outs? |
 | D2 | Destination stop not skipped | Edit Train, skip list |
 | D3 | Moves left at the destination stop: none at a skipped or mid-route staging stop, fewer after a random draw, and fewer again for each car the build places first. Passes only when the moves exceed every other car that could be placed before this one | Edit Route, Moves |
 | D4 | Not the same split location, unless a local switcher, passenger, caboose or FRED, or a staging return option | Build Options, Allow return to staging |
-| D5 | Local moves on at both stops when the final destination is the same location | Edit Route, Local moves? |
+| D5 | Local moves on at both stops when the final destination is the same location. A car with an assigned destination takes another path: a local move needs local moves on at the destination stop, with or without a final destination, and a passenger car is not exempt | Edit Route, Local moves? |
 | D6 | The departure track's Destinations filter admits this location. Interchange and staging only | Track Destinations on the car's current track |
 | D7 | Location takes the type | Edit Location, Car types |
 | D8 | Stop direction served by the destination location | Edit Location, Train direction |

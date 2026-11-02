@@ -92,5 +92,40 @@ class PickUps(Review):
         self.assertEqual(self.gate(out, "C6")["status"], "pass")
 
 
+class AssignedDestination(Review):
+    """A car with an assigned destination takes checkCarForDestination, not the default search (TBC:1496-1506)."""
+
+    @staticmethod
+    def assigned(x):
+        x.car("SWYX1").attrib.update(destinationId="13", secDestinationId="13s4")
+
+    def test_drops_off_does_not_stop_a_local_move(self):
+        """Real build: SWYX 1 assigned to the train, Sawyer Team to Sawyer Warehouse, with set outs off."""
+        def change(x):
+            self.assigned(x)
+            x.stop("11r1").set("drops", "no")
+        out = self.why_not(self.scenario(change), "SWYX 1", "Sawyer", "Sawyer Warehouse", "SAWYER SWITCHER")
+        self.assertEqual(self.gate(out, "D1")["status"], "pass")
+        self.assertTrue(out["can_move"], out["first_failure"])
+
+    def test_local_moves_off_stops_it(self):
+        """Real build: no local moves at location (Sawyer) for car (SWYX 1), though it has no final destination."""
+        def change(x):
+            self.assigned(x)
+            x.stop("11r1").set("localMoves", "no")
+        out = self.why_not(self.scenario(change), "SWYX 1", "Sawyer", "Sawyer Warehouse", "SAWYER SWITCHER")
+        self.assertEqual(self.gate(out, "D5")["status"], "fail")
+        self.assertFalse(out["can_move"])
+
+    def test_the_default_search_keeps_its_rules(self):
+        """No assigned destination: set outs off stops the car and D5 only looks at a final destination."""
+        out = self.why_not(self.scenario(lambda x: x.stop("11r1").set("drops", "no")),
+                           "SWYX 1", "Sawyer", "Sawyer Warehouse", "SAWYER SWITCHER")
+        self.assertEqual(self.gate(out, "D1")["status"], "fail")
+        out = self.why_not(self.scenario(lambda x: x.stop("11r1").set("localMoves", "no")),
+                           "SWYX 1", "Sawyer", "Sawyer Warehouse", "SAWYER SWITCHER")
+        self.assertEqual(self.gate(out, "D5")["status"], "pass")
+
+
 if __name__ == "__main__":
     unittest.main()
