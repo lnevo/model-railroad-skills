@@ -6,7 +6,10 @@ Router.isCarRouteable does, and records what it returned, its status, the destin
 it set and the trains in the route it showed. Each scenario changes a few settings in
 memory first, the same way ops_router's test applies them, and keeps only the answers
 that differ from the plain demo. In a "building" scenario the named train has the
-building status, so route moves and train length count for it.
+building status, so route moves and train length count for it. A car given a
+destination gets it with RollingStock.FORCE after the build options are set, which is
+what loading the car does (RS:1490): the destination track's moves go up by one and,
+in aggressive mode, the car's own track gets its length back (TR:786, 818).
 
 Run under JMRI's jython against a scratch copy of the operations directory:
 
@@ -25,6 +28,7 @@ from jmri.util import FileUtil
 FileUtil.setUserFilesPath(None, java.lang.System.getProperty("ops.home") + "/")
 
 from jmri.jmrit.operations.locations import LocationManager, LocationManagerXml  # noqa: E402
+from jmri.jmrit.operations.rollingstock import RollingStock  # noqa: E402
 from jmri.jmrit.operations.rollingstock.cars import CarManager, CarManagerXml  # noqa: E402
 from jmri.jmrit.operations.rollingstock.engines import EngineManagerXml  # noqa: E402
 from jmri.jmrit.operations.router import Router  # noqa: E402
@@ -50,7 +54,26 @@ SCENARIOS = [
     {"name": "only active", "router": {"onlyActiveTrains": True}, "trains": {"6": {"build": False}}},
     {"name": "building, short turn", "building": True, "stops": {"3r1": 40, "3r2": 40, "3r3": 40}},
     {"name": "building, staging on", "building": True, "router": {"carRoutingViaStaging": True}},
+    # Brackwater Team Track (1s5) is 90 long and holds two 44 foot cars, 2 free.
+    {"name": "car leaving the team track", "cars": {"BVR5002": {"destination": "7s2"}}},
+    {"name": "aggressive, car leaving the team track", "options": {"aggressive": True},
+     "cars": {"BVR5002": {"destination": "7s2"}}},
+    {"name": "car destined to a yard", "cars": {"BVR4003": {"destination": "3s2"}}},
+    {"name": "team track quick service", "tracks": {"1s5": {"quickService": True}}},
+    {"name": "team track quick service, on time, building", "building": True, "options": {"onTime": True},
+     "tracks": {"1s5": {"quickService": True}}},
+    {"name": "team track pool that cannot lend", "tracks": {"1s5": {"pool": "PQ"}, "1s6": {"pool": "PQ"}}},
+    {"name": "team track pool that lends", "tracks": {"1s5": {"pool": "PQ"}, "1s2": {"pool": "PQ"}}},
+    {"name": "team track ignores 25% used", "tracks": {"1s5": {"ignoreUsed": 25}}},
+    {"name": "team track ignores 50% used", "tracks": {"1s5": {"ignoreUsed": 50}}},
+    {"name": "staging on, saved termination track", "router": {"carRoutingViaStaging": True},
+     "trains": {"2": {"terminationTrack": "4s2"}}},
+    {"name": "staging on, building, saved termination track", "building": True,
+     "router": {"carRoutingViaStaging": True}, "trains": {"2": {"terminationTrack": "4s2"}}},
+    {"name": "schedule id on a yard", "tracks": {"1s1": {"length": 1000}, "1s2": {"scheduleId": "2"}}},
 ]
+OPTIONS = {"aggressive": (Setup.isBuildAggressive, Setup.setBuildAggressive),
+           "onTime": (Setup.isBuildOnTime, Setup.setBuildOnTime)}
 
 SETUP = {"carRoutingEnabled": Setup.setCarRoutingEnabled, "carRoutingViaYards": Setup.setCarRoutingViaYardsEnabled,
          "carRoutingViaStaging": Setup.setCarRoutingViaStagingEnabled, "forwardToYard": Setup.setForwardToYardEnabled,
@@ -74,6 +97,11 @@ router = IM.getDefault(Router)
 def apply(scenario):
     """Change settings for a scenario; return a function that puts them back."""
     undo = []
+    for name, value in scenario.get("options", {}).items():
+        get, put = OPTIONS[name]
+        old = get()
+        put(value)
+        undo.append(lambda p=put, o=old: p(o))
     for name, value in scenario.get("router", {}).items():
         old = GET[name]()
         SETUP[name](value)
@@ -88,6 +116,29 @@ def apply(scenario):
             old = track.getAlternateTrack()
             track.setAlternateTrack(by_id[change["alternate"]])
             undo.append(lambda t=track, o=old: t.setAlternateTrack(o))
+        if "quickService" in change:
+            old = track.isQuickServiceEnabled()
+            track.setQuickServiceEnabled(change["quickService"])
+            undo.append(lambda t=track, o=old: t.setQuickServiceEnabled(o))
+        if "pool" in change:
+            old = track.getPool()
+            track.setPool(track.getLocation().addPool(change["pool"]))
+            undo.append(lambda t=track, o=old: t.setPool(o))
+        if "ignoreUsed" in change:
+            old = track.getIgnoreUsedLengthPercentage()
+            track.setIgnoreUsedLengthPercentage(change["ignoreUsed"])
+            undo.append(lambda t=track, o=old: t.setIgnoreUsedLengthPercentage(o))
+        if "scheduleId" in change:  # As a hand-edited file can hold it; JMRI never stores one off a spur.
+            old = track.getScheduleId()
+            track.setScheduleId(change["scheduleId"])
+            undo.append(lambda t=track, o=old: t.setScheduleId(o))
+    for car_id, change in scenario.get("cars", {}).items():
+        car = IM.getDefault(CarManager).getById(car_id)
+        moves = [(t, t.getMoves()) for t in tracks]
+        destination = by_id[change["destination"]]
+        car.setDestination(destination.getLocation(), destination, RollingStock.FORCE)
+        undo.append(lambda c=car, m=moves: (c.setDestination(None, None, RollingStock.FORCE),
+                                            [t.setMoves(n) for t, n in m]))
     for stop_id, length in scenario.get("stops", {}).items():
         stop = stops[stop_id]
         old = stop.getMaxTrainLength()
@@ -103,6 +154,12 @@ def apply(scenario):
             old = train.isBuildEnabled()
             train.setBuildEnabled(change["build"])
             undo.append(lambda t=train, o=old: t.setBuildEnabled(o))
+        if "terminationTrack" in change:  # A built train keeps it until reset (Train:4274-4281, 4385).
+            old = (train.getTerminationTrack(), train.isBuilt(), train.getStatusCode())
+            train.setTerminationTrack(by_id[change["terminationTrack"]])
+            train.setBuilt(True)
+            train.setStatusCode(Train.CODE_BUILT)
+            undo.append(lambda t=train, o=old: (t.setTerminationTrack(o[0]), t.setBuilt(o[1]), t.setStatusCode(o[2])))
 
     def restore():
         for step in reversed(undo):
@@ -113,7 +170,8 @@ def apply(scenario):
 def ask(car, track, train, building):
     """Router.isCarRouteable (R:96), keeping the status and the destination it set."""
     # Car.setDestination bumps the track's moves (Track.addDropRS) and a sequential schedule; put both back.
-    saved = [(t, t.getScheduleItemId(), t.getMoves()) for t in tracks]
+    # Pool.requestTrackLength moves length between pool tracks even when it fails; put that back too.
+    saved = [(t, t.getScheduleItemId(), t.getMoves(), t.getLength()) for t in tracks]
     code = train.getStatusCode() if train else None
     if building and train:
         train.setStatusCode(Train.CODE_BUILDING)
@@ -132,9 +190,10 @@ def ask(car, track, train, building):
     copy.setFinalDestinationTrack(None)
     if building and train:
         train.setStatusCode(code)
-    for t, item, moves in saved:
+    for t, item, moves, length in saved:
         t.setScheduleItemId(item)
         t.setMoves(moves)
+        t.setLength(length)
     return answer
 
 
