@@ -184,10 +184,21 @@ def build_check(plan_id: str, runs: int = 4) -> dict:
             "jmri_log_errors": last["log_errors"], "notes": _version_note(last)}
 
 
+def _compact(row: dict, detail: str) -> dict:
+    """In a summary each car appears once, and a long train is cut; detail normal or full keeps every car."""
+    if detail != "summary":
+        return row
+    row.pop("placed", None)
+    extra = len(row["cars"]) - SUMMARY_CARS
+    if extra > 0:
+        row["cars"], row["cars_not_shown"] = row["cars"][:SUMMARY_CARS], extra
+    return row
+
+
 def dry_run(directory: str | Path, terminate: bool = True, detail: str = "summary") -> dict:
     """A whole session on a copy: build all, terminate all, report. The real files are not touched."""
     result = run_worker(load(directory).directory, {"build": True, "terminate": terminate})
-    builds = {name: attach_report(row, detail) for name, row in result["builds"].items()}
+    builds = {name: _compact(attach_report(row, detail), detail) for name, row in result["builds"].items()}
     return {"jmri": result["version"], "builds": builds, "jmri_log_errors": result["log_errors"],
             "notes": _version_note(result)}
 

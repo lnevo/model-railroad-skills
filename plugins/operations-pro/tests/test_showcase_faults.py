@@ -171,6 +171,62 @@ class StagingCause(Faults):
         self.assertNotIn("Carrow Packing", message)
 
 
+class Outputs(Faults):
+    def test_explain_build_warns_of_a_report_older_than_the_files(self):
+        import operations_pro
+        copy = SHOWCASE.parent / "operations"
+        dest = Path(self.tmp.name) / "stale"
+        shutil.copytree(copy, dest, ignore=shutil.ignore_patterns("backups"))
+        report = dest / "buildstatus" / "train (LOCAL-H).txt"
+        os.utime(report, (1000, 1000))
+        out = operations_pro.explain_build({"ops_dir": str(dest), "train": "LOCAL-H", "detail": "normal"})
+        self.assertIn("dry run", out["stale"])
+        os.utime(report, None)
+        self.assertNotIn("stale", operations_pro.explain_build({"ops_dir": str(dest), "train": "LOCAL-H"}))
+
+    def test_explain_build_shows_a_manual_build_line(self):
+        """U16: the line names no car, so it belongs to the train's summary."""
+        import operations_pro
+        out = operations_pro.explain_build({"ops_dir": str(SHOWCASE), "train": "LOCAL-H"})
+        self.assertTrue(any("Manual build line id 1m1" in line for line in out["manual_build"]), out["manual_build"])
+        self.assertTrue(any("Manual build line id 1m1" in line for line in out["summary"]))
+        one = operations_pro.explain_build({"ops_dir": str(SHOWCASE), "train": "LOCAL-H", "car": "TEMX 1"})
+        self.assertTrue(one["manual_build"])
+
+    def test_session_can_accept_new_errors(self):
+        """R19: an audit error need not strand a session change."""
+        copy = self.copy([{"action": "update_train", "train": "TURN", "allow_return": False}])
+        action = [{"action": "update_car", "car": "HZMX 9", "passenger": False}]
+        with self.assertRaises(ops_store.Refused):
+            ops_store.quick(copy, action)
+        self.assertTrue(ops_store.quick(copy, action, accept_new_errors=True)["applied"])
+        self.assertFalse(ops_data.load(copy).find_car("HZMX 9").passenger)
+
+    def test_tracks_list_pool_limits_and_comment(self):
+        import operations_pro
+        copy = self.copy([{"action": "update_track", "location": "Brae", "track": "Brae Engine Track",
+                           "comment": "Locomotives only", "pool": {"name": "Brae Pool", "min_length": 40, "max_length": 90}}])
+        row = operations_pro.list_items({"ops_dir": str(copy), "type": "tracks", "filter": "Brae Engine"})
+        self.assertEqual(len(row), 1)
+        self.assertEqual((row[0]["pool_min_length"], row[0]["pool_max_length"], row[0]["comment"]),
+                         (40, 90, "Locomotives only"))
+
+    def test_a_cleared_comment_leaves_no_comments_element(self):
+        copy = self.copy([{"action": "update_track", "location": "Brae", "track": "Brae Team", "comment": "Dock"}])
+        self.assertIn('<track comment="Dock"', (copy / "OperationsLocationRoster.xml").read_text())
+        ops_store.apply(ops_store.plan(copy, [{"action": "update_track", "location": "Brae", "track": "Brae Team",
+                                               "comment": ""}])["plan_id"], True)
+        self.assertEqual(ops_data.load(copy).find_track("Brae Team").comment, "")
+        self.assertNotIn("<comments>", (copy / "OperationsLocationRoster.xml").read_text()
+                         .split('name="Brae Team"')[1].split("</track>")[0])
+
+    def test_why_not_says_which_train_it_chose(self):
+        out = self.why_not(SHOWCASE, "WNDR 1", "West Staging")
+        self.assertTrue(any(out["train"] in n and "No train was named" in n for n in out["notes"]), out["notes"])
+        self.assertFalse([n for n in self.why_not(SHOWCASE, "HZMX 9", "West Staging", "Turn B", "TURN")["notes"]
+                          if "No train was named" in n])
+
+
 class ActionFields(Faults):
     def test_every_action_lists_its_fields(self):
         import operations_pro
@@ -205,6 +261,32 @@ class ActionFields(Faults):
             self.assertIn("it takes:", text)
             self.assertNotIn("positional argument", text)
             self.assertNotIn("keyword argument", text)
+
+
+class Noise(Faults):
+    def test_own_apply_does_not_warn(self):
+        copy = self.copy([{"action": "update_car", "car": "HZMX 9", "blocking": -2}])
+        plan = ops_store.plan(copy, [{"action": "update_car", "car": "HZMX 9", "blocking": -3}])
+        self.assertFalse([w for w in plan["warnings"] if "seconds ago" in w])
+
+    def test_a_save_after_the_apply_still_warns(self):
+        copy = self.copy([{"action": "update_car", "car": "HZMX 9", "blocking": -2}])
+        os.utime(copy / "OperationsCarRoster.xml")
+        plan = ops_store.plan(copy, [{"action": "update_car", "car": "HZMX 9", "blocking": -3}])
+        self.assertTrue([w for w in plan["warnings"] if "seconds ago" in w])
+
+    def test_failing_only_is_short(self):
+        import operations_pro
+        args = {"ops_dir": str(SHOWCASE), "car": "JFN 401", "destination": "Sawyer", "real_build": False}
+        full, short = operations_pro.why_not(args), operations_pro.why_not({**args, "failing_only": True})
+        self.assertLess(len(str(short)), len(str(full)) / 2)
+        self.assertEqual(short["can_move"], full["can_move"])
+        self.assertFalse([g for g in short["gates"] if g["status"] == "pass"])
+
+    def test_list_filter_finds_a_car_by_road_and_number(self):
+        import operations_pro
+        rows = operations_pro.list_items({"ops_dir": str(SHOWCASE), "type": "cars", "filter": "HZMX 9"})
+        self.assertEqual([r["id"] for r in rows], ["HZMX9"])
 
 
 class OnTimeAbort(unittest.TestCase):

@@ -37,8 +37,23 @@ def railroad(args: dict) -> Railroad:
 
 
 def why_not(args: dict) -> object:
-    return Gates(railroad(args)).why_not(
+    out = Gates(railroad(args)).why_not(
         args["car"], args["destination"], args.get("track"), args.get("train"), args.get("real_build", True))
+    return _brief(out) if args.get("failing_only") else out
+
+
+def _brief(out: dict) -> dict:
+    """The answer without the gates that passed, the long spur list or the track-order note."""
+    short = {k: v for k, v in out.items() if k not in ("gates", "track_note", "track_order", "note")}
+    short["gates"] = [g for g in out["gates"] if g["status"] != "pass"]
+    short["gates_passed"] = len(out["gates"]) - len(short["gates"])
+    router = dict(out["router"])
+    search = router.get("spur_search")
+    if search:
+        router["spur_search"] = {k: v for k, v in search.items() if k not in ("spurs", "staging")}
+    short["router"] = router
+    short["other_trains"] = out["other_trains"][:5]
+    return short
 
 
 def audit(args: dict) -> object:
@@ -52,6 +67,14 @@ def _track(rr: Railroad, track) -> dict:
     row.update(location=rr.locations[track.location_id].name, directions=directions(track.dir),
                used_length=rr.used_length(track), cars=[str(c) for c in cars], engines=len(engines))
     return row
+
+
+def _matches(row: dict, wanted: str) -> bool:
+    """A record whose name, road and number, id or location holds the text; spaces and case do not count."""
+    key = wanted.replace(" ", "").lower()
+    keys = ("id", "name", "location", "road", "road_number", "number")
+    text = " ".join(str(row.get(k, "")) for k in keys) + str(row.get("road", "")) + str(row.get("number", ""))
+    return key in text.replace(" ", "").lower()
 
 
 def list_items(args: dict) -> object:
@@ -82,7 +105,10 @@ _list_records = list_items
 def list_items(args: dict) -> object:  # noqa: F811
     if args.get("type") in EXTRA_LISTS:
         return EXTRA_LISTS[args["type"]](railroad(args).directory)
-    return _list_records(args)
+    rows = _list_records(args)
+    if args.get("filter") and isinstance(rows, list):
+        return [row for row in rows if _matches(row, args["filter"])]
+    return rows
 
 
 # ---- Manual builds and automations (end) --------------------------------------------
@@ -154,7 +180,9 @@ def tools() -> list[Tool]:
                   "track": {"type": "string", "description": "Track name or id; omit to try every track"},
                   "train": {"type": "string", "description": "Train name or id; omit to try every train"},
                   "real_build": {"type": "boolean", "description": "Let a cached real JMRI build settle the gates "
-                                 "only a build decides (default true; needs JMRI, else they stay not_checked)"}},
+                                 "only a build decides (default true; needs JMRI, else they stay not_checked)"},
+                  "failing_only": {"type": "boolean", "description": "Leave out the gates that passed and the long "
+                                   "search lists, for a short answer"}},
               "required": ["car", "destination"]},
              why_not),
         Tool("ops_explain_build",
@@ -177,7 +205,9 @@ def tools() -> list[Tool]:
              {"type": "object", "properties": directory}, audit),
         Tool("ops_list", "List one kind of OperationsPro record from the XML files.",
              {"type": "object",
-              "properties": {**directory, "type": {"type": "string", "enum": list(LIST_TYPES)}},
+              "properties": {**directory, "type": {"type": "string", "enum": list(LIST_TYPES)},
+                             "filter": {"type": "string", "description": "Only records whose name, road and number, "
+                                        "id or location holds this text"}},
               "required": ["type"]},
              list_items),
         Tool("ops_actions", "List every change action with its help, each field (name, required, default, what it "
