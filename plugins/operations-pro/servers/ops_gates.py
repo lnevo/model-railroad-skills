@@ -874,7 +874,7 @@ class Gates:
         first = rr.locations.get(stops[0].location_id)
         returning = (first is last and rr.option("buildOptions", "aggressive")
                      and rr.option("buildOptions", "stagingTrackAvail"))
-        if last is None or not last.is_staging or len(stops) < 2:
+        if last is None or not last.is_staging:
             out.append(gate("A7", PASS, "train does not end in staging"))
         elif returning:
             out.append(gate("A7", PASS, "aggressive mode with staging immediately available: the train returns "

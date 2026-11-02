@@ -944,6 +944,14 @@ class ReviewFixes(Base):
         self.assertEqual(self.gate(result, "A7")["status"], FAIL)
         self.assertIn("destined", self.gate(result, "D12")["reason"])
 
+    def test_a7_checks_the_terminal_track_of_a_one_stop_route(self):
+        # TrainBuilder 150-194 runs for any route whose terminate location is staging, one stop included.
+        rr, g = self.fresh()
+        rr.find_car("BVR1001").destination_id, rr.find_car("BVR1001").dest_track_id = "5", "5s2"
+        train = rr.find_train("BV1")
+        a7 = next(x for x in g._staging_gates(train, [rr.stops(train)[-1]]) if x["gate"] == "A7")
+        self.assertEqual(a7["status"], FAIL)
+
     def test_d17_full_spur_with_an_alternate_is_not_decided(self):
         # TrainBuilderBase 2430-2449: the alternate must take the train and the car at that moment.
         rr, g = self.fresh()
