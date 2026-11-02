@@ -339,7 +339,9 @@ def _checked(name: str, value) -> str:
             raise Refused("font needs a font name")
         return str(value)
     if kind in ("text", "path"):
-        return str(value)
+        if not isinstance(value, str):
+            raise Refused(f"{name} must be text, not {value!r}")
+        return value
     if isinstance(kind, dict):
         if value in kind:
             return kind[value]
@@ -448,6 +450,8 @@ def set_manifest_format(ed: Editor, line: str, prefix: str | None = None, fields
         raise Refused(f"line must be one of {', '.join(paper.FORMAT_LINES)}")
     if prefix is None and fields is None:
         raise Refused("Give prefix or fields")
+    if prefix is not None and not isinstance(prefix, str):
+        raise Refused(f"prefix must be text, not {prefix!r}")
     if line == "missing_car" and prefix:
         raise Refused("The missing car line has no prefix: JMRI stores it blank and never reads one")
     if line in paper.SWITCH_LIST_COPIES and _same_as_manifest(ed):
@@ -488,6 +492,8 @@ def set_manifest_text(ed: Editor, group: str, key: str, text: str | None = None)
     phrase with arguments. text null or JMRI's own wording puts the default back."""
     if group not in paper.TEXTS:
         raise Refused(f"group must be one of {', '.join(paper.TEXTS)}")
+    if text is not None and not isinstance(text, str):
+        raise Refused(f"text must be a string, not {text!r}")
     holder_tag, defaults = paper.TEXTS[group]
     if key not in defaults:
         raise Refused(f"No {group} text {key!r}. Keys: {', '.join(defaults)}")
@@ -523,6 +529,9 @@ def set_train_manifest(ed: Editor, train: str, railroad_name: str | None = None,
     """A train's own manifest options, as the train's Manifest Options window sets them: a railroad name and a
     logo printed instead of the railroad's (blank for the railroad's), and whether times print."""
     element = ed.train(train)
+    for label, value in (("railroad_name", railroad_name), ("logo", logo)):
+        if value is not None and not isinstance(value, str):
+            raise Refused(f"{label} must be text, not {value!r}")
     for value, tag in ((railroad_name, "railRoad"), (logo, "manifestLogo")):
         if value is None:
             continue

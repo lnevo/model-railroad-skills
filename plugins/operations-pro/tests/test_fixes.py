@@ -419,6 +419,43 @@ class NewFindings(Folder):
         found = self.findings(PARKED, "schedule-not-applied")
         self.assertEqual([f["subject"] for f in found], ["AB 50"])
 
+    def test_a_staging_car_type_the_route_takes_is_quiet(self):
+        actions = [dict(a, types=["Boxcar", "Tank Oil"]) if a.get("name") == "Falls" and a["action"] == "add_location"
+                   else a for a in STUCK_TYPE]
+        self.assertEqual(self.findings(actions, "staging-type-unserved"), [])
+
+    def test_a_car_parked_with_the_load_the_schedule_ships_is_quiet(self):
+        actions = [dict(a, load="Flour") if a["action"] == "add_car" else a for a in PARKED]
+        self.assertEqual(self.findings(actions, "schedule-not-applied"), [])
+
+    def test_staging_departure_warns_when_only_one_track_is_stuck(self):
+        actions = STUCK_LOAD + [
+            {"action": "add_track", "location": "West Staging", "name": "WS 2", "type": "Staging", "length": 400},
+            {"action": "add_car", "road": "WC", "number": "11", "type": "Boxcar", "length": 40,
+             "location": "West Staging", "track": "WS 2"}]
+        found = self.findings(actions, "staging-departure-blocked")
+        self.assertEqual([f["severity"] for f in found], ["warning"])
+        self.assertIn("WC 12", found[0]["message"])
+
+    def test_interchange_exit_by_load(self):
+        found = self.findings([
+            {"action": "add_location", "name": "Junction"},
+            {"action": "add_track", "location": "Junction", "name": "Junction CI", "type": "Interchange",
+             "length": 400},
+            {"action": "add_location", "name": "Millton"},
+            {"action": "add_track", "location": "Millton", "name": "Millton Yard", "type": "Yard", "length": 400},
+            {"action": "add_location", "name": "Eastport"},
+            {"action": "add_track", "location": "Eastport", "name": "Eastport Yard", "type": "Yard", "length": 400,
+             "loads": {"option": "Include", "names": ["L"]}},
+            {"action": "add_route", "name": "J", "stops": [{"location": "Junction"}, {"location": "Millton"},
+                                                           {"location": "Eastport"}]},
+            {"action": "add_train", "name": "J3", "route": "J"},
+            {"action": "setup_interchange", "track": "Junction CI", "destinations": ["Eastport"]},
+            {"action": "add_car", "road": "NS", "number": "106", "type": "Boxcar", "length": 40,
+             "location": "Junction", "track": "Junction CI"}], "interchange-no-exit")
+        self.assertEqual([f["severity"] for f in found], ["warning"])
+        self.assertIn("Boxcar with E", found[0]["message"])
+
     def test_interchange_exit_by_type(self):
         found = self.findings([
             {"action": "add_location", "name": "Junction"},

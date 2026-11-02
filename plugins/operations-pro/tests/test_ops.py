@@ -792,6 +792,26 @@ class EngineAudit(unittest.TestCase):
         self.edit("OperationsEngineRoster.xml", lambda r: self.engine(r, "BV103").set("outOfService", "true"))
         self.assertNotIn("BV 103", self.findings("engine-no-train"))
 
+    def test_engine_no_train_is_quiet_when_one_train_takes_the_engine(self):
+        def roads(root):
+            trains = list(root.iter("train"))
+            for train in trains[1:]:
+                train.set("locoRoadOption", "Exclude")
+                ET.SubElement(ET.SubElement(train, "locoRoads"), "locoRoad", {"name": "BV"})
+        self.edit("OperationsTrainRoster.xml", roads)
+        self.assertEqual(self.findings("engine-no-train"), {})
+
+    def test_consist_split_is_quiet_when_members_share_a_track(self):
+        def together(root):
+            ET.SubElement(root.find("newConsists"), "consist", {"name": "Pair"})
+            first = self.engine(root, "BV101")
+            first.attrib.update(consist="Pair", leadConsist="true")
+            other = self.engine(root, "BV102")
+            other.attrib.update(consist="Pair", locationId=first.get("locationId"),
+                                secLocationId=first.get("secLocationId"))
+        self.edit("OperationsEngineRoster.xml", together)
+        self.assertEqual(self.findings("consist-split"), {})
+
     def test_consist_split(self):
         def split(root):
             ET.SubElement(root.find("newConsists"), "consist", {"name": "Pair"})

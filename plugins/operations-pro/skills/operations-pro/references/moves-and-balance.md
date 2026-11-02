@@ -46,7 +46,7 @@ Track priority and load priority decide which cars are **analysed first**: track
 
 - Room is used length plus reserved length plus this car's length within the track length. A car's length includes a coupler allowance of four feet, or one metre.
 - Reserved length counts cars en route. The spur's "% from staging" factor scales it for load generation.
-- Planned pick ups, the ignore-used-length percentage (`update_track` `ignore_used_percent`: 0, 25, 50, 75 or 100), let the builder discount part of the used length. Cars will fill the freed room, so use it where that is wanted. Tested in JMRI 5.16:
+- Planned pick ups, the ignore-used-length percentage (`update_track` `ignore_used_percent`: 0, 25, 50, 75 or 100), let the builder discount part of the used length. Cars will fill the freed room, so use it where that is wanted. Observed outcomes, not asserted by a test:
 
 | Case | What fixed it |
 |---|---|

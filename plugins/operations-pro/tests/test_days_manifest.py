@@ -89,6 +89,11 @@ class Days(Case):
         with self.assertRaisesRegex(Refused, "No train"):
             self.plan({"action": "add_day", "name": "Friday", "trains": ["Nope"]})
 
+    def test_update_day_refuses_a_duplicate_or_blank_name(self):
+        for name, why in (("Tuesday", "already exists"), ("   ", "needs a name")):
+            with self.assertRaisesRegex(Refused, why):
+                self.plan({"action": "update_day", "day": "Monday", "name": name})
+
     def test_active_day_goes_where_jmri_reads_it_last(self):
         self.edit({"action": "set_active_day", "name": "Tuesday"})
         root = self.train_xml()
@@ -208,6 +213,21 @@ class ManifestFormats(Case):
         names = [c.tag for c in ops]
         known = [n for n in names if n in ops_paperwork.SETUP_ORDER]
         self.assertEqual(known, sorted(known, key=ops_paperwork.SETUP_ORDER.index))
+
+    def test_text_and_path_values_must_be_strings(self):
+        for action, why in (({"action": "set_manifest_options", "logo": None}, "logo must be text"),
+                            ({"action": "set_manifest_options", "logo": 5}, "logo must be text"),
+                            ({"action": "set_manifest_options", "hazardous_message": None}, "must be text"),
+                            ({"action": "set_manifest_options", "hazardous_message": 7}, "must be text"),
+                            ({"action": "set_manifest_text", "group": "manifest", "key": "valid", "text": 5},
+                             "text must be a string"),
+                            ({"action": "set_manifest_format", "line": "pickup_car", "prefix": 5},
+                             "prefix must be text"),
+                            ({"action": "set_train_manifest", "train": "BV1", "logo": 5}, "logo must be text"),
+                            ({"action": "set_train_manifest", "train": "BV1", "railroad_name": 5},
+                             "railroad_name must be text")):
+            with self.assertRaisesRegex(Refused, why, msg=str(action)):
+                self.plan(action)
 
     def test_format_lines_are_checked(self):
         for action, why in (({"line": "pickup_car", "fields": ["Road", "Colour"]}, "'Colour' is not a field"),
