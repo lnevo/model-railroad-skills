@@ -32,7 +32,7 @@ Further cases:
 
 - Load generation from staging applies the receive load at build. The car leaves with the load the schedule asked for.
 - Quick service tracks apply both at build.
-- Set Car applies a schedule only when the track changes and the user answers yes (CarSetFrame:600-630). Nothing else revisits parked cars, so adding a schedule does not touch cars already on the spur. `ops_deliver_car` and `ops_live_car` do what Set Car does, so `ops_deliver_car` refuses a car that is already on that track. To load a car parked before the schedule existed, set its load with `update_car` (`ops_session`), or deliver it to another track and back. The audit reports `schedule-not-applied` for a parked car holding the load a line receives.
+- Set Car applies a schedule only when the track changes and the user answers yes (CarSetFrame:600-630). Nothing else revisits parked cars, so adding a schedule does not touch cars already on the spur. `ops_deliver_car` does what Set Car does, so it refuses a car that is already on that track; `ops_live_car` does not check. To load a car parked before the schedule existed, set its load with `update_car` (`ops_session`), or deliver it to another track and back. The audit reports `schedule-not-applied` for a parked car holding the load a line receives.
 - Wait counts builds, not visits: it falls by one each time a train that could serve the car builds, and the load changes when it reaches zero. A car departing staging ignores wait.
 - Disable Load Change skips the ship load, the ship destination and the id clear. Wait and pick up day still apply.
 - Moving a car with a JSON location change does not apply a schedule.
@@ -100,4 +100,4 @@ What departure staging needs for divisional empties is a reachable location **in
 
 A storage spur with a schedule that receives what the industry spurs ship, and ships what they receive, gives every custom load a home. The `mirror_schedule` action builds that schedule. Set a large move count on such a spur so the builder tries it last. Whether this suits a layout is a modelling choice.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

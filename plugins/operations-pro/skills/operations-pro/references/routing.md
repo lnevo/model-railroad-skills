@@ -28,7 +28,7 @@
 - Routed, the "only cars with a final destination" option, exists on interchanges and staging. It refuses any car with no final destination, except cabooses and FRED cars. With it on, the custom search fallback cannot leave a car there.
 - Pick ups and Set outs lists hold train or route ids and are read on interchanges and spurs. Yards return Any whatever is stored, and the audit reports `yard-pickup-list` and `yard-drop-list`. Changing the option from train to route clears the list.
 - Interchanges can be descriptive rather than physical. That is a modelling choice.
-- The `setup_interchange` action sets trains in, trains out, Routed and destinations in one step. `pulled_by` is the pick up list; `set_out_by` the set out list. Words in option fields are lower case (`trains`, `routes`, `any`).
+- The `setup_interchange` action sets trains in, trains out, Routed and destinations in one step. `pulled_by` is the pick up list; `set_out_by` the set out list. Words in option fields are spelled `Any`, `trains`, `routes`, `excludeTrains`, `excludeRoutes`.
 - An interchange cannot have a schedule; a car's route through a rest-of-the-world interchange that must come back loaded needs a spur instead (`loads-and-schedules.md`).
 
 ### A/D track for a yard switcher
@@ -84,4 +84,4 @@ Write actions: `add_division`, `update_division` (rename or comment; locations a
 
 The Track Destinations tool and the check destinations tool warn about types a destination does not service. The build report is the judge. `ops_why_not` with a train named walks the router gates for a final destination, and its `router` field gives the router's answer for that train as JMRI 5.16 computes it from the files: the status, the trains in the route, and for a custom load the spur search with its hold or staging outcome.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

@@ -29,7 +29,7 @@ There is no seventh file. Generated folders beside them: `buildstatus`, `manifes
 - An automatic backup set is taken when Operations initialises, default on, under `autoBackups/<date>_<nn>`.
 - `backups` fills only from the Backup button, or from the plugin, which backs up before every write so JMRI's Restore window lists those sets too.
 - JMRI has two restore entry points, the Restore dialog and the restore files action. Which folders each can reach was not checked.
-- To move a railroad: copy all six files into the same folder of the other install with JMRI closed. Copy them as one set. The files refer to each other by id, and ids are reused: tracks are `<location>s<n>`, and a deleted track's id is given to the next track added. Copying only the location and route files from a test copy into the real railroad can leave a car's track id pointing at a different track, and the car then sits on it with no warning from the audit. A car whose track no longer exists is caught (`car-unplaced`; `ops_why_not` B1). Compare the cars' tracks after a partial copy.
+- To move a railroad: copy all six files into the same folder of the other install with JMRI closed. Copy them as one set. The files refer to each other by id, and ids are reused: tracks are `<location>s<n>`, and after a restart JMRI gives a deleted highest-numbered track's id to the next track added. Copying only the location and route files from a test copy into the real railroad can leave a car's track id pointing at a different track, and the car then sits on it with no warning from the audit. A car whose track no longer exists is caught (`car-unplaced`; `ops_why_not` B1). Compare the cars' tracks after a partial copy.
 - A lost or damaged file is recoverable, and the recovery tools work on the broken folder:
 
 | Step | Tool |
@@ -69,13 +69,13 @@ Ids: tracks are `<location>s<n>`, pools `<location>p<n>`, route stops `<route>r<
 
 ## What a hand edit can create that JMRI drops
 
-A schedule or an alternate on a non-spur, and a Destinations filter on a yard or spur, are dropped on the next save. A pick up or set out list on a yard, and ship options or Routed on a spur, survive a save but are ignored. The plugin refuses to write any of them, and the audit reports the ignored ones.
+A schedule or an alternate on a non-spur, a Destinations filter on a yard or spur, a pick up or set out list on a yard, and ship options or Routed on a spur are all dropped on the next save. The plugin refuses to write any of them, and the audit reports the ones a file holds.
 
 ## Deleting
 
 Set a track's length to zero first so nothing new is sent, wait for its drop count to reach zero, then delete. Deleting a track fires events that clear final destinations pointing at it. The plugin's `delete_track`, `delete_location`, `delete_route`, `delete_schedule`, `delete_train` and `delete_load` refuse while anything still points at the record and list what does.
 
-`delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; the two loads then become one, keeping the existing one's settings. A track cannot change type: empty it, `delete_track`, then `add_track` the new type (once a delete and an add of a track in one plan was refused with "moves ... would change", because the new track took the deleted one's id; if that happens, use two plans).
+`delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; the two loads then become one, keeping the existing one's settings. A track cannot change type: empty it, `delete_track`, then `add_track` the new type.
 
 ## The JSON server
 
@@ -117,4 +117,4 @@ One running JMRI owns the data. Two running copies go out of sync because each h
 
 Nearly empty rosters after a start usually mean a bad file, recovered from `autoBackups`. Help, System Console shows the load errors. Restore from Settings, not by opening backup files by hand.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

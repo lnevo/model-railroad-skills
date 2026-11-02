@@ -38,7 +38,7 @@
 
 - The caboose flag on the car is what counts, not the type name. An `(H)` marker beside a car is hazardous, not a caboose.
 - The train's caboose road list is separate from its car road list. A caboose on a track whose direction does not serve the train, or on a track the train cannot pull from, is not found. The search runs in several passes. The audit reports `caboose-road-mismatch`.
-- Requirement `0` means no caboose, `1` one; `requires` takes nothing else. A FRED car on a train that does not need FRED is dropped from the car list.
+- Requirement `0` means no caboose or FRED, `1` a caboose, `2` a FRED; `requires` takes nothing else. A FRED car on a train that does not need FRED is dropped from the car list.
 - Two traps stop a caboose that is plainly there. Both name the wrong screen in the failure line (it says Requires); the cause is in the excluded cars or the car story.
 
 | Trap | Cause | Fix | Audit finding |
@@ -83,4 +83,4 @@
 
 The builder has no unit-train flag. A staging-to-staging train keeps its consist, so giving it a route from one staging to another and its own types or roads is the usual modelling choice.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

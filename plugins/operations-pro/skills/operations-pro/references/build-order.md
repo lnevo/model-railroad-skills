@@ -23,7 +23,7 @@ Setter names are the Java methods, useful when reading a build report or the sou
 | Id | Test | On failure | Fix on screen |
 |---|---|---|---|
 | A1 | Build box ticked. Only Build All and automations honour it | Not built | Trains window, Build |
-| A2 | On-time mode: departs no earlier than the latest departure among built trains, and no other train is building (waits up to 120 s). The departure is the first stop's time if the route sets one, else the train's. Decided from the files; only a train still building is not | Build aborts | Settings, Build on time; train departure times |
+| A2 | On-time mode: departs no earlier than the latest departure among built trains. In every mode a build waits up to 120 s for another train still building, then fails. The departure is the first stop's time if the route sets one, else the train's. Decided from the files; only a train still building is not | Build aborts | Settings, Build on time; train departure times |
 | A3 | Route exists, has stops, departure and terminal resolve | Build fails | Edit Train, Route |
 | A4 | Every stop's location still exists | Build fails | Edit Route |
 | A5 | Skipped stop or staging mid-route: no work there, moves consumed | No work at the stop | Edit Train, skip list |
@@ -160,4 +160,4 @@ d. **Any accepting track on this train's route**, like a default car. Not unrest
 
 Departure time gates a build only in on-time build order (A2), the timing check against other trains' pulls (D18) and quick service (C11). Otherwise it feeds expected times on paperwork.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

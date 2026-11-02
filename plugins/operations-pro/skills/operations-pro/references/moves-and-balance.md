@@ -81,4 +81,4 @@ Fixes: give spurs schedules, which sort first; set yard counts high and spur cou
 
 The forum reads the per-type figure as space used by all cars of that type as a percentage of all track that accepts the type, as if they all sat on it; that reading was not checked against the source. Layout fullness comes from Print Locations. Half full as a starting point is a modelling choice.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

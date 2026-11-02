@@ -2,7 +2,7 @@
 
 ## The departure rule
 
-- Every car on the departure staging track must get a destination, or the build fails. The exception is on-time build mode, which only drops the count check.
+- Every car on the departure staging track must get a destination, or the build fails, in every build mode. On-time build mode only drops the check that all the cars on the track are in the car list.
 - The track is chosen by lowest move count among tracks this train may use, or the user is prompted when Prompt for Departure is on. `ops_train` builds with prompts off, so JMRI chooses.
 - A track is rejected (gate A8) if it is empty, its cars do not fit the route length or moves, the loco count or direction is wrong, or any car fails the train's type, road, load, owner, built, destination, caboose, FRED or pool checks. A car with location unknown or out of service on the departure track fails the build.
 - Departure track selection tests every car's load against the train, so the car list skips that test for staging cars. A default E is exempt from it only when a generate option is on; with none on, a train that does not carry E rejects the track.
@@ -104,4 +104,4 @@ Each train fills its staging track and terminates on the other's, so both fail A
 
 Spurs in a fiddle yard do not carry the all-cars-must-leave rule. A storage spur with a mirror schedule, or an Out of Service flag to park part of the fleet, are modelling choices the builder supports.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

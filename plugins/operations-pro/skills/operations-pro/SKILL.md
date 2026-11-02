@@ -54,7 +54,7 @@ Read: `ops_explain_build`, `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`
 Write with JMRI exited: `ops_apply`, `ops_session`, `ops_deliver_car`, `ops_restore`, `ops_install_agent`.
 Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops_live_report`, `ops_live_automation`.
 
-`ops_actions` lists the change actions with their fields. The plugin README has the full table.
+`ops_actions` lists the change actions with their fields.
 
 ## Facts that trip everyone
 
@@ -63,7 +63,7 @@ Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops
 - Default E and L cars are never routed. They take the first accepting track on the building train's own route, scheduled tracks first. A car with a final destination is always routed, whatever its load.
 - A schedule acts three times: as a gate on entry, at build when the line is assigned, and on delivery when the load changes. Set Car applies it only when the track changes and the user says yes.
 - Staging can send a default empty. What blocks it is a Ship Load Option that excludes E, a train that does not carry E, or no track ahead that takes E. A car with a home division also needs a reachable location in its division; a generated load does not get round that.
-- Every car on a departure staging track must leave or the build fails, except in on-time mode.
+- Every car on a departure staging track must leave or the build fails; on-time mode only drops the check that every car on the track is available to the train.
 - Yards ignore pick up and set out lists and the Destinations filter. Interchanges, spurs and staging filter trains; only interchanges and staging filter destinations.
 - The Destinations filter holds locations, not tracks, and tests the car's final destination. With no final destination it tests the next location the train would use.
 - A car set out on an interchange with Pick ups set to Any cannot be pulled by a train on the same route.
@@ -87,4 +87,4 @@ Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops
 
 **Also outside what this skill checked:** RFID and reporters, train icons on panels, locale and scale settings, migration from other programs, and version-specific bugs. Give the confirmed facts in `sessions.md` and `data-and-files.md` where they touch these, and say the rest is outside what this skill checked.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.

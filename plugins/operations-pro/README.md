@@ -37,7 +37,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 
 ## Skill
 
-`skills/operations-pro/` is the guidance. The entry file says how to work, which tool to reach for and the dozen facts that trip most people. Nine reference files hold the detail, one per question: the builder's gate order (the ids `ops_why_not` and `ops_explain_build` print), loads and schedules, staging, routing, move counts and balance, special cars, sessions, data and files, and diagnosis with the audit finding names. Every rule in them was checked against the JMRI 5.16 source; modelling choices are labelled as such.
+`skills/operations-pro/` is the guidance. The entry file says how to work, which tool to reach for and the dozen facts that trip most people. Nine reference files hold the detail, one per question: the builder's gate order (the ids `ops_why_not` and `ops_explain_build` print), loads and schedules, staging, routing, move counts and balance, special cars, sessions, data and files, and diagnosis with the audit finding names. Each rule was checked against the JMRI 5.16 source or tested in JMRI 5.16, except where a file says a point was not checked; modelling choices are labelled as such.
 
 ## Tools
 
@@ -61,7 +61,7 @@ These work on a running JMRI, and don't need it exited:
 |---|---|---|
 | `ops_live_status` | No | Shows each train's state and whether the agent is running |
 | `ops_train` | Build and reset only | Builds, moves, terminates or resets one train or all of them; a build answers with the report read as `ops_explain_build` reads it (`detail`: summary, normal, full) |
-| `ops_live_car` | Yes | Sets a car on a track and runs the track's schedule, as Set Car does |
+| `ops_live_car` | Yes | Sets a car on a track and runs the track's schedule on the named car, without Set Car's track-change test or any prompt |
 | `ops_live_save` | Yes | Saves the Operations files now, so the reading tools see the latest state |
 | `ops_live_report` | Yes | Reads the end of a build report or manifest |
 | `ops_live_automation` | Yes | Runs a named automation |
@@ -89,7 +89,7 @@ Set `JMRI_URL` if JMRI isn't at `http://localhost:12080`. It can be another comp
 - **A built train isn't rebuilt by accident.** Building again resets the train, so it needs `rebuild`. A train en route can't be built or reset.
 - **A refused Set Car puts the car back.**
 - **Only the listed commands run.** The agent doesn't evaluate text it's sent. Anyone who can reach JMRI's web server can send commands, as they already can for turnouts and sensors.
-- **A Store of tables in JMRI** can save the agent's three `IMOPSPRO_` Memories. They're harmless: they hold only the agent version and the last command.
+- **A Store of tables in JMRI** can save the agent's three `IMOPSPRO_` Memories. They're harmless: they hold the agent version, the last command and the last reply (which can be a whole build report).
 
 ## Changing data safely
 

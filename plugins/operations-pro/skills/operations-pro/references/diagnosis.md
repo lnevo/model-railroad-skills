@@ -41,7 +41,7 @@ Wording follows the message keys and may differ a little between versions.
 | Stuck cars in staging after the car list | Every car on the departure track must leave (B20) |
 | "called before trains completely loaded" in the log | Files loaded in the wrong order; a hand edit or a bad file |
 
-**The headline failure line names a screen that is often the wrong one.** "Could not find destinations for N cars departing from staging" (B20) and "requires caboose, can't find caboose at departure" (B17) are consequences. The cause is in the stuck cars' stories (the gate on each refusal) and in the excluded-cars list (a caboose barred by B6 or C9). Read those first; the summary names the most frequent refusal, which is not always the deciding one (for a car stopped by train length, the D9 line decides, not the E9 lines for tracks it never reached).
+**The headline failure line names a screen that is often the wrong one.** "Could not find destinations for N cars departing from staging" (B20) and "requires caboose, can't find caboose at departure" (B17) are consequences. The cause is in the stuck cars' stories (the gate on each refusal) and in the excluded-cars list (a caboose barred by B6 or C9). Read those first; the summary names each stuck car's last refusal (the home division rule when that search ran), which is not always the deciding one (for a car stopped by train length, the D9 line decides, not the E9 lines for tracks it never reached).
 
 A build in aggressive mode shows half the moves on the first pass. Two identical builds can differ because staging and load picks are random, so compare several runs; `ops_build_check` does that.
 
@@ -133,4 +133,4 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 
 The report wins. The tools read the files and report `not_checked` for gates that depend on the build itself: moves and train length once other cars are placed, a random draw that could take every move, quick service timing against a clone, which track a home division search picks, timing against other trains' pulls, room that pulls in aggressive mode or quick service may open, and a manual line that may or may not take the car. Say which gate was not checked.
 
-Checked against JMRI 5.16 source, tag v5.16.
+Checked against JMRI 5.16 source, tag v5.16, or tested in JMRI 5.16, except where this file says a point was not checked.
