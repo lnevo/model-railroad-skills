@@ -204,9 +204,11 @@ def tools() -> list[Tool]:
              lambda a: ops_store.apply(a["plan_id"], a.get("accept_new_errors", False)), read_only=False),
         Tool("ops_session",
              "Apply session actions, such as correcting a car, without a separate plan. Same backup and audit. "
-             "JMRI must be fully exited.",
-             {"type": "object", "properties": {**directory, **actions}, "required": ["actions"]},
-             lambda a: ops_store.quick(folder(a), a["actions"]), read_only=False),
+             "New audit errors refuse it unless the user accepts them. JMRI must be fully exited.",
+             {"type": "object", "properties": {**directory, **actions, "accept_new_errors": {"type": "boolean"}},
+              "required": ["actions"]},
+             lambda a: ops_store.quick(folder(a), a["actions"], accept_new_errors=a.get("accept_new_errors", False)),
+             read_only=False),
         Tool("ops_deliver_car",
              "Set a car on a track and run that track's schedule as Set Car does: real JMRI works out the "
              "result on a copy, then the change is applied. JMRI must be fully exited.",

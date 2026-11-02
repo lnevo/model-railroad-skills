@@ -328,16 +328,17 @@ def apply(plan_id: str, allow_new_errors: bool = False) -> dict:
             "next": "Start JMRI and open Operations so it reads the new files."}
 
 
-def quick(directory: str | Path, actions: list[dict], prepare=None) -> dict:
-    """The lighter path for session actions: no separate plan step, same transaction."""
+def quick(directory: str | Path, actions: list[dict], prepare=None, accept_new_errors: bool = False) -> dict:
+    """The lighter path for session actions: no separate plan step, same transaction. A change the audit
+    blocks can still go through when the user accepts its errors, as with ops_apply."""
     result = plan(directory, actions, session=True, prepare=prepare)
     if not result["changed"]:
         return result
-    if result["blocked"]:
+    if result["blocked"] and not accept_new_errors:
         shutil.rmtree(plans_root() / result["plan_id"], ignore_errors=True)
         raise Refused("This adds audit errors: "
                       + "; ".join(f["message"] for f in result["new_findings"] if f["severity"] == "error"))
-    return apply(result["plan_id"])
+    return apply(result["plan_id"], accept_new_errors)
 
 
 def backups(directory: str | Path) -> list[dict]:
