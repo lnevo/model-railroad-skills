@@ -439,9 +439,11 @@ def _check_times(stops) -> None:
 
 _wrap("add_route", before=lambda ed, stops, **_: _check_times(stops),
       note="Stops also take random (Off or 10 to 100), comment, wait (minutes added to the travel time there) and "
-           "depart_time (HH:MM; it fixes the manifest time at that stop, and later stops follow from it).")
+           "depart_time (HH:MM; it sets the manifest time at that stop, and later stops follow. At the first stop it "
+           "replaces the train's departure time on JMRI's next save. A time the train has already passed rolls to the next day).")
 _wrap("update_stop", before=lambda ed, route, stop, **fields: _check_times([fields]),
       note="Fields: direction, max_moves, max_length, pickups, drops, local_moves, random, comment, wait (minutes "
-           "added to the travel time) and depart_time (HH:MM, blank for none; it fixes the manifest time there).")
+           "added to the travel time) and depart_time (HH:MM, blank for none; it sets the manifest time there. At the first stop it replaces the train's "
+           "departure time on JMRI's next save, and a time the train has already passed rolls to the next day).")
 
 # ---- Route stop times (end) ---------------------------------------------------------
