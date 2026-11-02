@@ -1,7 +1,29 @@
 """The test runner's progress and estimate of the time left."""
 import unittest
+from pathlib import Path
 
-from run import Progress, clock, line
+from run import DONE, Progress, choose_files, clock, line, parse_timing, split_names
+
+
+class Choosing(unittest.TestCase):
+    EVERY = [Path("test_a.py"), Path("test_b.py"), Path("test_c.py")]
+
+    def test_a_mode_can_come_with_files(self):
+        self.assertEqual(split_names(["fast", "test_a"]), ("fast", ["test_a"]))
+
+    def test_files_alone_run_with_real_jmri(self):
+        self.assertEqual(split_names(["test_a", "test_b"]), ("all", ["test_a", "test_b"]))
+
+    def test_no_names_is_every_test(self):
+        self.assertEqual(split_names([]), ("all", []))
+        self.assertEqual(choose_files(self.EVERY, []), self.EVERY)
+
+    def test_only_the_named_files_run_with_or_without_py(self):
+        self.assertEqual(choose_files(self.EVERY, ["test_c.py", "test_a"]), [self.EVERY[0], self.EVERY[2]])
+
+    def test_a_mistyped_file_is_refused(self):
+        with self.assertRaises(ValueError):
+            choose_files(self.EVERY, ["test_nope"])
 
 
 class TimeLeft(unittest.TestCase):
@@ -62,6 +84,15 @@ class Reporting(unittest.TestCase):
         p.tested("a")
         p.finish("a", True)
         self.assertEqual(p.snapshot()["tests"], 1)
+
+    def test_a_done_line_gives_the_test_and_its_seconds(self):
+        self.assertEqual(parse_timing(f"{DONE} 1.25 test_a.Case.test_b\n"), (1.25, "test_a.Case.test_b"))
+
+    def test_a_tests_own_output_can_share_the_line(self):
+        self.assertEqual(parse_timing(f"partial{DONE} 2.0 test_a.Case.test_b\n"), (2.0, "test_a.Case.test_b"))
+
+    def test_other_output_is_not_a_timing(self):
+        self.assertIsNone(parse_timing("ordinary output\n"))
 
     def test_clock(self):
         self.assertEqual((clock(9), clock(125)), ("9s", "2m05s"))

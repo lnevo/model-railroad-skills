@@ -2,11 +2,14 @@
 
   python3 tests/run.py            every test, as unittest discover does
   python3 tests/run.py fast       no real JMRI and a sample of the router answers: run this while working
+  python3 tests/run.py test_router test_write       only those files, for the area you are changing
+  python3 tests/run.py fast test_router             those files without real JMRI
   python3 tests/run.py --jobs 4   more files at once (default 2); each file can start four JVMs of its own
   python3 tests/run.py status     where a run is now, from any other shell or session
 
 A progress line prints every 15 seconds and as each file ends. The time left comes from what each file took
 last time, scaled by how this run is going, so a busy machine moves the estimate rather than breaking it.
+Every test's seconds go to tests-all.json or tests-fast.json beside the status file, slowest first.
 Run every test before merging: only those hold the plugin to real JMRI.
 """
 import argparse
@@ -28,15 +31,18 @@ RUN_STATE = Path(tempfile.gettempdir()) / "operations-pro-tests"
 STATUS = RUN_STATE / "status.json"
 # In fast mode a test file runs as it would where JMRI is not installed, so the tests that need it skip.
 ONE_FILE = """
-import sys, unittest
+import sys, time, unittest
 sys.path.insert(0, {servers!r})
 import ops_jmri
 if {fast!r}:
     ops_jmri.jmri_home = lambda: None
 class Result(unittest.TextTestResult):
+    def startTest(self, test):
+        self.began = time.monotonic()
+        super().startTest(test)
     def stopTest(self, test):
         super().stopTest(test)
-        print({done!r}, flush=True)
+        print({done!r}, round(time.monotonic() - self.began, 2), test.id(), flush=True)
 runner = unittest.TextTestRunner(resultclass=Result, verbosity=0)
 sys.exit(not unittest.main(module=None, argv=["run", {name!r}], exit=False, testRunner=runner).result.wasSuccessful())
 """
@@ -53,6 +59,7 @@ class Progress:
     def __init__(self, counts: dict[str, int], history: dict[str, dict]):
         self.lock = threading.Lock()
         self.started = time.monotonic()
+        self.timings: list[tuple[float, str]] = []
         known = [h["seconds"] / max(h["tests"], 1) for h in history.values() if h.get("seconds")]
         rate = sum(known) / len(known) if known else 1.0
         self.files = {}
@@ -66,9 +73,10 @@ class Progress:
         with self.lock:
             self.files[name]["state"] = "running"
 
-    def tested(self, name: str) -> None:
+    def tested(self, name: str, seconds: float = 0.0, test: str = "") -> None:
         with self.lock:
             self.files[name]["done"] += 1
+            self.timings.append((seconds, test))
 
     def finish(self, name: str, ok: bool) -> None:
         with self.lock:
@@ -128,6 +136,14 @@ def show_status() -> int:
     return 0
 
 
+def parse_timing(text: str) -> tuple[float, str] | None:
+    """A test's seconds and name from its done line; a test's own output can come before the marker."""
+    if DONE not in text:
+        return None
+    seconds, name = text.split(DONE, 1)[1].split()
+    return float(seconds), name
+
+
 def run_file(path: Path, fast: bool, progress: Progress) -> tuple[str, int, float, str]:
     progress.start(path.stem)
     started = time.monotonic()
@@ -138,8 +154,9 @@ def run_file(path: Path, fast: bool, progress: Progress) -> tuple[str, int, floa
         with subprocess.Popen([sys.executable, "-c", code], cwd=TESTS, env=env, text=True, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT) as process:
             for text in process.stdout:
-                if text.rstrip().endswith(DONE):
-                    progress.tested(path.stem)
+                timing = parse_timing(text)
+                if timing:
+                    progress.tested(path.stem, *timing)
                 else:
                     other.append(text)
     progress.finish(path.stem, process.returncode == 0)
@@ -155,19 +172,43 @@ def load_history(mode: str) -> dict:
 
 def save_history(mode: str, results: list, progress: Progress) -> None:
     RUN_STATE.mkdir(exist_ok=True)
-    history = {name: {"seconds": round(seconds, 1), "tests": progress.files[name]["tests"]}
-               for name, _, seconds, _ in results}
+    history = load_history(mode)  # a run of some files keeps the times of the others
+    history.update({name: {"seconds": round(seconds, 1), "tests": progress.files[name]["tests"]}
+                    for name, _, seconds, _ in results})
     (RUN_STATE / f"history-{mode}.json").write_text(json.dumps(history))
+
+
+def split_names(names: list[str]) -> tuple[str, list[str]]:
+    """The mode, if the first name is one, and the test files asked for."""
+    if names and names[0] in ("all", "fast", "status"):
+        return names[0], names[1:]
+    return "all", names
+
+
+def choose_files(every: list[Path], wanted: list[str]) -> list[Path]:
+    """The test files named, with or without .py; all of them if none are."""
+    if not wanted:
+        return every
+    stems = [Path(name).stem for name in wanted]
+    unknown = sorted(set(stems) - {path.stem for path in every})
+    if unknown:
+        raise ValueError(f"no test file named {', '.join(unknown)}")
+    return [path for path in every if path.stem in stems]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("mode", nargs="?", choices=("all", "fast", "status"), default="all")
+    parser.add_argument("names", nargs="*", metavar="all|fast|status|test_file")
     parser.add_argument("--jobs", type=int, default=2)
     args = parser.parse_args()
+    args.mode, wanted = split_names(args.names)
     if args.mode == "status":
         return show_status()
-    files = sorted(TESTS.glob("test_*.py"))
+    every = sorted(TESTS.glob("test_*.py"))
+    try:
+        files = choose_files(every, wanted)
+    except ValueError as exc:
+        parser.error(str(exc))
     counts = {p.stem: len(re.findall(r"^\s+def test_", p.read_text(), re.M)) for p in files}
     progress = Progress(counts, load_history(args.mode))
     report(progress)
@@ -182,6 +223,10 @@ def main() -> int:
     save_history(args.mode, results, progress)
     print("Slowest:", ", ".join(f"{name} {clock(seconds)}" for name, _, seconds, _ in
                                 sorted(results, key=lambda r: -r[2])[:5]))
+    slowest = sorted(progress.timings, reverse=True)
+    if not wanted:  # the profile stays a whole run's
+        (RUN_STATE / f"tests-{args.mode}.json").write_text(json.dumps(slowest))
+    print("Slowest tests:", ", ".join(f"{test.split('.', 1)[-1]} {seconds:.0f}s" for seconds, test in slowest[:5]))
     for name, _, _, output in failed:
         print(f"\nFAILED {name}\n{output[-4000:]}")
     snapshot = progress.snapshot()
