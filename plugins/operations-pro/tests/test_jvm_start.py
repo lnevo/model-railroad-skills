@@ -11,6 +11,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "servers"))
 
+import mcp_stdio  # noqa: E402
 import ops_jmri  # noqa: E402
 
 
@@ -91,6 +92,12 @@ class JythonCache(unittest.TestCase):
     def test_every_run_uses_the_quick_compiler(self):
         ops_jmri.run_worker(self.source, {})
         self.assertEqual(self.commands[0][1], ops_jmri.QUICK_JIT)
+
+
+class ServerVersion(unittest.TestCase):
+    def test_the_server_reports_the_plugin_version(self):
+        plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+        self.assertEqual(mcp_stdio.PLUGIN_VERSION, plugin["version"])
 
 
 class SharedPlace(unittest.TestCase):

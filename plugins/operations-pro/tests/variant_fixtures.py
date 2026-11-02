@@ -144,8 +144,9 @@ def oracle(operations: Path) -> None:
         root = Path(scratch)
         shutil.copytree(operations, root / "operations")
         out = operations.parent / "jmri_oracle.json"
-        subprocess.run([ops_jmri.java_command(), "-Djava.awt.headless=true", f"-Duser.home={root}",
-                        f"-Djmri.prefsdir={root}", f"-Dops.home={root}", f"-Dpython.cachedir={root / 'jc'}",
+        subprocess.run([ops_jmri.java_command(), ops_jmri.QUICK_JIT, "-Djava.awt.headless=true", f"-Duser.home={root}",
+                        f"-Djmri.prefsdir={root}", f"-Dops.home={root}",
+                        f"-Dpython.cachedir={ops_jmri.jython_cache(home, root)}",
                         "-Dpython.cachedir.skip=false", f"-Doracle.out={out}", "-cp",
                         os.pathsep.join(str(j) for j in jars), "org.python.util.jython", str(ORACLE)],
                        cwd=root, capture_output=True, timeout=300, check=False)
