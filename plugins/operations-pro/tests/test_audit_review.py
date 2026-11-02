@@ -77,5 +77,97 @@ class ReportReader(unittest.TestCase):
         self.assertIn("buildStagingTrackDepart", [r["key"] for r in report["staging"]["terminal"]])
 
 
+FILES = {"locations": "OperationsLocationRoster.xml", "cars": "OperationsCarRoster.xml",
+         "engines": "OperationsEngineRoster.xml", "trains": "OperationsTrainRoster.xml",
+         "routes": "OperationsRouteRoster.xml"}
+
+
+class Edits:
+    """The showcase's XML files, edited by hand, as an owner or an old JMRI could leave them."""
+
+    def __init__(self, folder: Path):
+        self.folder, self.trees = folder, {}
+
+    def root(self, name: str) -> ET.Element:
+        if name not in self.trees:
+            self.trees[name] = ET.parse(self.folder / FILES[name])
+        return self.trees[name].getroot()
+
+    def track(self, track_id: str) -> ET.Element:
+        return self.root("locations").find(f".//track[@id='{track_id}']")
+
+    def location(self, location_id: str) -> ET.Element:
+        return self.root("locations").find(f".//location[@id='{location_id}']")
+
+    def train(self, name: str) -> ET.Element:
+        return self.root("trains").find(f".//train[@name='{name}']")
+
+    def car(self, car_id: str) -> ET.Element:
+        return self.root("cars").find(f".//car[@id='{car_id}']")
+
+    def add_car(self, base: str, car_id: str, **attributes) -> ET.Element:
+        cars = self.root("cars").find("cars")
+        car = deepcopy.deepcopy(self.car(base))
+        car.attrib.update(id=car_id, roadNumber=car_id[-3:], comment="", **attributes)
+        for name in ("destinationId", "secDestinationId", "finalDestinationId", "finalDestTrackId"):
+            car.attrib.pop(name, None)
+        cars.append(car)
+        return car
+
+    @staticmethod
+    def drop_type(element: ET.Element, kind: str) -> None:
+        types = element.find("types")
+        for entry in [e for e in types if e.get("name") == kind]:
+            types.remove(entry)
+
+    def add_schedule(self, schedule_id: str, track_id: str, lines: list[tuple[str, str, str]], **line_attrs) -> None:
+        schedule = ET.SubElement(self.root("locations").find("schedules"), "schedule",
+                                 {"id": schedule_id, "name": "Review " + schedule_id})
+        for n, (kind, receive, ship) in enumerate(lines, 1):
+            ET.SubElement(schedule, "item", {
+                "id": f"{schedule_id}c{n}", "sequenceId": str(n), "type": kind, "road": "", "load": receive,
+                "ship": ship, "count": "1", "wait": "0", "random": "", "hits": "0", **line_attrs})
+        self.track(track_id).attrib.update(schedule="Review " + schedule_id, scheduleId=schedule_id, scheduleMode="1",
+                                           itemId=f"{schedule_id}c1", itemCount="1", length="2000")
+
+    def save(self) -> None:
+        for name, tree in self.trees.items():
+            tree.write(self.folder / FILES[name], encoding="UTF-8", xml_declaration=True)
+
+
+class AuditCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="audit-review-")
+        cls.addClassCleanup(cls.tmp.cleanup)
+        patch = mock.patch.object(ops_store, "running_jmri", lambda *a, **k: [])
+        patch.start()
+        cls.addClassCleanup(patch.stop)
+        cls.count = 0
+
+    def edits(self) -> Edits:
+        type(self).count += 1
+        dest = Path(self.tmp.name) / f"copy{self.count}"
+        shutil.copytree(SHOWCASE, dest, ignore=shutil.ignore_patterns("backups", "buildstatus"))
+        return Edits(dest)
+
+    @staticmethod
+    def findings(edits: Edits, rule: str) -> list[dict]:
+        edits.save()
+        return [f for f in Gates(ops_data.load(edits.folder, True)).audit()["findings"] if f["rule"] == rule]
+
+
+class BuiltTrains(AuditCase):
+    def test_a_built_train_is_reset_first_so_its_own_cars_do_not_block_it(self):
+        """Train.build resets the train before building (Train:3197), so a rebuild of CUSTOM succeeded."""
+        edits = self.edits()
+        train = edits.train("CUSTOM")
+        train.set("built", "true")
+        for car in edits.root("cars").iter("car"):
+            if car.get("secLocationId") == "1s1":
+                car.attrib.update(trainId=train.get("id"), routeLocationId="1r1")
+        self.assertEqual([f for f in self.findings(edits, "staging-departure-blocked") if f["subject"] == "CUSTOM"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2057,12 +2057,13 @@ class Audit:
 
     def _departures(self):
         """(train, staging location, stops) for each train with Build on whose route starts in staging.
-        A train with Build off is built only by hand or by an automation, often on purpose with an empty track."""
+        A train with Build off is built only by hand or by an automation, often on purpose with an empty track.
+        A built train is left out: a build resets it first (Train:3197), so its own cars are no obstacle."""
         rr = self.rr
         for train in rr.trains.values():
             stops = rr.stops(train)
             first = rr.locations.get(stops[0].location_id) if stops else None
-            if train.build and first is not None and first.is_staging:
+            if train.build and not train.built and first is not None and first.is_staging:
                 yield train, first, stops
 
     def rule_staging_departure(self):
