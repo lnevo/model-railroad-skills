@@ -1,0 +1,51 @@
+1- Build Report for train (ML) built on 11/01/2026 22:07
+1- JMRI version 5.16+R909e15189e
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (ML):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (ML):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Lynn)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (ML) route (Local East):
+3- 1r1 Staging (KC Staging) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r2 Location (Lynn) Eastbound requests 5 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (Local East) requests 5 cars and 10 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (ML)
+5- 0 locomotives available from staging (KC Staging):
+7-  
+5- 0 locomotives at location (Lynn):
+7-  
+3-  
+1- Train will depart staging (KC Staging), there are 1 tracks
+3- Staging track (KC 6) has 0 loco(s) and 2 cars
+3- Staging track (KC 6) has a car (KC 2) type (Tank Oil) that is not serviced by train (ML)
+7- Staging track (KC 6) cannot service train (ML)
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+1- Could not find a departure staging track at KC Staging that meets the train requirements
+1- Build failed for train (ML)

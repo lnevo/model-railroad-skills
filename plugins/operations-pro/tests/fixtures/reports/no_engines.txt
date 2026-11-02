@@ -1,0 +1,46 @@
+1- Build Report for train (P2) built on 11/01/2026 22:07
+1- JMRI version 5.16+R909e15189e
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (P2):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (P2):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Birch)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (P2) route (Run):
+3- 1r1 Location (Alden) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r2 Location (Birch) Eastbound requests 5 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (Run) requests 5 cars and 10 moves
+1-  
+1- Train requirements:
+1- Train departs (Alden) with 2 locomotives, model () road ()
+5- Train (P2) services locomotive types:
+5- Diesel, Electric, Engine, Gas Turbine, Steam, Steam-heavy, Steam-light, Steam-mixed, 
+5- Steam-pass, Switcher 
+7-  
+1- Found 0 locomotives for train (P2)
+5- 0 locomotives at location (Alden):
+7-  
+5- 0 locomotives at location (Birch):
+7-  
+5- Search for 2 loco(s), model (), road (), departing (Alden), destination (Birch)
+5- Requested locomotives not found at location (Alden)
+3-  
+1- Train requires 2 loco(s), could not pick up at departure (Alden) or set out at (Birch)
+1- Build failed for train (P2)

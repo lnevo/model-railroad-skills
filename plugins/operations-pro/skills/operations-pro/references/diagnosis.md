@@ -81,12 +81,16 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `schedule-unused`, `schedule-on-non-spur` | A schedule no track uses, or one JMRI will drop |
 | `yard-pickup-list`, `yard-drop-list`, `destinations-ignored`, `only-fd-ignored`, `ship-option-ignored` | Settings JMRI ignores on this track type |
 | `alternate-ignored`, `interchange-as-alternate` | An alternate on a non-spur, or an interchange used as one |
-| `interchange-no-exit` | The Destinations filter admits nowhere a pulling train goes |
+| `interchange-no-exit` | The Destinations filter admits nowhere a pulling train goes (error), or only places where no track takes a car type, or a car's type and load, that the interchange holds (warning, as Check Destinations warns) |
 | `blank-receive-on-staging-fed-spur` | Load generation cannot target this line |
 | `custom-empty-flagged-load`, `load-flagged-empty`, `renamed-default-collision` | Load type and name traps |
-| `generator-no-target`, `staging-ship-excludes-empty`, `staging-departure-blocked` | Staging traps |
+| `generator-no-target`, `staging-ship-excludes-empty`, `staging-departure-blocked` | Staging traps. `staging-departure-blocked` covers trains with Build on: no track can depart (A8), or every track that can holds a car with no destination on the train (error; warning when only some do) |
+| `staging-type-unserved` | A car on departure staging whose type no track on any departing train's route takes, so every build from there fails |
+| `staging-division-unreachable` | Cars on departure staging with a home division, where no track in that division that takes them can be reached, so the build fails; a load generated in staging is refused by the same rule |
 | `terminal-staging-refuses-train` | With the staging restriction on (the default), no staging track at a train's terminal takes every car and locomotive type, road and load the train carries, so the build fails at A7; a track whose set out list names the train or its route is exempt |
 | `caboose-road-mismatch` | A required caboose road no caboose on the route has |
+| `caboose-interchange-same-route`, `caboose-track-direction` | A turn that needs a caboose (or FRED car) and can set it out on an interchange with Pick ups Any at its home, where the same route then cannot pull it (B6); cabooses on a track whose direction no train that needs one departs in (C9) |
+| `schedule-not-applied` | A car on a scheduled spur still holding the load a line receives to ship something else: it was there before the schedule or placed by hand, and nothing revisits it |
 | `route-direction-mismatch`, `route-stop-dead`, `track-direction-unserved` | A stop the location cannot serve, a stop with no moves possible, a track no stop serves |
 | `list-stale-id` | A pick up or set out list naming a deleted train or route |
 | `day-stale-id` | A schedule line or car naming a train schedule (day) that was deleted; JMRI treats it as any day, so clear it or set a real one |

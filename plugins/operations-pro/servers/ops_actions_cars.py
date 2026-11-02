@@ -64,12 +64,23 @@ def _return_when(ed: Editor, element: ET.Element, prefix: str, value: dict | Non
         element.attrib.pop(prefix + attr, None)
     if not value:
         return
-    place = ed.location(value["destination"])
-    element.set(f"{prefix}DestId", place.get("id"))
-    if value.get("track"):
-        track = ed._one(place.findall("track"), value["track"], "track")
-        element.set(f"{prefix}DestTrackId", track.get("id"))
-    if value.get("load"):
+    unknown = set(value) - {"destination", "track", "load"}
+    if unknown:
+        raise Refused(f"Unknown fields: {', '.join(sorted(unknown))}; give destination, track and load")
+    if value.get("destination"):
+        place = ed.location(value["destination"])
+        element.set(f"{prefix}DestId", place.get("id"))
+        if value.get("track"):
+            track = ed._one(place.findall("track"), value["track"], "track")
+            element.set(f"{prefix}DestTrackId", track.get("id"))
+    elif value.get("track"):
+        raise Refused("A track needs its destination (location)")
+    elif not value.get("load"):
+        raise Refused("Give a destination, a load or both")
+    # Car.store writes the load only when it is not the default (Car:1327, 1337); a load alone is kept,
+    # and Set Car accepts one with no destination (CarSetFrame:511-522).
+    default = ed.defaults()[0 if prefix == "rwe" else 1]
+    if value.get("load") and value["load"] != default:
         element.set(f"{prefix}Load", value["load"])
 
 

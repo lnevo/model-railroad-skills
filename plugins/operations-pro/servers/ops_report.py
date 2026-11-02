@@ -98,6 +98,50 @@ KEY_GATES: dict[str, str] = {
     "buildStagingCouldNotFindDest": "B20", "buildErrorLocationUnknown": "B2", "buildErrorLocationOutOfService": "B3",
     "buildErrorReqDepature": "B17", "buildErrorReqDest": "B17", "buildErrorRequirements": "B17",
     "buildErrorCabooseNoLocation": "B17", "buildErrorCabooseNoDestination": "B17", "mbuildFail": "B19",
+    "buildErrorEngines": "A9",
+}
+# Fix texts more exact than the gate's, for lines whose cause is plain from the line itself.
+KEY_FIXES: dict[str, str] = {
+    "buildStagingNotEngines": "A8: the departure staging track's locomotives all leave with the train, so the "
+                              "count must be the number on the track. Fix: Edit Train, Locomotives: that number, "
+                              "or 0 to take whatever is there (Auto and Auto HPT also need the number there).",
+    "buildStagingDepartCarType": "A8: a car on the track is of a type the train does not take. Fix: Edit Train, "
+                                 "Car types, or move the car off the track.",
+    "buildStagingDepartCarRoad": "A8: the train refuses a car's road. Fix: Edit Train > Train Road Options, or move "
+                                 "the car.",
+    "buildStagingDepartCarLoad": "A8: the train refuses a car's load. Fix: Edit Train > Train Load Options, or the "
+                                 "staging track's load generation.",
+    "buildStagingDepartCarOwner": "A8: the train refuses a car's owner. Fix: Edit Train > Train Build Options, Owner.",
+    "buildStagingDepartCarBuilt": "A8: a car's built date is outside the train's. Fix: Edit Train > Train Build "
+                                  "Options, Built dates.",
+    "buildStagingDepartCarDestination": "A8: a car on the track has a destination this train cannot take it to. "
+                                        "Fix: Set Car, Destination, or the train's route.",
+    "buildStagingDepartCarTrain": "A8: a car on the track belongs to another train. Fix: build or reset that train.",
+    "buildStagingDepartEngineType": "A8: a locomotive on the track is of a type the train does not take. Fix: Edit "
+                                    "Train, Locomotive types, or move it.",
+    "buildStagingDepartEngineRoad": "A8: the train refuses a locomotive's road. Fix: Edit Train, Locomotive road, "
+                                    "or Train Road Options.",
+    "buildStagingDepartEngineOwner": "A8: the train refuses a locomotive's owner. Fix: Edit Train > Train Build "
+                                     "Options, Owner.",
+    "buildStagingDepartEngineBuilt": "A8: a locomotive's built date is outside the train's. Fix: Edit Train > Train "
+                                     "Build Options, Built dates.",
+    "buildStagingDepartEngineModel": "A8: a locomotive on the track is not the model the train asks for. Fix: Edit "
+                                     "Train, Locomotive model, or move it.",
+    "buildStagingDepartEngineTrain": "A8: a locomotive on the track belongs to another train. Fix: build or reset "
+                                     "that train.",
+    "buildStagingTrackType": "A7: the staging restriction check: the track or its location does not take a car or "
+                             "locomotive type the train carries. Fix: Edit Location (and the track), the types; or "
+                             "Edit Train, types; or Settings, staging restriction.",
+    "buildStagingTrackRoad": "A7: the staging restriction check: the track does not take a road the train carries. "
+                             "Fix: Edit Location > track > Road Options, or the train's roads.",
+    "buildStagingTrackLoad": "A7: the staging restriction check: the track does not take a load the train carries. "
+                             "Fix: Edit Location > track > Load Options, or the train's loads.",
+    "buildStagingTrackAllRoads": "A7: the train takes all roads and the staging track does not. Fix: the track's Road "
+                                 "Options, the train's roads, or Settings, staging restriction.",
+    "buildStagingTrackAllLoads": "A7: the train takes all loads and the staging track does not. Fix: the track's Load "
+                                 "Options, the train's loads, or Settings, staging restriction.",
+    "buildDestinationType": "A7: the terminal staging location does not take a type the train carries. Fix: Edit "
+                            "Location, types (car and locomotive), or the train's types.",
 }
 # Printed by both staging checks: departure (TBB:1718, TB:235, A8) and terminal (TBB:2040, 2093, A7).
 STAGING_EITHER = ("buildStagingNotTrain", "buildStagingTrackRestriction")
@@ -167,7 +211,13 @@ STAGING_DEPARTURE = ("buildDepartStaging", "buildStagingHas", "buildTrainCanDepa
                      "buildStagingEmpty", "buildStagingTooManyCars", "buildStagingTrainTooLong", "buildStagingDepart",
                      "buildStagingCarsBefore", "buildStagingNotDirection",
                      "buildStagingTrackPool", "buildUserSelectedDeparture", "buildOnlyOneDepartureTrack",
-                     "buildErrorStagingEmpty", "buildStagingTrackDepart", "buildUserCanceledDeparture")
+                     "buildErrorStagingEmpty", "buildStagingTrackDepart", "buildUserCanceledDeparture",
+                     # The one line that names the car or locomotive a departure track was refused for (TBB:1777-1880).
+                     "buildStagingDepartCarType", "buildStagingDepartCarRoad", "buildStagingDepartCarLoad",
+                     "buildStagingDepartCarOwner", "buildStagingDepartCarBuilt", "buildStagingDepartCarDestination",
+                     "buildStagingDepartCarTrain", "buildStagingDepartEngineType", "buildStagingDepartEngineRoad",
+                     "buildStagingDepartEngineOwner", "buildStagingDepartEngineBuilt", "buildStagingDepartEngineModel",
+                     "buildStagingDepartEngineTrain")
 STAGING_TERMINAL = ("buildTerminateStaging", "buildStagingAvail", "buildStagingReturn", "buildTrainCanTerminateTrack",
                     "buildStagingTrackOccupied", "buildStagingTrackReserved", "buildStagingTrackType",
                     "buildStagingTrackRoad", "buildStagingTrackLoad", "buildStagingTrackAllRoads",
@@ -190,7 +240,7 @@ ACCEPTED = {"buildCarCanDropMoves", "buildCarHasAssignedDest", "buildCreateNewLo
 # search and to addCarToTrain, so they are notes inside the attempt, not outcomes.
 ENDERS = {"buildCarAssignedDest": ASSIGNED, "buildCarKernelAssignedDest": ASSIGNED, "buildNoDestForCar": NO_DESTINATION}
 EXCLUDE_KEYS = ("buildExcludeCar", "buildWarningRsNoTrack", "buildErrorCarKernel", "buildCarAlreadyAssigned")
-ENGINE_KEYS = ("buildExcludeEngine", "buildExcludeEngConsistNumber", "buildEngineAssigned", "buildFoundLocos",
+ENGINE_KEYS = ("buildExcludeEngine", "buildBegineSearchEngines", "buildExcludeEngConsistNumber", "buildEngineAssigned", "buildFoundLocos",
                "buildNoLocosFoundAtLocation", "buildErrorEngines", "buildErrorEngHp", "buildAssignedHpNotEnough",
                "buildAssignedHpTooMuch", "buildMaximumNumberEngines", "buildMaxNumberLocoAssigned",
                "buildTrainReqExtraHp", "buildTrainRequiresAddHp", "buildCanNotDropEngToDest",
@@ -414,11 +464,23 @@ class Walker:
         elif self.attempt is not None:
             self.attempt["events"].append({"line": line.number, "key": None, "kind": "unknown", "text": line.text,
                                            "location": self.location})
+        elif self.report["outcome"]["failure"] and self.report["outcome"]["failure"][-1]["key"] == \
+                "buildStagingCouldNotFindDest" and line.level == 1:
+            # The failure message ends with the stuck cars, one per line (TBB:1391-1393, 1397-1410).
+            self.report["outcome"]["failure"][-1].setdefault("cars", []).append(line.text.strip())
         else:
             self.report["unparsed"].append({"line": line.number, "text": line.text})
 
     def _line(self, line: Line):
         key, r = line.key, self.report
+        if key in ("buildCarIsCaboose", "buildCarHasFRED"):  # TrainBuilderCars caboose and FRED search
+            r.setdefault("cabooses", []).append(line.f(0))
+        if key in ("buildNoteCaboose", "buildNoteCaboose2"):  # notes under the caboose failure
+            r["requirements"].append(line.text)
+            return
+        if key == "buildWarningCarStageDest":  # after a staging car's search ends without a destination
+            r.setdefault("staging_without_destination", []).append(line.f(0))
+            return
         # Train.isServiceable prints trainCanPickUpCar, then its own drop checks (Train:2007-2018). The builder's
         # copies of those two lines (TBB:1657, 1683) are the normal search and stay D14/D15.
         if key == "trainCanPickUpCar":
@@ -436,8 +498,11 @@ class Walker:
             pass
         elif key.startswith(FAILURE_KEYS):
             self._close_attempt()
-            r["outcome"]["failure"].append({"line": line.number, "key": key, "text": line.text,
-                                           "gate": KEY_GATES.get(key), "fix": gate_fix(KEY_GATES.get(key))})
+            row = {"line": line.number, "key": key, "text": line.text,
+                   "gate": KEY_GATES.get(key), "fix": KEY_FIXES.get(key) or gate_fix(KEY_GATES.get(key))}
+            if key == "buildErrorReqDepature":
+                row["at"] = line.f(2)
+            r["outcome"]["failure"].append(row)
         elif key in OPTION_HEADERS:
             self.section, self.option_group = "options", OPTION_HEADERS[key]
         elif key in ("BuildModeNormal", "BuildModeAggressive", "BuildModeOnTime"):
@@ -631,7 +696,7 @@ class Walker:
             # TB:235 and TBB:2093 print this after the specific refusal; it is the sum, not a separate check
             row.update(kind="summary", gate=gate, text=f"{line.text} [sums up the refusal above; not a separate check]")
         elif gate:
-            row.update(kind="rejected", gate=gate, fix=gate_fix(gate))
+            row.update(kind="rejected", gate=gate, fix=KEY_FIXES.get(key) or gate_fix(gate))
         else:
             row["kind"] = "note"
         self.report["staging"][side].append(row)
@@ -670,6 +735,9 @@ class Walker:
             gate = "G8"
         if kind == "refused":
             event["short"] = _short(line, gate)
+            if line.key == "buildCouldNotFindTrack" and self.attempt is not None and self.attempt["search"] == "division":
+                # The home division search (TBC:950-964) prints this for a default load too.
+                event["short"] = f"{line.text} [no {line.f(0)} in the car's home division could be reached]"
             if line.key in STATUS_TAILED:
                 gate, _ = status_gate(line.f(STATUS_TAILED[line.key]))
             if gate:
@@ -711,6 +779,9 @@ def _attempt_summary(attempt: dict, full: bool) -> dict:
            "outcome": attempt["outcome"], "destination": attempt["destination"]}
     if attempt.get("final_destination"):
         row["final_destination"] = attempt["final_destination"]
+    order = [e["gate"] for e in attempt["events"] if e.get("gate") and e["kind"] == "refused"]
+    if order:
+        row["gate_order"] = order  # refusals in report order: the summary takes the decisive one
     if full:
         row["events"] = attempt["events"]
         return row
@@ -744,23 +815,58 @@ def _car_story(car: str, attempts: list[dict], full: bool) -> dict:
     return story
 
 
-def _why_stuck(story: dict) -> str:
-    """One sentence on why a car got no destination, from the dominant gate."""
-    counts: dict[str, int] = {}
-    for attempt in story["attempts"]:
-        for gate in attempt.get("gates", []):
-            counts[gate] = counts.get(gate, 0) + 1
+def _why_stuck(story: dict, ignored: set[str] = frozenset()) -> str:
+    """One sentence on why a car got no destination, from the decisive refusal.
+
+    The decisive refusal is the home division rule when the division search ran (its refusals decide
+    where the car may go), else the car's last refusal: the builder tries the route's stops in order and
+    gives up after the last one, and a refusal of the train's own leg (length, moves) ends the search."""
     if story["outcome"] == HELD:
         return "held for a scheduled spur that is not open now"
     if story["outcome"] == PICKUP_REFUSED:
         return "could not be picked up: " + "; ".join(story["attempts"][-1].get("refused", [])[:1])
-    if not counts:
+    events = [(gate, a) for a in story["attempts"] for gate in a.get("gate_order", [])]
+    if not events:
+        if story["car"] in ignored:
+            return ("not tried while there were moves: its stop's moves were used up first (see the ignored cars), "
+                    "and no later stop could take it")
         last = [r for a in story["attempts"] for r in a.get("refused", [])]
         notes = [n for a in story["attempts"] for n in a.get("notes", [])]
         return last[-1] if last else notes[-1] if notes else "no track on the route took it"
-    gate = max(counts, key=lambda g: (counts[g], _gate_order(g)))
+    gates = [g for g, _ in events]
+    if any(a["search"] == "division" for _, a in events) and "C12" in gates:
+        gate = "C12"
+    else:
+        gate = gates[-1]
     test, screen, setting = GATES.get(gate, ("", "", ""))
-    return f"most refusals were {gate} ({test}); fix on {screen}: {setting}"
+    others = sorted(set(gates) - {gate}, key=_gate_order)
+    tail = f"; other refusals: {', '.join(others)}" if others else ""
+    return f"decided by {gate} ({test}); fix on {screen}: {setting}{tail}"
+
+
+def _caboose_cause(report: dict, stories: list[dict], failure: dict) -> str:
+    """The train needs a caboose or FRED car and found none: say what refused the ones that are there.
+    The builder logs each candidate's refusal (excluded before the search, or a pick up refused) above the
+    failure; B17 on its own points at Requires, which is rarely the fix."""
+    at = failure.get("at", "")
+    flagged = set(report.get("cabooses", []))
+    rows = [(row["car"], row["gate"]) for row in report["excluded_cars"]
+            if row["gate"] and row["gate"] != "B17" and (not at or at in row["text"])]
+    rows += [(s["car"], g) for s in stories if s["outcome"] == PICKUP_REFUSED for g in s.get("gates", [])
+             if g != "B17"]
+    if flagged:
+        rows = [r for r in rows if r[0] in flagged]
+    if not rows:
+        return ""
+    by_gate: dict[str, list[str]] = {}
+    for car, gate in rows:
+        if car not in by_gate.setdefault(gate, []):
+            by_gate[gate].append(car)
+    gate = next(iter(by_gate))
+    which = "the cabooses or FRED cars there" if flagged else f"cars at {at or 'the departure'}"
+    return (f"No caboose or FRED car could be taken: {which} were refused, "
+            + "; ".join(f"{g} {', '.join(cars)}" for g, cars in by_gate.items())
+            + f". Fix that, not Requires: {gate_fix(gate)}")
 
 
 def summarize(report: dict, stories: list[dict]) -> list[str]:
@@ -770,8 +876,19 @@ def summarize(report: dict, stories: list[dict]) -> list[str]:
         causes = [f["text"] for f in outcome["failure"]]
         gates = [f["gate"] for f in outcome["failure"] if f["gate"]]
         out.append(f"Build failed for train {report['train']}: " + " ".join(causes[:2]))
-        if gates:
-            out.append(gate_fix(gates[-1]))
+        cause = ""
+        last = outcome["failure"][-1] if outcome["failure"] else {}
+        if gates and gates[-1] == "B17" and last.get("key") in ("buildErrorReqDepature", "buildErrorRequirements"):
+            cause = _caboose_cause(report, stories, last)
+        if cause:
+            out.append(cause)
+        elif gates:
+            out.append(next((f["fix"] for f in reversed(outcome["failure"]) if f["gate"] == gates[-1] and f["fix"]),
+                            gate_fix(gates[-1])))
+        if gates and gates[-1] == "B20" and report["mode"] == "Aggressive":
+            out.append("Aggressive mode: the first pass can fill the train at later stops before the staging cars "
+                       "are placed. If the train builds in normal mode, use Edit Train > Build Options, Build normal, "
+                       "or Settings, Try Normal Mode if Build Failure from Staging (buildOptions stagingTryNormal).")
         rejected = [row for side in ("departure", "terminal") for row in report["staging"][side] if row["kind"] == "rejected"]
         if rejected:
             out.append("Staging checks that failed: " + "; ".join(r["text"] for r in rejected[:4]))
@@ -793,8 +910,9 @@ def summarize(report: dict, stories: list[dict]) -> list[str]:
         out.append("Excluded before the search: " + "; ".join(
             f"{gate} {', '.join(cars)}" for gate, cars in sorted(by_gate.items(), key=lambda kv: _gate_order(kv[0]) if kv[0] != 'other' else ('Z', 0))) + ".")
     stuck = [s for s in stories if s["outcome"] not in (ASSIGNED, DEFERRED)]
+    ignored = {row["car"] for row in report["ignored_moves_done"]}
     for story in stuck:
-        out.append(f"{story['car']} {story['outcome'].replace('_', ' ')}: {_why_stuck(story)}.")
+        out.append(f"{story['car']} {story['outcome'].replace('_', ' ')}: {_why_stuck(story, ignored)}.")
     if report["not_routable"]:
         out.append("Not routable to their final destination: " + "; ".join(
             f"{r['car']} at {r['at']} to {r['final_destination']}" for r in report["not_routable"]) + ".")
