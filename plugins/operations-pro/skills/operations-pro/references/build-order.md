@@ -9,7 +9,7 @@ E9 (quick service and aggressive pulls), D3, D9, G10 and an AUTO locomotive coun
 ## The order for one car at one stop
 
 1. Pick up allowed from this track type, then pick up direction.
-2. In the first aggressive pass, a car on an alternate track is deferred.
+2. In the first aggressive pass, a car on an alternate track is deferred once the build has completed a move at this stop.
 3. Departing staging: generate a load from staging, then staging to staging, then the ship check.
 4. Quick service departure timing.
 5. Home division search. A car with a division and no final destination gets one here, default load included.
