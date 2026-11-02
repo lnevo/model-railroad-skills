@@ -119,7 +119,9 @@ def set_control_limits(ed: Editor, **fields) -> str:
 # ---- Manifest and switch list creators ----------------------------------------------
 
 def _creator_name(label: str, value, folder: bool) -> str:
-    text = str(value).strip()
+    if not isinstance(value, str):
+        raise Refused(f"{label} must be text, not {value!r}")
+    text = value.strip()
     if not text:
         raise Refused(f"{label} cannot be blank")
     bad = ("/" in text or "\\" in text or ":" in text) if not folder else (

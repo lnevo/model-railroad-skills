@@ -154,6 +154,11 @@ ROWS = [
     ("update_automation", {"automation": "Nope", "name": "A2"}, "No automation", []),
     ("delete_automation", {"automation": 5}, "automation", []),
     ("set_startup_automation", {"automation": ["A1"]}, "as text", []),
+    ("set_engine_division", {"division": 5, "engines": ["BV101"]}, "by name or id as text", []),
+    ("set_control_limits", {"bogus": 1}, "Unknown control values", []),
+    ("set_manifest_creator", {"directory": 5}, "must be text", []),
+    ("set_manifest_creator", {"creator": "nope"}, "creator must be one of", []),
+    ("set_train_options", {"train_action": 5}, "train_action must be one of", []),
 ]
 
 
