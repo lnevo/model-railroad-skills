@@ -84,7 +84,7 @@ class SkillTest(unittest.TestCase):
 
     def test_engine_and_division_actions_are_in_the_references(self):
         import ops_actions
-        source = (ROOT / "servers" / "ops_actions.py").read_text()
+        source = (ROOT / "servers" / "ops_actions_engines.py").read_text()
         block = source[source.index("# ---- Engines"):source.index("# ---- End of engines and divisions")]
         names = re.findall(r"@action\([^)]*\)\ndef ([a-z_]+)", block)
         self.assertEqual(len(names), 18)
@@ -96,7 +96,7 @@ class SkillTest(unittest.TestCase):
     # ---- Manual builds and automations (start)
     def test_manual_build_and_automation_actions_are_in_the_references(self):
         import ops_actions
-        source = (ROOT / "servers" / "ops_actions.py").read_text()
+        source = (ROOT / "servers" / "ops_actions_automations.py").read_text()
         block = source[source.index("# ---- Manual builds and automations (start)"):
                        source.index("# ---- Manual builds and automations (end)")]
         names = re.findall(r"@action\([^)]*\)\ndef ([a-z_]+)", block)
@@ -111,7 +111,7 @@ class SkillTest(unittest.TestCase):
 
     def test_day_and_manifest_actions_are_in_the_references(self):
         import ops_actions
-        source = (ROOT / "servers" / "ops_actions.py").read_text()
+        source = (ROOT / "servers" / "ops_actions_setup.py").read_text()
         block = source[source.index("# ---- Train schedule days and manifest formats"):
                        source.index("# ---- End of train schedule days and manifest formats")]
         names = re.findall(r"@action\([^)]*\)\ndef ([a-z_]+)", block)
