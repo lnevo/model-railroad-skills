@@ -415,6 +415,7 @@ class Car:
     rwl_dest_id: str = ""
     rwl_track_id: str = ""
     rwl_load: str = ""
+    clone: bool = False  # RollingStock.isClone: counted in the track clone length, not its used length.
 
     def __str__(self) -> str:
         return f"{self.road} {self.number}"
@@ -441,6 +442,7 @@ class Engine:
     division_id: str = ""
     out_of_service: bool = False
     moves: int = 0  # The builder takes the lowest count first (EngineManager.getAvailableTrainList).
+    clone: bool = False  # RollingStock.isClone: counted in the track's clone length, not its used length.
 
 
 @dataclass
@@ -743,7 +745,8 @@ class Railroad:
                 schedule_item=e.get("scheduleId", ""), division_id=e.get("divisionId", ""),
                 rwe_dest_id=e.get("rweDestId", ""), rwe_track_id=e.get("rweDestTrackId", ""),
                 rwe_load=e.get("rweLoad", ""), rwl_dest_id=e.get("rwlDestId", ""),
-                rwl_track_id=e.get("rwlDestTrackId", ""), rwl_load=e.get("rwlLoad", ""))
+                rwl_track_id=e.get("rwlDestTrackId", ""), rwl_load=e.get("rwlLoad", ""),
+                clone=e.get("clone") == "true" or "-(Clone)" in e.get("roadNumber", ""))
             self.cars[car.id] = car
 
     def _read_engines(self) -> None:
@@ -761,7 +764,8 @@ class Railroad:
                             consist=e.get("consist", ""), lead=e.get("leadConsist") == "true",
                             train_id=e.get("trainId", ""), destination_id=e.get("destinationId", ""),
                             division_id=e.get("divisionId", ""), out_of_service=e.get("outOfService") == "true",
-                            moves=_int(e.get("moves")))
+                            moves=_int(e.get("moves")),
+                            clone=e.get("clone") == "true" or "-(Clone)" in e.get("roadNumber", ""))
             self.engines[engine.id] = engine
 
     # ---- Train schedule days and manifest formats ----------------------------------
@@ -888,10 +892,12 @@ class Railroad:
         return ([c for c in self.cars.values() if c.track_id == track.id],
                 [e for e in self.engines.values() if e.track_id == track.id])
 
-    def used_length(self, track: Track) -> int:
+    def used_length(self, track: Track, clones: bool = False) -> int:
+        """Track.getUsedLength: rolling stock on the track, clones left out (Track.addRS, TR:749-760).
+        clones=True gives getUsedCloneLength alone; the sum is getTotalUsedLength."""
         cars, engines = self.rolling_stock_on(track)
-        total = sum(self.car_length(c) or 0 for c in cars)
-        return total + sum(int(e.length or 0) + self.coupler for e in engines if e.length.isdigit())
+        total = sum(self.car_length(c) or 0 for c in cars if c.clone == clones)
+        return total + sum(int(e.length or 0) + self.coupler for e in engines if e.length.isdigit() and e.clone == clones)
 
     def reserved_length(self, track: Track) -> int:
         return sum(self.car_length(c) or 0 for c in self.cars.values()

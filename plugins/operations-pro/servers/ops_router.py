@@ -22,7 +22,7 @@ never tested (T:2108, 2121). With one, the named train starts empty unless lengt
 and moves are given, and its termination staging track is the one named.
 
 What files cannot settle is listed in "uncertain" rather than guessed: quick
-service timing during a build, a schedule's random draw. Pool lending, planned
+service timing during a build, a schedule's random draw. Pool lending (judged against the files as they stand, not after earlier set outs in the same build), planned
 pick ups and aggressive mode are worked out from the files as Track does.
 """
 from __future__ import annotations
@@ -223,7 +223,7 @@ class Router:
                               f"not those this build sets")
         dwell = rr.setup.get("buildOptions", {}).get("dwellTime", "60")
         dwell = int(dwell) if dwell.isdigit() else 60
-        space = track.length - rr.used_length(track)
+        space = track.length - rr.used_length(track) - rr.used_length(track, clones=True)  # getTotalUsedLength
         on = ([(c, g.x.car.get(c.id, {}), rr.car_length(c) or 0, c.train_id)
                for c in (rr.cars[i] for i in java_hashtable_order(list(rr.cars))) if c.track_id == track.id],
               [(e, g.x.engine.get(e.id, {}), g._engine_length(e), g.x.engine.get(e.id, {}).get("trainId", ""))
