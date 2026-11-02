@@ -335,9 +335,14 @@ def _rename_load_checked(previous):
         if not clashes:
             return text
         for holder in clashes:
-            for entry in holder.findall("carLoad"):
-                if entry.get("name") == new and id(entry) not in keep:
-                    holder.remove(entry)  # CarLoads.replaceName keeps the existing load's settings.
+            entries = [e for e in holder.findall("carLoad") if e.get("name") == new]
+            target = next(e for e in entries if id(e) in keep)
+            for renamed in [e for e in entries if id(e) not in keep]:
+                # CarLoadEditFrame.replaceLoadName (343-372): the old load's type, priority, hazardous flag and
+                # comments are set on the target, then the old name is deleted. The target keeps its place.
+                target.attrib.clear()
+                target.attrib.update(renamed.attrib)
+                holder.remove(renamed)
         for parent in list(ed.loc_root.iter()) + list(ed.train_root.iter()):
             for tag in ("carLoads", "carShipLoads"):
                 for holder in parent.findall(tag):
@@ -352,7 +357,8 @@ def _rename_load_checked(previous):
 
 ACTIONS["rename_load"]["run"] = _rename_load_checked(ACTIONS["rename_load"]["run"])
 ACTIONS["rename_load"]["help"] += (" Refused when the new name already exists for that type, unless merge is true: "
-                                   "the two then become one, keeping the existing load's settings.")
+                                   "the two then become one, taking the renamed load's settings (load type, priority, "
+                                   "hazardous flag and comments) as JMRI's Replace does.")
 
 
 # ---- Custom loads (end) -------------------------------------------------------------

@@ -75,7 +75,7 @@ A schedule or an alternate on a non-spur, and a Destinations filter on a yard or
 
 Set a track's length to zero first so nothing new is sent, wait for its drop count to reach zero, then delete. Deleting a track fires events that clear final destinations pointing at it. The plugin's `delete_track`, `delete_location`, `delete_route`, `delete_schedule`, `delete_train` and `delete_load` refuse while anything still points at the record and list what does.
 
-`delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; the two loads then become one, keeping the existing one's settings. A track cannot change type: empty it, `delete_track`, then `add_track` the new type (once a delete and an add of a track in one plan was refused with "moves ... would change", because the new track took the deleted one's id; if that happens, use two plans).
+`delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; the two loads then become one with the renamed load's settings (load type, priority, hazardous flag and comments), as JMRI's Replace does. A track cannot change type: empty it, `delete_track`, then `add_track` the new type (once a delete and an add of a track in one plan was refused with "moves ... would change", because the new track took the deleted one's id; if that happens, use two plans).
 
 ## The JSON server
 

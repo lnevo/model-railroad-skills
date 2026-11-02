@@ -231,11 +231,16 @@ class Loads(Extras):
         self.assertIn("pass merge true", self.refused({"action": "rename_load", "old": "Junk", "new": "Feed"}))
         before = [dict(e.attrib) for e in ET.parse(self.ops / "OperationsCarRoster.xml").getroot().iter("carLoad")
                   if e.get("name") == "Feed"]
+        junk = next(e for e in ET.parse(self.ops / "OperationsCarRoster.xml").getroot().iter("carLoad")
+                    if e.get("name") == "Junk")
         lines = self.run_actions({"action": "rename_load", "old": "Junk", "new": "Feed", "merge": True})
         self.assertIn("Merged", lines[0])
         after = [dict(e.attrib) for e in ET.parse(self.ops / "OperationsCarRoster.xml").getroot().iter("carLoad")
                  if e.get("name") == "Feed"]
-        self.assertEqual(before, after)
+        # CarLoadEditFrame.replaceLoadName: the survivor takes the renamed load's settings.
+        self.assertEqual(len(after), len(before))
+        self.assertEqual(after[0], {**junk.attrib, "name": "Feed"})
+        self.assertNotEqual(before[0], after[0])
         self.assertNotIn("Junk", [x.name for x in self.rr().loads["Boxcar"]])
 
     def test_rename_to_a_new_name_still_works(self):
@@ -348,6 +353,48 @@ BACKUP_PROBE = textwrap.dedent('''
 ''')
 
 
+# The Edit Car Loads window's Replace for one type, after its confirm dialog (CarLoadEditFrame:343-372),
+# then a JMRI save: what the rename_load merge must match.
+REPLACE_LOAD_PROBE = textwrap.dedent('''
+    import json
+    import java
+    from jmri import InstanceManager as IM
+    from jmri.jmrit.roster import RosterConfigManager
+    from jmri.util import FileUtil
+    FileUtil.setUserFilesPath(None, java.lang.System.getProperty("ops.home") + "/")
+    from jmri.jmrit.operations import OperationsXml
+    from jmri.jmrit.operations.locations import LocationManagerXml
+    from jmri.jmrit.operations.rollingstock.cars import CarManager, CarManagerXml, CarLoads
+    from jmri.jmrit.operations.rollingstock.engines import EngineManagerXml
+    from jmri.jmrit.operations.routes import RouteManagerXml
+    from jmri.jmrit.operations.setup import OperationsSetupXml
+    from jmri.jmrit.operations.trains import TrainManagerXml
+    job = json.loads(java.lang.System.getProperty("worker.job"))
+    IM.setDefault(RosterConfigManager, RosterConfigManager())
+    xmls = (OperationsSetupXml, LocationManagerXml, RouteManagerXml, CarManagerXml, EngineManagerXml, TrainManagerXml)
+    for xml in xmls:
+        IM.getDefault(xml)
+    kind, old, new = job["replace_load"]
+    loads = IM.getDefault(CarLoads)
+    values = (loads.getLoadType(kind, old), loads.getPriority(kind, old), loads.isHazardous(kind, old),
+              loads.getPickupComment(kind, old), loads.getDropComment(kind, old))
+    loads.addName(kind, new)
+    loads.setLoadType(kind, new, values[0])
+    loads.setPriority(kind, new, values[1])
+    loads.setHazardous(kind, new, values[2])
+    loads.setPickupComment(kind, new, values[3])
+    loads.setDropComment(kind, new, values[4])
+    IM.getDefault(CarManager).replaceLoad(kind, old, new)
+    loads.deleteName(kind, old)
+    for xml in xmls:
+        IM.getDefault(xml).setDirty(True)
+    OperationsXml.save()
+    with open(java.lang.System.getProperty("worker.out"), "w") as handle:
+        json.dump({}, handle)
+    java.lang.System.exit(0)
+''')
+
+
 @unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
 class RealJmriExtras(Extras):
     def saved(self):
@@ -431,6 +478,35 @@ class RealJmriExtras(Extras):
         row, report = self.build("ST")
         self.assertFalse(row["built"])
         self.assertIn("could not pick up at departure (West Staging)", report)
+
+    def test_load_merge_matches_the_window_replace(self):
+        self.run_actions({"action": "add_load", "name": "Wheat", "types": ["Boxcar"], "load_type": "Empty",
+                          "priority": "High", "hazardous": True, "pickup_comment": "pc1", "drop_comment": "dc1"},
+                         {"action": "add_load", "name": "Corn", "types": ["Boxcar"], "priority": "Low"},
+                         {"action": "update_car", "car": "BVR1002", "load": "Wheat"})
+        window = Path(self.temp.name) / "window"
+        window.mkdir()
+        with tempfile.TemporaryDirectory() as scratch:
+            probe = Path(scratch) / "probe.py"
+            probe.write_text(REPLACE_LOAD_PROBE, encoding="utf-8")
+            with mock.patch.object(ops_jmri, "WORKER", probe):
+                result = ops_jmri.run_worker(self.ops, {"replace_load": ["Boxcar", "Wheat", "Corn"]}, window)
+        self.assertEqual(result["log_errors"], [])
+        self.run_actions({"action": "rename_load", "old": "Wheat", "new": "Corn", "car_type": "Boxcar",
+                          "merge": True})
+        _, keep = self.saved()
+
+        def boxcar(folder):
+            root = ET.parse(folder / "OperationsCarRoster.xml").getroot()
+            holder = next(h for h in root.findall("./loads/load") if h.get("type") == "Boxcar")
+            car = next(c for c in root.iter("car") if c.get("id") == "BVR1002")
+            return [dict(e.attrib) for e in holder.findall("carLoad")], car.get("load")
+
+        theirs = boxcar(window)
+        self.assertEqual(theirs[1], "Corn")
+        self.assertIn({"name": "Corn", "loadType": "Empty", "priority": "High", "hazardous": "true",
+                       "pickupComment": "pc1", "dropComment": "dc1"}, theirs[0])
+        self.assertEqual(boxcar(keep), theirs)
 
     def test_engine_moves_pick_the_locomotive(self):
         picked = {}
