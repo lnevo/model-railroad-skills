@@ -41,10 +41,21 @@
 ## Automations
 
 - Automations live in the train roster file. Actions include build, move, terminate, reset, activate and apply train schedules, go to a step on success, wait for a train to terminate, print, and generate or update CSV switch lists. "Generate CSV Switch Lists Changes" writes only locations touched by a new build; Update writes them all.
-- A Message step opens a window on the JMRI computer.
+- A step with a message, a Message Yes or No step, and the print and preview steps open a modal window on the JMRI computer, and the automation waits until someone answers it. A headless JMRI, or one with no one at it, stops there. A train's own scripts, run by a build or move step, can do the same.
+- The startup automation runs every time JMRI loads the train file, on every computer that opens the folder.
 - In 5.16 a LogixNG action can start an automation, and starting one loads the Operations data first.
 - Operations startup scripts run when the train roster loads, not at JMRI start. The automation manager loads it when it initialises, and a JSON request for trains loads it too, which is how the live tools wake the agent.
-- `ops_live_automation` runs a named automation with build dialogs off and waits up to two minutes. The plugin can run automations but not create them.
+- `ops_live_automation` runs a named automation with build dialogs off and waits up to two minutes.
+
+## Writing automations and manual builds
+
+With JMRI exited, through `ops_plan` and `ops_apply`. `ops_list` with type `automations` or `manual_builds` shows what is there, including the step names.
+
+- `add_automation` and `update_automation` take steps in order. Each step names `do` (the JMRI action, such as `build_train`, `move_train`, `terminate_train`, `activate_train_schedule`, `run_automation`, `goto_if_failure`, `halt`) and only the fields that action keeps: a train for train steps, a stop on that train's route for move, wait and en-route steps, an automation for run, stop, resume and wait steps, a step number for GOTO, a day for Activate. JMRI drops any other field on its next save, so the plugin refuses it.
+- A step that opens a window is refused unless `allow_dialogs` is set, because it stops an unattended run. Messages are MessageFormat text: `{1}` is the train, `{2}` the stop, and a lone `'` must be written `''`.
+- `update_automation` with steps replaces them all; the new steps start not yet run. `delete_automation` is refused while another automation's step names it, and clears the startup choice if it was the startup automation. `set_startup_automation` picks the one JMRI runs on load; the build check and dry run copies run it too.
+- `set_manual_build` sets a train's manual build lines (gate B19): type, road, load, the stop and pick up track, a destination and destination track, a day, a count, and warn, fail or remove. Lines are checked as the Edit Train manual build window offers them: car types the train takes, a road only with a type and only one a car of that type has, the type's loads, stops on the train's route, no staging tracks, tracks that take the type, road and load. `delete_manual_build` removes them.
+- Deleting a train removes its manual build. A track, location or train that a line or step still names cannot be deleted, and a train whose lines or steps name a stop cannot change route, until those are changed. Renaming a car type, road or load follows into the lines.
 
 ## Session patterns
 

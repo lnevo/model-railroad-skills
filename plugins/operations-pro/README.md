@@ -2,7 +2,7 @@
 
 Build, change, run and understand a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first. The skill carries the rules the program applies, and the tools do the work at the level of the railroad rather than one field at a time, with a change plan you see before anything is written.
 
-**Status: in development.** 61 actions and 20 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
+**Status: in development.** 67 actions and 20 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
@@ -32,7 +32,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | Demo railroad | An invented railroad with deliberate faults, for tests | Done, builds in real JMRI 5.16 |
 | MCP server | Exposes the tools below to Claude | Done |
 
-Not written yet: train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
+Not written yet: train schedule days and manifest formats.
 
 ## Skill
 
@@ -109,9 +109,9 @@ The builder makes random choices, so two identical builds can differ. The build 
 
 - It only ever works on the Operations folder you point it at, and JMRI's checks run on temporary copies.
 - `ops_build_check`, `ops_dry_run` and `ops_deliver_car` need JMRI installed. Set `JMRI_HOME` if it isn't found.
-- Not written yet: train schedule days, manual builds, automations and manifest formats. An automation can be run, but not created.
+- Not written yet: train schedule days and manifest formats.
 - JMRI's JSON server doesn't cover schedules, Operations routes, loads or divisions, so those are changed through the files.
-- A train's own build or terminate script runs as usual, and can still open a window or hang. So can a Message step in an automation.
+- A train's own build or terminate script runs as usual, and can still open a window or hang. So can an automation step with a message, a Message Yes or No step or a print step: JMRI shows a modal window and the run waits there. `add_automation` and `update_automation` refuse those unless `allow_dialogs` is set, and warn about train scripts, wait steps and steps that start an outside program.
 - `ops_explain_build` reads a file, so for a JMRI on another computer copy the report or paste its text. `ops_live_report` fetches only the end of it.
 - Rules and report wording come from the JMRI 5.16 source. Other versions may differ; a line the reader does not recognise is listed as unparsed rather than guessed at.
 

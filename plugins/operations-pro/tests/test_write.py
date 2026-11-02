@@ -942,5 +942,287 @@ class RealJmri(Case):
         self.assertEqual(self.rr().tracks[mill.id].moves, mill.moves)
 
 
+# ---- Manual builds and automations (start) ----------------------------------------------
+# JMRI 5.16 trains/manualtrainbuilder and automation. One plan for the JMRI read-back.
+BUILDS_PLAN = [
+    {"action": "set_manual_build", "train": "BV1", "comment": "yard cars first", "lines": [
+        {"type": "Boxcar", "stop": "Brackwater", "track": "Brackwater Yard A", "destination": "Tolvern",
+         "count": 1, "fail": True},
+        {"type": "Boxcar", "road": "BVR", "load": "Mty", "day": "Monday", "count": 2, "warn": True},
+        {"type": "Gondola", "count": 0, "remove": True}]},
+    {"action": "set_manual_build", "train": "T10", "lines": [
+        {"type": "Hopper", "stop": 1, "destination": "Ashgrove", "destination_track": "Ashgrove Feed Mill"}]},
+    {"action": "add_automation", "name": "Tally", "comment": "runs at startup", "steps": [{"do": "counter"}]},
+    {"action": "add_automation", "name": "Morning", "comment": "first session", "steps": [
+        {"do": "build_train", "train": "BV1"},
+        {"do": "goto_if_failure", "goto": 5, "halt_on_failure": False},
+        {"do": "move_train", "train": "BV1", "stop": "Tolvern"},
+        {"do": "terminate_train", "train": "BV1"},
+        {"do": "activate_train_schedule", "day": "Tuesday"},
+        {"do": "apply_train_schedule"},
+        {"do": "run_automation", "automation": "Tally"},
+        {"do": "down_counter"},
+        {"do": "halt"}]},
+    {"action": "set_startup_automation", "automation": "Tally"},
+]
+
+
+def _comparable(automations):
+    """What a JMRI save must keep. Run state changes when the startup automation runs."""
+    out = {}
+    for automation in automations:
+        steps = [{k: v for k, v in s.items() if k not in ("ran", "successful")} for s in automation["steps"]]
+        out[automation["name"]] = {**{k: v for k, v in automation.items() if k not in ("steps", "current_step")},
+                                   "steps": steps}
+    return out
+
+
+class ManualBuilds(Case):
+    def builds(self):
+        return {b["train"]: b for b in ops_data.read_manual_builds(self.ops)}
+
+    def line(self, **fields):
+        return {"action": "set_manual_build", "train": "BV1", "lines": [fields]}
+
+    def test_lines_are_written_as_jmri_stores_them(self):
+        self.edit(*BUILDS_PLAN[:2])
+        build = self.builds()["BV1"]
+        self.assertEqual(build["comment"], "yard cars first")
+        first, second, third = build["lines"]
+        self.assertEqual((first["stop_id"], first["track_id"], first["destination_id"], first["count"], first["fail"]),
+                         ("1r3", "1s1", "3", 1, True))
+        self.assertEqual((second["road"], second["load"], second["day_id"], second["warn"]), ("BVR", "Mty", "1", True))
+        self.assertEqual((third["count"], third["remove"]), (0, True))
+        self.assertEqual([x["id"] for x in build["lines"]], ["1m1", "1m2", "1m3"])
+        self.assertEqual(self.builds()["T10"]["lines"][0]["destination_track_id"], "2s1")
+        text = (self.ops / "OperationsTrainRoster.xml").read_text()
+        self.assertLess(text.index("</trains>"), text.index("<manualBuilds>"))
+        self.assertLess(text.index("<manualBuilds>"), text.index("<schedules>"))
+
+    def test_replacing_lines_keeps_the_build_and_carries_ids_on(self):
+        self.edit(BUILDS_PLAN[0])
+        self.edit(self.line(type="Hopper"))
+        build = self.builds()["BV1"]
+        self.assertEqual((build["id"], build["comment"]), ("1", "yard cars first"))
+        self.assertEqual([x["id"] for x in build["lines"]], ["1m4"])
+        self.edit({"action": "delete_manual_build", "train": "BV1"})
+        self.assertEqual(self.builds(), {})
+        self.assertIn("<manualBuilds />", (self.ops / "OperationsTrainRoster.xml").read_text())
+
+    def test_lines_are_checked_as_the_edit_window_allows(self):
+        cases = [
+            ({"type": "Autorack"}, "Unknown car type"),
+            ({"type": "Diesel"}, "Unknown car type"),
+            ({"road": "BVR"}, "A road needs a type"),
+            ({"type": "Hopper", "road": "QXR"}, "No Hopper car has road QXR"),
+            ({"type": "Boxcar", "load": "Coal"}, "not a load for Boxcar"),
+            ({"load": "Grain"}, "only the default empty and load"),
+            ({"type": "Boxcar", "track": "Brackwater Yard A"}, "needs its stop"),
+            ({"type": "Boxcar", "stop": 9}, "has 5 stops"),
+            ({"type": "Boxcar", "stop": "Quarry Staging"}, "No stop"),
+            ({"type": "Boxcar", "stop": "West Staging", "track": "West Stage 1"}, "no staging tracks"),
+            ({"type": "Boxcar", "destination_track": "Tolvern Yard"}, "needs its destination"),
+            ({"type": "Scalecar", "destination": "Brackwater", "destination_track": "Brackwater Yard A"},
+             "Brackwater Yard A does not take Scalecar"),
+            ({"type": "Boxcar", "road": "QXR"}, "Train BV1 does not take road QXR"),
+            ({"type": "Boxcar", "day": "Sunday"}, "No train schedule"),
+            ({"type": "Boxcar", "count": -1}, "count cannot be less than 0"),
+            ({"type": "Boxcar", "count": "two"}, "count must be a whole number"),
+            ({"type": "Boxcar", "warn": True, "fail": True}, "exclude each other"),
+            ({"type": "Boxcar", "remove": "yes"}, "remove is true or false"),
+            ({"type": "Boxcar", "colour": "red"}, "Unknown manual build fields"),
+        ]
+        for fields, message in cases:
+            with self.assertRaisesRegex(Refused, message, msg=str(fields)):
+                self.plan(self.line(**fields))
+        with self.assertRaisesRegex(Refused, "does not take Reefer"):
+            self.plan({"action": "set_manual_build", "train": "T30", "lines": [{"type": "Reefer"}]})
+        with self.assertRaisesRegex(Refused, "Several stops"):
+            self.plan({"action": "set_manual_build", "train": "T10", "lines": [{"type": "Boxcar", "stop": "Brackwater"}]})
+        with self.assertRaisesRegex(Refused, "at least one line"):
+            self.plan({"action": "set_manual_build", "train": "BV1", "lines": []})
+        with self.assertRaisesRegex(Refused, "has no manual build"):
+            self.plan({"action": "delete_manual_build", "train": "BV1"})
+
+    def test_gate_b19_reads_the_written_line(self):
+        from ops_gates import Gates
+        self.edit(self.line(type="Boxcar", stop="Brackwater", track="Brackwater Yard A", destination="Tolvern"))
+        answer = Gates(self.rr()).why_not("BVR3016", "Tolvern", None, "BV1")
+        gate = next(g for g in answer["gates"] if g["gate"] == "B19")
+        self.assertIn("manual line 1m1", gate["reason"])
+
+    def test_cascades(self):
+        self.edit(*BUILDS_PLAN[:2])
+        with self.assertRaisesRegex(Refused, "manual line 1m1 of BV1"):
+            self.plan({"action": "delete_track", "track": "Brackwater Yard A"})
+        with self.assertRaisesRegex(Refused, "manual line 2m1 of T10"):
+            self.plan({"action": "delete_track", "track": "Ashgrove Feed Mill"})
+        with self.assertRaisesRegex(Refused, "manual line"):
+            self.plan({"action": "delete_location", "location": "Tolvern"})
+        with self.assertRaisesRegex(Refused, "name a stop on the old route: manual line 1m1"):
+            self.plan({"action": "set_train_route", "train": "BV1", "route": "Main West"})
+        self.edit(self.line(type="Boxcar"), {"action": "set_train_route", "train": "BV1", "route": "Main West"})
+        # Boxcar's existing routing faults come back under the new name.
+        result = ops_store.apply(self.plan({"action": "rename_car_type", "old": "Boxcar", "new": "Box"},
+                                           {"action": "rename_train", "train": "T10", "new": "T11"})["plan_id"],
+                                 allow_new_errors=True)
+        self.assertIn("Manual build lines changed: 1", result["summary"][0])
+        builds = self.builds()
+        self.assertEqual(builds["BV1"]["lines"][0]["type"], "Box")
+        self.assertIn('name="T11"', (self.ops / "OperationsTrainRoster.xml").read_text().split("<manualBuilds>")[1])
+        # A road no car carries can be renamed; JMRI's window would not offer it, so it is written by hand here.
+        path = self.ops / "OperationsTrainRoster.xml"
+        path.write_text(path.read_text().replace('type="Box" road=""', 'type="Box" road="PRR"', 1))
+        cars = self.ops / "OperationsCarRoster.xml"
+        cars.write_text(cars.read_text().replace('<road name="QXR" />', '<road name="QXR" />\n    <road name="PRR" />'))
+        self.edit({"action": "rename_road", "old": "PRR", "new": "PX"})
+        self.assertEqual(self.builds()["BV1"]["lines"][0]["road"], "PX")
+        # Acid's existing audit error comes back under the new name.
+        plan = self.plan({"action": "set_manual_build", "train": "T30", "lines": [{"type": "Tank", "load": "Acid"}]},
+                         {"action": "rename_load", "old": "Acid", "new": "Sulfuric"})
+        ops_store.apply(plan["plan_id"], allow_new_errors=True)
+        self.assertEqual(self.builds()["T30"]["lines"][0]["load"], "Sulfuric")
+        # T11 carries Feed between the Ashgrove spurs, so the audit reports that loss; it is accepted here.
+        result = ops_store.apply(self.plan({"action": "delete_train", "train": "T11"})["plan_id"],
+                                 allow_new_errors=True)
+        self.assertIn("manual build lines were removed", result["summary"][0])
+        self.assertNotIn("T11", self.builds())
+
+
+class Automations(Case):
+    def automations(self):
+        return {a["name"]: a for a in ops_data.read_automations(self.ops)}
+
+    def add(self, *steps, **extra):
+        return {"action": "add_automation", "name": "A", "steps": list(steps), **extra}
+
+    def test_the_plan_writes_steps_as_jmri_stores_them(self):
+        self.edit(*BUILDS_PLAN[2:])
+        found = self.automations()
+        self.assertTrue(found["Tally"]["startup"])
+        steps = found["Morning"]["steps"]
+        self.assertEqual([s["do"] for s in steps], ["build_train", "goto_if_failure", "move_train", "terminate_train",
+                                                    "activate_train_schedule", "apply_train_schedule",
+                                                    "run_automation", "down_counter", "halt"])
+        self.assertEqual(steps[0]["code"], 0x10D)
+        self.assertEqual((steps[1]["goto_id"], steps[1]["halt_on_failure"]), (steps[4]["id"], False))
+        self.assertEqual(steps[2]["stop_id"], "1r4")
+        self.assertEqual(steps[4]["day_id"], "2")
+        self.assertEqual(steps[6]["automation_id"], found["Tally"]["id"])
+        text = (self.ops / "OperationsTrainRoster.xml").read_text()
+        self.assertLess(text.index("</schedules>"), text.index("<automationOptions"))
+        self.assertIn('actionCode="0x10d"', text)
+
+    def test_dialogs_are_refused_unless_allowed(self):
+        for step in ({"do": "counter", "message": "Done"}, {"do": "build_train", "train": "BV1", "message_fail": "No"},
+                     {"do": "message_yes_no", "message": "Ready?"}, {"do": "print_train_manifest", "train": "BV1"}):
+            with self.assertRaisesRegex(Refused, "open a window or a print dialog", msg=str(step)):
+                self.plan(self.add(step))
+        result = self.plan(self.add({"do": "counter", "message": "Count {0}"}, allow_dialogs=True))
+        self.assertIn("modal window", result["summary"][0])
+        with self.assertRaisesRegex(Refused, "needs a message"):
+            self.plan(self.add({"do": "message_yes_no"}, allow_dialogs=True))
+
+    def test_steps_are_checked_as_jmri_keeps_them(self):
+        cases = [
+            ({"do": "explode"}, "do must be one of"),
+            ({"do": "counter", "train": "BV1"}, "takes no train"),
+            ({"do": "build_train"}, "needs a train"),
+            ({"do": "build_train", "train": "BV1", "stop": "Tolvern"}, "takes no stop"),
+            ({"do": "move_train", "stop": "Tolvern"}, "needs a train"),
+            ({"do": "move_train", "train": "BV1", "stop": "Quarry Staging"}, "No stop"),
+            ({"do": "counter", "message_fail": "x"}, "takes no message_fail"),
+            ({"do": "apply_train_schedule", "day": "Monday"}, "only activate_train_schedule takes a day"),
+            ({"do": "activate_train_schedule", "day": "Sunday"}, "No train schedule"),
+            ({"do": "run_automation"}, "needs an automation"),
+            ({"do": "run_automation", "automation": "Nope"}, "No automation"),
+            ({"do": "wait_for_automation", "automation": "A"}, "waiting for itself"),
+            ({"do": "goto", "goto": 1}, "its own step"),
+            ({"do": "goto", "goto": 7}, "1 to 1"),
+            ({"do": "counter", "halt_on_failure": "no"}, "true or false"),
+            ({"do": "counter", "when": 1}, "unknown fields"),
+        ]
+        for step, message in cases:
+            with self.assertRaisesRegex(Refused, message, msg=str(step)):
+                self.plan(self.add(step))
+        for text, message in (("{train}", "MessageFormat"), ("it's done", "single '"), ("open {", "MessageFormat")):
+            with self.assertRaisesRegex(Refused, message, msg=text):
+                self.plan(self.add({"do": "counter", "message": text}, allow_dialogs=True))
+        self.assertTrue(self.plan(self.add({"do": "counter", "message": "it''s {1} '{x}'"}, allow_dialogs=True)))
+        with self.assertRaisesRegex(Refused, "at least one step"):
+            self.plan(self.add())
+        with self.assertRaisesRegex(Refused, "at most 25"):
+            self.plan({"action": "add_automation", "name": "x" * 26, "steps": [{"do": "counter"}]})
+        self.edit(self.add({"do": "counter"}))
+        with self.assertRaisesRegex(Refused, "already exists"):
+            self.plan(self.add({"do": "counter"}))
+
+    def test_warnings_for_waits_programs_and_repeats(self):
+        result = self.plan(self.add({"do": "wait_for_train", "train": "BV1"}, {"do": "run_train", "train": "BV1"},
+                                    {"do": "run_automation", "automation": "A"}))
+        text = result["summary"][0]
+        for part in ("waits two minutes", "outside program", "repeats until"):
+            self.assertIn(part, text)
+
+    def test_update_replaces_steps_and_delete_follows_references(self):
+        self.edit(*BUILDS_PLAN[2:])
+        path = self.ops / "OperationsTrainRoster.xml"
+        path.write_text(path.read_text().replace('name="Morning" comment="first session"',
+                                                 'name="Morning" comment="first session" currentItem="2c3"'))
+        self.edit({"action": "update_automation", "automation": "Morning", "name": "Evening",
+                   "steps": [{"do": "reset_train", "train": "BV1"}, {"do": "wait_for_automation", "automation": "Tally"}]})
+        evening = self.automations()["Evening"]
+        self.assertEqual([s["id"] for s in evening["steps"]], ["2c10", "2c11"])
+        self.assertEqual(evening["current_step"], "")
+        with self.assertRaisesRegex(Refused, "Steps in Evening name it"):
+            self.plan({"action": "delete_automation", "automation": "Tally"})
+        with self.assertRaisesRegex(Refused, "Nothing to change"):
+            self.plan({"action": "update_automation", "automation": "Tally"})
+        with self.assertRaisesRegex(Refused, "Automations still use it: Evening"):
+            self.plan({"action": "delete_train", "train": "BV1"})
+        with self.assertRaisesRegex(Refused, r"step 2c\d+ of Evening"):
+            self.plan({"action": "update_automation", "automation": "Evening",
+                       "steps": [{"do": "move_train", "train": "BV1", "stop": "Tolvern"}]},
+                      {"action": "set_train_route", "train": "BV1", "route": "Main West"})
+        result = self.edit({"action": "delete_automation", "automation": "Evening"},
+                           {"action": "delete_automation", "automation": "Tally"})
+        self.assertIn("startup automation", result["summary"][1])
+        self.assertEqual(self.automations(), {})
+        self.assertIn('automationStartupId=""', path.read_text())
+
+
+@unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
+class RealJmriBuildsAndAutomations(Case):
+    def test_manual_builds_and_automations_survive_a_jmri_load_and_save(self):
+        self.edit(*BUILDS_PLAN)
+        keep = Path(self.temp.name) / "saved"
+        keep.mkdir()
+        result = ops_jmri.run_worker(self.ops, {"save": True}, keep)
+        self.assertEqual(result["log_errors"], [])
+        self.assertEqual(ops_data.read_manual_builds(self.ops), ops_data.read_manual_builds(keep))
+        ours, theirs = ops_data.read_automations(self.ops), ops_data.read_automations(keep)
+        self.assertEqual(_comparable(ours), _comparable(theirs))
+        # TrainManagerXml.readFile:126 ran the startup automation when JMRI loaded the copy.
+        tally = next(a for a in theirs if a["name"] == "Tally")
+        self.assertTrue(tally["steps"][0]["ran"])
+        names = lambda folder: [i.get("name") for i in  # noqa: E731
+                                ET.parse(Path(folder) / "OperationsTrainRoster.xml").getroot().iter("item")]
+        self.assertEqual(names(self.ops), names(keep))
+        mine = ET.parse(self.ops / "OperationsTrainRoster.xml").getroot()
+        jmri = ET.parse(keep / "OperationsTrainRoster.xml").getroot()
+        self.assertEqual([e.attrib for e in mine.iter("mbItem")], [e.attrib for e in jmri.iter("mbItem")])
+        self.assertEqual([e.attrib for e in mine.iter("manualBuild")], [e.attrib for e in jmri.iter("manualBuild")])
+
+    def test_jmri_builds_from_a_written_manual_line(self):
+        self.edit(BUILDS_PLAN[0])
+        result = ops_jmri.run_worker(self.ops, {"build": True})
+        row = result["builds"]["BV1"]
+        self.assertTrue(row["built"], row["message"])
+        self.assertIn("Manual build line id 1m1 was able to assign to train (BV1) 1 of 1", row["report_text"])
+
+
+# ---- Manual builds and automations (end) ------------------------------------------------
+
+
 if __name__ == "__main__":
     unittest.main()
