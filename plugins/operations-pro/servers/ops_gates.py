@@ -1611,7 +1611,9 @@ class Gates:
             return self._gate("D12", FAIL, "; ".join(self.terminal_track_problems(train, track)) or
                               "no staging track is chosen for this train")
         if chosen.id != track.id:
-            return self._gate("D12", FAIL, f"the train terminates on {chosen.name}, the only track offered")
+            own = "; ".join(self.terminal_track_problems(train, track))
+            return self._gate("D12", FAIL, f"the train terminates on {chosen.name}, the only track offered"
+                                           + (f"; {track.name} is {own}" if own else ""))
         if own_track_refused and car.track_id == track.id:
             return self._gate("D12", FAIL, "a switcher cannot set the car out on its own staging track")
         return self._gate("D12", PASS, "the train terminates here; table E decides")
