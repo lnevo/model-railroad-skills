@@ -685,3 +685,134 @@ class Railroad:
 
 def load(directory: str | Path) -> Railroad:
     return Railroad(directory)
+
+
+# ---- Manual builds and automations (start) ------------------------------------------
+# Both live in the train file (TrainManagerXml:70-73). Checked against JMRI 5.16:
+# trains/manualtrainbuilder and automation. Plain dictionaries, read straight from the file.
+
+# Automation step kinds: (JMRI code, English name). Codes are ActionCodes.java: an upper byte
+# for the action plus flag bits that say which fields the step keeps on a save.
+STEP_TRAIN, STEP_STOP, STEP_OK, STEP_FAIL, STEP_AUTOMATION, STEP_GOTO, STEP_OTHER = 1, 2, 4, 8, 16, 32, 64
+_T, _TR, _TF = STEP_TRAIN | STEP_OK | STEP_FAIL, STEP_TRAIN | STEP_STOP | STEP_OK | STEP_FAIL, STEP_OK | STEP_FAIL
+STEP_KINDS: dict[str, tuple[int, str]] = {
+    "nothing": (0x0000 | STEP_OK, "Do Nothing"),
+    "build_train": (0x0100 | _T, "Build Train"),
+    "build_train_if_selected": (0x0200 | _T, "Build Train if Selected"),
+    "print_train_manifest": (0x0300 | _T, "Print Train Manifest"),
+    "print_train_manifest_if_selected": (0x0400 | _T, "Print Train Manifest if Selected"),
+    "move_train": (0x0500 | _TR, "Move Train"),
+    "terminate_train": (0x0600 | _T, "Terminate Train"),
+    "wait_for_train": (0x0700 | _TR, "Wait for Train"),
+    "reset_train": (0x0800 | _T, "Reset Train"),
+    "run_train": (0x0900 | _T, "Run Excel for Train"),
+    "select_train": (0x0A00 | _T, "Select Train (Build)"),
+    "deselect_train": (0x0B00 | _T, "Deselect Train (Build)"),
+    "wait_for_train_to_terminate": (0x0C00 | _T, "Wait for Train to Terminate"),
+    "is_train_en_route": (0x0D00 | _TR, "Is Train En-Route?"),
+    "print_train_build_report": (0x0E00 | _T, "Print Train Build Report"),
+    "update_switch_list": (0x1000 | STEP_OK, "Update Switch List"),
+    "print_switch_list": (0x1100 | STEP_OK, "Print Switch List"),
+    "wait_for_switch_list": (0x1200 | STEP_OK, "Wait for Switch List Change"),
+    "run_switch_list_changes": (0x1300 | _TF, "Run Excel Switch List Changes"),
+    "run_switch_list": (0x1400 | _TF, "Run Excel Switch List"),
+    "print_switch_list_changes": (0x1500 | STEP_OK, "Print Switch List Changes"),
+    "generate_switch_list_changes": (0x1600 | _TF, "Generate Switch List Changes"),
+    "generate_switch_list": (0x1700 | _TF, "Generate Switch List"),
+    "reset_switch_lists": (0x1800 | STEP_OK, "Reset Switch Lists"),
+    "activate_train_schedule": (0x2000 | STEP_OK | STEP_OTHER, "Activate Train Schedule"),
+    "apply_train_schedule": (0x2100 | _TF, "Apply Train Schedule"),
+    "run_automation": (0x3100 | _TF | STEP_AUTOMATION, "Run Automation"),
+    "stop_automation": (0x3200 | _TF | STEP_AUTOMATION, "Stop Automation"),
+    "resume_automation": (0x3300 | _TF | STEP_AUTOMATION, "Resume Automation"),
+    "wait_for_automation": (0x3400 | _TF | STEP_AUTOMATION, "Wait for Automation"),
+    "counter": (0x4000 | STEP_OK, "Counter"),
+    "down_counter": (0x4100 | STEP_OK, "Down Counter"),
+    "message_yes_no": (0x4200 | STEP_TRAIN | STEP_STOP | STEP_OK, "Message Yes or No"),
+    "goto": (0x5000 | _TF | STEP_GOTO, "GOTO"),
+    "goto_if_success": (0x5100 | _TF | STEP_GOTO, "If Success GOTO"),
+    "goto_if_failure": (0x5200 | _TF | STEP_GOTO, "If Failure GOTO"),
+    "halt": (0xFF00 | STEP_OK, "Halt"),
+}
+STEP_BY_CODE = {code: kind for kind, (code, _) in STEP_KINDS.items()}
+ACTIVATE_DAY = STEP_KINDS["activate_train_schedule"][0]
+
+
+def step_code(text: str | None) -> int:
+    """AutomationItem:421 reads the code with Integer.decode; an unknown code becomes Do Nothing."""
+    try:
+        code = int(text or "0", 0)
+    except ValueError:
+        return STEP_KINDS["nothing"][0]
+    return code if code in STEP_BY_CODE else STEP_KINDS["nothing"][0]
+
+
+def _train_root(directory: str | Path) -> ET.Element | None:
+    path = Path(directory) / REQUIRED[2]
+    return ET.parse(path).getroot() if path.is_file() else None
+
+
+def read_manual_builds(directory: str | Path) -> list[dict]:
+    """Each train's manual build lines, in sequence order, as TrainManualBuild reads them."""
+    root = _train_root(directory)
+    if root is None:
+        return []
+    names = {t.get("id", ""): t.get("name", "") for t in root.findall("./trains/train")}
+    out = []
+    for build in root.findall("./manualBuilds/manualBuild"):
+        lines = []
+        for item in build.findall("mbItem"):
+            stop = item.get("routeLocationId", "")
+            destination = item.get("destinationId", "")
+            lines.append({
+                "id": item.get("id", ""), "sequence": _int(item.get("sequenceId")),
+                "type": item.get("type", ""), "road": item.get("road", ""), "load": item.get("load", ""),
+                # TrainManualBuildItem:347-356: a track is kept only with its stop or destination.
+                "stop_id": stop, "track_id": item.get("locTrackId", "") if stop else "",
+                "destination_id": destination,
+                "destination_track_id": item.get("destTrackId", "") if destination else "",
+                "day_id": item.get("trainScheduleId", ""), "count": _int(item.get("count"), 1),
+                "warn": item.get("warn") == "true", "fail": item.get("fail") == "true",
+                "remove": item.get("remove") == "true"})
+        lines.sort(key=lambda line: line["sequence"])
+        out.append({"id": build.get("id", ""), "train_id": build.get("trainId", ""),
+                    "train": names.get(build.get("trainId", ""), ""), "comment": build.get("comment", ""),
+                    "lines": lines})
+    return out
+
+
+def read_automations(directory: str | Path) -> list[dict]:
+    """Automations with their steps in sequence order, keeping only what AutomationItem.store keeps."""
+    root = _train_root(directory)
+    if root is None:
+        return []
+    options = root.find("automationOptions")
+    startup = options.get("automationStartupId", "") if options is not None else ""
+    out = []
+    for automation in root.findall("./automations/automation"):
+        steps = []
+        for item in automation.findall("item"):
+            code = step_code(item.get("actionCode"))
+            train = item.get("trainId", "") if code & STEP_TRAIN else ""
+            messages = item.find("messages")
+            ok = messages.find("messageOk") if messages is not None else None
+            fail = messages.find("messageFail") if messages is not None else None
+            steps.append({
+                "id": item.get("id", ""), "sequence": _int(item.get("sequenceId")),
+                "do": STEP_BY_CODE[code], "code": code, "train_id": train,
+                "stop_id": item.get("routeLocationId", "") if train and code & STEP_STOP else "",
+                "automation_id": item.get("automationId", "") if code & STEP_AUTOMATION else "",
+                "goto_id": item.get("gotoAutomationId", "") if code & STEP_GOTO else "",
+                "day_id": item.get("trainScheduleId", "") if code == ACTIVATE_DAY else "",
+                "halt_on_failure": item.get("haltFail", "true") == "true",
+                "message": ok.get("message", "") if ok is not None else "",
+                "message_fail": fail.get("message", "") if fail is not None else "",
+                "ran": item.get("actionRan") == "true", "successful": item.get("actionSuccessful") == "true"})
+        steps.sort(key=lambda step: step["sequence"])
+        out.append({"id": automation.get("id", ""), "name": automation.get("name", ""),
+                    "comment": automation.get("comment", ""), "startup": automation.get("id") == startup,
+                    "current_step": automation.get("currentItem", ""), "steps": steps})
+    return out
+
+
+# ---- Manual builds and automations (end) --------------------------------------------
