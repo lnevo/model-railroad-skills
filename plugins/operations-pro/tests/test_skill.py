@@ -75,11 +75,26 @@ class SkillTest(unittest.TestCase):
         for tool in operations_pro.tools():
             self.assertIn(f"`{tool.name}`", self.entry, tool.name)
 
-    def test_no_private_content(self):
-        # Extra private terms come from the environment, so none are listed in the public tree.
-        extra = [t for t in os.environ.get("OPS_BANNED_TERMS", "").split(",") if t.strip()]
-        banned = re.compile("|".join([r"groups\.io", "jmriusers", *map(re.escape, extra)]), re.I)
-        for path in [SKILL / "SKILL.md", *(SKILL / "references").glob("*.md"), AGENT, ROOT / "README.md"]:
+    def _public_files(self):
+        return [SKILL / "SKILL.md", *(SKILL / "references").glob("*.md"), AGENT, ROOT / "README.md"]
+
+    def test_no_private_looking_content(self):
+        # Generic structural check: no IP addresses or e-mail addresses in the public files.
+        pattern = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b|[\w.+-]+@[\w-]+\.[\w.-]+|\b[\w-]+\.(?:local|lan|internal)\b")
+        for path in self._public_files():
+            self.assertIsNone(pattern.search(path.read_text()), path.name)
+
+    def test_no_banned_words(self):
+        # The word list is private: one word per line in the file named by OPS_BANNED_WORDS_FILE.
+        default = Path.home() / ".config" / "model-railroad-skills" / "banned_words.txt"
+        listing = Path(os.environ.get("OPS_BANNED_WORDS_FILE", default)).expanduser()
+        if not listing.is_file():
+            self.skipTest(f"no banned-words file at {listing}; set OPS_BANNED_WORDS_FILE to run the word check")
+        words = [w.strip() for w in listing.read_text().splitlines() if w.strip() and not w.startswith("#")]
+        if not words:
+            self.skipTest(f"banned-words file {listing} is empty")
+        banned = re.compile("|".join(map(re.escape, words)), re.I)
+        for path in self._public_files():
             self.assertIsNone(banned.search(path.read_text()), path.name)
 
     def test_engine_and_division_actions_are_in_the_references(self):
