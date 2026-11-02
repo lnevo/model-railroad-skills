@@ -302,3 +302,18 @@ class OnTimeAbort(unittest.TestCase):
         import ops_jmri
         self.assertEqual(ops_jmri._refused_before_build("T", {"built": False, "failed": True, "message": "Error"}, []), "")
         self.assertEqual(ops_jmri._refused_before_build("T", {"built": True, "failed": False, "message": "Built"}, []), "")
+
+
+class BackupCount(Faults):
+    def test_many_sets_warn_and_none_is_deleted(self):
+        copy = self.copy()
+        for number in range(ops_store.BACKUP_WARN):
+            (copy / "backups" / f"set{number}").mkdir(parents=True)
+        plan = ops_store.plan(copy, [{"action": "update_car", "car": "HZMX 9", "blocking": -2}])
+        self.assertTrue([w for w in plan["warnings"] if "backup sets" in w], plan["warnings"])
+        ops_store.apply(plan["plan_id"], True)
+        self.assertEqual(len(list((copy / "backups").iterdir())), ops_store.BACKUP_WARN + 1)
+
+    def test_few_sets_do_not_warn(self):
+        plan = ops_store.plan(self.copy(), [{"action": "update_car", "car": "HZMX 9", "blocking": -2}])
+        self.assertFalse([w for w in plan["warnings"] if "backup sets" in w])
