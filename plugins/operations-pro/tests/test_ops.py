@@ -762,6 +762,21 @@ class ReviewFixes(Base):
         self.assertIn("Any", hit["message"])
         self.assertIn("same route", hit["message"])
 
+    def test_a_day_id_no_schedule_holds_is_flagged_on_lines_and_cars(self):
+        # B15/F1 pass an id that is not a train schedule (TrainBuilderBase 965, Schedule.checkScheduleItem).
+        rr, g = self.fresh()
+        stale = lambda: [f for f in g.audit()["findings"] if f["rule"] == "day-stale-id"]
+        before = len(stale())
+        line = next(i for s in rr.schedules.values() for i in s.items)
+        line.setout_day, line.pickup_day = "99", "98"
+        rr.find_car("BVR3012").pickup_day = "97"
+        found = stale()
+        self.assertEqual(len(found) - before, 3)
+        self.assertTrue(all("any day" in f["message"] for f in found))
+        rr.find_car("BVR3012").pickup_day = "ANY"
+        line.setout_day = line.pickup_day = ""
+        self.assertEqual(len(stale()), before)
+
     def test_foreign_option_words_are_warned_about(self):
         # Track 159-173 compares Bundle values, so a non-English file holds other words.
         self.assertEqual(self.rr.warnings, [])

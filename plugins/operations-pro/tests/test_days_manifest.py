@@ -69,6 +69,18 @@ class Days(Case):
         self.assertEqual((day.get("id"), day.get("trainIds"), day.get("comment")), ("3", "1,3,", None))
         self.assertEqual(self.rr().days["3"].trains, ["1", "3"])
 
+    def test_delete_train_writes_the_train_list_in_jmris_form(self):
+        self.edit({"action": "add_day", "name": "Wednesday", "trains": ["BV1", "T10", "T30"]})
+        self.edit({"action": "delete_train", "train": "T10"})
+        day = next(d for d in self.train_xml().iter("schedule") if d.get("name") == "Wednesday")
+        self.assertEqual(day.get("trainIds"), "1,6,")
+
+    def test_a_day_deleted_by_hand_is_audited_as_any_day(self):
+        text = (self.ops / "OperationsCarRoster.xml").read_text()
+        (self.ops / "OperationsCarRoster.xml").write_text(text.replace('pickupId="2"', 'pickupId="42"', 1))
+        hits = [f for f in ops_gates.Gates(self.rr()).audit()["findings"] if f["rule"] == "day-stale-id"]
+        self.assertEqual([f["subject"] for f in hits], ["BVR 3012"])
+
     def test_names_are_checked(self):
         for name, why in (("Monday", "already exists"), ("  ", "needs a name"), ("Any", "Any is the active")):
             with self.assertRaisesRegex(Refused, why):
@@ -279,6 +291,16 @@ class RealJmriDaysAndManifests(Case):
         self.assertEqual((ours.days, ours.active_schedule), (theirs.days, theirs.active_schedule))
         self.assertEqual(ours.schedules["2"].items, theirs.schedules["2"].items)
         self.assertEqual(theirs.cars["BVR3012"].pickup_day, "")
+
+    def test_a_train_deleted_from_a_day_list_survives_a_jmri_save(self):
+        self.edit({"action": "add_day", "name": "Wednesday", "trains": ["BV1", "T10", "T30"]},
+                  {"action": "delete_train", "train": "T10"})
+        ours = self.rr()
+        _, keep = self.read_back()
+        theirs = ops_data.load(keep)
+        self.assertEqual(ours.days, theirs.days)
+        day = next(d for d in ET.parse(keep / TRAIN_FILE).getroot().iter("schedule") if d.get("name") == "Wednesday")
+        self.assertEqual(day.get("trainIds"), "1,6,")
 
     def test_manifest_formats_survive_a_jmri_load_and_save(self):
         self.edit(*MANIFEST_PLAN)

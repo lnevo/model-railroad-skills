@@ -1809,6 +1809,26 @@ class Audit:
                                    f"Built {car.built}, exactly {train.name}'s limit. Both ends are "
                                    "exclusive, so the train refuses it.", BUILD_OPTIONS, "Built dates")
 
+    def rule_stale_days(self):
+        """A day id no train schedule holds. JMRI treats it as any day (B15 and F1 pass it, TrainBuilderBase 965,
+        Schedule.checkScheduleItem), but a spur line with one is never used to pick a custom load (2286)."""
+        rr = self.rr
+        gone = lambda day: bool(day) and day != ANY_DAY and day not in rr.train_schedules
+        for schedule in rr.schedules.values():
+            for item in schedule.items:
+                for label, day in (("set out", item.setout_day), ("pick up", item.pickup_day)):
+                    if gone(day):
+                        yield _finding("day-stale-id", "warning", f"{schedule.name} line {item.id}",
+                                       f"The {label} day is id {day}, which no train schedule holds. It behaves as "
+                                       "any day, and a line with a missing day is never used to pick a custom load.",
+                                       SCHEDULE, f"Clear the {label} day or set a real one")
+        for car in rr.cars.values():
+            if gone(car.pickup_day):
+                yield _finding("day-stale-id", "warning", str(car),
+                               f"The pick up day is id {car.pickup_day}, which no train schedule holds. It "
+                               "behaves as any day, so the car can leave on every day.", CAR,
+                               "Clear the pick up day or set a real one")
+
     def rule_rwe(self):
         rr = self.rr
         for car in rr.cars.values():

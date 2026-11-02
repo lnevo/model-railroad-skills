@@ -87,6 +87,7 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `caboose-road-mismatch` | A required caboose road no caboose on the route has |
 | `route-direction-mismatch`, `route-stop-dead`, `track-direction-unserved` | A stop the location cannot serve, a stop with no moves possible, a track no stop serves |
 | `list-stale-id` | A pick up or set out list naming a deleted train or route |
+| `day-stale-id` | A schedule line or car naming a train schedule (day) that was deleted; JMRI treats it as any day, so clear it or set a real one |
 | `train-not-on-list` | A train absent from a track's lists on its route |
 | `built-boundary` | A car built exactly on a train's year limit, which the exclusive test refuses |
 | `rwe-to-unscheduled-spur` | A return-when-empty that will drop the car out of routing |

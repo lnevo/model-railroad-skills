@@ -1378,7 +1378,7 @@ def delete_train(ed: Editor, train: str) -> str:
     for day in ed.train_root.findall("./schedules/schedule"):
         ids = [i for i in day.get("trainIds", "").split(",") if i]
         if identity in ids:
-            day.set("trainIds", ",".join(i for i in ids if i != identity))
+            _set_day_trains(day, [i for i in ids if i != identity])
     for track in ed.tracks():
         for option, tag, item in (("dropOption", "dropIds", "dropId"), ("pickupOption", "pickupIds", "pickupId")):
             holder = track.find(tag)

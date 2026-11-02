@@ -487,7 +487,7 @@ class ReviewFixes(Case):
                      '<schedule id="1" name="Monday" trainIds="1,3,6" />')
         self.edit({"action": "delete_train", "train": "T10"})
         trains = (self.ops / "OperationsTrainRoster.xml").read_text()
-        self.assertIn('<schedule id="1" name="Monday" trainIds="1,6" />', trains)
+        self.assertIn('<schedule id="1" name="Monday" trainIds="1,6," />', trains)
         self.rewrite("OperationsTrainRoster.xml", "</schedules>",
                      '</schedules>\n  <automations>\n    <automation id="1" name="Nightly" comment="">\n'
                      '      <item id="1c1" sequenceId="1" name="Build" actionCode="0" trainId="6" />\n'
