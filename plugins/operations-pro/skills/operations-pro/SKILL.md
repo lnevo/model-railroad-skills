@@ -73,7 +73,7 @@ Reading `ops_why_not`: `first_failure` is set only when the car cannot move. Whe
 - Adding a track resets that location's move counts. Assigning a different schedule from the schedule window resets every location.
 - The built year test excludes both ends. Hyphen names split only on `-(` or `-<number>`.
 - Changing a car's location through JSON does not run a schedule, and a car POST without `weightTons` blanks it. JSON cannot build a train.
-- Autosave writes one to two minutes after a change, and exit always writes. Edits made outside JMRI while it runs are lost.
+- Autosave usually writes within two minutes of a change, a running build delays it, and exit always writes. Edits made outside JMRI while it runs are lost.
 
 ## Out of scope
 
