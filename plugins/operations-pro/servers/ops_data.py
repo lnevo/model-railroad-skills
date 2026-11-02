@@ -69,7 +69,7 @@ DIRECTIONS = {EAST: "East", WEST: "West", NORTH: "North", SOUTH: "South"}
 SWAP_DEFAULT, EMPTY_CUSTOM, GENERATE, GENERATE_ANY_SPUR, EMPTY_DEFAULT = 1, 2, 4, 8, 16
 GENERATE_ANY_STAGING, DISABLE_LOAD_CHANGE, QUICK_SERVICE = 32, 64, 128
 REQUIRES_CABOOSE, REQUIRES_FRED = 1, 2
-ADD_CABOOSE, REMOVE_CABOOSE = 4, 8  # Train leg option bits.
+CHANGE_ENGINES, ADD_CABOOSE, REMOVE_CABOOSE, REMOVE_ENGINES = 1, 4, 8, 32  # Train leg option bits (Train.java:128-133).
 ANY_DAY = "ANY"
 TYPE_AND_LOAD = " & "
 # JMRI writes these option values from its Bundle, so a non-English file holds other words.

@@ -15,7 +15,7 @@ import ops_build_state
 import ops_router
 from ops_data import (
     ALL, ANY, MATCH, QUICK_SERVICE, DISABLE_LOAD_CHANGE, REQUIRES_CABOOSE, REQUIRES_FRED, TRAINS, ROUTES, ANY_DAY, GENERATE,
-    GENERATE_ANY_SPUR, EXCLUDE_ROUTES, EXCLUDE_TRAINS, ADD_CABOOSE, REMOVE_CABOOSE,
+    GENERATE_ANY_SPUR, EXCLUDE_ROUTES, EXCLUDE_TRAINS, ADD_CABOOSE, REMOVE_CABOOSE, CHANGE_ENGINES, REMOVE_ENGINES,
     Car, Location, Railroad, ScheduleItem, Stop, Track, Train, built_year, directions, split_name,
 )
 
@@ -774,7 +774,28 @@ class Gates:
             doubts.append(f"locomotive count {train.engines} is worked out during the build")
         # FIFO/LIFO order is not a doubt: TrainBuilderBase.sortCarsOnFifoLifoTracks (TBB:1167) skips staging
         # tracks, and a staging departure takes every car on the track whatever its order.
+        doubts.extend(self._loco_change_doubts(train, track))
         return doubts
+
+    def _loco_change_doubts(self, train: Train, track: Track) -> list[str]:
+        """Locomotives leaving staging need a track at the stop where they change, or setEngineDestination
+        (TBE:818-866) refuses them and this departure track is not used. The real search also takes moves into
+        account, so this is a doubt for the build to settle, not a failure."""
+        rr, raw = self.rr, self.x.train.get(train.id, {})
+        stops = {s.id: s for s in rr.stops(train)}
+        _, engines = rr.rolling_stock_on(track)
+        options = ((2, train.leg2_options), (3, train.leg3_options))
+        start = next((stops.get(raw.get(f"leg{n}Start", "")) for n, o in options if o & (CHANGE_ENGINES | REMOVE_ENGINES)),
+                     None)
+        place = rr.locations.get(start.location_id) if start else None
+        if place is None or not engines:
+            return []
+        length = sum(int(e.length) if e.length.isdigit() else 0 for e in engines) + 4 * (len(engines) - 1)
+        loco = Car(id="locomotive", road=engines[0].road, number="0", type=engines[0].type, length=str(length))
+        kinds = {e.type for e in engines}
+        takers = [t for t in place.tracks if kinds <= self.x.types.get(t.id, set()) and t.accepts_drop(train)
+                  and t.dir & start.direction and self._space(loco, t)["status"] != FAIL]
+        return [] if takers else [f"no track at {place.name} has room for the locomotives set out at the change there"]
 
     def _staging_engines(self, train: Train, engines: list) -> list[str]:
         """checkStagingEngines (TBB:1777-1846): every locomotive on the track must suit the train."""

@@ -128,3 +128,17 @@ class SameBuild(Faults):
     def test_room_is_a_pass_when_nothing_else_targets_the_track(self):
         out = self.why_not(SHOWCASE, "JFN 401", "Sawyer", "Sawyer Pasta Plant", "SAWYER SWITCHER")
         self.assertEqual(self.gate(out, "E9")["status"], "pass")
+
+
+class LocoChange(Faults):
+    def test_no_room_at_the_change_stop_leaves_a8_open(self):
+        """U13 b: the locomotive leaving staging fits no track at the change stop, so West Mode cannot depart."""
+        copy = self.copy([{"action": "update_track", "location": "Brae", "track": "Brae Engine Track",
+                           "ignore_used_percent": 0}])
+        gate = self.gate(self.why_not(copy, "MODX 1", "East Staging", None, "MODE"), "A8")
+        self.assertEqual(gate["status"], "not_checked")
+        self.assertIn("Brae", gate["reason"])
+
+    def test_room_at_the_change_stop_passes(self):
+        self.assertEqual(self.gate(self.why_not(SHOWCASE, "MODX 1", "East Staging", None, "MODE"), "A8")["status"],
+                         "pass")
