@@ -63,6 +63,12 @@ class ReportReader(unittest.TestCase):
                         "1- Train (CUSTOM) built with 3 cars")
         self.assertEqual(report["outcome"]["failure"], [])
 
+    def test_a_b_unit_line_is_read(self):
+        """TBE:342 prints BuildEngineBunit when no single locomotive will do (bundle line 895)."""
+        report = parsed("5- Locomotive (JFN 5) at (Carrow, Carrow Yard) is a B unit")
+        self.assertEqual(report["unparsed"], [])
+        self.assertEqual(report["engines"]["available"], ["Locomotive (JFN 5) at (Carrow, Carrow Yard) is a B unit"])
+
 
 if __name__ == "__main__":
     unittest.main()

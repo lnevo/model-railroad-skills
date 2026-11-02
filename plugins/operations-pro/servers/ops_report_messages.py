@@ -15,6 +15,7 @@ TRAINS = {
     "AllowThroughCars": "Allow cars to travel from origin to terminal",
     "BuildConsist": "Build loco consist from single locos",
     "BuildConsistHPT": "{0} HPT (Horsepower per Ton) when adding locos to train",
+    "BuildEngineBunit": "Locomotive ({0}) at ({1}, {2}) is a B unit",
     "BuildFailed": "Build Failed",
     "BuildModeAggressive": "Build option is set to Aggressive",
     "BuildModeNormal": "Build option is set to Normal",
