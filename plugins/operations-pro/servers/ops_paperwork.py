@@ -100,7 +100,47 @@ FIELDS: dict[str, tuple] = {
     "print_build_report": (TRAINS, "trainOptions", "buildReport", "bool", "false"),
     "open_csv_file": (TRAINS, "trainOptions", "openFile", "bool", "false"),
     "run_csv_file": (TRAINS, "trainOptions", "runFile", "bool", "false"),
+    # TrainManager.store: the Trains window's build messages box and its table button action.
+    "build_messages": (TRAINS, "trainOptions", "buildMessages", "bool", "true"),
+    "train_action": (TRAINS, "trainOptions", "trainAction", ("Move", "Reset", "Terminate", "Conductor"), "Move"),
 }
+
+# Manifest and switch list creators: TrainCustomCommon.store writes <directory>, <runFile>, <commonFile>, each
+# with a name attribute, under manifestCreator or switchlistCreator in the train file's <options>.
+# name: (element, {child: (attribute name in the action, JMRI's default)}).
+CREATORS = {
+    "manifest": ("manifestCreator", {"directory": ("directory", "csvManifests"), "runFile": ("program", "MC4JMRI.xls"),
+                                      "commonFile": ("common_file", "CSVFilesFile.txt")}),
+    "switch_list": ("switchlistCreator", {"directory": ("directory", "csvSwitchLists"),
+                                           "runFile": ("program", "MC4JMRI.xls"),
+                                           "commonFile": ("common_file", "CSVFilesFile.txt")}),
+}
+
+# Control.store: <control> under the root of Operations.xml. name: (child element, attribute, kind, default).
+CONTROL_LENGTHS = {
+    "max_len_attribute": "max_len_string_attibute", "max_len_road_number": "max_len_string_road_number",
+    "max_len_print_road_number": "max_len_string_print_road_number",
+    "max_len_location_name": "max_len_string_location_name", "max_len_track_name": "max_len_string_track_name",
+    "max_len_track_length": "max_len_string_track_length_name", "max_len_length": "max_len_string_length_name",
+    "max_len_weight": "max_len_string_weight_name", "max_len_built": "max_len_string_built_name",
+    "max_len_train_name": "max_len_string_train_name", "max_len_route_name": "max_len_string_route_name",
+    "max_len_automation_name": "max_len_string_automation_name"}
+CONTROL_LENGTH_DEFAULTS = {"max_len_string_attibute": "12", "max_len_string_road_number": "10",
+                           "max_len_string_print_road_number": "6", "max_len_string_location_name": "25",
+                           "max_len_string_track_name": "25", "max_len_string_track_length_name": "5",
+                           "max_len_string_length_name": "4", "max_len_string_weight_name": "4",
+                           "max_len_string_built_name": "5", "max_len_string_train_name": "25",
+                           "max_len_string_route_name": "25", "max_len_string_automation_name": "25"}
+CONTROL_OTHER = {
+    "report_font_size": ("reports", "fontSize", "int", "10"),
+    "report_font_name": ("reports", "fontName", "text", ""),
+    "excel_wait_time": ("actions", "excelWaitTime", "int", "120"),
+    "disable_print_if_custom": ("printOptions", "disablePrintIfCustom", "bool", "false"),
+    "speed_hpt": ("speedHpt", "MPH", "int", "36"),
+    "show_clones": ("display", "showClones", "bool", "true"),
+    "days": ("days", "length", "int", "31"),
+}
+CONTROL_ORDER = ("maximumStringLengths", "reports", "actions", "printOptions", "speedHpt", "display", "days")
 
 # Message format lines: name -> (element, kind). Setup.store writes prefix and setting; the
 # missing car line has no prefix. Engine lines take engine attributes, the rest car attributes.

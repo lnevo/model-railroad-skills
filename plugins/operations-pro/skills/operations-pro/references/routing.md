@@ -79,7 +79,7 @@ A location name splits only when the text after a hyphen is a whole number or st
 
 Locations and cars carry a division. A car with a home division and no final destination gets one before the load test, by load type. An empty goes home: a home yard first, then home staging, then a home spur. A load on a track outside its division goes to a home spur or home staging. A load already at home goes to any spur or staging. A custom empty counts as empty. Cars with no division are unaffected.
 
-Write actions: `add_division`, `update_division` (rename or comment; locations and cars hold the id), `delete_division` (its locations, cars and engines are left with none), `set_location_division`, `set_car_division` (a kernel follows its car, as Set Car does), and `set_load_type`, which decides whether a custom load is handled as empty or loaded. A default load's type is fixed. Only cars use a home division in the builder; an engine's division is stored but not used.
+Write actions: `add_division`, `update_division` (rename or comment; locations and cars hold the id), `delete_division` (its locations, cars and engines are left with none), `set_location_division`, `set_car_division` (a kernel follows its car, as Set Car does), and `set_load_type`, which decides whether a custom load is handled as empty or loaded. A default load's type is fixed. `set_engine_division` gives locomotives a division, or clears it. Only cars use a home division in the builder; an engine's division is stored and printed, and the builder ignores it.
 
 ## Checking a setup
 

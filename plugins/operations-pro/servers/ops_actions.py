@@ -589,10 +589,11 @@ import ops_actions_setup  # noqa: E402
 import ops_actions_engines  # noqa: E402
 import ops_actions_automations  # noqa: E402
 import ops_actions_extras  # noqa: E402
+import ops_actions_more  # noqa: E402
 
 for _group in (ops_actions_names, ops_actions_locations, ops_actions_schedules,
                ops_actions_trains, ops_actions_cars, ops_actions_setup,
-               ops_actions_engines, ops_actions_automations, ops_actions_extras):
+               ops_actions_engines, ops_actions_automations, ops_actions_extras, ops_actions_more):
     for _key, _value in vars(_group).items():
         if not _key.startswith("__") and _key not in globals():
             globals()[_key] = _value
