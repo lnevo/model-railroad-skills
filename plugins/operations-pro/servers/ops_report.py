@@ -50,7 +50,7 @@ ASSIGNED, NO_DESTINATION, HELD, PICKUP_REFUSED, DEFERRED = (
 # Report lines whose wording alone names the gate. Keys are template keys.
 KEY_GATES: dict[str, str] = {
     "buildExcludeCarWrongRoad": "B9", "buildExcludeCarWrongType": "B10", "buildExcludeCarTypeAtLoc": "B17",
-    "buildExcludeCarWrongDest": "B4", "buildExcludeCarDestNotPartRoute": "B4",
+    "buildExcludeCarWrongDest": "B5", "buildExcludeCarDestNotPartRoute": "B4",
     "buildExcludeCarDropByTrain": "B6", "buildExcludeCarByTrain": "B7", "buildExcludeCarByRoute": "B7",
     "buildExcludeCarByInterchange": "B8", "buildExcludeCarLocUnknown": "B2", "buildExcludeCarOutOfService": "B3",
     "buildExcludeCarWait": "B16", "buildExcludeCarSchedule": "B15", "buildExcludeCarWithFredAtLoc": "B14",
@@ -94,7 +94,7 @@ KEY_GATES: dict[str, str] = {
     "buildStagingTrackLoad": "A7", "buildStagingTrackAllRoads": "A7", "buildStagingTrackAllLoads": "A7",
     "buildErrorRoute": "A3", "buildErrorNeedRoute": "A3", "buildErrorNeedDepLoc": "A3", "buildErrorNeedTermLoc": "A3",
     "buildErrorLocMissing": "A4", "buildErrorRouteLoc": "A4", "buildErrorRandomControl": "A6",
-    "buildErrorNotAllCars": "B20", "buildErrorCarNotPartRoute": "B20", "buildErrorCarStageDest": "B20",
+    "buildErrorNotAllCars": "B20", "buildErrorCarNotPartRoute": "B4", "buildErrorCarStageDest": "B20",
     "buildStagingCouldNotFindDest": "B20", "buildErrorLocationUnknown": "B2", "buildErrorLocationOutOfService": "B3",
     "buildErrorReqDepature": "B17", "buildErrorReqDest": "B17", "buildErrorRequirements": "B17",
     "buildErrorCabooseNoLocation": "B17", "buildErrorCabooseNoDestination": "B17", "mbuildFail": "B19",
