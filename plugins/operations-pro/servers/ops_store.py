@@ -126,6 +126,10 @@ def _diff(name: str, before: bytes, after: bytes) -> list[str]:
         f"a/{name}", f"b/{name}", lineterm="", n=1))
 
 
+# The newest file time each folder had when this process last wrote it, so its own apply is not taken for JMRI saving.
+_own_write: dict[str, float] = {}
+
+
 def plans_root() -> Path:
     return Path(os.environ.get("OPS_PLAN_DIR") or Path(tempfile.gettempdir()) / "operations-pro-plans")
 
@@ -205,10 +209,16 @@ def plan(directory: str | Path, actions: list[dict], session: bool = False, prep
             "diff_truncated": max(0, len(diff) - DIFF_LIMIT)}
 
 
+def newest_change(directory: str | Path) -> float:
+    base = Path(directory)
+    return max(((base / n).stat().st_mtime for n in FILES if (base / n).is_file()), default=0)
+
+
 def _warnings(base: Path) -> list[str]:
     out = []
-    age = time.time() - max(((base / n).stat().st_mtime for n in FILES if (base / n).is_file()), default=0)
-    if age < AUTOSAVE_WINDOW:
+    newest = newest_change(base)
+    age = time.time() - newest
+    if age < AUTOSAVE_WINDOW and newest != _own_write.get(str(base)):
         out.append(f"The Operations files changed {int(age)} seconds ago. Make sure JMRI has finished "
                    "saving, on every computer that opens this folder.")
     conflicts = [p.name for p in base.glob("*conflicted copy*")]
@@ -311,6 +321,7 @@ def apply(plan_id: str, allow_new_errors: bool = False) -> dict:
         if isinstance(exc, Exception):
             raise Refused(f"Change undone, files restored from {set_name}. Cause: {exc}") from exc
         raise
+    _own_write[str(base)] = newest_change(base)
     shutil.rmtree(folder, ignore_errors=True)
     return {"applied": True, "files": manifest["changed"], "backup": set_name,
             "summary": manifest["summary"], "findings_before": len(before), "findings_after": len(after),

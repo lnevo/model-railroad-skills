@@ -98,7 +98,12 @@ def explain_build(args: dict) -> object:
     if args.get("text"):
         return ops_report.explain(args["text"], car, detail)
     path = args.get("path") or ops_report.report_path(folder(args), args["train"])
-    return ops_report.explain_file(path, car, detail)
+    out = ops_report.explain_file(path, car, detail)
+    if not args.get("path"):
+        note = ops_report.stale_note(path, ops_store.newest_change(folder(args)))
+        if note:
+            out["stale"] = note
+    return out
 
 
 # ---- On-demand backup (start) ---------------------------------------------------------

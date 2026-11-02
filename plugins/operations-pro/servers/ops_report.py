@@ -22,6 +22,8 @@ from ops_report_messages import STATUS, TEMPLATES, TRAINS
 
 PREFIX = re.compile(r"^([1357])- ?(.*)$")
 MAX_WRAP = 8  # pieces one wrapped line may span
+STALE_MARGIN = 120  # seconds; JMRI saves the files shortly after a build
+MANUAL_LINE = re.compile(r"Manual build line id|manual build for train")
 
 # Templates that are pieces of other messages, never a line of their own.
 FRAGMENTS = {"RouterRoutePath", "RouterRoutePathTrain", "RouterRoutePathTrack", "RouterRouteTrain", "RouterRouteTrack",
@@ -976,10 +978,12 @@ def explain(text: str, car: str | None = None, detail: str = "normal") -> dict:
     report = parse(text)
     full = detail == "full"
     stories = [_car_story(name, attempts, full) for name, attempts in report["cars"].items()]
+    manual = [line.text for line in read(text) if MANUAL_LINE.search(line.text)]
     result = {
         "train": report["train"], "built_on": report["built_on"], "jmri_version": report["jmri_version"],
         "active_schedule": report["active_schedule"], "mode": report["mode"], "passes": report["passes"],
-        "outcome": report["outcome"], "summary": summarize(report, stories),
+        "outcome": report["outcome"], "summary": summarize(report, stories) + manual,
+        "manual_build": manual,
     }
     if car:
         wanted = car.replace(" ", "").lower()
@@ -999,6 +1003,17 @@ def explain(text: str, car: str | None = None, detail: str = "normal") -> dict:
     if full:
         result.update(options=report["options"], car_list=report["car_list"])
     return result
+
+
+def stale_note(path: Path, changed: float) -> str:
+    """A report older than the files describes an earlier state. A dry run works on a copy, so it writes
+    nothing here; a save right after a build is not a change, hence the margin."""
+    written = path.stat().st_mtime
+    if changed - written < STALE_MARGIN:
+        return ""
+    return (f"This report was written {int(changed - written)} seconds before the Operations files last changed, so "
+            "it may not describe them. A dry run writes no report here: use the report in ops_dry_run's own result "
+            "(detail normal or full), or build the train.")
 
 
 def report_path(ops_dir: str | Path, train: str) -> Path:
