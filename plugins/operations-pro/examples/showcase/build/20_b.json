@@ -1,0 +1,1269 @@
+[
+ {
+  "plan": [
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Feed Mill",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Covered Hopper"
+    ],
+    "loads": {
+     "option": "Include",
+     "names": [
+      "E",
+      "Feed"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Cannery",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Lumber",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Freight Shed",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "FRHX",
+      "JFN"
+     ]
+    },
+    "loads": {
+     "option": "Include",
+     "names": [
+      "E",
+      "Crates"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Team",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KRNX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Day Track",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "DAYX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow LCL Dock",
+    "type": "Spur",
+    "length": 60,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "LCLX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "EAST FREIGHT",
+      "FIDDLE JOB",
+      "HOP OUT",
+      "KESSOCK TRANSFER",
+      "LOCAL-H",
+      "SWAP-E",
+      "SWAP-W",
+      "THRU",
+      "VALLEY FLYER"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "EAST FREIGHT",
+      "FIDDLE JOB",
+      "HOP OUT",
+      "KESSOCK TRANSFER",
+      "LOCAL-H",
+      "SWAP-E",
+      "SWAP-W",
+      "THRU",
+      "VALLEY FLYER"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Outside",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "OUTX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "MODE",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Dunmere Dairy",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Covered Hopper"
+    ],
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Grocery Dock",
+    "type": "Spur",
+    "length": 150,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Lumber Dealer",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Parts Depot",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Tool Depot",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Elevator A",
+    "type": "Spur",
+    "length": 50,
+    "types": [
+     "Covered Hopper"
+    ],
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Elevator B",
+    "type": "Spur",
+    "length": 50,
+    "types": [
+     "Covered Hopper"
+    ],
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Freight House",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "FRHX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Freight House-(2)",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Dunmere Team",
+    "type": "Spur",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KRNX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Tuesday Dock",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "DAYX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "MIXED",
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Fiddle",
+    "name": "Fiddle North",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Fiddle",
+    "name": "Fiddle South",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "JFN"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Outside Lead",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "OUTX"
+     ]
+    },
+    "drop": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "EAST FREIGHT",
+      "FIDDLE JOB",
+      "HOP OUT",
+      "KESSOCK TRANSFER",
+      "LOCAL-H",
+      "SWAP-E",
+      "SWAP-W",
+      "THRU",
+      "VALLEY FLYER"
+     ]
+    },
+    "pickup": {
+     "option": "excludeTrains",
+     "names": [
+      "CUSTOM",
+      "EAST FREIGHT",
+      "FIDDLE JOB",
+      "HOP OUT",
+      "KESSOCK TRANSFER",
+      "LOCAL-H",
+      "SWAP-E",
+      "SWAP-W",
+      "THRU",
+      "VALLEY FLYER"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "add_schedule",
+    "name": "Feed Mill Loading",
+    "lines": [
+     {
+      "type": "Covered Hopper",
+      "receive": "E",
+      "ship": "Feed",
+      "destination": "Dunmere",
+      "track": "Dunmere Dairy"
+     }
+    ],
+    "comment": "[U01] Feed mill: empties in, feed out to the dairy."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Dairy Receiving",
+    "lines": [
+     {
+      "type": "Covered Hopper",
+      "receive": "Feed",
+      "ship": "E"
+     }
+    ],
+    "comment": "[U01] Dairy: feed in, empties out."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Cannery",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "Canned",
+      "destination": "Dunmere",
+      "track": "Grocery Dock"
+     }
+    ],
+    "comment": "[U02] Cannery: empties in, canned goods out to the grocery dock."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Grocery Receiving",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Canned",
+      "ship": "E"
+     }
+    ],
+    "comment": "[U02] Grocery dock: canned goods in, empties out."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Lumber Shipping",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "Lumber",
+      "destination": "Dunmere",
+      "track": "Lumber Dealer"
+     }
+    ],
+    "comment": "[U03] Lumber mill: empties in, lumber out to the dealer."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Lumber Receiving",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Lumber",
+      "ship": "E"
+     }
+    ],
+    "comment": "[U03] Lumber dealer: lumber in, empties out."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Fiddle North",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "Parts",
+      "destination": "Dunmere",
+      "track": "Parts Depot"
+     }
+    ],
+    "comment": "[U08] Fiddle North: always parts."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Fiddle South",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "Tools",
+      "destination": "Dunmere",
+      "track": "Tool Depot",
+      "random": "25",
+      "wait": 1
+     }
+    ],
+    "comment": "[U08] Fiddle South: tools, only a quarter of the time."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Parts Receiving",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Parts",
+      "ship": "E"
+     }
+    ],
+    "comment": "[U08] Parts depot."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Tools Receiving",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Tools",
+      "ship": "E"
+     }
+    ],
+    "comment": "[U08] Tool depot."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Grain Receiving",
+    "lines": [
+     {
+      "type": "Covered Hopper",
+      "receive": "Grain",
+      "ship": "E"
+     }
+    ],
+    "comment": "[U09] One schedule shared by both elevators."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Crates Receiving",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Crates",
+      "ship": "E"
+     }
+    ],
+    "comment": "[U10] Freight house door 2: crates in."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Outside World",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "L"
+     },
+     {
+      "type": "Boxcar",
+      "receive": "L",
+      "ship": "E"
+     }
+    ],
+    "comment": "[R17] Outside track: loads come in empty and go out loaded, and the reverse."
+   },
+   {
+    "action": "add_schedule",
+    "name": "Tuesday Dock",
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "L"
+     }
+    ],
+    "comment": "[U14] Dock that opens on Tuesday (the day is set with the days)."
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "update_track",
+    "track": "Brae Feed Mill",
+    "location": "Brae",
+    "schedule": "Feed Mill Loading",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Dunmere Dairy",
+    "location": "Dunmere",
+    "schedule": "Dairy Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Cannery",
+    "location": "Brae",
+    "schedule": "Cannery",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Grocery Dock",
+    "location": "Dunmere",
+    "schedule": "Grocery Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Lumber",
+    "location": "Brae",
+    "schedule": "Lumber Shipping",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Lumber Dealer",
+    "location": "Dunmere",
+    "schedule": "Lumber Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Fiddle North",
+    "location": "Fiddle",
+    "schedule": "Fiddle North",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Fiddle South",
+    "location": "Fiddle",
+    "schedule": "Fiddle South",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Parts Depot",
+    "location": "Dunmere",
+    "schedule": "Parts Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Tool Depot",
+    "location": "Dunmere",
+    "schedule": "Tools Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Elevator A",
+    "location": "Dunmere",
+    "schedule": "Grain Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Elevator B",
+    "location": "Dunmere",
+    "schedule": "Grain Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Freight House-(2)",
+    "location": "Dunmere",
+    "schedule": "Crates Receiving",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Outside",
+    "location": "Brae",
+    "schedule": "Outside World",
+    "schedule_mode": "match"
+   },
+   {
+    "action": "update_track",
+    "track": "Tuesday Dock",
+    "location": "Dunmere",
+    "schedule": "Tuesday Dock",
+    "schedule_mode": "match"
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "101",
+    "type": "Covered Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U01]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "102",
+    "type": "Covered Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U01]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "201",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U02]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "301",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U03]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "302",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U03]"
+   },
+   {
+    "action": "add_car",
+    "road": "WNDR",
+    "number": "1",
+    "type": "Coal",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U03]"
+   },
+   {
+    "action": "add_car",
+    "road": "WNDR",
+    "number": "2",
+    "type": "Coal",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U03]",
+    "load": "L"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "801",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U08]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "802",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U08]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "803",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U08]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "804",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U08]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "805",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U08]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "806",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U08]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "901",
+    "type": "Covered Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U09]",
+    "load": "Grain"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "902",
+    "type": "Covered Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[U09]",
+    "load": "Grain"
+   },
+   {
+    "action": "add_car",
+    "road": "FRHX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Freight Shed",
+    "comment": "[U10]"
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "1001",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Freight Shed",
+    "comment": "[U10]",
+    "load": "Crates"
+   },
+   {
+    "action": "add_car",
+    "road": "KRNX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Team",
+    "comment": "[U13]"
+   },
+   {
+    "action": "add_car",
+    "road": "KRNX",
+    "number": "2",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Team",
+    "comment": "[U13]"
+   },
+   {
+    "action": "add_car",
+    "road": "KRNX",
+    "number": "3",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Team",
+    "comment": "[U13]"
+   },
+   {
+    "action": "add_car",
+    "road": "DAYX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Day Track",
+    "comment": "[U14]"
+   },
+   {
+    "action": "add_car",
+    "road": "LCLX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow LCL Dock",
+    "comment": "[U22]",
+    "passenger": true
+   },
+   {
+    "action": "add_car",
+    "road": "OUTX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Outside Lead",
+    "comment": "[R17]"
+   },
+   {
+    "action": "add_car",
+    "road": "OUTX",
+    "number": "2",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Outside",
+    "comment": "[R17]",
+    "load": "L"
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "set_kernel",
+    "name": "Brae Set",
+    "cars": [
+     "KRNX 1",
+     "KRNX 2",
+     "KRNX 3"
+    ],
+    "lead": "KRNX 1"
+   }
+  ]
+ },
+ {
+  "deliver": {
+   "car": "JFN 201",
+   "location": "Brae",
+   "track": "Brae Cannery"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 102",
+   "location": "Brae",
+   "track": "Brae Feed Mill"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 301",
+   "location": "Brae",
+   "track": "Brae Lumber"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 302",
+   "location": "Brae",
+   "track": "Brae Lumber"
+  }
+ },
+ {
+  "plan": [
+   {
+    "action": "update_train",
+    "train": "FIDDLE JOB",
+    "depart_hour": 8,
+    "depart_minute": 45
+   }
+  ]
+ }
+]
