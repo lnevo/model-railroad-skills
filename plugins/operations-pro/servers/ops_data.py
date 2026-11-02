@@ -100,6 +100,20 @@ UNCAUGHT_ITEM_NUMBERS = ("sequenceId", "count", "wait", "hits")
 _JAVA_INT_TEXT = re.compile(r"[+-]?[0-9]+")
 
 
+_JAVA_DECODE_TEXT = re.compile(r"[+-]?(?:(0[xX]|#)([0-9a-fA-F]+)|(0[0-7]+)|(0|[1-9][0-9]*))")
+
+
+def java_decode(value: str | None) -> int | None:
+    """What Integer.decode makes of an attribute: decimal, 0x or # hex, or 0 octal, inside Java's int
+    range. None where Java throws NumberFormatException."""
+    match = _JAVA_DECODE_TEXT.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        return None
+    number = int(match[2], 16) if match[2] else int(match[3], 8) if match[3] else int(match[4])
+    number = -number if value.startswith("-") else number
+    return number if JAVA_INT_MIN <= number <= JAVA_INT_MAX else None
+
+
 def java_int(value: str | None) -> int | None:
     """What Integer.parseInt makes of an attribute: digits with an optional sign, inside Java's int
     range. None where Java throws NumberFormatException."""
@@ -707,8 +721,11 @@ class Railroad:
                       "manual builds, train schedules and automations")
         for automation in root.findall("./automations/automation"):
             for item in automation.findall("item"):
-                check(item, ("sequenceId",), f"automation {automation.get('name', '')} step {item.get('id', '')}",
-                      "automations")
+                subject = f"automation {automation.get('name', '')} step {item.get('id', '')}"
+                check(item, ("sequenceId",), subject, "automations")
+                code = item.get("actionCode")  # AutomationItem:435 reads this with Integer.decode.
+                if code is not None and java_decode(code) is None:
+                    self.unloadable.append((REQUIRED[2], subject, f"actionCode={code!r}", "automations"))
 
     def _read_trains(self) -> None:
         root = self._root(REQUIRED[2])
@@ -1014,11 +1031,8 @@ ACTIVATE_DAY = STEP_KINDS["activate_train_schedule"][0]
 
 
 def step_code(text: str | None) -> int:
-    """AutomationItem:421 reads the code with Integer.decode; an unknown code becomes Do Nothing."""
-    try:
-        code = int(text or "0", 0)
-    except ValueError:
-        return STEP_KINDS["nothing"][0]
+    """AutomationItem:435 reads the code with Integer.decode; an unknown code becomes Do Nothing."""
+    code = java_decode(text or "0")
     return code if code in STEP_BY_CODE else STEP_KINDS["nothing"][0]
 
 
