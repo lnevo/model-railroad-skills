@@ -127,5 +127,34 @@ class AssignedDestination(Review):
         self.assertEqual(self.gate(out, "D5")["status"], "pass")
 
 
+class DropDirection(Review):
+    def test_terminal_staging_has_no_track_direction_test(self):
+        """Real build: JFN 611 delivered to East Mixed with the track West only, the train running East. tryStaging
+        calls car.checkDestination and nothing else (TBC:1818-1819, TBB:2588)."""
+        def change(x):
+            for track in ("2s1", "2s2", "2s3", "2s4"):
+                x.track(track).set("dir", "2")
+        out = self.why_not(self.scenario(change), "JFN 611", "East Staging", "East Mixed", "MIXED")
+        self.assertEqual(self.gate(out, "D14")["status"], "pass")
+        self.assertTrue(out["can_move"], out["first_failure"])
+
+    def test_a_switcher_ignores_the_alternate_direction_rule(self):
+        """checkDropTrainDirection returns true for a local switcher before the alternate test (TBB:1620-1622)."""
+        def change(x):
+            x.car("SWYX1").attrib.update(nextDestId="13", nextDestTrackId="13s4")
+            x.track("13s4").attrib.update(alternative="13s6", dir="1")
+            x.track("13s6").set("dir", "2")
+        out = self.why_not(self.scenario(change), "SWYX 1", "Sawyer", "Sawyer Yard 2", "SAWYER SWITCHER")
+        self.assertEqual(self.gate(out, "D14")["status"], "pass")
+
+    def test_a_road_train_still_needs_the_alternate_direction_rule(self):
+        def change(x):
+            x.car("JFN5901").attrib.update(locationId="3", secLocationId="3s1", nextDestId="9", nextDestTrackId="9s6")
+            x.track("9s6").set("dir", "2")
+            x.track("9s5").set("dir", "1")
+        out = self.why_not(self.scenario(change), "JFN 5901", "Oakhaven", "Plant Overflow", "LOCAL-H")
+        self.assertEqual(self.gate(out, "D14")["status"], "fail")
+
+
 if __name__ == "__main__":
     unittest.main()

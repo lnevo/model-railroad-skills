@@ -1409,8 +1409,13 @@ class Gates:
         out.append(gate("D13", not same_name, f"{here_track.name} to {track.name}"))
         final = rr.tracks.get(car.fd_track_id)
         shared = not (final and final.alternate_id == track.id and not track.dir & final.dir)
-        out.append(gate("D14", (switcher or bool(stop.direction & dest.dir & track.dir)) and shared,
-                        f"{stop.id} {directions(stop.direction)}, {track.name} {directions(track.dir)}"))
+        # checkDropTrainDirection answers true for a switcher before anything else (TBB:1620-1622). tryStaging tests
+        # no direction at all (TBC:1818-1819, TBB:2588), though a car already holding the track takes that test
+        # in checkCarForDestination.
+        unfaced = staged and not car.dest_track_id
+        d14 = switcher or unfaced or (bool(stop.direction & dest.dir & track.dir) and shared)
+        out.append(gate("D14", d14, f"{stop.id} {directions(stop.direction)}, {track.name} {directions(track.dir)}"
+                        + ("; into terminal staging the track's direction is not tested" if unfaced else "")))
         listed = not (track.is_interchange or track.is_spur) or track.accepts_drop(train)
         out.append(gate("D15", listed, f"{track.name}: {track.drop_option}"))
         table_e = self.check_destination(car, dest, track)

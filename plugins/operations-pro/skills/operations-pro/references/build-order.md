@@ -96,7 +96,7 @@ Setter names are the Java methods, useful when reading a build report or the sou
 | D11 | Send to terminal: cars picked up after the origin go only to the terminal | Build Options, Send all car pick ups to terminal |
 | D12 | Terminal staging: only the assigned track | Empty the staging track |
 | D13 | Not the same split track name, unless passenger, caboose or FRED | Track name |
-| D14 | Track direction, and an alternate must share a direction with its spur | Track Train direction |
+| D14 | Track direction, and an alternate must share a direction with its spur. A local switcher is exempt from both, and the train's terminating staging track from both: only the location's direction (D8) counts there | Track Train direction |
 | D15 | Interchange or spur Set outs list admits this train. Yards return Any | Track Set outs list |
 | D16 | The car passes table E on this track | See E |
 | D17 | A length failure on a spur tries its alternate | Track Alternate |
