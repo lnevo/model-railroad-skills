@@ -54,7 +54,7 @@ A build in aggressive mode shows half the moves on the first pass. Two identical
 | Same train cannot pull from an interchange it served | Pick ups Any and the car's last route is this route | Name the train or route in Pick ups |
 | Spurs drain, yards fill | Length limit reached early; no schedules; yard counts low | `moves-and-balance.md`; route Moves and Max Length |
 | Schedule never fires | Car was already parked when the schedule was added; wait count; set out day against the active day; random | Deliver the car with `ops_deliver_car` |
-| Nothing builds | Build boxes cleared by Apply on the wrong day; wrong active schedule | Report header; `set_active_day` |
+| Nothing builds | Build boxes cleared by Apply on the wrong day; wrong active schedule | Report header; `set_active_day`, then `apply_day` |
 | New train takes nothing | Train missing from the tracks' Pick ups and Set outs lists; a copy named with a hyphen difference | Audit `train-not-on-list`; `add_train` adds the lists |
 | Caboose not found | Not flagged caboose; caboose road list; track direction or pick up list | Audit `caboose-road-mismatch` |
 | Build fails on a kernel | Members on different tracks | Audit `kernel-split` |

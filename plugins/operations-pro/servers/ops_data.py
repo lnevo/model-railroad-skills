@@ -365,6 +365,33 @@ class Load:
     load_type: str = "Load"
 
 
+# ---- Train schedule days and manifest formats ----------------------------------------
+@dataclass
+class TrainDay:
+    """A train schedule. Its trains are the ones Apply turns Build on for; the builder never reads them."""
+    id: str
+    name: str
+    comment: str = ""
+    trains: list[str] = field(default_factory=list)  # Train ids.
+    active: bool = False
+
+
+@dataclass
+class ManifestSetting:
+    name: str
+    value: object  # Text, or for a format line {"prefix", "fields"}, or a train's own manifest settings.
+    in_file: bool  # False: the file does not hold it, so JMRI uses this default.
+
+
+@dataclass
+class TrainManifest:
+    train: str
+    railroad_name: str = ""
+    logo: str = ""
+    show_times: bool = True
+# ---- End of train schedule days and manifest formats ---------------------------------
+
+
 class Railroad:
     """Everything in one operations directory, with lookups by id or name."""
 
@@ -405,6 +432,7 @@ class Railroad:
         self._read_trains()
         self._read_cars()
         self._read_engines()
+        self._read_days_and_paperwork()
         self._check_option_words()
 
     def _check_option_words(self) -> None:
@@ -560,10 +588,12 @@ class Railroad:
             self.trains[train.id] = train
         for schedule in root.findall("./schedules/schedule"):
             self.train_schedules[schedule.get("id", "")] = schedule.get("name", "")
-        active = root.find("./options/trainScheduleOptions")
-        if active is None:
-            active = root.find("trainScheduleOptions")
-        self.active_schedule = active.get("activeId", "") if active is not None else ""
+        # TrainManager.load reads the old place under options first (TrainManager:1320), then
+        # TrainScheduleManager.load reads the root element JMRI writes now, so the root one wins.
+        self.active_schedule = ""
+        for active in (root.find("./options/trainScheduleOptions"), root.find("trainScheduleOptions")):
+            if active is not None and active.get("activeId") is not None:
+                self.active_schedule = active.get("activeId")
 
     def _read_cars(self) -> None:
         root = self._root(REQUIRED[3])
@@ -610,6 +640,56 @@ class Railroad:
                             train_id=e.get("trainId", ""), destination_id=e.get("destinationId", ""),
                             division_id=e.get("divisionId", ""), out_of_service=e.get("outOfService") == "true")
             self.engines[engine.id] = engine
+
+    # ---- Train schedule days and manifest formats ----------------------------------
+    def _read_days_and_paperwork(self) -> None:
+        """Train schedules with their trains (TrainSchedule:107-125), and the manifest and switch list
+        settings JMRI reads back (ops_paperwork), each with JMRI's default where the file has none."""
+        import ops_paperwork as paper
+        self.days: dict[str, TrainDay] = {}
+        trains = self._root(REQUIRED[2])
+        for e in trains.findall("./schedules/schedule"):
+            ids = [i for i in e.get("trainIds", "").split(",") if i]
+            self.days[e.get("id", "")] = TrainDay(e.get("id", ""), e.get("name", ""), e.get("comment", ""), ids,
+                                                  e.get("id", "") == self.active_schedule)
+        setup = self._root("Operations.xml")
+        operations = setup.find("operations") if setup is not None else None
+        options = trains.find("options")
+        self.manifest: dict[str, ManifestSetting] = {}
+        for name, (where, tag, attr, _, default) in paper.FIELDS.items():
+            parent = operations if where == paper.SETUP else options
+            node = parent.find(tag) if parent is not None else None
+            value = node.get(attr) if node is not None else None
+            if value is None and node is not None and attr in ("pickupEngineColor", "dropEngineColor"):
+                # Setup.load: engine colours older than 5.11.3 take the car colour.
+                value = node.get(attr.replace("Engine", ""))
+            self.manifest[name] = ManifestSetting(name, default if value is None else value, value is not None)
+        for name, (tag, _) in paper.FORMAT_LINES.items():
+            node = operations.find(tag) if operations is not None else None
+            prefix, setting = paper.DEFAULT_FORMATS[name]
+            if node is not None:
+                prefix, setting = node.get("prefix", prefix), node.get("setting", setting)
+            self.manifest[name] = ManifestSetting(name, {"prefix": prefix, "fields": paper.tokens(setting)},
+                                                  node is not None)
+        self.manifest_texts: dict[str, dict[str, str]] = {}
+        for group, (holder, defaults) in paper.TEXTS.items():
+            node = setup.find(holder) if setup is not None else None
+            texts = self.manifest_texts[group] = {}
+            for tag, text in defaults.items():
+                stored = node.find(tag) if node is not None else None
+                texts[tag] = stored.get("text", text) if stored is not None else text
+                self.manifest[f"text {group} {tag}"] = ManifestSetting(f"text {group} {tag}", texts[tag],
+                                                                       stored is not None)
+        self.train_manifests: dict[str, TrainManifest] = {}
+        for e in trains.findall("./trains/train"):
+            road, logo = e.find("railRoad"), e.find("manifestLogo")
+            entry = self.train_manifests[e.get("id", "")] = TrainManifest(
+                e.get("name", ""), road.get("name", "") if road is not None else "",
+                logo.get("name", "") if logo is not None else "", e.get("showTimes", "true") == "true")
+            self.manifest[f"train {entry.train}"] = ManifestSetting(
+                f"train {entry.train}", {"railroad_name": entry.railroad_name, "logo": entry.logo,
+                                         "show_times": entry.show_times}, True)
+    # ---- End of train schedule days and manifest formats ---------------------------
 
     # Lookups. Each accepts an id or a name, ignoring case and spaces in car ids.
     def find_car(self, text: str) -> Car:

@@ -36,7 +36,11 @@
 - Schedule days never use the calendar. Schedule lines carry a set out day and a pick up day that are tested against the active day.
 - Manifest and report dates come from the JMRI timebase, which may be a fast clock.
 - On-time mode uses departure times and a dwell time, default 60. Otherwise departure time only feeds expected times on paperwork and the timing check against other trains' pulls.
-- The plugin's `set_active_day` sets the active day in the files. Days themselves are not written yet.
+- A train schedule holds an id, a name, a comment and a list of trains. The builder never reads the list: it reads only the active id, against a car's pick up day and a schedule line's set out day. The list matters when Apply sets each train's Build box from it.
+- A car's pick up day naming a schedule that no longer exists lets the car go any day. A schedule line's set out day naming one is never used to pick a custom load, yet the line still accepts cars any day, so delete days with their lines in mind.
+- With no train schedules at all, JMRI makes Sunday to Saturday on its next save. Its Restore button adds them by name.
+- The active id lives at the root of the train file. Older files also hold one under options; JMRI reads that first and the root one last, so the root one wins.
+- Write actions: `add_day`, `add_default_days`, `update_day` (rename or comment; everything else holds the id), `delete_day` (refused for the last day or one an automation or manual build names; schedule lines that name it are refused unless `clear_lines`, which sets them to any day; cars waiting for it are freed; if it was active, none is), `set_day_trains` (replace, add, remove, or copy the Build boxes), `apply_day` (Apply: sets every Build box from the day, the active one by default), `set_line_days` (a schedule line's set out and pick up days), and `set_active_day` (a day, Any, or none). A schedule line naming an unknown day is refused. `ops_list` type `days` lists them. Gate A1 says when the active day's list disagrees with a train's Build box.
 
 ## Automations
 
@@ -78,6 +82,15 @@ Move and terminate work on stock JMRI with the web server on. Build, reset, set 
 
 ## Paperwork facts
 
-The build report has levels; Very Detailed is the default and is what every diagnosis needs, with the router level at Normal. Manifests, switch lists and CSV versions are written at build into their folders. Format options are outside what this skill checked.
+The build report has levels; Very Detailed is the default and is what every diagnosis needs, with the router level at Normal. Manifests, switch lists and CSV versions are written at build into their folders.
+
+Manifest and switch list formats live in `Operations.xml`; the Trains window's print options live in the train file.
+
+- Each line (loco pick up and set out, car pick up, set out and move, missing car, and the three switch list car lines) is a prefix and a list of fields. The fields are English words in the file, whatever the language, and a word JMRI does not know prints an error on the manifest. Tab, Tab2 and Tab3 are offered only with tabs on. The missing car line has no prefix.
+- With "same as manifest" on, which is the default, a save writes the switch list lines, prefixes and orientation from the manifest ones, so a switch list setting of its own is lost until it is turned off.
+- Printed phrases (manifest, switch list and column headers) are stored only when they differ from JMRI's wording. Most go through Java's message format: `{0}` and the like are filled in, a single apostrophe starts quoted text, so `''` prints one, and an unmatched brace prints an error on the manifest instead of the text.
+- Colours are names (black, darkGray, gray, lightGray, white, red, pink, orange, yellow, green, blue, magenta, cyan, brown) or `#RRGGBB`; a hex value equal to a name is saved as the name. The logo is stored only when set. Orientation is stored in the words JMRI shows in its own language (Portrait, Landscape, 4.25 x 11, 3.25 x 11 in English); the plugin writes the English ones.
+- A train can carry its own railroad name and logo for its manifest, and can leave out times.
+- Write actions: `set_manifest_options` (page, font, colours, tabs, what prints, switch list options, CSV files, print preview and build report printing), `set_manifest_format` (one line's prefix and fields), `set_manifest_text` (one phrase, or back to JMRI's), `set_train_manifest` (a train's railroad name, logo and times). `ops_list` type `manifest` shows every setting, with JMRI's default where the file has none. The control limits (field lengths) and the day name mapping are not written.
 
 Checked against JMRI 5.16 source, tag v5.16.

@@ -76,6 +76,8 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
                     shutil.copy2(operations / name, keep / name)
             if (operations / "buildstatus").is_dir():
                 shutil.copytree(operations / "buildstatus", keep / "buildstatus", dirs_exist_ok=True)
+            if (operations / "manifests").is_dir():  # Manifest formats: what JMRI printed with them.
+                shutil.copytree(operations / "manifests", keep / "manifests", dirs_exist_ok=True)
         return result
 
 

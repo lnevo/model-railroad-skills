@@ -20,6 +20,9 @@ from ops_data import Railroad, directions, load
 from ops_gates import Gates
 
 LIST_TYPES = ("locations", "tracks", "schedules", "routes", "trains", "cars", "engines", "loads")
+# ---- Train schedule days and manifest formats: rr.days and rr.manifest list as records.
+LIST_TYPES += ("days", "manifest")
+# ---- End of train schedule days and manifest formats
 
 
 def folder(args: dict) -> str:
