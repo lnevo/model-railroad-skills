@@ -110,6 +110,27 @@ def plans_root() -> Path:
     return Path(os.environ.get("OPS_PLAN_DIR") or Path(tempfile.gettempdir()) / "operations-pro-plans")
 
 
+PLAN_MAX_AGE_DAYS = 7
+
+
+def prune_plans(max_age_days: float = PLAN_MAX_AGE_DAYS, keep: str = "") -> int:
+    """Remove plan folders nobody applied. Each holds a full copy of the Operations files."""
+    import time
+    root = plans_root()
+    if not root.is_dir():
+        return 0
+    cutoff = time.time() - max_age_days * 86400
+    removed = 0
+    for folder in root.iterdir():
+        try:
+            if folder.is_dir() and folder.name != keep and folder.stat().st_mtime < cutoff:
+                shutil.rmtree(folder)
+                removed += 1
+        except OSError:
+            pass
+    return removed
+
+
 def plan(directory: str | Path, actions: list[dict], session: bool = False, prepare=None) -> dict:
     """Work out a change without touching the operations folder.
 
@@ -131,6 +152,7 @@ def plan(directory: str | Path, actions: list[dict], session: bool = False, prep
     plan_id = uuid.uuid4().hex[:12]
     folder = plans_root() / plan_id
     folder.mkdir(parents=True)
+    prune_plans(keep=plan_id)
     trial = folder / "after"
     trial.mkdir()
     changed = {}

@@ -504,8 +504,19 @@ class AuditFaults(Base):
     def test_routing_gap(self):
         self.assert_found("routing-gap", "Boxcar Feed")
 
-    def test_single_destination_schedule(self):
-        self.assert_found("single-destination-schedule", "Coal Dock")
+    def test_single_destination_schedule_quiet_when_it_works(self):
+        hits = [f for f in self.report["findings"] if f["rule"] == "single-destination-schedule"]
+        self.assertEqual(hits, [], "Coal Dock ships to one place that takes and is reached: no finding")
+
+    def test_single_destination_schedule_flags_a_destination_that_cannot_take_the_load(self):
+        rr = ops_data.load(OPS)
+        dest = next(i.destination_id for sch in rr.schedules.values() if sch.name == "Coal Dock" for i in sch.items)
+        for t in rr.tracks.values():
+            if t.location_id == dest:
+                t.types = [x for x in t.types if x != "Hopper"] if isinstance(t.types, list) else t.types - {"Hopper"}
+        found = [f for f in Gates(rr).audit()["findings"]
+                 if f["rule"] == "single-destination-schedule" and f["subject"] == "Coal Dock"]
+        self.assertTrue(found)
 
     def test_schedule_unused(self):
         self.assert_found("schedule-unused", "Unused Siding Plan")

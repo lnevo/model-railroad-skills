@@ -76,7 +76,7 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `type-no-train`, `type-no-track` | No train carries, or no track takes, a car type |
 | `load-no-train`, `load-no-track` | A custom load no train carries, or no track takes with its type |
 | `load-no-receiver`, `single-receiver-load`, `routing-gap` | A shipped load with no, one, or no reachable receiving schedule |
-| `single-destination-schedule` | Every line names one ship destination |
+| `single-destination-schedule` | Every line names one ship destination, and nothing there takes the load or no train reaches it |
 | `schedule-unused`, `schedule-on-non-spur` | A schedule no track uses, or one JMRI will drop |
 | `yard-pickup-list`, `yard-drop-list`, `destinations-ignored`, `only-fd-ignored`, `ship-option-ignored` | Settings JMRI ignores on this track type |
 | `alternate-ignored`, `interchange-as-alternate` | An alternate on a non-spur, or an interchange used as one |

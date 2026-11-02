@@ -1578,12 +1578,33 @@ class Audit:
                 yield _finding("schedule-unused", "info", schedule.name, "No track uses this schedule.",
                                "Schedules", "Assign it or delete it")
             dests = {i.destination_id for i in schedule.items}
-            if schedule.items and len(dests) == 1 and "" not in dests:
-                name = rr.locations.get(next(iter(dests)))
-                yield _finding("single-destination-schedule", "warning", schedule.name,
-                               f"Every line sends cars to {name.name if name else 'one place'}, so all output "
-                               "goes there and nowhere else.", SCHEDULE,
-                               "Leave Destination blank on a line so the search picks one")
+            if not (schedule.items and len(dests) == 1 and "" not in dests):
+                continue
+            # A line with a destination is skipped by the load-balance rules, so check it here:
+            # one fixed destination is fine unless nothing there takes the load or no train reaches it.
+            dest = rr.locations.get(next(iter(dests)))
+            where = dest.name if dest else "one place"
+            owners = [t for t in rr.tracks.values() if t.schedule_id == schedule.id]
+            for item in schedule.items:
+                if not item.ship or rr.is_default_load(item.ship):
+                    continue
+                takers = [t for t in rr.tracks.values() if t.location_id == (dest.id if dest else "")
+                          and self._track_takes(t, item.type, item.ship)]
+                if not takers:
+                    yield _finding("single-destination-schedule", "warning", schedule.name,
+                                   f"Every line sends cars to {where}, and no track there takes "
+                                   f"{item.type} with {item.ship}, so they cannot be delivered.", SCHEDULE,
+                                   "Leave Destination blank on a line so the search picks one, or let a track there take the load")
+                    break
+                reachable = any(self.g.route_path(rr.at(self._sample(item.type, item.ship), o.location_id, o.id),
+                                                  target, check_target=False) is not None
+                                for o in owners for target in takers)
+                if owners and not reachable:
+                    yield _finding("single-destination-schedule", "warning", schedule.name,
+                                   f"Every line sends cars to {where}, and no chain of trains takes "
+                                   f"{item.ship} there.", ROUTE,
+                                   "A train serving both ends, or leave Destination blank on a line")
+                    break
 
     def rule_track_traps(self):
         rr = self.rr

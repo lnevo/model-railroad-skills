@@ -108,6 +108,18 @@ class RoundTrip(Case):
         self.assertNotIn(b"\n", path.read_bytes().replace(b"\r\n", b""))
 
 
+class PlanCleanup(Case):
+    def test_old_unapplied_plans_are_pruned_and_fresh_ones_kept(self):
+        old = self.plan({"action": "add_car_type", "name": "Autorack", "like": "Flatcar"})["plan_id"]
+        fresh = self.plan({"action": "add_car_type", "name": "Gondola2", "like": "Flatcar"})["plan_id"]
+        root = ops_store.plans_root()
+        stamp = (root / old).stat().st_mtime - 8 * 86400
+        os.utime(root / old, (stamp, stamp))
+        newest = self.plan({"action": "add_car_type", "name": "Autorack3", "like": "Flatcar"})["plan_id"]
+        self.assertFalse((root / old).exists())
+        self.assertTrue((root / fresh).exists() and (root / newest).exists())
+
+
 class Transaction(Case):
     ADD = {"action": "add_car_type", "name": "Autorack", "like": "Flatcar"}
 
