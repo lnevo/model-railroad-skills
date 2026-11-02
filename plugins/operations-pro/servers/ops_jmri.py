@@ -5,13 +5,16 @@ touch the user's profile or preferences.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 
 import ops_report
@@ -25,6 +28,8 @@ TIMEOUT = 300
 REPORT_FOLDERS = ("buildstatus", "manifests", "switchLists")
 LOG_ERRORS = 40  # lines kept; a refused build order logs one for each train
 SUMMARY_CARS = 25  # cars listed per train in a dry run summary
+CACHE_READY = "ready"
+QUICK_JIT = "-XX:TieredStopAtLevel=1"  # a short run never repays the optimising compiler
 
 
 def jmri_home() -> Path | None:
@@ -37,6 +42,52 @@ def jmri_home() -> Path | None:
 def java_command() -> str:
     home = os.environ.get("JAVA_HOME")
     return str(Path(home) / "bin" / "java") if home else "java"
+
+
+def _shared_jython_cache(home: Path) -> Path:
+    """Where this user's package index for this JMRI install lives between runs."""
+    jar = (home / "jmri.jar").stat()
+    install = hashlib.sha256(f"{home}|{jar.st_size}|{jar.st_mtime_ns}".encode()).hexdigest()[:16]
+    user = getattr(os, "getuid", lambda: "user")()
+    return Path(tempfile.gettempdir()) / f"operations-pro-jython-{user}" / install
+
+
+def jython_cache(home: Path, root: Path) -> Path:
+    """The cache a run may read: the shared one once finished, or else one of its own in root."""
+    shared = _shared_jython_cache(home)
+    return shared if (shared / CACHE_READY).is_file() else root / "jython-cache"
+
+
+def _claim_jython_cache(shared: Path) -> Path | None:
+    """Make this run the one that builds the shared cache, or return None if another run holds it."""
+    lock = shared.with_name(shared.name + ".lock")
+    try:
+        shared.parent.mkdir(mode=0o700, exist_ok=True)
+        if lock.exists() and time.time() - lock.stat().st_mtime > 2 * TIMEOUT:
+            lock.unlink()  # left by a run that was killed
+        os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except OSError:
+        return None
+    return lock
+
+
+@contextmanager
+def _worker_cache(home: Path, root: Path):
+    """Give a run its cache folder. One run builds the shared cache in place, because the index it writes holds
+    full paths and so cannot be moved. Until the ready file exists every other run keeps a private cache, and
+    after that the shared one is only read, so JVMs running together cannot race on it."""
+    shared = _shared_jython_cache(home)
+    cache = jython_cache(home, root)
+    lock = None if cache == shared else _claim_jython_cache(shared)
+    if lock is None:
+        yield cache
+        return
+    try:
+        shutil.rmtree(shared, ignore_errors=True)
+        yield shared
+        (shared / CACHE_READY).touch()
+    finally:
+        lock.unlink(missing_ok=True)
 
 
 def _refused_before_build(name: str, row: dict, log_errors: list[str]) -> str:
@@ -67,17 +118,19 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
         # Jython finds Java packages by scanning named jars, so a wildcard will not do.
         jars = [home / "jmri.jar", *sorted((home / "lib").glob("*.jar"))]
         classpath = os.pathsep.join(str(jar) for jar in jars)
-        command = [java_command(), "-Djava.awt.headless=true", f"-Duser.home={root}", f"-Djmri.prefsdir={root}",
-                   f"-Dops.home={root}", f"-Dpython.cachedir={root / 'jython-cache'}", "-Dpython.cachedir.skip=false", f"-Dworker.out={output}", f"-Dworker.job={json.dumps(job)}",
-                   "-cp", classpath, "org.python.util.jython", str(WORKER)]
-        try:
-            done = subprocess.run(command, capture_output=True, text=True, timeout=TIMEOUT, cwd=root)
-        except subprocess.TimeoutExpired as exc:
-            raise Refused(f"JMRI did not finish in {TIMEOUT} seconds") from exc
-        except OSError as exc:
-            raise Refused(f"Could not start Java: {exc}") from exc
-        if not output.is_file():
-            raise Refused("JMRI stopped without a result: " + (done.stderr or done.stdout)[-800:])
+        with _worker_cache(home, root) as cache:
+            command = [java_command(), QUICK_JIT, "-Djava.awt.headless=true", f"-Duser.home={root}",
+                       f"-Djmri.prefsdir={root}", f"-Dops.home={root}", f"-Dpython.cachedir={cache}",
+                       "-Dpython.cachedir.skip=false", f"-Dworker.out={output}", f"-Dworker.job={json.dumps(job)}",
+                       "-cp", classpath, "org.python.util.jython", str(WORKER)]
+            try:
+                done = subprocess.run(command, capture_output=True, text=True, timeout=TIMEOUT, cwd=root)
+            except subprocess.TimeoutExpired as exc:
+                raise Refused(f"JMRI did not finish in {TIMEOUT} seconds") from exc
+            except OSError as exc:
+                raise Refused(f"Could not start Java: {exc}") from exc
+            if not output.is_file():
+                raise Refused("JMRI stopped without a result: " + (done.stderr or done.stdout)[-800:])
         result = json.loads(output.read_text(encoding="utf-8"))
         result["log_errors"] = [line[:240] for line in (done.stdout + done.stderr).splitlines()
                                 if " ERROR " in line or "Exception" in line][:LOG_ERRORS]

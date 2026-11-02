@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import sys
 from typing import Callable
 
@@ -18,6 +19,9 @@ class Tool:
         self.read_only = read_only
 
 
+PLUGIN_VERSION = json.loads((Path(__file__).parents[1] / ".claude-plugin" / "plugin.json").read_text())["version"]
+
+
 def handle(message: dict, server_name: str, tools: dict[str, Tool]) -> dict | None:
     """Return the response to one JSON-RPC message, or None for a notification."""
     method = message.get("method")
@@ -28,7 +32,7 @@ def handle(message: dict, server_name: str, tools: dict[str, Tool]) -> dict | No
         result: dict = {
             "protocolVersion": message.get("params", {}).get("protocolVersion", PROTOCOL_VERSION),
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": server_name, "version": "0.1.0"},
+            "serverInfo": {"name": server_name, "version": PLUGIN_VERSION},
         }
     elif method == "ping":
         result = {}

@@ -84,8 +84,9 @@ class Live(unittest.TestCase):
         home = ops_jmri.jmri_home()
         jars = [home / "jmri.jar", *sorted((home / "lib").glob("*.jar"))]
         process = subprocess.Popen(
-            [ops_jmri.java_command(), "-Djava.awt.headless=true", f"-Duser.home={root}", f"-Djmri.prefsdir={root}",
-             f"-Dops.home={root}", f"-Dweb.port={port}", f"-Dpython.cachedir={root / 'jc'}",
+            [ops_jmri.java_command(), ops_jmri.QUICK_JIT, "-Djava.awt.headless=true", f"-Duser.home={root}",
+             f"-Djmri.prefsdir={root}", f"-Dops.home={root}", f"-Dweb.port={port}",
+             f"-Dpython.cachedir={ops_jmri.jython_cache(home, root)}",
              "-Dpython.cachedir.skip=false", "-cp", os.pathsep.join(map(str, jars)), "org.python.util.jython",
              str(HOST)], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.addCleanup(process.wait)

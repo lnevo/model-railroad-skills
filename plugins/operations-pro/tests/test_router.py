@@ -8,6 +8,7 @@ regenerates it. The spur search for custom loads is held to the build reports in
 tests/fixtures/demo/buildstatus, where the build state still matched the files.
 """
 import json
+import os
 import sys
 import unittest
 from dataclasses import replace
@@ -21,6 +22,7 @@ import ops_data  # noqa: E402
 import ops_router  # noqa: E402
 from ops_gates import Gates  # noqa: E402
 
+STEP = 20 if os.environ.get("OPS_TESTS_FAST") else 1  # tests/run.py fast asks one answer in twenty
 ORACLE = json.loads((DEMO / "jmri_router_oracle.json").read_text())
 KINDS = (ops_router.OKAY, ops_router.LENGTH, ops_router.CAPACITY, ops_router.TYPE, ops_router.ROAD,
          ops_router.DESTINATION, ops_router.NO_FD, ops_router.LOAD, ops_router.SCHEDULE, "car has a custom",
@@ -93,7 +95,7 @@ class EveryAnswer(unittest.TestCase):
         for scenario in ORACLE["scenarios"]:
             _, gates = railroad(scenario)
             wrong = []
-            for key in ORACLE["answers"]["demo"]:
+            for key in list(ORACLE["answers"]["demo"])[::STEP]:
                 car, track, train = key.split("|")
                 got, want = ask(gates, scenario, car, track, train), jmri(scenario["name"], key)
                 if got != want:

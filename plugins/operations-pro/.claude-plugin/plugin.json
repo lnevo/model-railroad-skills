@@ -1,6 +1,6 @@
 {
   "name": "operations-pro",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Build, change, run and diagnose a JMRI OperationsPro railroad with Claude: set up locations, tracks, schedules, routes and trains from scratch with a plan you see first, run sessions in a live JMRI, and explain what the builder did.",
   "author": { "name": "lnevo" },
   "repository": "https://github.com/lnevo/model-railroad-skills",
