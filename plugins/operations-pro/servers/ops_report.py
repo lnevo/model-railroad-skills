@@ -57,7 +57,8 @@ KEY_GATES: dict[str, str] = {
     "buildExcludeCarLoadAtLoc": "B13", "buildExcludeCarOwnerAtLoc": "B11", "buildExcludeCarBuiltAtLoc": "B12",
     "buildWarningRsNoTrack": "B1", "buildErrorCarKernelLocation": "B18", "buildErrorCarKernelNoLead": "B18",
     "buildLocSkipped": "C1", "buildLocNoPickups": "C2", "buildNoPickupsFromStaging": "C3", "buildLocDirection": "C4",
-    "buildErrorNoMoves": "C5", "buildNoPickUpCar": "C6", "buildRsCanNotPickupUsingTrain": "C9",
+    "buildErrorNoMoves": "C5",  # unreachable in 5.16: bundle text only, no call site anywhere in the source
+    "buildNoPickUpCar": "C6", "buildRsCanNotPickupUsingTrain": "C9",
     "buildTrackNotNewLoad": "C10", "buildTrackNotLoadSchedule": "C10", "buildErrorCarStageLoad": "C10",
     "buildWarningQuickService": "C11", "buildTrackNotQuickService": "C11", "buildNoDivisionTrack": "C12",
     "buildRouteNoDropLocation": "D1", "buildNoAvailableMovesDest": "D3", "buildCarLocEqualDestination": "D4",
@@ -70,7 +71,7 @@ KEY_GATES: dict[str, str] = {
     "buildWarnTrainTiming": "D18", "buildNoSpurToSpurMove": "D19", "buildNoYardToYardMove": "D19",
     "buildNoInterchangeToInterchangeMove": "D19", "buildNoLocalMoveToTrack": "G9",
     "buildSpurFullNoAlternate": "E9", "buildTrackTooShort": "E9", "buildNoDestTrackSpace": "E9", "buildNoDestSpace": "E9",
-    "buildDestTrackNoLoad": "E8", "buildSpurNoSchedule": "E10", "buildSpurScheduleNotUsed": "E10",
+    "buildDestTrackNoLoad": "E8", "buildSpurNoSchedule": "E10",
     "buildErrorNoScheduleItem": "E10", "buildScheduleNotActive": "F1", "buildSpurNotThisType": "E3",
     "buildScheduleRandom": "F5", "buildTrainNotNewLoad": "B13", "buildCanNotRouteCar": "G12",
     "buildRouteNotFound": "G12", "buildStagingTrackNotReachable": "G12", "RouterCouldNotFindLast": "G12",
@@ -144,6 +145,7 @@ KEY_FIXES: dict[str, str] = {
                             "Location, types (car and locomotive), or the train's types.",
 }
 # Printed by both staging checks: departure (TBB:1718, TB:235, A8) and terminal (TBB:2040, 2093, A7).
+# The reader picks the side from the open "depart"/"terminate" staging heading (see Walker._staging).
 STAGING_EITHER = ("buildStagingNotTrain", "buildStagingTrackRestriction")
 # Terminal staging checks (A7) that also come up inside a car's search when a load is generated towards
 # staging (TBB:2752, 2758); there they are the track's own type and road tests.
@@ -164,6 +166,9 @@ KEY_NOTES: dict[str, str] = {
     "buildCarNoCustomLoad": "no custom load exists for this car type",
     "buildNoLocalMoveToTrack": "the train's option to allow local moves is off. Fix: Edit Train > Build Options, "
                                "Allow local moves if car has a custom load or FD",
+    "buildSpurScheduleNotUsed": "a schedule line was skipped while generating a custom load from staging (TBB:2257, "
+                                "2268): the line's type or road is not the car's, or it asks for no custom load "
+                                "(F2-F4); the car itself was not refused",
     "buildSpurNotThisType": "the spur's car types exclude this type, so its schedule is not read",
     "buildTrainNotNewLoad": "the train's load option refuses the load that would be generated",
     "buildReturnCarToStaging": "the search goes on; staging is the fallback if no other track takes the car",
