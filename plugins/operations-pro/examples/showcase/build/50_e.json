@@ -1,0 +1,774 @@
+[
+ {
+  "plan": [
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow West Lead",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "WSTX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Connection Lead",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Flatcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "CNXX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Transfer Lead",
+    "type": "Spur",
+    "length": 300,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KESX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Oil Lead",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Tank Oil"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "OILX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Carrow",
+    "name": "Carrow Station",
+    "type": "Spur",
+    "length": 400,
+    "types": [
+     "Baggage",
+     "Passenger",
+     "Diner",
+     "Observation"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "FLYX"
+     ]
+    },
+    "directions": "East"
+   },
+   {
+    "action": "add_industry",
+    "location": "Linden",
+    "name": "Linden Pier",
+    "length": 150,
+    "lines": [
+     {
+      "type": "Covered Hopper",
+      "receive": "Salt",
+      "ship": "E"
+     }
+    ],
+    "directions": "West"
+   },
+   {
+    "action": "add_industry",
+    "location": "Linden",
+    "name": "Linden Glazier",
+    "length": 150,
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Glass",
+      "ship": "E"
+     }
+    ]
+   },
+   {
+    "action": "add_industry",
+    "location": "Linden",
+    "name": "Linden Pipe Yard",
+    "length": 200,
+    "lines": [
+     {
+      "type": "Gondola",
+      "receive": "Pipe",
+      "ship": "E"
+     }
+    ]
+   },
+   {
+    "action": "add_industry",
+    "location": "Linden",
+    "name": "Linden Westside",
+    "length": 100,
+    "lines": [
+     {
+      "type": "Boxcar",
+      "road": "WSTX",
+      "receive": "E",
+      "ship": "",
+      "destination": "Carrow",
+      "track": "Carrow West Lead"
+     }
+    ],
+    "directions": "West"
+   },
+   {
+    "action": "update_track",
+    "track": "Linden Westside",
+    "location": "Linden",
+    "roads": {
+     "option": "Include",
+     "names": [
+      "WSTX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Linden",
+    "name": "Northern Connection",
+    "type": "Interchange",
+    "length": 150,
+    "types": [
+     "Flatcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "CNXX"
+     ]
+    }
+   },
+   {
+    "action": "setup_interchange",
+    "track": "Northern Connection",
+    "location": "Linden",
+    "set_out_by": [
+     "EAST FREIGHT"
+    ],
+    "pulled_by": [
+     "TURN"
+    ]
+   },
+   {
+    "action": "add_industry",
+    "location": "Carrow",
+    "name": "Carrow Salt Works",
+    "length": 150,
+    "lines": [
+     {
+      "type": "Covered Hopper",
+      "receive": "E",
+      "ship": "Salt",
+      "destination": "Linden",
+      "track": "Linden Pier"
+     }
+    ]
+   },
+   {
+    "action": "add_industry",
+    "location": "Carrow",
+    "name": "Carrow Glass Works",
+    "length": 150,
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "E",
+      "ship": "Glass",
+      "destination": "Linden",
+      "track": "Linden Glazier"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "East Staging",
+    "name": "Hop",
+    "type": "Staging",
+    "length": 400,
+    "ignore_used_percent": 100,
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "HOP OUT"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "EAST FREIGHT"
+     ]
+    },
+    "only_final_destination": true
+   },
+   {
+    "action": "add_track",
+    "location": "Kessock",
+    "name": "Kessock A/D",
+    "type": "Interchange",
+    "length": 400,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KESX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Kessock",
+    "name": "Kessock Class 1",
+    "type": "Interchange",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KESX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Kessock",
+    "name": "Kessock Class 2",
+    "type": "Interchange",
+    "length": 200,
+    "types": [
+     "Boxcar"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "KESX"
+     ]
+    }
+   },
+   {
+    "action": "setup_interchange",
+    "track": "Kessock A/D",
+    "location": "Kessock",
+    "set_out_by": [
+     "KESSOCK TRANSFER"
+    ],
+    "pulled_by": [
+     "KESSOCK SWITCHER"
+    ]
+   },
+   {
+    "action": "setup_interchange",
+    "track": "Kessock Class 1",
+    "location": "Kessock",
+    "set_out_by": [
+     "KESSOCK SWITCHER"
+    ]
+   },
+   {
+    "action": "setup_interchange",
+    "track": "Kessock Class 2",
+    "location": "Kessock",
+    "set_out_by": [
+     "KESSOCK SWITCHER"
+    ]
+   },
+   {
+    "action": "add_industry",
+    "location": "Sawyer",
+    "name": "Sawyer Pasta Plant",
+    "length": 150,
+    "lines": [
+     {
+      "type": "Boxcar",
+      "receive": "Semolina",
+      "ship": "E"
+     }
+    ]
+   },
+   {
+    "action": "add_track",
+    "location": "Sawyer",
+    "name": "Sawyer Team",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Reefer"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "SWYX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Sawyer",
+    "name": "Sawyer Warehouse",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Reefer"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "SWYX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Sawyer",
+    "name": "Sawyer Yard 1",
+    "type": "Yard",
+    "length": 100,
+    "types": [
+     "Hopper"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "SWYX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Sawyer",
+    "name": "Sawyer Yard 2",
+    "type": "Yard",
+    "length": 100,
+    "types": [
+     "Hopper"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "SWYX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Brae",
+    "name": "Brae Oil Dealer",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Tank Oil"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "OILX"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Dunmere",
+    "name": "Dunmere Oil",
+    "type": "Spur",
+    "length": 100,
+    "types": [
+     "Tank Oil"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "OILX"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Carrow Oil Lead",
+    "location": "Carrow",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "THRU"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Brae Oil Dealer",
+    "location": "Brae",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "THRU"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Dunmere Oil",
+    "location": "Dunmere",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "THRU"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "THRU"
+     ]
+    }
+   },
+   {
+    "action": "add_track",
+    "location": "Northwood",
+    "name": "Northwood Station",
+    "type": "Spur",
+    "length": 400,
+    "types": [
+     "Baggage",
+     "Passenger",
+     "Diner",
+     "Observation"
+    ],
+    "roads": {
+     "option": "Include",
+     "names": [
+      "FLYX"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Carrow Station",
+    "location": "Carrow",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "VALLEY FLYER"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "VALLEY FLYER"
+     ]
+    }
+   },
+   {
+    "action": "update_track",
+    "track": "Northwood Station",
+    "location": "Northwood",
+    "pickup": {
+     "option": "trains",
+     "names": [
+      "VALLEY FLYER"
+     ]
+    },
+    "drop": {
+     "option": "trains",
+     "names": [
+      "VALLEY FLYER"
+     ]
+    }
+   },
+   {
+    "action": "update_train",
+    "train": "EAST FREIGHT",
+    "service_all": true
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "plan": [
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5501",
+    "type": "Covered Hopper",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R05] Salt car, delivered to Carrow Salt Works."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "5502",
+    "type": "Hopper",
+    "length": 40,
+    "location": "East Staging",
+    "track": "Hop",
+    "comment": "[R05] Empty that lets HOP OUT depart in the first session."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "6401",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R14] Glass car one."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "6402",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Yard",
+    "comment": "[R14] Glass car two."
+   },
+   {
+    "action": "add_car",
+    "road": "WSTX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow West Lead",
+    "comment": "[R15] Westbound-only car, delivered to Linden Westside."
+   },
+   {
+    "action": "add_car",
+    "road": "CNXX",
+    "number": "1",
+    "type": "Flatcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Connection Lead",
+    "comment": "[R18] Car for the descriptive interchange."
+   },
+   {
+    "action": "add_car",
+    "road": "KESX",
+    "number": "1",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Transfer Lead",
+    "comment": "[R11] Car 1 for the classification yard."
+   },
+   {
+    "action": "add_car",
+    "road": "KESX",
+    "number": "2",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Transfer Lead",
+    "comment": "[R11] Car 2 for the classification yard."
+   },
+   {
+    "action": "add_car",
+    "road": "KESX",
+    "number": "3",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Transfer Lead",
+    "comment": "[R11] Car 3 for the classification yard."
+   },
+   {
+    "action": "add_car",
+    "road": "KESX",
+    "number": "4",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Transfer Lead",
+    "comment": "[R11] Car 4 for the classification yard."
+   },
+   {
+    "action": "add_car",
+    "road": "SWYX",
+    "number": "1",
+    "type": "Reefer",
+    "length": 40,
+    "location": "Sawyer",
+    "track": "Sawyer Team",
+    "comment": "[R12] Spur to spur car."
+   },
+   {
+    "action": "add_car",
+    "road": "SWYX",
+    "number": "2",
+    "type": "Hopper",
+    "length": 40,
+    "location": "Sawyer",
+    "track": "Sawyer Yard 1",
+    "comment": "[R12] Yard to yard car."
+   },
+   {
+    "action": "add_car",
+    "road": "JFN",
+    "number": "401",
+    "type": "Boxcar",
+    "length": 40,
+    "location": "Sawyer",
+    "track": "Sawyer Yard",
+    "comment": "[U04] Semolina car moved within Sawyer.",
+    "load": "Semolina"
+   },
+   {
+    "action": "add_car",
+    "road": "OILX",
+    "number": "1",
+    "type": "Tank Oil",
+    "length": 40,
+    "location": "Carrow",
+    "track": "Carrow Oil Lead",
+    "comment": "[R13] Starts at the origin; must not reach the terminal."
+   },
+   {
+    "action": "add_car",
+    "road": "OILX",
+    "number": "2",
+    "type": "Tank Oil",
+    "length": 40,
+    "location": "Brae",
+    "track": "Brae Oil Dealer",
+    "comment": "[R13] Picked up en route; goes only to the terminal."
+   },
+   {
+    "action": "add_car",
+    "road": "FLYX",
+    "number": "1",
+    "type": "Baggage",
+    "length": 60,
+    "location": "Carrow",
+    "track": "Carrow Station",
+    "comment": "[U18] Blocking -5.",
+    "passenger": true,
+    "blocking": -5
+   },
+   {
+    "action": "add_car",
+    "road": "FLYX",
+    "number": "2",
+    "type": "Passenger",
+    "length": 60,
+    "location": "Carrow",
+    "track": "Carrow Station",
+    "comment": "[U18] Blocking 10.",
+    "passenger": true,
+    "blocking": 10
+   },
+   {
+    "action": "add_car",
+    "road": "FLYX",
+    "number": "3",
+    "type": "Passenger",
+    "length": 60,
+    "location": "Carrow",
+    "track": "Carrow Station",
+    "comment": "[U18] Blocking 20.",
+    "passenger": true,
+    "blocking": 20
+   },
+   {
+    "action": "add_car",
+    "road": "FLYX",
+    "number": "4",
+    "type": "Diner",
+    "length": 60,
+    "location": "Carrow",
+    "track": "Carrow Station",
+    "comment": "[U18] Blocking 40.",
+    "passenger": true,
+    "blocking": 40
+   },
+   {
+    "action": "add_car",
+    "road": "FLYX",
+    "number": "5",
+    "type": "Observation",
+    "length": 60,
+    "location": "Carrow",
+    "track": "Carrow Station",
+    "comment": "[U18] Blocking 70.",
+    "passenger": true,
+    "blocking": 70
+   }
+  ],
+  "accept_new_errors": true
+ },
+ {
+  "deliver": {
+   "car": "JFN 5501",
+   "location": "Carrow",
+   "track": "Carrow Salt Works"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 6401",
+   "location": "Carrow",
+   "track": "Carrow Glass Works"
+  }
+ },
+ {
+  "deliver": {
+   "car": "JFN 6402",
+   "location": "Carrow",
+   "track": "Carrow Glass Works"
+  }
+ },
+ {
+  "deliver": {
+   "car": "WSTX 1",
+   "location": "Linden",
+   "track": "Linden Westside"
+  }
+ }
+]
