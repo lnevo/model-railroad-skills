@@ -514,7 +514,7 @@ class Railroad:
         self.warnings: list[str] = []
         # (file, subject, attribute=value) for numbers a JMRI loader parses with no catch: JMRI cannot load
         # that file at all, and a later save writes what it did load over it.
-        self.unloadable: list[tuple[str, str, str]] = []
+        self.unloadable: list[tuple[str, str, str, str]] = []
         if self.fresh:
             self.warnings.append("No Operations files here yet, so this is the empty railroad JMRI 5.16 writes. "
                                  "The first ops_apply writes all six files.")
@@ -631,7 +631,7 @@ class Railroad:
                     value = item.get(attr)
                     if value is not None and java_int(value) is None:
                         self.unloadable.append((REQUIRED[0], f"schedule {schedule.name} line {item.get('id', '')}",
-                                                f"{attr}={value!r}"))
+                                                f"{attr}={value!r}", "schedules"))
                 schedule.items.append(ScheduleItem(
                     id=item.get("id", ""), sequence=_int(item.get("sequenceId")),
                     type=item.get("type", ""), road=item.get("road", ""),
@@ -692,8 +692,27 @@ class Railroad:
                     depart_time=stop.get("departTime", "")))
             self.routes[route.id] = route
 
+    def _check_train_file_numbers(self, root: ET.Element) -> None:
+        """TrainManagerXml:106-111 reads trains, manual builds, train schedules, then automations, and neither
+        TrainManualBuildItem:312, 339 nor AutomationItem:432 catches a bad number."""
+        def check(item: ET.Element, attrs: tuple[str, ...], subject: str, lost: str) -> None:
+            for attr in attrs:
+                value = item.get(attr)
+                if value is not None and java_int(value) is None:
+                    self.unloadable.append((REQUIRED[2], subject, f"{attr}={value!r}", lost))
+
+        for build in root.findall("./manualBuilds/manualBuild"):
+            for item in build.findall("mbItem"):
+                check(item, ("sequenceId", "count"), f"manual build {build.get('id', '')} line {item.get('id', '')}",
+                      "manual builds, train schedules and automations")
+        for automation in root.findall("./automations/automation"):
+            for item in automation.findall("item"):
+                check(item, ("sequenceId",), f"automation {automation.get('name', '')} step {item.get('id', '')}",
+                      "automations")
+
     def _read_trains(self) -> None:
         root = self._root(REQUIRED[2])
+        self._check_train_file_numbers(root)
         for e in root.findall("./trains/train"):
             route = e.find("route")
             skips = route.find("skips") if route is not None else None

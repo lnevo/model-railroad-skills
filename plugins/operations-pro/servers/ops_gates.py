@@ -1753,16 +1753,17 @@ class Audit:
                            "ops_backups, then ops_restore with file to put this one file back")
 
     def rule_file_numbers(self):
-        """A number JMRI's loader parses with no catch (ScheduleItem:335-375: sequenceId, count, wait, hits).
-        Integer.parseInt throws, LocationManagerXml stops part-way, and the half-loaded roster stays in use:
-        a later save writes it over the file, losing every schedule from that line on and the tracks'
-        schedule assignments."""
-        for name, subject, value in getattr(self.rr, "unloadable", []):
+        """A number JMRI's loader parses with no catch (ScheduleItem:335-375: sequenceId, count, wait, hits;
+        TrainManualBuildItem:312, 339; AutomationItem:432). Integer.parseInt throws, the file's loader stops
+        part-way, and the half-loaded roster stays in use: a later save writes it over the file, losing
+        everything from that line on."""
+        for name, subject, value, lost in getattr(self.rr, "unloadable", []):
             yield _finding("file-number", "error", f"{name}: {subject}",
                            f"{value} is not a whole number Java can read (at most 2147483647), so JMRI cannot "
-                           f"load {name}, and its next save would erase schedules. Keep JMRI closed and fix the "
+                           f"load {name}, and its next save would erase {lost}. Keep JMRI closed and fix the "
                            "value first.", "Backups",
-                           "replace_schedule_lines with a smaller count or wait, or ops_restore a backup set")
+                           ("replace_schedule_lines with a smaller count or wait" if lost == "schedules"
+                            else "Correct the number in the file") + ", or ops_restore a backup set")
 
     def rule_leg_stops(self):
         """A leg 2 or 3 whose start or end is not a stop on the train's route. Train.load resolves them
@@ -1888,11 +1889,15 @@ class Audit:
             for item in schedule.items:
                 if not item.ship or rr.is_default_load(item.ship):
                     continue
+                # A line that names a track sends the car there and nowhere else (Car:891-892).
+                fixed = rr.tracks.get(item.dest_track_id)
+                fixed = fixed if fixed and dest and fixed.location_id == dest.id else None
                 takers = [t for t in rr.tracks.values() if t.location_id == (dest.id if dest else "")
-                          and self._track_takes(t, item.type, item.ship)]
+                          and (fixed is None or t is fixed) and self._track_takes(t, item.type, item.ship)]
                 if not takers:
+                    there = f"{fixed.name}, the line's track, does not take" if fixed else "no track there takes"
                     yield _finding("single-destination-schedule", "warning", schedule.name,
-                                   f"Every line sends cars to {where}, and no track there takes "
+                                   f"Every line sends cars to {where}, and {there} "
                                    f"{item.type} with {item.ship}, so they cannot be delivered.", SCHEDULE,
                                    "Leave Destination blank on a line so the search picks one, or let a track there take the load")
                     break
@@ -1963,7 +1968,7 @@ class Audit:
                                                 for train, stop in exits)]
             cars, _ = rr.rolling_stock_on(t)
             loads = sorted({(c.type, c.load) for c in cars if c.type not in dead and not any(
-                c.type in train.types and train.accepts_load(c.load, c.type)
+                c.type in train.types and (c.caboose or c.passenger or train.accepts_load(c.load, c.type))
                 and self._location_takes(stop.location_id, c.type, c.load) for train, stop in exits)})
             if dead or loads:
                 what = ", ".join(dead + [f"{k} with {load}" for k, load in loads])
@@ -2057,12 +2062,13 @@ class Audit:
 
     def _departures(self):
         """(train, staging location, stops) for each train with Build on whose route starts in staging.
-        A train with Build off is built only by hand or by an automation, often on purpose with an empty track."""
+        A train with Build off is built only by hand or by an automation, often on purpose with an empty track.
+        A built train is left out: a build resets it first (Train:3197), so its own cars are no obstacle."""
         rr = self.rr
         for train in rr.trains.values():
             stops = rr.stops(train)
             first = rr.locations.get(stops[0].location_id) if stops else None
-            if train.build and first is not None and first.is_staging:
+            if train.build and not train.built and first is not None and first.is_staging:
                 yield train, first, stops
 
     def rule_staging_departure(self):
@@ -2113,12 +2119,20 @@ class Audit:
                 out.append(f"{car} ({seen[key]})")
         return out
 
+    def _places_for(self, car: Car, train: Train, stops: list[Stop]) -> list[str]:
+        """Location ids a car leaving departure staging may go to. A caboose or FRED car is searched for one
+        destination, the end of its leg (TBC:88-108, 249-266), and no other stop will do."""
+        if car.caboose or car.fred:
+            legs = self.g._leg_ends(train, stops)
+            return [(legs[0][1] if legs else stops[-1]).location_id]
+        return list(dict.fromkeys(s.location_id for s in stops[1:]))
+
     def _first_refusal(self, car: Car, train: Train, stops: list[Stop]) -> str:
         """Empty when some track at a later stop passes every gate the files decide; else the closest refusal:
         fewest failures, then a track open to this train, then the later stop, since that is where the car was
         nearest to going. The first track tried says little: a spur on the way often refuses it by design."""
         closest, best = "", None
-        for position, location_id in enumerate(dict.fromkeys(s.location_id for s in stops[1:])):
+        for position, location_id in enumerate(self._places_for(car, train, stops)):
             location = self.rr.locations.get(location_id)
             if location is None:
                 continue
@@ -2130,7 +2144,54 @@ class Audit:
                 rank = (len(fails), not target.accepts_drop(train), -position)
                 if best is None or rank < best:
                     best, closest = rank, f"{fails[0]['gate']} at {target.name}: {fails[0]['reason']}"
+        if self._generated_load_leaves(car, train, stops):
+            return ""
         return closest or "no stop after the departure"
+
+    def _load_lines(self, car: Car, train: Train, track: Track, spur: Track) -> list[ScheduleItem]:
+        """The lines of spur's schedule the builder could fill this car from on track (TBB:2194-2303):
+        custom Receive, the car's type and road, a load the train and track allow, the active day. A random
+        line may or may not be drawn, so it counts."""
+        rr = self.rr
+        schedule = rr.schedules.get(spur.schedule_id)
+        if schedule is None or car.type not in spur.types or car.type not in rr.locations[spur.location_id].types:
+            return []
+        items = schedule.items
+        if spur.schedule_mode != MATCH:  # Sequential mode looks at the current line alone.
+            items = [i for i in items if i.id == spur.item_id] or items[:1]
+        return [i for i in items if i.type == car.type and i.receive and not rr.is_default_load(i.receive)
+                and i.road in ("", car.road) and train.accepts_load(i.receive, i.type)
+                and track.ships_load(i.receive, i.type)
+                and (not i.setout_day or i.setout_day == rr.active_schedule)]
+
+    def _generated_load_leaves(self, car: Car, train: Train, stops: list[Stop]) -> bool:
+        """generateCarLoadFromStaging (TBC:627-766) runs before the search for a destination (TBC:546), so an
+        empty in generating staging leaves if a spur's line gives it a load that reaches that spur. Staging
+        to staging generation (TBC:776) is not followed here."""
+        rr = self.rr
+        track = rr.tracks.get(car.track_id)
+        if track is None or not track.is_staging or not track.load_options & (GENERATE | GENERATE_ANY_SPUR) \
+                or car.load != rr.default_empty or car.destination_id or car.fd_id:
+            return False
+        places = self._places_for(car, train, stops)
+        on_route = {s.location_id for s in stops}
+        for spur in rr.tracks.values():
+            if not spur.is_spur or not track.accepts_destination(spur.location_id):
+                continue
+            if track.load_options & GENERATE and spur.location_id not in on_route:
+                continue  # TBC:686-690: this option keeps to the train's own route.
+            if (car.caboose or car.fred) and spur.location_id not in places:
+                continue  # TBC:88, 249 pass the leg end as rld.
+            for item in self._load_lines(car, train, track, spur):
+                loaded = replace(car, load=item.receive)
+                if spur.location_id in places:
+                    location = rr.locations[spur.location_id]
+                    if not any(g["status"] == FAIL and g["gate"] not in self.SKIP_FOR_STUCK
+                               for g in self.g.evaluate(loaded, train, location, spur)):
+                        return True
+                elif self.g.route_path(replace(loaded, fd_id=spur.location_id, fd_track_id=spur.id), spur):
+                    return True
+        return False
 
     def _unserved_types(self, train: Train, stops: list[Stop]) -> set[str]:
         """Car types no track at a later stop of this train takes (with its location)."""
@@ -2140,31 +2201,44 @@ class Audit:
                   for kind in t.types if kind in rr.locations[lid].types}
         return set(rr.car_types) - served
 
+    def _can_depart(self, train: Train, first: Location) -> list[Track]:
+        """The staging tracks this train can use: TB:221-235 skips any checkDepartureStagingTrack refuses, so
+        cars on those say nothing about this train."""
+        return [t for t in first.tracks if t.is_staging and not self.g.staging_problems(train, t)]
+
     def rule_staging_types(self):
-        """A car on departure staging must leave, so a type that no track on any departing train's route
-        takes fails every build from there (B20, D7, E3)."""
+        """A car on departure staging must leave, so a type that no later stop of a train able to use that
+        track takes fails the build (B20, D7, E3): an error when every track the train can use holds such a
+        car, a warning when JMRI might pick another."""
         rr = self.rr
-        leaving: dict[str, list] = {}
+        hits: dict[tuple[str, str, str], list[str]] = {}
         for train, first, stops in self._departures():
-            leaving.setdefault(first.id, []).append((train, stops))
-        for location_id, trains in leaving.items():
-            for track in (t for t in rr.locations[location_id].tracks if t.is_staging):
-                cars, _ = rr.rolling_stock_on(track)
-                for kind in sorted({c.type for c in cars}):
-                    if all(kind in self._unserved_types(train, stops) for train, stops in trains):
-                        names = ", ".join(str(c) for c in cars if c.type == kind)
-                        yield _finding("staging-type-unserved", "error", track.name,
-                                       f"{names} ({kind}) must leave with the train, and no track on the route of "
-                                       f"{', '.join(t.name for t, _ in trains)} takes {kind}, so the build fails.",
-                                       TRACK, "Car types on a track (and its location) the train sets out at")
+            unserved = self._unserved_types(train, stops)
+            tracks = self._can_depart(train, first)
+            found = {t.id: sorted({c.type for c in rr.rolling_stock_on(t)[0]} & unserved) for t in tracks}
+            severity = "error" if all(found.values()) else "warning"
+            for track_id, kinds in found.items():
+                for kind in kinds:
+                    hits.setdefault((track_id, kind, severity), []).append(train.name)
+        for (track_id, kind, severity), trains in hits.items():
+            track = rr.tracks[track_id]
+            names = ", ".join(str(c) for c in rr.rolling_stock_on(track)[0] if c.type == kind)
+            tail = "so the build fails." if severity == "error" else "so the build fails if JMRI departs from here."
+            yield _finding("staging-type-unserved", severity, track.name,
+                           f"{names} ({kind}) must leave with the train, and no track on the route of "
+                           f"{', '.join(trains)} takes {kind}, {tail}",
+                           TRACK, "Car types on a track (and its location) the train sets out at")
 
     def rule_staging_division(self):
         """A car with a home division and no destination gets a final destination in that division
         (TBC:894-1035) and the router must reach it; from staging the car must leave, so none reachable
-        fails the build. JMRI applies the rule to a load generated in staging too."""
+        fails the build. JMRI applies the rule to a load generated in staging too. Only tracks the train can
+        depart from count, and the build is sure to fail only if all of them hold such a car."""
         rr = self.rr
         for train, first, stops in self._departures():
-            for track in (t for t in first.tracks if t.is_staging):
+            found = {}
+            tracks = self._can_depart(train, first)
+            for track in tracks:
                 bad = []
                 for car in rr.rolling_stock_on(track)[0]:
                     if not car.division_id or car.destination_id or car.fd_id or self.g._is_clone(car):
@@ -2176,13 +2250,17 @@ class Audit:
                                for t in candidates):
                         bad.append(car)
                 if bad:
-                    division = rr.divisions.get(bad[0].division_id, bad[0].division_id)
-                    yield _finding("staging-division-unreachable", "error", f"{train.name}, {track.name}",
-                                   f"{', '.join(map(str, bad[:5]))} have home division {division}, and no track in "
-                                   f"that division that takes them can be reached from {first.name}, so the "
-                                   "build fails.", LOCATION,
-                                   "Division: put a location this train or a connecting train reaches in that "
-                                   "division, or clear the cars' division")
+                    found[track.id] = bad
+            severity = "error" if len(found) == len(tracks) else "warning"
+            for track_id, bad in found.items():
+                division = rr.divisions.get(bad[0].division_id, bad[0].division_id)
+                tail = "build fails." if severity == "error" else "build fails if JMRI departs from here."
+                yield _finding("staging-division-unreachable", severity, f"{train.name}, {rr.tracks[track_id].name}",
+                               f"{', '.join(map(str, bad[:5]))} have home division {division}, and no track in "
+                               f"that division that takes them can be reached from {first.name}, so the {tail}",
+                               LOCATION,
+                               "Division: put a location this train or a connecting train reaches in that "
+                               "division, or clear the cars' division")
 
     def rule_terminal_staging(self):
         """checkTerminateStagingTrackRestrictions (TBB:2108-2156, on by default): a train ending in staging
@@ -2262,12 +2340,29 @@ class Audit:
             lines = [i for i in schedule.items if i.type == car.type and i.receive == car.load
                      and i.ship and i.ship != car.load]
             ships = {i.ship for i in schedule.items if i.type == car.type}
-            if lines and car.load not in ships:
+            if lines and car.load not in ships and car.load not in self._blank_ship_flips(car, schedule):
                 yield _finding("schedule-not-applied", "warning", str(car),
                                f"Sits on {track.name} with {car.load}, which {schedule.name} line {lines[0].id} "
                                f"receives to ship {lines[0].ship}, but no line was applied, so it leaves with "
                                f"{car.load}.", CAR_SET,
                                "ops_session update_car load, or ops_deliver_car to another track and back")
+
+    def _blank_ship_flips(self, car: Car, schedule) -> set[str]:
+        """The loads a line with a blank Ship leaves behind: Car.java:998 flips an empty to the car's return
+        when loaded load and anything else to its return when empty load, so such a car was delivered."""
+        rr = self.rr
+        loaded, empty = car.rwl_load or rr.default_load, car.rwe_load or rr.default_empty
+        out = set()
+        for item in schedule.items:
+            if item.type != car.type or item.ship:
+                continue
+            if not item.receive:  # A blank Receive takes either kind.
+                out |= {loaded, empty}
+            elif self.g._load_type(replace(car, load=item.receive)) == "Empty":
+                out.add(loaded)
+            else:
+                out.add(empty)
+        return out
 
     def rule_caboose(self):
         rr = self.rr
@@ -2520,14 +2615,22 @@ class Audit:
     def rule_engine_trains(self):
         rr = self.rr
         carried = {kind for t in rr.trains.values() for kind in self.g._train_types(t)}
+        leads = {}
+        for engine in self._engines():  # RollingStockGroup.add: the first member leads until one is named lead.
+            if engine.consist and (engine.lead or engine.consist not in leads):
+                leads[engine.consist] = engine
         for engine in self._engines():
             # A type no train takes is model-type-no-train; out of service is the owner's choice.
             if engine.out_of_service or engine.type not in carried:
                 continue
+            # The builder tests only a consist's lead (TBE:226) and takes the others with it (TBE:892-899).
+            if engine.consist and leads[engine.consist] is not engine:
+                continue
             reasons = [(t.name, self._loco_refusal(t, engine)) for t in rr.trains.values()]
             if all(r for _, r in reasons):
                 text = "; ".join(f"{n}: {r}" for n, r in reasons[:4]) + ("; ..." if len(reasons) > 4 else "")
-                yield _finding("engine-no-train", "error", f"{engine.road} {engine.number}",
+                # A warning: no build needs every locomotive, and one in staging is staging-departure-blocked's.
+                yield _finding("engine-no-train", "warning", f"{engine.road} {engine.number}",
                                f"No train takes this locomotive. {text}.", TRAIN,
                                "Locomotive roads (Train Road Options), owners and built dates (Train Build "
                                "Options), or the locomotive count, model and road")
