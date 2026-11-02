@@ -38,7 +38,7 @@ def railroad(args: dict) -> Railroad:
 
 def why_not(args: dict) -> object:
     return Gates(railroad(args)).why_not(
-        args["car"], args["destination"], args.get("track"), args.get("train"))
+        args["car"], args["destination"], args.get("track"), args.get("train"), args.get("real_build", True))
 
 
 def audit(args: dict) -> object:
@@ -144,7 +144,9 @@ def tools() -> list[Tool]:
                   "car": {"type": "string", "description": "Car id or road and number"},
                   "destination": {"type": "string", "description": "Location name or id"},
                   "track": {"type": "string", "description": "Track name or id; omit to try every track"},
-                  "train": {"type": "string", "description": "Train name or id; omit to try every train"}},
+                  "train": {"type": "string", "description": "Train name or id; omit to try every train"},
+                  "real_build": {"type": "boolean", "description": "Let a cached real JMRI build settle the gates "
+                                 "only a build decides (default true; needs JMRI, else they stay not_checked)"}},
               "required": ["car", "destination"]},
              why_not),
         Tool("ops_explain_build",

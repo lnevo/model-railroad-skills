@@ -11,6 +11,7 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 
+import ops_build_state
 import ops_router
 from ops_data import (
     ALL, ANY, MATCH, QUICK_SERVICE, DISABLE_LOAD_CHANGE, REQUIRES_CABOOSE, REQUIRES_FRED, TRAINS, ROUTES, ANY_DAY, GENERATE,
@@ -326,6 +327,11 @@ class Gates:
             result["fix"] = {"screen": screen, "setting": setting}
         return result
 
+    @classmethod
+    def _open(cls, code: str, reason: str) -> dict:
+        """A not_checked gate that only the build itself can decide. A real JMRI build may settle it (settle_gates)."""
+        return {**cls._gate(code, NOT_CHECKED, reason), "settle": True}
+
     def _is_switcher(self, train: Train) -> bool:
         stops = self.rr.stops(train)
         return bool(stops) and len({s.split for s in stops}) == 1
@@ -435,7 +441,7 @@ class Gates:
             if most + length > stop.max_length:
                 unsure.append(f"{stop.name} (max {stop.max_length}, train may already hold {most})")
         if unsure:
-            return self._gate(gate_code, NOT_CHECKED, f"car or kernel {length} fits alone, but other cars placed "
+            return self._open(gate_code, f"car or kernel {length} fits alone, but other cars placed "
                                                       f"first may fill the train: {'; '.join(unsure)}")
         return self._gate(gate_code, PASS, f"car or kernel {length} fits with every car the train could hold")
 
@@ -481,14 +487,14 @@ class Gates:
             return self._gate("E9", FAIL, f"car is longer than the track{' pool' if track.pool else ''}: {room}")
         # checkQuickServiceTrack runs only while a train builds in on-time mode, against pull times.
         if building and track.load_options & QUICK_SERVICE and rr.option("buildOptions", "onTime"):
-            return self._gate("E9", NOT_CHECKED, f"{room}; quick service may free room after earlier pulls")
+            return self._open("E9", f"{room}; quick service may free room after earlier pulls")
         # In aggressive mode a car the building train pulls off the track gives back its length at once
         # (Track.addPickupRS), so room can open during the build.
         if building and rr.option("buildOptions", "aggressive"):
             staying = [c for c in rr.rolling_stock_on(track)[0] if not c.destination_id and c.id != car.id]
             freed = sum(rr.car_length(c) or 0 for c in staying)
             if staying and used + reserved - freed + need <= track.length and setouts + need <= track.length:
-                return self._gate("E9", NOT_CHECKED, f"{room}; aggressive mode: room opens if the build pulls "
+                return self._open("E9", f"{room}; aggressive mode: room opens if the build pulls "
                                                      f"some of the {len(staying)} cars on the track first")
         return self._gate("E9", FAIL, f"track is full: {room}")
 
@@ -894,7 +900,7 @@ class Gates:
                           "; ".join(f"{name}: {', '.join(problems)}" for name, problems in report.items()))
                 out.append(gate("A8", bool(sure), reason))
             else:
-                out.append(gate("A8", NOT_CHECKED, "; ".join(
+                out.append(self._open("A8", "; ".join(
                     f"{t.name}: {', '.join(self.staging_doubts(train, t))}" for t in good)))
         else:
             out.append(gate("A8", PASS, "train does not start in staging"))
@@ -910,7 +916,7 @@ class Gates:
         audit = Audit(self)
         engines = [e for e in audit._engines() if not e.out_of_service]
         if any(not audit._loco_refusal(train, e) for e in engines):
-            return self._gate("A9", NOT_CHECKED, f"asks for {count}; the build picks among the locomotives it can take")
+            return self._open("A9", f"asks for {count}; the build picks among the locomotives it can take")
         reasons = "; ".join(f"{e.road} {e.number}: {audit._loco_refusal(train, e)}" for e in engines[:4])
         return self._gate("A9", FAIL, f"asks for {count} and takes none of the locomotives" + (f" ({reasons})" if
                                                                                              reasons else ": there are none"))
@@ -1365,7 +1371,7 @@ class Gates:
         if low - rivals >= 1:
             return self._gate("D3", PASS, f"{moves} moves at {stop.name}; at most {rivals} other cars are placed "
                                           "before this one")
-        return self._gate("D3", NOT_CHECKED, f"{moves} moves at {stop.name}, and up to {rivals} other cars placed "
+        return self._open("D3", f"{moves} moves at {stop.name}, and up to {rivals} other cars placed "
                                              "first may use them")
 
     def _timing(self, car: Car, train: Train, track: Track) -> dict:
@@ -1477,7 +1483,8 @@ class Gates:
         return "default load: only the building train's own route, the router never runs"
 
     def why_not(self, car: str | Car, destination: str | Location, track: str | Track | None = None,
-                train: str | Train | None = None) -> dict:
+                train: str | Train | None = None, real_build: bool = True) -> dict:
+        """real_build: let a cached real JMRI build settle the gates only a build decides (needs JMRI)."""
         rr = self.rr
         car = rr.find_car(car) if isinstance(car, str) else car
         dest = rr.find_location(destination) if isinstance(destination, str) else destination
@@ -1493,6 +1500,11 @@ class Gates:
                 gates = self.evaluate(car, candidate, dest, target)
                 gates.append(self._g12(car, target))
                 table.append((candidate, target, gates))
+        build_note = None
+        if real_build:
+            table, build_note = ops_build_state.settle_table(rr, self, car, table)
+        else:
+            table = [(t, k, [ops_build_state.port_gate(x) for x in gates]) for t, k, gates in table]
         table.sort(key=lambda row: _rank(row[2]))  # Stable: equal rows keep JMRI's track order.
         chosen_train, chosen_track, gates = table[0]
         failed = [g for g in gates if g["status"] == FAIL and g["gate"] != "G12"]
@@ -1515,8 +1527,10 @@ class Gates:
                                                "count, ties by id (Location.getTracksByMoves); alternates last, as "
                                                "they are never chosen directly. Between two stops at the same "
                                                "location the later one wins a tie (TrainBuilderCars:1885)."}),
-            "note": "Files only. Disk can lag a running JMRI by a minute or two, and gates marked "
-                    "not_checked depend on the build itself.",
+            "note": "Disk can lag a running JMRI by a minute or two. Gates carry a source: the port reads the "
+                    "files; gates the build decides (E9 quick service, D3, D9, G10, an AUTO locomotive count at "
+                    "A8) read a real JMRI build of these files when JMRI is installed, and stay not_checked "
+                    "otherwise." + (f" {build_note}" if build_note else ""),
         }
 
     def _filter_reason(self, track: Track, dest: Location) -> str:

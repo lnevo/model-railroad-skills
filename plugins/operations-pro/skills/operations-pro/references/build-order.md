@@ -2,6 +2,10 @@
 
 The builder tests a car against gates in a fixed order, and the first failure decides what the report says. `ops_why_not` walks the same order and prints these ids. Use this file to read its output and to find the screen that fixes a gate.
 
+## Gates a build settles
+
+E9 (quick service and aggressive pulls), D3, D9, G10 and an AUTO locomotive count at A8 (and A9) cannot be decided from the files alone. With JMRI installed, `ops_why_not` runs four real builds of copies (they differ, because the builder draws at random) and reads the results, so each such gate says where its answer came from in `source`: `port` (the files only), `real JMRI build` (every enabled train built in order) or `real JMRI build of this train alone` (asked when another train took the car first). Pass means a build set the car out at that track with that train, which proves the gate can pass. Fail means every build's report names that gate as the refusal at that location. Builds that split, or that did something else with the car, leave the gate `not_checked` and `build_note` says what they did. Without JMRI, or when the railroad in memory differs from the saved files, these stay `not_checked`.
+
 ## The order for one car at one stop
 
 1. Pick up allowed from this track type, then pick up direction.

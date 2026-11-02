@@ -1,7 +1,7 @@
 """Run under JMRI's own jython, always against a scratch copy of the Operations files.
 
 Properties: ops.home (holds operations/), worker.out (JSON result), worker.job (JSON).
-Job fields: build, terminate, save, car, location, track.
+Job fields: build, only (train names, build just those), terminate, save, car, location, track.
 """
 import json
 import os
@@ -42,13 +42,22 @@ out = {"version": str(jmri.Version.name()), "cars": len(cars.getList()),
 if JOB.get("build"):
     trains.setBuildMessagesEnabled(False)  # A failed build must not open a dialog.
     for train in trains.getTrainsByTimeList():
-        if not train.isBuildEnabled():
+        if not train.isBuildEnabled() or (JOB.get("only") and train.getName() not in JOB["only"]):
             continue
         train.build()
         moved = sorted(c.getId() + " > " + c.getDestinationName() + " / " + c.getDestinationTrackName()
                        for c in cars.getByTrainList(train))
         row = {"built": bool(train.isBuilt()), "failed": bool(train.isBuildFailed()),
                "message": train.getStatus(), "cars": moved}
+        # Structured state for the gates: what the build placed, and where the train departs from.
+        row["placed"] = [{"car": c.getId(), "location": c.getDestinationName(),
+                          "track": c.getDestinationTrackName(),
+                          "track_id": c.getDestinationTrack().getId() if c.getDestinationTrack() else ""}
+                         for c in cars.getByTrainList(train) if c.getDestination() is not None]
+        depart = train.getDepartureTrack()
+        row["departure_track"] = depart.getName() if depart is not None else ""
+        row["departure_track_id"] = depart.getId() if depart is not None else ""
+        row["engines"] = [e.getId() for e in IM.getDefault(EngineManager).getByTrainList(train)]
         report = os.path.join(java.lang.System.getProperty("ops.home"), "operations", "buildstatus",
                               "train (" + train.getName() + ").txt")
         row["report"] = report if os.path.isfile(report) else ""
