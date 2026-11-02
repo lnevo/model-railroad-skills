@@ -54,13 +54,44 @@ def _bool(value) -> str:
     return "true" if value else "false"
 
 
+def _text(name: str, value, blank: bool = True) -> str:
+    """A field that must be text: a number, list or true/false would be written as 'None' or 'True', or break the save."""
+    if not isinstance(value, str):
+        raise Refused(f"{name} must be text, not {value!r}")
+    if not blank and not value.strip():
+        raise Refused(f"{name} cannot be blank")
+    return value
+
+
+def _names(name: str, value, empty: bool = True) -> list[str]:
+    """A list of names: a list of text, not a bare string (which would split into letters), a number or None."""
+    if not isinstance(value, (list, tuple)) or not all(isinstance(v, str) for v in value):
+        raise Refused(f"{name} must be a list of names, not {value!r}")
+    if not empty and not value:
+        raise Refused(f"{name} cannot be empty")
+    return list(value)
+
+
 def _yes(value) -> str:
     return "yes" if value else "no"
 
 
+def _dict(name: str, value) -> dict:
+    """A setting given as {key: value}; text, a list or a number would fail on the first lookup."""
+    if not isinstance(value, dict):
+        raise Refused(f"{name} must be an object such as {{\"option\": ...}}, not {value!r}")
+    return value
+
+
 def _mask(value) -> int:
+    if isinstance(value, bool):
+        raise Refused(f"Directions must be East, West, North, South or a number from 0 to 15, not {value!r}")
     if isinstance(value, int):
+        if not 0 <= value <= 15:
+            raise Refused("A directions number is the East, West, North and South bits added up: 0 to 15")
         return value
+    if not isinstance(value, str):
+        raise Refused(f"Directions must be East, West, North, South or a number from 0 to 15, not {value!r}")
     total = 0
     for part in str(value).replace(",", "/").split("/"):
         key = part.strip().lower()
@@ -217,6 +248,8 @@ class Editor:
 
     # Lookups by name or id.
     def _one(self, elements, text: str, kind: str) -> ET.Element:
+        if not isinstance(text, str):
+            raise Refused(f"A {kind} must be given by name or id as text, not {text!r}")
         found = [e for e in elements if text in (e.get("id"), e.get("name"))]
         if len(found) != 1:
             raise Refused(f"{'Several' if found else 'No'} {kind} {text!r}")
@@ -268,6 +301,8 @@ class Editor:
         """A car by its exact id, road then number as JMRI keys it (RollingStockManager.getById is a plain
         Hashtable), or exactly as JMRI shows it, road, a space, number. Case counts, since bvr1001 and
         BVR1001 can both exist."""
+        if not isinstance(text, str):
+            raise Refused(f"A car must be given by id as text, not {text!r}")
         cars = self.cars()
         found = next((c for c in cars if c.get("id") == text), None)
         if found is None:

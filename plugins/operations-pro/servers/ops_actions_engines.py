@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from ops_data import split_name
 from ops_store import Doc, Refused
 from ops_actions import (DEFAULT_ENGINE_LENGTHS, DEFAULT_ENGINE_TYPES, DEFAULT_MODELS, ENGINE_FILE, Editor,
-                         MODEL_FIELDS, action, _bool, _indent, _int_field, _model_values, _next, _place)
+                         MODEL_FIELDS, action, _bool, _indent, _int_field, _model_values, _names, _next, _place, _text)
 from ops_actions_names import _rename_values
 from ops_actions_cars import _free, rfid_text
 
@@ -100,6 +100,7 @@ def _keep_one(ed: Editor, group: str, tag: str) -> None:
 
 
 def _engine(ed: Editor, text: str) -> ET.Element:
+    _text("An engine", text, blank=False)
     key = text.replace(" ", "").upper()
     for engine in ed.engines():
         if engine.get("id", "").replace(" ", "").upper() == key:
@@ -157,6 +158,8 @@ def _apply_model(ed: Editor, element: ET.Element, values: dict) -> None:
 def _engine_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
     for key, value in fields.items():
         if key in ENGINE_FIELDS:
+            if value is None or isinstance(value, (bool, list, tuple, dict)):
+                raise Refused(f"{key} must be text or a number, not {value!r}. Give an empty string to clear it")
             text = rfid_text(value) if key == "rfid" else str(value)
             _set_ordered(element, {ENGINE_FIELDS[key]: text or None}, ENGINE_ORDER)
             if key == "owner" and text:
@@ -210,14 +213,14 @@ def _engine_put(ed: Editor, element: ET.Element, location: str, track: str) -> t
 @action()
 def add_engine_type(ed: Editor, name: str, like: str | None = None) -> str:
     """Add a locomotive type. With like, every location, track and train that takes that loco type takes this too."""
-    if not name.strip():
-        raise Refused("A type needs a name")
+    _text("A type name", name, blank=False)
+    name = name.strip()
     if name in _engine_names(ed, "types", "type"):
         raise Refused(f"Locomotive type {name!r} already exists")
     if name in ed.car_types():
         raise Refused(f"{name!r} is a car type. Tracks and trains keep one list of type names, "
                       "so a car type and a loco type with one name could not be told apart")
-    if like is not None and like not in _engine_names(ed, "types", "type"):
+    if like is not None and _text("like", like) not in _engine_names(ed, "types", "type"):
         raise Refused(f"Unknown locomotive type {like!r}")
     _type_name(ed, name)
     _engine_register(ed, "types", "type", name)
@@ -240,6 +243,7 @@ def rename_engine_type(ed: Editor, old: str, new: str) -> str:
     """Rename a locomotive type on its engines and on every location, track and train that takes it."""
     if old not in _engine_names(ed, "types", "type"):
         raise Refused(f"Unknown locomotive type {old!r}")
+    _text("A type name", new)
     if not new.strip() or new in _engine_names(ed, "types", "type") or new in ed.car_types():
         raise Refused(f"Type {new!r} already exists or is blank")
     _type_name(ed, new)
@@ -280,7 +284,11 @@ def add_engine(ed: Editor, road: str, number: str, model: str, type: str | None 
     """Add a locomotive. Type, length, hp, weight and B unit belong to the model: for a model that already has
     engines they come from those engines, and a different value is refused. A JMRI default model starts with
     JMRI's values. Location and track place it, checking the track takes its type unless force."""
-    number = str(number)
+    if isinstance(number, int) and not isinstance(number, bool) and number >= 0:
+        number = str(number)
+    _text("An engine number", number)
+    _text("An engine road", road)
+    _text("An engine model", model)
     if not road.strip() or not number.strip():
         raise Refused("An engine needs a road and a number")
     if len(split_name(number)) > ROAD_NUMBER_MAX or any(c in number for c in RESERVED):
@@ -331,6 +339,7 @@ def update_engine(ed: Editor, engine: str, model: str | None = None, **fields) -
     element = _engine(ed, engine)
     _engine_free(element)
     if model is not None and model != element.get("model"):
+        _text("model", model)
         if not model.strip():
             raise Refused("An engine needs a model")
         _new_model_name(ed, model)
@@ -351,6 +360,7 @@ def update_engine(ed: Editor, engine: str, model: str | None = None, **fields) -
 def update_engine_model(ed: Editor, model: str, type: str | None = None, length: int | None = None,
                         hp: int | None = None, weight_tons: int | None = None, b_unit: bool | None = None) -> str:
     """Change a model's type, length, hp, weight or B unit on every engine of that model, as JMRI does."""
+    _text("model", model)
     engines = [e for e in ed.engines() if e.get("model") == model]
     if not engines:
         raise Refused(f"No engine has model {model!r}. JMRI stores only a model's name, so its values live on "
@@ -381,6 +391,7 @@ def rename_engine_model(ed: Editor, old: str, new: str) -> str:
     and hp there but loses weight and B unit)."""
     if old not in _engine_names(ed, "models", "model") and not any(e.get("model") == old for e in ed.engines()):
         raise Refused(f"Unknown model {old!r}")
+    _text("A model name", new)
     if not new.strip() or new in _engine_names(ed, "models", "model"):
         raise Refused(f"Model {new!r} already exists or is blank")
     _new_model_name(ed, new)
@@ -468,9 +479,12 @@ def delete_engine(ed: Editor, engine: str) -> str:
 def set_consist(ed: Editor, name: str, engines: list[str], lead: str | None = None, number: int = 0) -> str:
     """Make a consist from engines on one track. The builder uses the lead and takes the rest with it, and a train
     needing N engines takes a consist only of exactly N. number is the lead's consist address, 0 for none."""
+    _text("A consist name", name)
     if not name.strip():
         raise Refused("A consist needs a name")
-    members = [_engine(ed, e) for e in engines]
+    if lead is not None:
+        _text("lead", lead)
+    members = [_engine(ed, e) for e in _names("engines", engines)]
     if len(members) < 2 or len({id(m) for m in members}) != len(members):
         raise Refused("A consist needs at least two different engines")
     others = [m.get("id") for m in members if m.get("consist") and m.get("consist") != name]
@@ -507,6 +521,7 @@ def set_consist(ed: Editor, name: str, engines: list[str], lead: str | None = No
 @action()
 def clear_consist(ed: Editor, name: str) -> str:
     """Break up a consist and remove its name."""
+    _text("A consist name", name, blank=False)
     count = 0
     for engine in ed.engines():
         if engine.get("consist") == name:
@@ -546,6 +561,7 @@ def _division(ed: Editor, text: str) -> ET.Element:
 
 
 def _division_name(ed: Editor, name: str, current: ET.Element | None = None) -> None:
+    _text("A division name", name)
     if not name.strip():
         raise Refused("A division needs a name")
     if len(name) > DIVISION_NAME_MAX:
@@ -567,6 +583,7 @@ def _set_division_attr(element: ET.Element, identity: str | None, order: tuple[s
 def add_division(ed: Editor, name: str, comment: str = "") -> str:
     """Add a division. Give it to locations with set_location_division and to cars with set_car_division."""
     _division_name(ed, name)
+    _text("comment", comment)
     holder = ed.loc_root.find("divisions")
     if holder is None:  # LocationManagerXml:47 writes divisions first.
         holder = ET.Element("divisions")
@@ -582,11 +599,13 @@ def add_division(ed: Editor, name: str, comment: str = "") -> str:
 def update_division(ed: Editor, division: str, name: str | None = None, comment: str | None = None) -> str:
     """Rename a division or change its comment. Locations and cars hold its id, so they follow."""
     element = _division(ed, division)
+    if name is None and comment is None:
+        raise Refused("Nothing to change")
     if name is not None:
         _division_name(ed, name, element)
         element.set("name", name)
     if comment is not None:
-        element.set("comment", comment)
+        element.set("comment", _text("comment", comment))
     return f"Updated division {element.get('name')}."
 
 
@@ -613,6 +632,8 @@ def delete_division(ed: Editor, division: str) -> str:
 def set_location_division(ed: Editor, division: str | None, locations: list[str]) -> str:
     """Put locations in a division, or take them out with division null. Its tracks are in it too."""
     identity = _division(ed, division).get("id") if division else None
+    if not _names("locations", locations, empty=False):
+        raise Refused("Give at least one location")
     for name in locations:
         _set_division_attr(ed.location(name), identity, LOCATION_ORDER)
     return f"{len(locations)} locations now in {division or 'no division'}."
@@ -624,7 +645,7 @@ def set_car_division(ed: Editor, division: str | None, cars: list[str]) -> str:
     with a home division and no final destination is always routed: empties go home, loads by where they are."""
     identity = _division(ed, division).get("id") if division else None
     chosen = []
-    for text in cars:
+    for text in _names("cars", cars, empty=False):
         car = ed.car(text)
         group = [c for c in ed.cars() if c.get("kernel") == car.get("kernel")] if car.get("kernel") else [car]
         chosen += [c for c in group if c not in chosen]
@@ -638,6 +659,9 @@ def set_car_division(ed: Editor, division: str | None, cars: list[str]) -> str:
 def set_load_type(ed: Editor, load: str, load_type: str, types: list[str] | None = None) -> str:
     """Set whether a custom load counts as Load or Empty, for one or more car types or all that have it. Division
     rules go by this: an Empty goes home, a Load goes by where it is. It also decides the blank Ship flip."""
+    _text("load", load, blank=False)
+    if types is not None:
+        _names("types", types)
     if load in ed.defaults():
         raise Refused("A default load's type is fixed: the default empty is Empty and the default load is Load")
     if load_type not in ("Load", "Empty"):

@@ -211,6 +211,10 @@ def set_manual_build(ed: Editor, train: str, lines: list[dict], comment: str | N
     schedule), count (default 1), and warn, fail or remove when a line cannot be filled. remove takes every other
     matching car out of the build."""
     element = ed.train(train)
+    if comment is not None and not isinstance(comment, str):
+        raise Refused("comment must be text")
+    if not isinstance(lines, list) or not all(isinstance(x, dict) for x in lines):
+        raise Refused(f"lines must be a list of objects such as {{\"type\": ...}}, not {lines!r}")
     if not lines:
         raise Refused("Give at least one line, or use delete_manual_build")
     items = [_manual_line(ed, element, dict(line)) for line in lines]
@@ -302,6 +306,8 @@ def _steps(ed: Editor, automation: ET.Element, steps: list[dict], allow_dialogs:
         raise Refused("An automation needs at least one step")
     out, warnings, dialogs = [], [], []
     for number, raw in enumerate(steps, 1):
+        if not isinstance(raw, dict):
+            raise Refused(f"step {number} must be an object such as {{\"do\": ...}}, not {raw!r}")
         step = dict(raw)
         where = f"step {number}"
         unknown = set(step) - STEP_FIELDS
@@ -484,6 +490,8 @@ def delete_automation(ed: Editor, automation: str) -> str:
 @action()
 def set_startup_automation(ed: Editor, automation: str | None) -> str:
     """Choose the automation JMRI runs each time it loads the trains (Automation > Startup), or none."""
+    if automation is not None and not isinstance(automation, str):
+        raise Refused(f"An automation must be given by name or id as text, not {automation!r}")
     identity = _automation(ed, automation).get("id") if automation else ""
     _train_section(ed, "automationOptions").set("automationStartupId", identity)
     if not identity:

@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import TYPE_AND_LOAD
 from ops_store import Refused
-from ops_actions import Editor, TRAIN_ROAD_ATTRS, action, _indent
+from ops_actions import Editor, TRAIN_ROAD_ATTRS, action, _indent, _names, _text
 
 
 # ---- Names and types ------------------------------------------------------------
@@ -14,6 +14,7 @@ from ops_actions import Editor, TRAIN_ROAD_ATTRS, action, _indent
 @action()
 def add_startup_script(ed: Editor, path: str) -> str:
     """Run a script when JMRI loads the trains, as Trains > Tools > Startup Scripts does."""
+    path = _text("path", path, blank=False).strip()
     options = ed.train_root.find("options")
     if options is None:
         raise Refused("The train file has no options section")
@@ -63,6 +64,9 @@ def add_load(ed: Editor, name: str, types: list[str], load_type: str = "Load", p
         raise Refused("load_type must be Load or Empty")
     if priority not in (None, "Low", "Medium", "High"):
         raise Refused("priority must be Low, Medium or High")
+    types = _names("types", types, empty=False)
+    _text("pickup_comment", pickup_comment)
+    _text("drop_comment", drop_comment)
     loads = ed.section(ed.car_root, "loads", ("owners", "lengths", "colors", "types", "roads"))
     for kind in types:
         if kind not in ed.car_types():
@@ -120,6 +124,9 @@ def rename_car_type(ed: Editor, old: str, new: str) -> str:
 @action()
 def rename_load(ed: Editor, old: str, new: str, car_type: str | None = None) -> str:
     """Rename a custom load, for one type or all, through cars, schedules, tracks and trains."""
+    _text("A load name", old, blank=False)
+    if car_type is not None:
+        _text("car_type", car_type)
     if old in ed.defaults():
         raise Refused("Rename a default load from JMRI: it is one name shared by every type")
     new = ed.check_name("load", new)

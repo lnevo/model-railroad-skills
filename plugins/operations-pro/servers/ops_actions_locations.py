@@ -7,7 +7,7 @@ from ops_data import (ALL, ANY, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE
                       TRAINS, YARD)
 from ops_store import Refused
 from ops_actions import (JAVA_INT, Editor, LOAD_BITS, SPUR_BITS, STAGING_BITS, TRACK_CHILDREN, action, _bool, _indent,
-                         _int_field, _mask, _next, _remove_types, _set_list)
+                         _dict, _int_field, _mask, _names, _next, _remove_types, _set_list, _text)
 
 
 # ---- Locations and tracks ---------------------------------------------------------
@@ -21,6 +21,11 @@ def add_location(ed: Editor, name: str, types: list[str] | None = None, directio
     name = ed.check_name("location", name)
     if name in [x.get("name") for x in ed.locations()]:
         raise Refused(f"Location {name!r} already exists")
+    _text("comment", comment)
+    if like is not None:
+        _text("like", like)
+    if types is not None:
+        types = _names("types", types)
     wanted = types if types is not None else (ed.type_entries(ed.location(like)) if like else
                                               ed.car_types() + [t for t in ed.loco_types() if t not in ed.car_types()])
     number = _next(x.get("id") for x in ed.locations())
@@ -44,11 +49,13 @@ def update_location(ed: Editor, location: str, directions: str | int | None = No
     if directions is not None:
         element.set("dir", str(_mask(directions)))
     if comment is not None:
-        element.set("comment", comment)
-    for kind in add_types or []:
+        element.set("comment", _text("comment", comment))
+    add_types = _names("add_types", add_types or [])
+    remove_types = _names("remove_types", remove_types or [])
+    for kind in add_types:
         ed.need_type(kind)
         ed.add_type_to(element, kind, 2)
-    for kind in remove_types or []:
+    for kind in remove_types:
         users = [t.get("name") for t in element.findall("track") if kind in ed.type_entries(t)]
         if users:
             raise Refused(f"Tracks here still take {kind}: {', '.join(users)}")
@@ -94,6 +101,8 @@ def add_track(ed: Editor, location: str, name: str, type: str, length: int, type
     name = ed.check_name("track", name)
     if name in [t.get("name") for t in place.findall("track")]:
         raise Refused(f"{place.get('name')} already has track {name!r}")
+    if types is not None:
+        types = _names("types", types)
     existing = [t.get("trackType") for t in place.findall("track")]
     if existing and (type == STAGING) != (STAGING in existing):
         raise Refused("JMRI's windows keep staging and other track types at separate locations")
@@ -120,10 +129,11 @@ def add_track(ed: Editor, location: str, name: str, type: str, length: int, type
 
 def _option_list(ed: Editor, track: ET.Element, value: dict, option_attr: str, tag: str, item: str,
                  allowed: tuple[str, ...], default: str) -> None:
+    value = _dict(option_attr, value)
     option = value.get("option", default)
     if option not in allowed:
         raise Refused(f"option must be one of {', '.join(allowed)}")
-    names = value.get("names", [])
+    names = _names("names", value.get("names", []))
     if option == default:
         track.attrib.pop(option_attr, None)
         names = []
@@ -135,6 +145,7 @@ def _option_list(ed: Editor, track: ET.Element, value: dict, option_attr: str, t
 def _service(ed: Editor, track: ET.Element, value: dict, option_attr: str, tag: str, item: str) -> None:
     if track.get("trackType") == YARD:
         raise Refused("Yards ignore pickup and set-out lists. JMRI drops them on save.")
+    value = _dict(option_attr, value)
     option = value.get("option", ANY)
     if option not in (ANY, TRAINS, ROUTES, EXCLUDE_TRAINS, EXCLUDE_ROUTES):
         raise Refused(f"option must be {ANY}, {TRAINS}, {ROUTES}, {EXCLUDE_TRAINS} or {EXCLUDE_ROUTES}")
@@ -143,7 +154,7 @@ def _service(ed: Editor, track: ET.Element, value: dict, option_attr: str, tag: 
         _set_list(track, tag, item, [], "id", TRACK_CHILDREN, 3)
         return
     lookup = ed.train if option in (TRAINS, EXCLUDE_TRAINS) else ed.route
-    ids = [lookup(n).get("id") for n in value.get("names", [])]
+    ids = [lookup(n).get("id") for n in _names("names", value.get("names", []))]
     track.set(option_attr, option)
     _set_list(track, tag, item, ids, "id", TRACK_CHILDREN, 3)
 
@@ -162,11 +173,16 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
     element = ed.track(track, location)
     kind = element.get("trackType")
     place = ed.location_of(element)
+    add_types = _names("add_types", add_types or [])
+    if remove_types is not None:
+        remove_types = _names("remove_types", remove_types)
+    if load_options is not None:
+        load_options = _names("load_options", load_options)
     if length is not None:
         element.set("length", str(_int_field("length", length)))
     if directions is not None:
         element.set("dir", str(_mask(directions)))
-    for name in add_types or []:
+    for name in add_types:
         ed.need_type(name)
         ed.add_type_to(place, name, 2)
         ed.add_type_to(element, name, 3)
@@ -224,6 +240,7 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
 def _destinations(ed: Editor, element: ET.Element, value: dict) -> None:
     if element.get("trackType") not in (INTERCHANGE, STAGING):
         raise Refused("Destinations exist on interchange and staging tracks only")
+    value = _dict("destinations", value)
     option = value.get("option", ALL)
     if option not in (ALL, INCLUDE, EXCLUDE):
         raise Refused("option must be All, Include or Exclude")
@@ -231,7 +248,7 @@ def _destinations(ed: Editor, element: ET.Element, value: dict) -> None:
         element.attrib.pop("trackDestinationOption", None)
         _set_list(element, "destinations", "destination", [], "id", TRACK_CHILDREN, 3)
         return
-    chosen = [ed.location(n).get("id") for n in value.get("names", [])]
+    chosen = [ed.location(n).get("id") for n in _names("names", value.get("names", []))]
     # The file always lists accepted ids; Exclude only changes how JMRI's window shows them.
     every = [x.get("id") for x in ed.locations()]
     ids = chosen if option == INCLUDE else [i for i in every if i not in chosen]
@@ -317,6 +334,9 @@ def _load_options(element: ET.Element, names: list[str]) -> None:
 
 
 def _pool(element: ET.Element, value: dict) -> None:
+    value = _dict("pool", value)
+    if value.get("name") is not None:
+        _text("pool name", value["name"])
     for attr in ("pool", "minLength", "maxLength"):
         element.attrib.pop(attr, None)
     if value.get("name"):
@@ -404,6 +424,8 @@ def _moves(value) -> int:
 def set_track_moves(ed: Editor, moves: dict[str, int]) -> str:
     """Set the move counts that bias the builder, by track name or id. The only action that changes them.
     Any whole number: Track.setMoves takes an int, and a negative count makes a track sort first."""
+    if not _dict("moves", moves):
+        raise Refused("Give at least one track and its move count")
     for name, value in moves.items():
         track = ed.track(name)
         track.set("moves", str(_moves(value)))
