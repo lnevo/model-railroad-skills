@@ -57,6 +57,12 @@ class ReportReader(unittest.TestCase):
                         "service road (BOXX)")
         self.assertEqual(report["excluded_cars"][0]["gate"], "B9")
 
+    def test_a_normal_mode_retry_is_not_a_failure(self):
+        """TB:512 announces a second attempt; only a later error or buildFailedMsg fails the build."""
+        report = parsed("1- *** Build Failed using Aggressive Mode try again using Normal Mode ***",
+                        "1- Train (CUSTOM) built with 3 cars")
+        self.assertEqual(report["outcome"]["failure"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

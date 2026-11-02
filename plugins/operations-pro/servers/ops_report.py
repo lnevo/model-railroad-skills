@@ -257,7 +257,7 @@ ENGINE_KEYS = ("buildExcludeEngine", "buildBegineSearchEngines", "buildExcludeEn
                "buildTrainAddEngines", "buildTrainRemoveEngines", "buildTrainHelperEngines", "buildCabooseChange",
                "buildAutoBuildMsg", "buildOptionSingleLocos", "buildOptionBuildConsist", "buildTrainReqConsist",
                "buildNoTracksAtDestination")  # TrainBuilderEngines:838, an engine's destination
-FAILURE_KEYS = ("buildError", "buildStagingCouldNotFindDest", "mbuildFail", "buildFailedTryNormalMode",
+FAILURE_KEYS = ("buildError", "buildStagingCouldNotFindDest", "mbuildFail",
                 "buildErrorStagingFullNote")
 OPTION_HEADERS = {"MenuItemBuildOptions": "build", "buildStagingOptions": "staging", "buildCarRoutingOptions": "routing",
                   "buildOptionsForTrain": "enabled", "buildDisabledOptionsForTrain": "disabled",
@@ -613,8 +613,10 @@ class Walker:
             self.exclude_heading = key
         elif key in ("buildSortCarsByLastDate",
                      "buildRouteRequest", "buildDoneAssignEnginesStaging", "buildDoneAssingEnginesTrain",
-                     "buildTrain", "NormalModeWhenBuilding", "buildFailedTryNormalMode"):
+                     "buildTrain", "NormalModeWhenBuilding"):
             pass
+        elif key == "buildFailedTryNormalMode":  # TB:512: a second attempt follows, not a failure
+            self._close_attempt()
         elif key in SEARCH_STARTS:
             self._start_attempt(line)
         elif key in PICKUP_REFUSALS:
