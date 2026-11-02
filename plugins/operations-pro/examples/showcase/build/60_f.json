@@ -1,0 +1,147 @@
+[
+ {
+  "plan": [
+   {
+    "action": "add_automation",
+    "name": "Close Out",
+    "comment": "[U15] Terminates LOCAL-B. Run by Evening Session, so its wait step has something to wait for.",
+    "steps": [
+     {
+      "do": "terminate_train",
+      "train": "LOCAL-B"
+     }
+    ]
+   },
+   {
+    "action": "add_automation",
+    "name": "Evening Session",
+    "comment": "[U15] Builds LOCAL-H then LOCAL-B, runs Close Out (which terminates LOCAL-B), waits for LOCAL-B to terminate, then terminates LOCAL-H. No message or print step, so nothing opens a window.",
+    "steps": [
+     {
+      "do": "build_train",
+      "train": "LOCAL-H"
+     },
+     {
+      "do": "build_train",
+      "train": "LOCAL-B"
+     },
+     {
+      "do": "run_automation",
+      "automation": "Close Out"
+     },
+     {
+      "do": "wait_for_train_to_terminate",
+      "train": "LOCAL-B"
+     },
+     {
+      "do": "terminate_train",
+      "train": "LOCAL-H"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "set_manifest_options",
+    "pickup_color": "red",
+    "drop_color": "blue",
+    "local_color": "green",
+    "font_size": 10,
+    "print_valid": true
+   },
+   {
+    "action": "set_manifest_format",
+    "line": "pickup_car",
+    "prefix": " [ ] Pick up",
+    "fields": [
+     "Road",
+     "Number",
+     "Type",
+     "Length",
+     "Load",
+     "Track"
+    ]
+   },
+   {
+    "action": "set_manifest_text",
+    "group": "manifest",
+    "key": "valid",
+    "text": "Conductor''s copy, valid {0}"
+   },
+   {
+    "action": "set_manifest_text",
+    "group": "switch_list",
+    "key": "noCarPickUps",
+    "text": "Nothing to pick up for train ({0}) here"
+   },
+   {
+    "action": "set_train_manifest",
+    "train": "LOCAL-B",
+    "railroad_name": "Brae Branch Lines"
+   }
+  ]
+ },
+ {
+  "plan": [
+   {
+    "action": "add_default_days"
+   },
+   {
+    "action": "set_day_trains",
+    "day": "Tuesday",
+    "trains": [
+     "CUSTOM",
+     "MIXED",
+     "SWAP-E",
+     "SWAP-W",
+     "MODE",
+     "LOCAL-B",
+     "FIDDLE JOB",
+     "LOCAL-H",
+     "KESSOCK TRANSFER",
+     "KESSOCK SWITCHER",
+     "SAWYER SWITCHER",
+     "EAST FREIGHT",
+     "THRU",
+     "NORTH JOB",
+     "PELL SWITCHER",
+     "HOP OUT",
+     "TURN",
+     "VALLEY FLYER"
+    ]
+   },
+   {
+    "action": "set_day_trains",
+    "day": "Saturday",
+    "trains": [
+     "SWAP-E",
+     "SWAP-W",
+     "EAST FREIGHT",
+     "HOP OUT",
+     "NORTH JOB",
+     "VALLEY FLYER"
+    ]
+   },
+   {
+    "action": "update_day",
+    "day": "Tuesday",
+    "comment": "[U14] Weekday: all 18 trains."
+   },
+   {
+    "action": "update_day",
+    "day": "Saturday",
+    "comment": "[U14] Weekend: six trains."
+   },
+   {
+    "action": "set_active_day",
+    "name": "Tuesday"
+   },
+   {
+    "action": "apply_day",
+    "day": "Tuesday"
+   }
+  ]
+ }
+]
