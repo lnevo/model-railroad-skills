@@ -119,7 +119,7 @@ The builder makes random choices, so two identical builds can differ. The build 
 
 ## Use and test
 
-Set `OPS_DIR` to your Operations folder, or pass `ops_dir` on each call. Tools read the files on disk, which can lag a running JMRI by a minute or two. A gate that depends on the build itself, such as a random draw or timing against another train, reports `not_checked`.
+Set `OPS_DIR` to your Operations folder, or pass `ops_dir` on each call. Tools read the files on disk, which can lag a running JMRI by a minute or two. A few gates depend on the build itself: quick service and aggressive pulls freeing room (E9), other cars using a stop's moves (D3), other cars filling the train (D9, G10), and an AUTO locomotive count (A8, A9). When JMRI is installed, `ops_why_not` settles these from four real JMRI builds of copies of the files, run in parallel (cached until the files change; the builder draws at random, so one build proves little), and every settled gate carries `source`: `real JMRI build` (every train built in order) or `real JMRI build of this train alone` (used when another train takes the car first). Pass: a build set the car out at the track. Fail: every build's report names the gate as the refusal at that location. A mix stays `not_checked`. Anything else stays `not_checked` with a `build_note`. Without JMRI, with `real_build: false`, or when the railroad in memory differs from the files, they stay `not_checked` with `source: port`. Other build-dependent gates (a random draw, D18 pull timing, C11) are still `not_checked`.
 
 ```
 python3 -m unittest discover -s plugins/operations-pro/tests
