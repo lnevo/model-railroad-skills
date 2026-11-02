@@ -23,7 +23,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | Write actions | Make a multi-screen change in one step, with JMRI exited. `ops_actions` lists them | Done |
 | Data parser | Reads the six Operations XML files | Done |
 | `why_not` | Walks each requirement in the builder's order and names the setting that blocks a car | Done |
-| `audit` | Finds problems across the railroad, such as a car type no train can carry or a schedule with only one destination | Done |
+| `audit` | Finds problems across the railroad, such as a car type no train can carry, a locomotive no train takes, or a schedule with only one destination | Done |
 | `explain_build` | Reads a build report and names the gate behind each refusal | Done |
 | Diagnosis agent | `ops-diagnoser`: reads reports and files with reading tools only | Done |
 | Build check | Runs JMRI's own builder on copies, several times each side, and compares the results | Done |
@@ -100,7 +100,7 @@ Unlike the read-only tools in `model-railroad-skills`, this plugin changes your 
 - **Move counts are preserved.** They steer the builder, so resetting them quietly changes your traffic. Only `set_track_moves` and `reset_moves` change them, and a final check refuses anything else that would.
 - **Derived fields are left alone.** A car's destination, for example, depends on where it sits in a train's route. Those changes go through JMRI.
 - **Settings JMRI ignores or drops are refused,** such as a pickup list on a yard or a schedule on a non-spur.
-- **A locomotive model holds one set of values.** JMRI keeps type, length, horsepower, weight and B unit on the model, not on the engine, so an engine that differs from the rest of its model is refused, and `update_engine_model` changes them on every engine of it. A railroad with no engine file gets the one JMRI would write, with its default models, types and lengths.
+- **A locomotive model holds one set of values.** JMRI keeps type, length, horsepower, weight and B unit on the model, not on the engine, so an engine that differs from the rest of its model is refused, and `update_engine_model` changes them on every engine of it. A railroad with no engine file gets the one JMRI would write, with its default models, types and lengths. A train's locomotive model and road take only what JMRI's Edit Train window offers: a model in the roster, a road of an engine of that model, or blank for any.
 - **New audit errors block a plan** until you accept them. Renaming something that already had a fault reports that fault under its new name, so a block isn't always a new problem.
 
 The builder makes random choices, so two identical builds can differ. The build check counts a train as changed only when none of its results after the plan appeared before it, and shows partial overlaps separately. A rare outcome can still be missed.

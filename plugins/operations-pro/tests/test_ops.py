@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from dataclasses import replace
 from pathlib import Path
 
@@ -617,6 +618,107 @@ class AuditFaults(Base):
         self.assertNotIn("BV1", subjects)
         self.assertNotIn("Brackwater Yard A", {f["subject"] for f in self.report["findings"]
                                                if f["rule"] != "alternate-ignored"})
+        engine_rules = {"engine-no-train", "engine-on-refusing-track", "engine-location-refuses-type",
+                        "consist-split", "model-type-no-train", "model-type-no-track"}
+        self.assertEqual([f for f in self.report["findings"] if f["rule"] in engine_rules], [])
+
+
+class EngineAudit(unittest.TestCase):
+    """Locomotives against acceptance. Each test edits a copy of the demo files, since locomotive
+    types are read from the files, and checks the finding with its subject and fix."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.ops = Path(self.temp.name) / "operations"
+        shutil.copytree(OPS, self.ops)
+
+    def edit(self, name, change):
+        path = self.ops / name
+        tree = ET.parse(path)
+        change(tree.getroot())
+        tree.write(path, encoding="UTF-8", xml_declaration=True)
+
+    def findings(self, rule):
+        report = Gates(ops_data.load(self.ops)).audit()
+        hits = [f for f in report["findings"] if f["rule"] == rule]
+        for hit in hits:
+            self.assertTrue(hit["fix"]["screen"] and hit["fix"]["setting"])
+        return {f["subject"]: f for f in hits}
+
+    @staticmethod
+    def drop_loco_types(holders):
+        for holder in holders:
+            types = holder.find("types")
+            for entry in list(types.findall("locoType")) if types is not None else []:
+                types.remove(entry)
+
+    def engine(self, root, identity):
+        return next(e for e in root.iter("engine") if e.get("id") == identity)
+
+    def test_model_type_no_train(self):
+        # Train.isTypeNameAccepted: a train with no locomotive types takes no locomotive.
+        self.edit("OperationsTrainRoster.xml", lambda r: self.drop_loco_types(r.iter("train")))
+        self.assertIn("GP9", self.findings("model-type-no-train"))
+        self.assertEqual(self.findings("engine-no-train"), {}, "the model finding covers its engines")
+
+    def test_model_type_no_track_and_location_refuses_type(self):
+        # Track.isTypeNameAccepted (Track:977) asks the location first.
+        self.edit("OperationsLocationRoster.xml",
+                  lambda r: self.drop_loco_types(r.findall("./locations/location")))
+        self.assertIn("GP9", self.findings("model-type-no-track"))
+        self.assertEqual(set(self.findings("engine-location-refuses-type")), {"BV 101", "BV 102", "BV 103"})
+        self.assertEqual(self.findings("engine-on-refusing-track"), {}, "the location finding comes first")
+
+    def test_engine_on_refusing_track(self):
+        self.edit("OperationsLocationRoster.xml",
+                  lambda r: self.drop_loco_types(t for t in r.iter("track") if t.get("id") == "4s1"))
+        found = self.findings("engine-on-refusing-track")
+        self.assertEqual(set(found), {"BV 101"})
+        self.assertIn("Diesel", found["BV 101"]["message"])
+        self.assertEqual(self.findings("model-type-no-track"), {}, "other tracks still take Diesel")
+
+    def test_engine_no_train_applies_the_model_each_train_names(self):
+        # getEngines (TrainBuilderEngines:201): a train naming a model skips every other model.
+        def every_train_needs_gp9(root):
+            for train in root.iter("train"):
+                train.set("numberEngines", "1")
+                train.set("engineModel", "GP9")
+        self.edit("OperationsTrainRoster.xml", every_train_needs_gp9)
+        self.edit("OperationsEngineRoster.xml", lambda r: self.engine(r, "BV103").set("model", "SD9"))
+        found = self.findings("engine-no-train")
+        self.assertEqual(set(found), {"BV 103"})
+        self.assertIn("needs GP9", found["BV 103"]["message"])
+
+    def test_engine_no_train_applies_loco_roads_and_owners(self):
+        # getAndRemoveEnginesFromList (TrainBuilderEngines:45-58): loco road list and owner list.
+        def roads(root):
+            for train in root.iter("train"):
+                train.set("locoRoadOption", "Exclude")
+                ET.SubElement(ET.SubElement(train, "locoRoads"), "locoRoad", {"name": "BV"})
+        self.edit("OperationsTrainRoster.xml", roads)
+        found = self.findings("engine-no-train")
+        self.assertEqual(set(found), {"BV 101", "BV 102", "BV 103"})
+        self.assertIn("locomotive road BV", found["BV 101"]["message"])
+
+    def test_out_of_service_engine_is_not_flagged(self):
+        def roads(root):
+            for train in root.iter("train"):
+                train.set("locoRoadOption", "Exclude")
+                ET.SubElement(ET.SubElement(train, "locoRoads"), "locoRoad", {"name": "BV"})
+        self.edit("OperationsTrainRoster.xml", roads)
+        self.edit("OperationsEngineRoster.xml", lambda r: self.engine(r, "BV103").set("outOfService", "true"))
+        self.assertNotIn("BV 103", self.findings("engine-no-train"))
+
+    def test_consist_split(self):
+        def split(root):
+            ET.SubElement(root.find("newConsists"), "consist", {"name": "Pair"})
+            self.engine(root, "BV101").attrib.update(consist="Pair", leadConsist="true")
+            self.engine(root, "BV102").set("consist", "Pair")
+        self.edit("OperationsEngineRoster.xml", split)
+        found = self.findings("consist-split")
+        self.assertIn("Pair", found)
+        self.assertEqual(found["Pair"]["fix"]["screen"], "Set Locomotive")
 
 
 class ReviewFixes(Base):

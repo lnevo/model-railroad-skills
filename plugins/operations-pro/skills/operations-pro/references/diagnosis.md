@@ -58,6 +58,7 @@ A build in aggressive mode shows half the moves on the first pass. Two identical
 | New train takes nothing | Train missing from the tracks' Pick ups and Set outs lists; a copy named with a hyphen difference | Audit `train-not-on-list`; `add_train` adds the lists |
 | Caboose not found | Not flagged caboose; caboose road list; track direction or pick up list | Audit `caboose-road-mismatch` |
 | Build fails on a kernel | Members on different tracks | Audit `kernel-split` |
+| Build finds no locomotive | Model or road the train asks for; type, loco road, owner or built dates refuse every engine; consist size not exactly the count; out of service | Audit `engine-no-train`, `model-type-no-train`, `model-type-no-track` |
 | Every car refused at a spur | Length typo; type not on the track; load option | Audit `type-no-track`, `car-on-refusing-track` |
 | Car goes to staging instead of the spur | Spur full or not routable; no Hold; Destinations filter | `ops_why_not` to the spur |
 | Custom-load car became a default load | RWE to an unscheduled spur; blank ship with the wrong load type; arrived in staging with the convert option | Audit `rwe-to-unscheduled-spur`, `custom-empty-flagged-load` |
@@ -93,6 +94,10 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `rwe-to-unscheduled-spur` | A return-when-empty that will drop the car out of routing |
 | `kernel-split`, `car-unplaced`, `car-on-refusing-track` | Members on different tracks; no location or track; a track that does not take the car's type |
 | `location-unserved`, `hyphen-no-split`, `switcher-local-off` | A location no route visits, a hyphen that does not split, a switcher with local moves off |
+| `model-type-no-train`, `model-type-no-track` | A locomotive model whose type no train takes, or no track (with its location) takes, so its engines are never used or have nowhere to be set out |
+| `engine-no-train` | A locomotive whose type some train takes, but every train refuses it by loco road list, owner, built dates, or the model and road it asks for (count 0 asks for none, except from departure staging); out of service engines are left out |
+| `engine-location-refuses-type`, `engine-on-refusing-track` | A locomotive at a location, or on a track, that does not take its type: Set Locomotive refuses the spot without force, and no train sets it out there |
+| `consist-split` | Consist members on different tracks; a train taking the lead adds the others at the lead's stop, wherever they sit |
 
 ## When the report and the tools disagree
 

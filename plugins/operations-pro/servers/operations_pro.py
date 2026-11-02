@@ -140,8 +140,8 @@ def tools() -> list[Tool]:
                   "detail": {"type": "string", "enum": ["normal", "full"]}}},
              explain_build),
         Tool("ops_audit",
-             "Check a whole railroad for types and loads nothing can carry, schedule and routing gaps, "
-             "and settings JMRI silently ignores.",
+             "Check a whole railroad for types, loads and locomotives nothing can carry, schedule and routing "
+             "gaps, and settings JMRI silently ignores.",
              {"type": "object", "properties": directory}, audit),
         Tool("ops_list", "List one kind of OperationsPro record from the XML files.",
              {"type": "object",

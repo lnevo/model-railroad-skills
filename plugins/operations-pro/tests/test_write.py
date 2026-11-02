@@ -617,6 +617,11 @@ ENGINE_PLAN = [
 ]
 
 
+def ops_actions_audit(folder):
+    import ops_gates
+    return ops_gates.Gates(ops_data.load(folder)).audit()["findings"]
+
+
 def _engine_xml(folder):
     return ET.parse(Path(folder) / "OperationsEngineRoster.xml").getroot()
 
@@ -765,6 +770,61 @@ class Engines(Case):
         self.assertEqual(self.snapshot(), before)
 
 
+class TrainPower(Case):
+    """engine_model and engine_road as JMRI's Edit Train window offers and checks them (TrainEditFrame)."""
+
+    def train(self, name="T10"):
+        return next(t for t in ET.parse(self.ops / "OperationsTrainRoster.xml").getroot().iter("train")
+                    if t.get("name") == name)
+
+    def refused(self, pattern, **fields):
+        with self.assertRaisesRegex(Refused, pattern):
+            self.plan({"action": "update_train", "train": "T10", **fields})
+
+    def test_a_roster_model_and_road_are_written(self):
+        self.edit({"action": "update_train", "train": "T10", "engines": "1", "engine_model": "GP9",
+                   "engine_road": "BV"})
+        self.assertEqual((self.train().get("engineModel"), self.train().get("engineRoad")), ("GP9", "BV"))
+        self.assertEqual(self.train("BV1").get("engineModel"), "GP9", "the demo's own model is left alone")
+
+    def test_blank_and_none_mean_any(self):
+        self.edit({"action": "update_train", "train": "BV1", "engine_model": "None", "engine_road": ""})
+        self.assertEqual((self.train("BV1").get("engineModel"), self.train("BV1").get("engineRoad")), ("", ""))
+
+    def test_unknown_values_are_refused(self):
+        # EngineModels.getComboBox: a roster with models offers only those, not JMRI's defaults.
+        self.refused("Unknown locomotive model 'SW8'.*GP9", engines="1", engine_model="SW8")
+        self.refused("Unknown locomotive model", engines="1", engine_model="gp9")
+        # EngineManager.updateEngineRoadComboBox: roads of engines of the chosen model.
+        self.refused("No locomotive has road 'XX'.*offers BV", engines="1", engine_road="XX")
+
+    def test_road_must_belong_to_the_model(self):
+        self.edit({"action": "add_engine", "road": "BVR", "number": "301", "model": "C628", "type": "Diesel",
+                   "length": 69, "location": "Tolvern", "track": "Tolvern Yard"})
+        self.refused("No locomotive of model GP9 has road 'BVR'.*offers BV", engines="1", engine_model="GP9",
+                     engine_road="BVR")
+        self.edit({"action": "update_train", "train": "T10", "engines": "1", "engine_road": "BVR"})
+        self.assertEqual(self.train().get("engineRoad"), "BVR")
+
+    def test_the_window_checks_are_kept(self):
+        # checkModel: the model's type must be one the train takes.
+        self.refused(r"does not service locomotive model GP9 type \(Diesel\)", engines="1", engine_model="GP9",
+                     remove_types=["Diesel"])
+        # checkEngineRoad: the loco road list, then an engine of that road and an accepted type.
+        self.refused("does not service locomotives with road BV", engines="1", engine_road="BV",
+                     loco_roads={"option": "Exclude", "names": ["BV"]})
+        self.refused("No road BV in the locomotive roster", engines="1", engine_road="BV", remove_types=["Diesel"])
+        # Save clears model and road when the train needs 0 locomotives (TrainEditFrame:574-577).
+        self.refused("needs 0 locomotives", engines="0", engine_model="GP9")
+
+    def test_without_an_engine_file_jmris_default_models_are_offered(self):
+        (self.ops / "OperationsEngineRoster.xml").unlink()
+        result = self.plan({"action": "update_train", "train": "T10", "engines": "1", "engine_model": "SW8"})
+        self.assertIn("no engine of model SW8", " ".join(result["summary"]))
+        self.assertNotIn("OperationsEngineRoster.xml", result["files"], "checking a model writes no engine file")
+        self.refused("No locomotive has road 'BV'", engines="1", engine_road="BV")
+
+
 class Divisions(Case):
     def test_delete_clears_locations_and_cars(self):
         self.edit(*ENGINE_PLAN[7:13])
@@ -903,6 +963,44 @@ class RealJmri(Case):
         self.assertTrue(result["builds"]["T10"]["built"], result["builds"]["T10"]["message"])
         engines = {e.get("id"): e for e in _engine_xml(keep).iter("engine")}
         self.assertEqual({engines[i].get("trainId") for i in ("BV201", "BV202")}, {self.rr().find_train("T10").id})
+
+    def test_a_train_model_and_road_survive_and_build(self):
+        self.edit({"action": "update_train", "train": "T10", "engines": "1", "engine_model": "GP9",
+                   "engine_road": "BV"})
+        keep = Path(self.temp.name) / "built"
+        keep.mkdir()
+        result = ops_jmri.run_worker(self.ops, {"build": True, "save": True}, keep)
+        self.assertEqual(result["log_errors"], [])
+        train = next(t for t in ET.parse(keep / "OperationsTrainRoster.xml").getroot().iter("train")
+                     if t.get("name") == "T10")
+        self.assertEqual((train.get("engineModel"), train.get("engineRoad")), ("GP9", "BV"))
+        self.assertTrue(result["builds"]["T10"]["built"], result["builds"]["T10"]["message"])
+        taken = [e for e in _engine_xml(keep).iter("engine") if e.get("trainId") == train.get("id")]
+        self.assertEqual([(e.get("model"), e.get("roadName")) for e in taken], [("GP9", "BV")])
+
+    def test_a_split_consist_is_taken_from_the_lead_stop(self):
+        # What the consist-split finding says: addEngineToTrain gives every member the lead's route location.
+        self.edit(*ENGINE_PLAN[:3], {"action": "place_engine", "engine": "BV202", "location": "Tolvern",
+                                     "track": "Tolvern Yard"},
+                  {"action": "update_train", "train": "T10", "engines": "2", "engine_model": "GP38"})
+        path = self.ops / "OperationsEngineRoster.xml"
+        text = path.read_text()
+        text = text.replace("<newConsists />", '<newConsists>\n    <consist name="Pair" />\n  </newConsists>', 1)
+        text = text.replace('id="BV201"', 'id="BV201" consist="Pair" leadConsist="true"', 1)
+        text = text.replace('id="BV202"', 'id="BV202" consist="Pair"', 1)
+        path.write_text(text)
+        report = ops_actions_audit(self.ops)
+        self.assertIn("Pair", {f["subject"] for f in report if f["rule"] == "consist-split"})
+        keep = Path(self.temp.name) / "built"
+        keep.mkdir()
+        result = ops_jmri.run_worker(self.ops, {"build": True, "save": True}, keep)
+        self.assertTrue(result["builds"]["T10"]["built"], result["builds"]["T10"]["message"])
+        engines = {e.get("id"): e for e in _engine_xml(keep).iter("engine")}
+        lead, other = engines["BV201"], engines["BV202"]
+        self.assertEqual(other.get("trainId"), lead.get("trainId"))
+        self.assertTrue(lead.get("routeLocationId"))
+        self.assertEqual(other.get("routeLocationId"), lead.get("routeLocationId"))
+        self.assertNotEqual(other.get("locationId"), lead.get("locationId"))
 
     def test_a_file_saved_by_jmri_renders_byte_for_byte(self):
         _, keep = self.read_back()
