@@ -50,7 +50,7 @@ ASSIGNED, NO_DESTINATION, HELD, PICKUP_REFUSED, DEFERRED = (
 # Report lines whose wording alone names the gate. Keys are template keys.
 KEY_GATES: dict[str, str] = {
     "buildExcludeCarWrongRoad": "B9", "buildExcludeCarWrongType": "B10", "buildExcludeCarTypeAtLoc": "B17",
-    "buildExcludeCarAtLoc": "B20", "buildExcludeCarWrongDest": "B4", "buildExcludeCarDestNotPartRoute": "B4",
+    "buildExcludeCarWrongDest": "B4", "buildExcludeCarDestNotPartRoute": "B4",
     "buildExcludeCarDropByTrain": "B6", "buildExcludeCarByTrain": "B7", "buildExcludeCarByRoute": "B7",
     "buildExcludeCarByInterchange": "B8", "buildExcludeCarLocUnknown": "B2", "buildExcludeCarOutOfService": "B3",
     "buildExcludeCarWait": "B16", "buildExcludeCarSchedule": "B15", "buildExcludeCarWithFredAtLoc": "B14",
@@ -64,7 +64,7 @@ KEY_GATES: dict[str, str] = {
     "buildNoReturnStaging": "D4", "buildRouteNoLocalLocation": "C7", "buildRouteNoLocalLocCar": "D5",
     "buildCarHasFinalDestNoMove": "D5", "buildDestinationNotServiced": "D6", "buildCanNotDropLocation": "D7",
     "buildDestinationType": "A7", "buildDestinationDoesNotService": "D8",
-    "buildCanNotPickupCarLength": "D9", "buildThroughTrafficNotAllow": "D10", "buildCarDestinationStaging": "D12",
+    "buildCanNotPickupCarLength": "D9", "buildThroughTrafficNotAllow": "D10",
     "buildCanNotDropCarSameTrack": "D13", "buildCanNotDropRsUsingTrain": "D14", "buildCanNotDropRsUsingTrain4": "D14",
     "buildCanNotDropTrain": "D15", "buildCanNotDropRoute": "D15", "buildTrackFullHasAlternate": "D17",
     "buildWarnTrainTiming": "D18", "buildNoSpurToSpurMove": "D19", "buildNoYardToYardMove": "D19",
@@ -152,11 +152,11 @@ MID_SEARCH_GATES = {"buildStagingTrackType": "E3", "buildStagingTrackRoad": "E4"
 # What a refusal line means, in a few words, where the template alone does not say.
 KEY_NOTES: dict[str, str] = {
     "buildTrackIsAlternate": "alternate tracks are never direct destinations; the spur must fill first",
-    "buildHoldCarValidRoute": "held: a scheduled spur is reachable but not open now, so the car waits",
+    "buildHoldCarValidRoute": "held: a route to a scheduled spur exists, by another train or once the spur has room",
     "buildWarningCarNotRoutable": "the router failed, so the builder tries the car as a default load next",
     "buildNoDestForCar": "no destination this build",
     "buildCouldNotFindDestForCar": "no track at this location took the car",
-    "buildCouldNotFindTrack": "no scheduled spur was reachable for this custom load",
+    "buildCouldNotFindTrack": "no scheduled spur took the car on this train; the lines above say why",
     "buildNoStagingForCarLoad": "no staging track accepts the car and load",
     "buildNoStagingForCarCustom": "no staging track accepts a custom load",
     "buildUnableNewLoad": "no spur needing a custom load could be reached",
@@ -169,6 +169,7 @@ KEY_NOTES: dict[str, str] = {
     "buildReturnCarToStaging": "the search goes on; staging is the fallback if no other track takes the car",
     "buildExcludeCarTypeAtLoc": "a caboose or FRED car set aside after the caboose and FRED pass, "
                                 "or one that could not be picked up in the train's direction",
+    "buildCarDestinationStaging": "redirected to the train's terminal staging track; not a refusal",
     "TrainDoesNotServiceCar": "this train cannot take the car directly there; the router looks for another",
     "buildNotAbleToSetDestination": "",
     "buildCarCanDropMoves": "",
@@ -433,6 +434,7 @@ class Walker:
         self.pass_number = 1
         self.ignoring = False
         self.last_excluded: dict | None = None
+        self.exclude_heading: str | None = None  # the "Remove cars ..." heading the exclusions fall under
         self.staging_side: str | None = None  # which staging check is open: the last of depart / terminate seen
         self.previous: Line | None = None
         self.in_train_check = False  # inside Train.isServiceable, which only the router prints (Router:265)
@@ -594,7 +596,9 @@ class Walker:
                      "buildCarPartOfKernel", "buildTrackModePriority", "buildTrackModeCarPriority",
                      "buildBypassCarServiceOrder"):
             r["car_list"].append(line.text)
-        elif key in ("buildRemoveCars", "buildRemoveCarsNotNeeded", "buildRemoveCarsStaging", "buildSortCarsByLastDate",
+        elif key in ("buildRemoveCars", "buildRemoveCarsNotNeeded", "buildRemoveCarsStaging"):
+            self.exclude_heading = key
+        elif key in ("buildSortCarsByLastDate",
                      "buildRouteRequest", "buildDoneAssignEnginesStaging", "buildDoneAssingEnginesTrain",
                      "buildTrain", "NormalModeWhenBuilding", "buildFailedTryNormalMode"):
             pass
@@ -645,7 +649,8 @@ class Walker:
                                                                        "buildSpurScheduleLoad",
                                                                        "buildTrackFullHasAlternate",
                                                                        "buildReturnCarToStaging",
-                                                                       "buildLeaveCarInStaging") else "refused"
+                                                                       "buildLeaveCarInStaging",
+                                                                       "buildCarDestinationStaging") else "refused"
             if key == "buildHoldCarValidRoute":
                 self.attempt["held"] = True
             if key == "buildWarningCarNotRoutable":
@@ -704,6 +709,15 @@ class Walker:
     def _excluded(self, line: Line):
         gate = KEY_GATES.get(line.key)
         row = {"car": line.f(0), "text": line.text, "gate": gate, "fix": gate_fix(gate), "line": line.number}
+        if line.key == "buildExcludeCarAtLoc":
+            # TBB:1036-1039: the car is on another staging track at the departure, so it is not this train's.
+            row.update(group="other staging track", note="on another staging track at the departure; it does not "
+                       "depart with this train, and nothing about the car needs fixing")
+        elif line.key == "buildExcludeCarTypeAtLoc" and self.exclude_heading == "buildRemoveCarsNotNeeded":
+            # TBB:770-786: every caboose and FRED car left after the caboose pass; nothing refused it.
+            row["fix"] = (f"{gate}: {GATES[gate][0]}. The train needs no caboose or FRED car here, so the builder "
+                          "drops this one; nothing refused it. Fix: Edit Train, Requires, only if this train "
+                          "should take it.")
         self.report["excluded_cars"].append(row)
         self.last_excluded = row
 
@@ -822,7 +836,7 @@ def _why_stuck(story: dict, ignored: set[str] = frozenset()) -> str:
     where the car may go), else the car's last refusal: the builder tries the route's stops in order and
     gives up after the last one, and a refusal of the train's own leg (length, moves) ends the search."""
     if story["outcome"] == HELD:
-        return "held for a scheduled spur that is not open now"
+        return _held_reason(story)
     if story["outcome"] == PICKUP_REFUSED:
         return "could not be picked up: " + "; ".join(story["attempts"][-1].get("refused", [])[:1])
     events = [(gate, a) for a in story["attempts"] for gate in a.get("gate_order", [])]
@@ -842,6 +856,23 @@ def _why_stuck(story: dict, ignored: set[str] = frozenset()) -> str:
     others = sorted(set(gates) - {gate}, key=_gate_order)
     tail = f"; other refusals: {', '.join(others)}" if others else ""
     return f"decided by {gate} ({test}); fix on {screen}: {setting}{tail}"
+
+
+HELD_BY_TRAIN = re.compile(r"Could not set destination for car \(.*?\) due to Train \((.+?)\)")
+
+
+def _held_reason(story: dict) -> str:
+    """Why the custom-load search held the car (TBC:1100-1104). _routeToTrackFound is set when another
+    train can carry it (TBC:1264-1275), or when Hold cars with custom loads is on at a spur that is full
+    (TBC:1231-1238) or that a route reaches (TBC:1260-1263)."""
+    held = [a for a in story["attempts"] if a["outcome"] == HELD] or story["attempts"][-1:]
+    texts = [e["text"] for a in held for e in a.get("events", [])] + [r for a in held for r in a.get("refused", [])]
+    trains = list(dict.fromkeys(m.group(1) for t in texts for m in [HELD_BY_TRAIN.search(t)] if m))
+    if trains:
+        return (f"train {', '.join(trains)} can take it towards a scheduled spur, so this train "
+                "leaves it")
+    return ("waiting for a scheduled spur whose Hold cars with custom loads option is on: the spur is full, or only "
+            "a route by other trains reaches it")
 
 
 def _caboose_cause(report: dict, stories: list[dict], failure: dict) -> str:
@@ -906,9 +937,9 @@ def summarize(report: dict, stories: list[dict]) -> list[str]:
     if excluded:
         by_gate: dict[str, list[str]] = {}
         for row in excluded:
-            by_gate.setdefault(row["gate"] or "other", []).append(row["car"])
+            by_gate.setdefault(row["gate"] or row.get("group") or "other", []).append(row["car"])
         out.append("Excluded before the search: " + "; ".join(
-            f"{gate} {', '.join(cars)}" for gate, cars in sorted(by_gate.items(), key=lambda kv: _gate_order(kv[0]) if kv[0] != 'other' else ('Z', 0))) + ".")
+            f"{gate} {', '.join(cars)}" for gate, cars in sorted(by_gate.items(), key=lambda kv: _gate_order(kv[0]) if kv[0] in GATES else ('Z', 0))) + ".")
     stuck = [s for s in stories if s["outcome"] not in (ASSIGNED, DEFERRED)]
     ignored = {row["car"] for row in report["ignored_moves_done"]}
     for story in stuck:

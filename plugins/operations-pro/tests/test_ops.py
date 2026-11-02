@@ -580,7 +580,11 @@ class AuditFaults(Base):
         self.assert_found("route-direction-mismatch", "Main West, Tolvern")
 
     def test_track_direction_unserved(self):
-        self.assert_found("track-direction-unserved", "Brackwater Old Spur")
+        # Old Spur serves North and no road train calls there northbound, but Y20 switches Brackwater and a
+        # local switcher ignores track direction (TBB:1479-1482, 1618-1622), so JMRI works the spur.
+        # AuditAgainstJava.test_track_direction_* holds the case where the warning still fires.
+        self.assertFalse([f for f in self.report["findings"] if f["rule"] == "track-direction-unserved"
+                          and f["subject"] == "Brackwater Old Spur"])
 
     def test_route_stop_dead(self):
         self.assert_found("route-stop-dead", "Quarry Extra, Brackwater")
@@ -624,6 +628,81 @@ class AuditFaults(Base):
         engine_rules = {"engine-no-train", "engine-on-refusing-track", "engine-location-refuses-type",
                         "consist-split", "model-type-no-train", "model-type-no-track"}
         self.assertEqual([f for f in self.report["findings"] if f["rule"] in engine_rules], [])
+
+
+class AuditAgainstJava(Base):
+    """Audit rules held to the JMRI 5.16 code paths a second review traced. Each test edits its own copy."""
+
+    def fresh(self):
+        rr = ops_data.load(OPS)
+        return rr, Gates(rr)
+
+    @staticmethod
+    def hits(g, rule, subject=None):
+        return [f for f in g.audit()["findings"] if f["rule"] == rule and subject in (None, f["subject"])]
+
+    def test_blank_receive_on_another_spur_receives_a_custom_load(self):
+        # Schedule.java:490-494: a blank Receive passes any load; TBC:1070-1096 tries every other spur.
+        rr, g = self.fresh()
+        self.assertTrue(self.hits(g, "load-no-receiver", "Gondola Scrap"))  # the shed's own blank line never counts
+        rr.schedules["4"].items.append(ops_data.ScheduleItem(id="4c3", sequence=3, type="Gondola"))
+        self.assertFalse(self.hits(g, "load-no-receiver", "Gondola Scrap"))
+        single = self.hits(g, "single-receiver-load", "Gondola Scrap")
+        self.assertTrue(single and "Tolvern Coal Dock" in single[0]["message"])
+
+    def test_caboose_must_be_at_the_departure_not_anywhere_on_the_route(self):
+        # TBC:113/148/175 look only at the stop given; none there is buildErrorReqDepature (TBC:199-201).
+        rr, g = self.fresh()
+        train = rr.find_train("T30")
+        train.requires, train.caboose_road = 1, "QXR"
+        caboose = ops_data.Car(id="QXR9500", road="QXR", number="9500", type="Caboose", length="30",
+                               caboose=True, location_id="3", track_id="3s2")
+        rr.cars[caboose.id] = caboose
+        self.assertTrue(self.hits(g, "caboose-road-mismatch", "T30"))  # Tolvern is on the route, not the start
+        caboose.location_id, caboose.track_id = "1", "1s1"
+        self.assertFalse(self.hits(g, "caboose-road-mismatch", "T30"))
+
+    def test_track_direction_is_ignored_where_a_switcher_works(self):
+        rr, g = self.fresh()
+        self.assertFalse(self.hits(g, "track-direction-unserved", "Brackwater Old Spur"))
+        del rr.routes["4"]  # no switcher at Brackwater: only the road trains' directions count
+        self.assertTrue(self.hits(g, "track-direction-unserved", "Brackwater Old Spur"))
+
+    def test_track_direction_still_warns_where_no_switcher_calls(self):
+        rr, g = self.fresh()
+        rr.tracks["2s2"].dir = 4  # Ashgrove sees only East and West road trains
+        self.assertTrue(self.hits(g, "track-direction-unserved", "Ashgrove Cannery"))
+
+    def test_kernel_without_a_lead_flag_is_led_by_its_first_member(self):
+        # RollingStockGroup.java:40-42: the first car added leads; Car.load sets the flag only when stored.
+        rr, g = self.fresh()
+        first, second = rr.find_car("BVR3013"), rr.find_car("BVR3014")
+        second.track_id = first.track_id
+        first.lead = second.lead = False
+        self.assertFalse(self.hits(g, "kernel-split", "Pair"))
+        first.out_of_service = True
+        self.assertIn("No lead car", self.hits(g, "kernel-split", "Pair")[0]["message"])
+
+    def test_car_on_a_track_whose_location_refuses_the_type(self):
+        # Track.isTypeNameAccepted asks the location first (Track.java:977-982).
+        rr, g = self.fresh()
+        car = rr.find_car("BVR3017")
+        self.assertEqual(car.type, "Gondola")
+        car.location_id, car.track_id = "2", "2s2"
+        hit = self.hits(g, "car-on-refusing-track", str(car))
+        self.assertTrue(hit and "Ashgrove" in hit[0]["message"])
+
+    def test_stale_pick_up_day_does_not_stop_load_generation(self):
+        # TBB:2288-2303 tests only the set out day when it picks a line for a custom load.
+        rr, g = self.fresh()
+        line = rr.schedules["1"].items[0]
+        line.pickup_day = "99"
+        (pickup,) = self.hits(g, "day-stale-id", "Mill Receiving line 1c1")
+        self.assertIn("still used", pickup["message"])
+        self.assertNotIn("never", pickup["message"])
+        line.pickup_day, line.setout_day = "", "99"
+        (setout,) = self.hits(g, "day-stale-id", "Mill Receiving line 1c1")
+        self.assertIn("never uses", setout["message"])
 
 
 class EngineAudit(unittest.TestCase):

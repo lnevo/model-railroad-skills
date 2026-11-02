@@ -372,5 +372,56 @@ class Findings(unittest.TestCase):
         self.assertEqual([line.key for line in lines], ["buildCarLeadKernel", "buildCarPartOfKernel"])
 
 
+class SecondReview(unittest.TestCase):
+    """Reader findings a second review traced to JMRI 5.16; the comment on each names the Java."""
+
+    def test_car_on_another_departure_staging_track_has_no_gate(self):  # TBB:1036-1039, buildExcludeCarAtLoc
+        result = ops_report.explain("7- Remove cars from the other staging tracks:\n"
+                                    "7- Exclude car (BVR 8801) type (Tank) from staging (East Staging, East Stage 2)\n")
+        (row,) = result["excluded_cars"]
+        self.assertIsNone(row["gate"])
+        self.assertEqual(row["fix"], "")
+        self.assertIn("another staging track", row["note"])
+        self.assertIn("other staging track BVR 8801", result["summary"][0])
+        self.assertNotIn("B20", result["summary"][0])
+
+    def test_unneeded_caboose_keeps_b17_without_the_refusal_wording(self):  # TBB:770-786
+        report = parsed("7- Remove cars not needed by this train:",
+                        "7- Exclude car (BVR 9600) type (Caboose)  at location (Brackwater, Brackwater Yard A)")
+        (row,) = report["excluded_cars"]
+        self.assertEqual(row["gate"], "B17")
+        self.assertIn("nothing refused it", row["fix"])
+        self.assertNotIn("often B6", row["fix"])
+        # The direction refusal in the caboose search (TBC:115-119) keeps the general B17 fix.
+        (row,) = parsed("7- Exclude car (BVR 9001) type (Caboose)  at location (Brackwater, Brackwater Yard A)")["excluded_cars"]
+        self.assertIn("often B6 or C9", row["fix"])
+
+    def test_staging_redirect_is_not_a_refusal(self):  # TBC:1565-1571 changes the track and goes on
+        report = parsed(SEARCH, "7- Car (BVR 1001) has staging destination (East Staging, East Stage 2) wrong track")
+        events = only_story(report)[1][0]["events"]
+        self.assertEqual([(e["kind"], e.get("gate")) for e in events], [("note", None)])
+
+    def test_held_for_another_train_says_so(self):  # TBC:1264-1275 sets _routeToTrackFound for another train
+        summary = explained("BV2")["summary"]
+        line = next(x for x in summary if x.startswith("BVR 2001 held"))
+        self.assertIn("train BV1 can take it", line)
+        refused = " ".join(ops_report.explain(text("BV2"), car="BVR 2001")["story"]["attempts"][0]["refused"])
+        self.assertNotIn("no scheduled spur was reachable", refused)
+
+    def test_held_without_another_train_names_the_hold_option(self):  # TBC:1231-1238, 1260-1263
+        report = "\n".join(x for x in text("BV2").splitlines()
+                           if "Could not set destination for car (BVR 2001) due to Train" not in x)
+        line = next(x for x in ops_report.explain(report)["summary"] if x.startswith("BVR 2001 held"))
+        self.assertIn("Hold cars with custom loads", line)
+
+    def test_summary_names_the_last_refusal_not_the_most_frequent(self):  # diagnosis.md, the summary sentence
+        story = {"car": "BVR 1", "outcome": NO_DESTINATION,
+                 "attempts": [{"search": "default", "gate_order": ["G12", "G12", "D15", "E10", "D3"]}]}
+        self.assertTrue(ops_report._why_stuck(story).startswith("decided by D3 "))
+        doc = (ROOT / "skills" / "operations-pro" / "references" / "diagnosis.md").read_text()
+        self.assertIn("names the car's last refusal", doc)
+        self.assertNotIn("most frequent refusal", doc)
+
+
 if __name__ == "__main__":
     unittest.main()
