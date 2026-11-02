@@ -384,5 +384,49 @@ class TerminalTrack(Review):
                          "pass")
 
 
+class ManualLines(Review):
+    """manualBuild runs before removeCaboosesAndCarsWithFred (TB:104-106), so a line can place what the train
+    does not need."""
+
+    @staticmethod
+    def caboose_line(count):
+        def change(x):
+            track = x.track("3s4")
+            track.set("pickupOption", "Any")
+            for child in track.findall("pickupIds"):
+                track.remove(child)
+            build = ET.SubElement(x.root("trains").find("manualBuilds"), "manualBuild", id="9", trainId="6",
+                                  name="LOCAL-B", comment="")
+            ET.SubElement(build, "mbItem", id="9m1", sequenceId="1", trainScheduleId="", type="Caboose", road="",
+                          load="", count=str(count), warn="false", fail="false", remove="false")
+        return change
+
+    def test_one_line_for_two_cabooses_leaves_the_choice_to_the_build(self):
+        """Real build: LOCAL-B took JFN 1302 and left JFN 1301, on a line asking for one."""
+        folder = self.scenario(self.caboose_line(1))
+        for car in ("JFN 1301", "JFN 1302"):
+            out = self.why_not(folder, car, "Brae", None, "LOCAL-B")
+            self.assertEqual(self.gate(out, "B17")["status"], "not_checked", car)
+
+    def test_a_line_for_each_caboose_passes(self):
+        out = self.why_not(self.scenario(self.caboose_line(2)), "JFN 1301", "Brae", None, "LOCAL-B")
+        self.assertEqual(self.gate(out, "B17")["status"], "pass")
+        self.assertIn("B19", self.gate(out, "B17")["reason"])
+
+    def test_no_line_keeps_the_failure(self):
+        out = self.why_not(self.copy(), "JFN 1301", "Brae", None, "LOCAL-B")
+        self.assertEqual(self.gate(out, "B17")["status"], "fail")
+
+    def test_a_fred_car_the_train_does_not_need_is_gone_already(self):
+        """createCarList removes it before manualBuild runs, so no line can save it (TBB:952-957)."""
+        def change(x):
+            self.caboose_line(1)(x)
+            line = x.root("trains").find("./manualBuilds/manualBuild[@id='9']/mbItem")
+            line.set("type", "Boxcar")
+            x.car("JFN601").attrib.update(fred="true", locationId="3", secLocationId="3s1")
+        out = self.why_not(self.scenario(change), "JFN 601", "Brae", None, "LOCAL-B")
+        self.assertEqual(self.gate(out, "B17")["status"], "fail")
+
+
 if __name__ == "__main__":
     unittest.main()

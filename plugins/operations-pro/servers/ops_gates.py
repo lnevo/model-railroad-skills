@@ -147,7 +147,8 @@ GATES: dict[str, tuple[str, str, str]] = {
     "B15": ("Pick up day matches the active train schedule", "Train Schedules", "Active schedule, or the car's pick up day"),
     "B16": ("No wait count", CAR_SET, "Wait, which falls as trains that can serve the car build"),
     "B17": ("Caboose and FRED handled first", TRAIN,
-            "Requires; when a caboose or FRED car is there, what refused it is the cause (often B6 or C9)"),
+            "Requires, or a manual build line for the car; when a caboose or FRED car is there, what refused it is the "
+            "cause (often B6 or C9)"),
     "B18": ("Kernel together on one track", CAR, "Kernel, or move the members together"),
     "B19": ("Manual build lines", TRAIN, "Manual build lines"),
     "B20": ("Departure staging: car is on the track used, and every car there must leave", "the stuck car's own refusals",
@@ -1168,7 +1169,27 @@ class Gates:
         return out
 
     def _caboose_or_fred(self, car: Car, train: Train, stops: list[Stop], target: Track | None) -> dict:
-        """B17: addCabooseOrFredToTrain places the cabooses and FRED cars the train needs, then
+        """B17, with what a manual line can do. manualBuild runs after addCabooseOrFredToTrain and before
+        removeCaboosesAndCarsWithFred (TB:104-106), so a matching line reaches a caboose or FRED car the train
+        does not need, and B19 decides it. A FRED car on a train needing none left in createCarList (TBB:952-957)."""
+        result = self._needed_caboose_or_fred(car, train, stops, target)
+        if result["status"] != FAIL or (car.fred and not train.requires & REQUIRES_FRED):
+            return result
+        lines = [i for i in self.x.manual.get(train.id, [])
+                 if self._mb_count(i) > 0 and self._mb_matches(i, car, stops)]
+        if not lines:
+            return result
+        names = ", ".join(i.get("id", "?") for i in lines)
+        wanted = sum(self._mb_count(i) for i in lines)
+        rivals = sum(any(self._mb_matches(i, c, stops) for i in lines) and self._can_join(c, train)
+                     for c in self.rr.cars.values())
+        if rivals > wanted:
+            return self._gate("B17", NOT_CHECKED, f"{result['reason']}; but manual line {names} takes {wanted} of the "
+                                                  f"{rivals} cars that match, and the rest are dropped")
+        return self._gate("B17", PASS, f"manual line {names} reaches the car before the builder drops it; B19 decides")
+
+    def _needed_caboose_or_fred(self, car: Car, train: Train, stops: list[Stop], target: Track | None) -> dict:
+        """addCabooseOrFredToTrain places the cabooses and FRED cars the train needs, then
         removeCaboosesAndCarsWithFred drops every other one from the build (TB:104-106, TBC:42-268)."""
         rr, gate = self.rr, self._gate
         if not (car.caboose or car.fred):
