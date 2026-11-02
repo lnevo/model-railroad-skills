@@ -1,0 +1,152 @@
+1- Build Report for train (T1) built on 11/01/2026 22:07
+1- JMRI version 5.16+R909e15189e
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (T1):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (T1):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Alden)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (T1) route (Birch Turn):
+3- 1r1 Location (Alden) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r2 Location (Birch) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r3 Location (Alden) Westbound requests 5 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (Birch Turn) requests 7 cars and 15 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (T1)
+5- 0 locomotives at location (Alden):
+7-  
+5- 0 locomotives at location (Birch):
+7-  
+5-  
+5- Train (T1) services car types:
+5- Baggage, Boxcar, Caboose, Coal, Coilcar, FlatBHPaper, FlatBHWood, FlatBulkHead, 
+5- FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, Gondola, HopChem, HopCmnt, 
+5- HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, Passenger, ReefMech, 
+5- Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+5-  
+1- Found 14 cars for train (T1)
+5- 7 cars at location (Alden):
+7- Car (AB 106) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (AB 105) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (AB 104) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (AB 103) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (AB 102) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (AB 101) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7- Car (AB 100) type (Boxcar) at (Alden, Alden Yard) 0 moves
+7-  
+5- 7 cars at location (Birch):
+7- Car (AB 204) type (Boxcar) at (Birch, Birch Mill) 0 moves
+7- Car (AB 203) type (Boxcar) at (Birch, Birch Mill) 0 moves
+7- Car (AB 202) type (Boxcar) at (Birch, Birch Mill) 0 moves
+7- Car (AB 201) type (Boxcar) at (Birch, Birch Mill) 0 moves
+7- Car (AB 200) type (Boxcar) at (Birch, Birch Mill) 0 moves
+7- Car (AB 206) type (Boxcar) at (Birch, Birch Mill) 0 moves
+7- Car (AB 205) type (Boxcar) at (Birch, Birch Mill) 0 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Alden)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (7) for train (T1) the number available (14) building train!
+3-  
+3- Use Normal mode when building this train
+1- Route location (Alden) id 1r1 requests 5 moves, 5/5 moves are available
+5-  
+5- Find destinations for (AB 106) type (Boxcar) empty (E) at yard (Alden, Alden Yard)
+5- Searching location (Birch) route id 1r2 for possible destination
+7- Track (Birch Mill) planned pick ups 100%. Track length 330 feet, used 308 feet, reserved 
+7- 0 feet, drops 0 feet, pulls 0 feet, available 330 feet 
+5- Car (AB 106) can go to spur (Birch, Birch Mill) 0/5 moves used
+5- Searching location (Alden) route id 1r3 for possible destination
+7- Car (AB 106) location is equal to destination (Alden) skipping this destination
+3- Car (AB 106) assigned to train, destination (Birch, Birch Mill)
+3-  
+5- Find destinations for (AB 105) type (Boxcar) empty (E) at yard (Alden, Alden Yard)
+5- Searching location (Birch) route id 1r2 for possible destination
+7- Track (Birch Mill) planned pick ups 100%. Track length 330 feet, used 308 feet, reserved 
+7- 44 feet, drops 44 feet, pulls 0 feet, available 286 feet 
+5- Car (AB 105) can go to spur (Birch, Birch Mill) 1/5 moves used
+5- Searching location (Alden) route id 1r3 for possible destination
+7- Car (AB 105) location is equal to destination (Alden) skipping this destination
+3- Car (AB 105) assigned to train, destination (Birch, Birch Mill)
+3-  
+5- Find destinations for (AB 104) type (Boxcar) empty (E) at yard (Alden, Alden Yard)
+5- Searching location (Birch) route id 1r2 for possible destination
+7- Track (Birch Mill) planned pick ups 100%. Track length 330 feet, used 308 feet, reserved 
+7- 88 feet, drops 88 feet, pulls 0 feet, available 242 feet 
+5- Car (AB 104) can go to spur (Birch, Birch Mill) 2/5 moves used
+5- Searching location (Alden) route id 1r3 for possible destination
+7- Car (AB 104) location is equal to destination (Alden) skipping this destination
+3- Car (AB 104) assigned to train, destination (Birch, Birch Mill)
+3-  
+5- Find destinations for (AB 103) type (Boxcar) empty (E) at yard (Alden, Alden Yard)
+5- Searching location (Birch) route id 1r2 for possible destination
+7- Track (Birch Mill) planned pick ups 100%. Track length 330 feet, used 308 feet, reserved 
+7- 132 feet, drops 132 feet, pulls 0 feet, available 198 feet 
+5- Car (AB 103) can go to spur (Birch, Birch Mill) 3/5 moves used
+5- Searching location (Alden) route id 1r3 for possible destination
+7- Car (AB 103) location is equal to destination (Alden) skipping this destination
+3- Car (AB 103) assigned to train, destination (Birch, Birch Mill)
+3-  
+5- Find destinations for (AB 102) type (Boxcar) empty (E) at yard (Alden, Alden Yard)
+5- Searching location (Birch) route id 1r2 for possible destination
+7- Track (Birch Mill) planned pick ups 100%. Track length 330 feet, used 308 feet, reserved 
+7- 176 feet, drops 176 feet, pulls 0 feet, available 154 feet 
+5- Car (AB 102) can go to spur (Birch, Birch Mill) 4/5 moves used
+5- Searching location (Alden) route id 1r3 for possible destination
+7- Car (AB 102) location is equal to destination (Alden) skipping this destination
+3- Car (AB 102) assigned to train, destination (Birch, Birch Mill)
+3-  
+1- Success 5/5 cars at location (Alden) assigned to train (T1)
+7- The following cars were ignored, requested moves (5) for location (Alden) completed
+7- Car (AB 101) type (Boxcar) empty (E) at (Alden, Alden Yard)
+7- Car (AB 100) type (Boxcar) empty (E) at (Alden, Alden Yard)
+7-  
+1- Route location (Birch) id 1r2 requests 0 moves, 0/5 moves are available
+5-  
+1- Success 0/0 cars at location (Birch) assigned to train (T1)
+7- The following cars were ignored, requested moves (5) for location (Birch) completed
+7- Car (AB 204) type (Boxcar) empty (E) at (Birch, Birch Mill)
+7- Car (AB 203) type (Boxcar) empty (E) at (Birch, Birch Mill)
+7- Car (AB 202) type (Boxcar) empty (E) at (Birch, Birch Mill)
+7- Car (AB 201) type (Boxcar) empty (E) at (Birch, Birch Mill)
+7- Car (AB 200) type (Boxcar) empty (E) at (Birch, Birch Mill)
+7- Car (AB 206) type (Boxcar) empty (E) at (Birch, Birch Mill)
+7- Car (AB 205) type (Boxcar) empty (E) at (Birch, Birch Mill)
+7-  
+1- Route location (Alden) id 1r3 requests 5 moves, 5/5 moves are available
+5-  
+5- Find destinations for (AB 101) type (Boxcar) empty (E) at yard (Alden, Alden Yard)
+5- Did not assign a destination for car (AB 101)
+5-  
+5- Find destinations for (AB 100) type (Boxcar) empty (E) at yard (Alden, Alden Yard)
+5- Did not assign a destination for car (AB 100)
+5-  
+1- Partial 0/5 cars at location (Alden) assigned to train (T1)
+1- Partial 5/7 cars
+5- Build for train (T1) took 409 mSec

@@ -1,0 +1,64 @@
+{
+ "builds": {
+  "BV1": {
+   "built": true,
+   "cars": [
+    "BVR1004 > East Staging / East Stage 2",
+    "BVR1101 > Tolvern / Tolvern Yard",
+    "BVR1102 > East Staging / East Stage 2",
+    "BVR3005 > East Staging / East Stage 2",
+    "BVR3006 > Tolvern / Tolvern Yard",
+    "BVR3008 > East Staging / East Stage 2",
+    "BVR3019 > Brackwater / Brackwater Yard B",
+    "BVR5001 > Tolvern / Tolvern Yard",
+    "BVR5002 > East Staging / East Stage 2"
+   ],
+   "failed": false,
+   "status": "Partial 9/12 cars"
+  },
+  "BV2": {
+   "built": true,
+   "cars": [
+    "BVR1001 > West Staging / West Stage 2",
+    "BVR1002 > West Staging / West Stage 2",
+    "BVR1003 > West Staging / West Stage 2",
+    "BVR1103 > Ashgrove / Ashgrove Feed Mill",
+    "BVR1104 > West Staging / West Stage 2",
+    "QXR3009 > West Staging / West Stage 2"
+   ],
+   "failed": false,
+   "status": "Partial 6/12 cars"
+  },
+  "T10": {
+   "built": true,
+   "cars": [
+    "QXR3018 > Brackwater / Lakeshore Interchange"
+   ],
+   "failed": false,
+   "status": "Partial 1/7 cars"
+  },
+  "T30": {
+   "built": true,
+   "cars": [
+    "BVR2001 > Tolvern / Tolvern Coal Dock",
+    "BVR3016 > Tolvern / Tolvern Yard",
+    "BVR3017 > Tolvern / Tolvern Scrap Shed"
+   ],
+   "failed": false,
+   "status": "Partial 3/5 cars"
+  },
+  "X99": {
+   "built": false,
+   "cars": [],
+   "failed": true,
+   "status": "Build Failed"
+  },
+  "Y20": {
+   "built": true,
+   "cars": [],
+   "failed": false,
+   "status": "Partial 0/5 cars"
+  }
+ },
+ "jmri": "5.16+R909e15189e"
+}

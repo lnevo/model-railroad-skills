@@ -6,6 +6,11 @@
       "name": "model-railroad-skills",
       "source": "./",
       "description": "Skills and read-only live tools for JMRI, stock JMRI MQTT, CATS and STS."
+    },
+    {
+      "name": "operations-pro",
+      "source": "./plugins/operations-pro",
+      "description": "Build, change, run and diagnose a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first: setup from scratch with a plan you see first, sessions in a live JMRI, and build reports explained."
     }
   ]
 }

@@ -1,0 +1,422 @@
+1- Build Report for train (BV1) built on 11/01/2026 15:11
+1- JMRI version 5.16+R909e15189e
+1- Active schedule: Monday
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+1-  
+1- Invented railroad with deliberate faults, for tests.
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Staging build options:
+5- Try Normal Mode if Build Failure from Staging
+5-  
+5- Car routing options:
+5- Car routing via yards is enabled
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (BV1):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (BV1):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (East Staging)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (BV1) route (Main East):
+3- 1r1 Staging (West Staging) Eastbound requests 5 pick ups, set outs,  
+3- maximum train length 1,000 feet 
+3- 1r2 Location (Ashgrove) Eastbound requests 5 pick ups, set outs,  maximum 
+3- train length 1,000 feet 
+3- 1r3 Location (Brackwater) Eastbound requests 5 pick ups, set outs,  
+3- maximum train length 1,000 feet 
+3- 1r4 Location (Tolvern) Eastbound requests 5 pick ups, set outs,  maximum 
+3- train length 1,000 feet 
+3- 1r5 Staging (East Staging) Eastbound requests 5 pick ups, set outs,  
+3- train terminates 
+1- Route (Main East) requests 12 cars and 25 moves
+1-  
+1- Train requirements:
+1- Train departs (West Staging) with a single locomotive, model (GP9) road ()
+5- Train (BV1) services locomotive types:
+5- Diesel
+7-  
+1- Found 3 locomotives for train (BV1)
+5- 1 locomotives available from staging (West Staging):
+7- Loco (BV 101) type (Diesel) model (GP9) at (West Staging, West Stage 1) 0 
+7- moves 
+7-  
+5- 0 locomotives at location (Ashgrove):
+7-  
+5- 1 locomotives at location (Brackwater):
+7- Loco (BV 103) type (Diesel) model (GP9) at (Brackwater, Brackwater Yard 
+7- A) 0 moves 
+7-  
+5- 0 locomotives at location (Tolvern):
+7-  
+5- 1 locomotives available from staging (East Staging):
+7- Loco (BV 102) type (Diesel) model (GP9) at (East Staging, East Stage 1) 0 
+7- moves 
+7-  
+3-  
+1- Train terminates into staging at (East Staging), there are 2 tracks
+5- Staging track (East Stage 1) is occupied, found 1 locomotive(s) and 2 cars
+7- Train (BV1) can terminate to staging track (East Stage 2)
+1- Staging track (East Stage 2) is available at destination (East Staging)
+3-  
+1- Train will depart staging (West Staging), there are 2 tracks
+3- Staging track (West Stage 1) has 1 loco(s) and 2 cars
+5- Train (BV1) can depart from staging track (West Stage 1)
+5- Search for 1 loco(s), model (GP9), road (), departing (West Staging), 
+5- destination (East Staging) 
+1- Loco (BV 101) assigned to train, departs (West Staging) destination (East 
+1- Staging, East Stage 2) 
+7- Done assigning locomotives from staging
+7- Done assigning locomotives to train (BV1)
+5-  
+5- Train (BV1) Exclude car roads: QXR
+5-  
+5- Train (BV1) services car types:
+5- Boxcar, Caboose, Gondola, Hopper, Scalecar, Tank
+5- Train (BV1) Exclude loads: Tank & Acid
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (BVR 3007) type (Boxcar) C/I (Brackwater, Quarry Interchange) 
+7- destination restrictions can not be serviced by this train's route 
+7- Exclude car (QXR 3009) at (Brackwater, Brackwater Yard B) type (Boxcar)  
+7- train doesn't service road (QXR) 
+7- Exclude car (BVR 3002) location unknown, last known location (Brackwater, 
+7- Brackwater Yard A) 
+7- Exclude car (BVR 3001) out of service, car's location (Brackwater, 
+7- Brackwater Yard A) 
+7- Exclude car (BVR 4003) type (Tank) train doesn't service load (Acid)
+7- Exclude car (BVR 4002) at (Brackwater, Brackwater Old Spur) train doesn't 
+7- service type (Reefer) 
+7- Exclude car (BVR 4001) at (Brackwater, Brackwater Yard A) train doesn't 
+7- service type (Flatcar) 
+7- Exclude car (QXR 3018) at (Ashgrove, Ashgrove Feed Mill) type (Boxcar)  
+7- train doesn't service road (QXR) 
+7- Exclude car (BVR 3012) type (Boxcar) at location (Brackwater, Brackwater 
+7- Yard A) scheduled pickup on (Tuesday) 
+7- Exclude car (BVR 3011) type (Boxcar) at (Brackwater, Brackwater Yard A) 
+7- wait (9) 
+7- Train (BV1) can service car (BVR 3011) decrementing wait count to (8)
+7- Exclude car with FRED (BVR 3010) type (Boxcar) at location (Brackwater, 
+7- Brackwater Yard A) 
+1- WARNING! Exclude (BVR 3003) at location (Brackwater) no track assignment
+7-  
+7- Remove cars from the other staging tracks:
+5-  
+5- Departing staging (West Staging, West Stage 1) with 2 cars
+7- Staging car (BVR 1102) type (Boxcar) empty (Mty)
+7- Staging car (BVR 1101) type (Boxcar) load (L)
+5-  
+1- Found 19 cars for train (BV1)
+5- 2 cars in staging (West Staging):
+7- Car (BVR 1102) type (Boxcar) at (West Staging, West Stage 1) 0 moves
+7- Car (BVR 1101) type (Boxcar) at (West Staging, West Stage 1) 0 moves
+7-  
+5- 2 cars at location (Ashgrove):
+7- Car (BVR 1004) type (Boxcar) at (Ashgrove, Ashgrove Feed Mill) 0 moves
+7- Car (BVR 3019) type (Boxcar) at (Ashgrove, Ashgrove Cannery) 0 moves
+7-  
+5- 12 cars at location (Brackwater):
+7- Car (BVR 5002) type (Boxcar) at (Brackwater, Brackwater Team Track) 0 
+7- moves 
+7- Car (BVR 5001) type (Boxcar) at (Brackwater, Brackwater Team Track) 0 
+7- moves 
+7- Car (BVR 3008) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 3006) type (Boxcar) at (Brackwater, Lakeshore Interchange) 0 
+7- moves 
+7- Car (BVR 1003) type (Boxcar) at (Brackwater, Brackwater Yard B) 0 moves
+7- Car (BVR 1002) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 1001) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 4005) type (Scalecar) at (Brackwater, Brackwater Old Spur) 0 
+7- moves 
+7- Car (BVR 2001) type (Hopper) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 3017) type (Gondola) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 3016) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7- Car (BVR 3015) type (Boxcar) at (Brackwater, Brackwater Yard A) 0 moves
+7-  
+5- 3 cars at location (Tolvern):
+7- Car (BVR 3005) type (Boxcar) at (Tolvern, Tolvern Yard) 0 moves
+7- Car (BVR 4004) type (Gondola) at (Tolvern, Tolvern Scrap Shed) 0 moves
+7- Car (BVR 2002) type (Hopper) at (Tolvern, Tolvern Yard) 0 moves
+7-  
+5- 0 cars in staging (East Staging):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (West Staging)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (12) for train (BV1) the number available (19) building 
+3- train! 
+3-  
+3- Use Normal mode when building this train
+1- Route location (West Staging) id 1r1 requests 5 moves, 5/5 moves are 
+1- available 
+5-  
+5- Find destinations for (BVR 1102) type (Boxcar) empty (Mty) at staging 
+5- (West Staging, West Stage 1) 
+5- Searching location (Ashgrove) route id 1r2 for possible destination
+5- Car (BVR 1102) can go to spur (Ashgrove, Ashgrove Feed Mill) 0/5 moves 
+5- used 
+5- Searching location (Brackwater) route id 1r3 for possible destination
+7- Can't send (BVR 1102) to yard (Brackwater, Brackwater Yard A) due to 
+7- rolling stock length 44 feet, track length 400 feet, available track 
+7- space -277 feet 
+5- Car (BVR 1102) can go to yard (Brackwater, Brackwater Yard B) 0/5 moves 
+5- used 
+5- Searching location (Tolvern) route id 1r4 for possible destination
+7- Can't send (BVR 1102) directly to alternate C/I (Tolvern, Tolvern 
+7- Interchange) 
+7- Can't send (BVR 1102) to spur (Tolvern, Tolvern Coal Dock) due to 
+7- schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Can't send (BVR 1102) to spur (Tolvern, Tolvern Scrap Shed) due to 
+7- schedule (Scrap Shed) doesn't service car type (Boxcar) 
+5- Car (BVR 1102) can go to yard (Tolvern, Tolvern Yard) 0/5 moves used
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Car (BVR 1102) can go to staging (East Staging, East Stage 2) 0/5 moves 
+5- used 
+3- Car (BVR 1102) assigned to train, destination (East Staging, East Stage 2)
+3-  
+5- Find destinations for (BVR 1101) type (Boxcar) load (L) at staging (West 
+5- Staging, West Stage 1) 
+5- Searching location (Ashgrove) route id 1r2 for possible destination
+7- Can't send (BVR 1101) to spur (Ashgrove, Ashgrove Feed Mill) due to 
+7- schedule (Mill Receiving) in match mode, no match 
+7- Can't send (BVR 1101) to spur (Ashgrove, Ashgrove Cannery) due to 
+7- schedule (Cannery Line) requests car type (Tank) 
+5- Could not find a track for (BVR 1101) at destination (Ashgrove)
+5- Searching location (Brackwater) route id 1r3 for possible destination
+7- Can't send (BVR 1101) to yard (Brackwater, Brackwater Yard A) due to 
+7- rolling stock length 44 feet, track length 400 feet, available track 
+7- space -277 feet 
+5- Car (BVR 1101) can go to yard (Brackwater, Brackwater Yard B) 0/5 moves 
+5- used 
+5- Searching location (Tolvern) route id 1r4 for possible destination
+7- Can't send (BVR 1101) directly to alternate C/I (Tolvern, Tolvern 
+7- Interchange) 
+7- Can't send (BVR 1101) to spur (Tolvern, Tolvern Coal Dock) due to 
+7- schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Can't send (BVR 1101) to spur (Tolvern, Tolvern Scrap Shed) due to 
+7- schedule (Scrap Shed) doesn't service car type (Boxcar) 
+5- Car (BVR 1101) can go to yard (Tolvern, Tolvern Yard) 0/5 moves used
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Car (BVR 1101) can go to staging (East Staging, East Stage 2) 1/5 moves 
+5- used 
+3- Car (BVR 1101) assigned to train, destination (Tolvern, Tolvern Yard)
+3-  
+1- Partial 2/5 cars at location (West Staging) assigned to train (BV1)
+1- Route location (Ashgrove) id 1r2 requests 5 moves, 5/5 moves are available
+5-  
+5- Find spur for car (BVR 1004) type (Boxcar) custom load (Feed) at spur 
+5- (Ashgrove, Ashgrove Feed Mill) 
+7- Spur (Tolvern, Tolvern Coal Dock) can't service car (BVR 1004) with load 
+7- (Feed) due to schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Spur (Tolvern, Tolvern Scrap Shed) can't service car (BVR 1004) with load 
+7- (Feed) due to schedule (Scrap Shed) doesn't service car type (Boxcar) 
+7- Spur (Ashgrove, Ashgrove Cannery) is in sequential mode and schedule 
+7- (Cannery Line) requests car type (Tank) 
+7- Spur (Ashgrove, Ashgrove Cannery) can't service car (BVR 1004) with load 
+7- (Feed) due to schedule (Cannery Line) requests car type (Tank) 
+7- Spur at (Brackwater, Brackwater Old Spur) no schedule
+7- Spur at (Brackwater, Brackwater Team Track) no schedule
+7-  
+7- Try spur (Ashgrove-North, North Elevator) division () for car (BVR 1004) 
+7- with load (Feed) 
+7- Could not find a last hop C/I or yard track that can service car to 
+7- destination (Ashgrove-North) 
+7- Could not set destination for car (BVR 1004) due to could not route car
+7- Could not find a reachable spur for car (BVR 1004) load (Feed)
+7-  
+5- Try to send car (BVR 1004) custom load (Feed) to staging
+7- Staging (West Staging, West Stage 1) can accept car's load (Feed)
+7- Train (BV2) can transport car (BVR 1004) from spur (Ashgrove, Ashgrove 
+7- Feed Mill) to (West Staging, ) 
+7- Route for car (BVR 1004): (Ashgrove, Ashgrove Feed Mill)-> (West Staging, 
+7- ) 
+7- Train (BV1) can't transport car (BVR 1004) directly to (West Staging, )
+7- Staging (East Staging, East Stage 2) can accept car's load (Feed)
+7- Train (BV1) can transport car (BVR 1004) from spur (Ashgrove, Ashgrove 
+7- Feed Mill) to (East Staging, ) 
+7- Route for car (BVR 1004): (Ashgrove, Ashgrove Feed Mill)-> (East Staging, 
+7- ) 
+7- Car (BVR 1004) load (Feed) has assigned destination (East Staging, ) 
+7- final destination (East Staging, ) 
+5- Car (BVR 1004) doesn't have an assigned destination track
+5- Car (BVR 1004) assigned to staging track (East Stage 2)
+3- Car (BVR 1004) assigned to train, destination (East Staging, East Stage 2)
+3-  
+5- Find spur for car (BVR 3019) type (Boxcar) custom load (Feed) at spur 
+5- (Ashgrove, Ashgrove Cannery) 
+7- Spur (Tolvern, Tolvern Coal Dock) can't service car (BVR 3019) with load 
+7- (Feed) due to schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Spur (Tolvern, Tolvern Scrap Shed) can't service car (BVR 3019) with load 
+7- (Feed) due to schedule (Scrap Shed) doesn't service car type (Boxcar) 
+7- Spur (Ashgrove, Ashgrove Feed Mill) can't service car (BVR 3019) with 
+7- load (Feed) due to schedule (Mill Receiving) in match mode, no match 
+7- Spur at (Brackwater, Brackwater Old Spur) no schedule
+7- Spur at (Brackwater, Brackwater Team Track) no schedule
+7-  
+7- Try spur (Ashgrove-North, North Elevator) division () for car (BVR 3019) 
+7- with load (Feed) 
+7- Could not find a last hop C/I or yard track that can service car to 
+7- destination (Ashgrove-North) 
+7- Could not set destination for car (BVR 3019) due to could not route car
+7- Could not find a reachable spur for car (BVR 3019) load (Feed)
+7-  
+5- Try to send car (BVR 3019) custom load (Feed) to staging
+7- Staging (West Staging, West Stage 2) can accept car's load (Feed)
+7- Route for car (BVR 3019): (Ashgrove, Ashgrove Cannery)-> (Brackwater, 
+7- Brackwater Yard A)-> (West Staging, ) 
+7- Can't use yard (Brackwater, Brackwater Yard A) for (BVR 3019) due to 
+7- rolling stock length 44 feet, track length 400 feet, available track 
+7- space -277 feet 
+7- Route for car (BVR 3019): (Ashgrove, Ashgrove Cannery)-> (Brackwater, 
+7- Brackwater Yard B)-> (West Staging, ) 
+7- Car (BVR 3019) load (Feed) has assigned destination (Brackwater, 
+7- Brackwater Yard B) final destination (West Staging, ) 
+3- Car (BVR 3019) assigned to train, destination (Brackwater, Brackwater 
+3- Yard B) 
+3-  
+1- Partial 2/5 cars at location (Ashgrove) assigned to train (BV1)
+1- Route location (Brackwater) id 1r3 requests 4 moves, 4/5 moves are 
+1- available 
+5-  
+5- Find destinations for (BVR 5002) type (Boxcar) empty (Mty) at spur 
+5- (Brackwater, Brackwater Team Track) 
+5- Searching location (Tolvern) route id 1r4 for possible destination
+7- Can't send (BVR 5002) directly to alternate C/I (Tolvern, Tolvern 
+7- Interchange) 
+7- Can't send (BVR 5002) to spur (Tolvern, Tolvern Coal Dock) due to 
+7- schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Can't send (BVR 5002) to spur (Tolvern, Tolvern Scrap Shed) due to 
+7- schedule (Scrap Shed) doesn't service car type (Boxcar) 
+5- Car (BVR 5002) can go to yard (Tolvern, Tolvern Yard) 1/5 moves used
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Car (BVR 5002) can go to staging (East Staging, East Stage 2) 2/5 moves 
+5- used 
+3- Car (BVR 5002) assigned to train, destination (East Staging, East Stage 2)
+3-  
+5- Find destinations for (BVR 5001) type (Boxcar) empty (Mty) at spur 
+5- (Brackwater, Brackwater Team Track) 
+5- Searching location (Tolvern) route id 1r4 for possible destination
+7- Can't send (BVR 5001) directly to alternate C/I (Tolvern, Tolvern 
+7- Interchange) 
+7- Can't send (BVR 5001) to spur (Tolvern, Tolvern Coal Dock) due to 
+7- schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Can't send (BVR 5001) to spur (Tolvern, Tolvern Scrap Shed) due to 
+7- schedule (Scrap Shed) doesn't service car type (Boxcar) 
+5- Car (BVR 5001) can go to yard (Tolvern, Tolvern Yard) 1/5 moves used
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Car (BVR 5001) can go to staging (East Staging, East Stage 2) 3/5 moves 
+5- used 
+3- Car (BVR 5001) assigned to train, destination (Tolvern, Tolvern Yard)
+3-  
+5- Find destinations for (BVR 3008) type (Boxcar) empty (Mty) at yard 
+5- (Brackwater, Brackwater Yard A) 
+5- Searching location (Tolvern) route id 1r4 for possible destination
+7- Can't send (BVR 3008) directly to alternate C/I (Tolvern, Tolvern 
+7- Interchange) 
+7- Can't send (BVR 3008) to spur (Tolvern, Tolvern Coal Dock) due to 
+7- schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Can't send (BVR 3008) to spur (Tolvern, Tolvern Scrap Shed) due to 
+7- schedule (Scrap Shed) doesn't service car type (Boxcar) 
+5- Car (BVR 3008) can go to yard (Tolvern, Tolvern Yard) 2/5 moves used
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Car (BVR 3008) can go to staging (East Staging, East Stage 2) 3/5 moves 
+5- used 
+3- Car (BVR 3008) assigned to train, destination (East Staging, East Stage 2)
+3-  
+5- Find destinations for (BVR 3006) type (Boxcar) empty (Mty) at C/I 
+5- (Brackwater, Lakeshore Interchange) 
+5- Searching location (Tolvern) route id 1r4 for possible destination
+7- Can't send (BVR 3006) directly to alternate C/I (Tolvern, Tolvern 
+7- Interchange) 
+7- Can't send (BVR 3006) to spur (Tolvern, Tolvern Coal Dock) due to 
+7- schedule (Coal Dock) doesn't service car type (Boxcar) 
+7- Can't send (BVR 3006) to spur (Tolvern, Tolvern Scrap Shed) due to 
+7- schedule (Scrap Shed) doesn't service car type (Boxcar) 
+5- Car (BVR 3006) can go to yard (Tolvern, Tolvern Yard) 2/5 moves used
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Car (BVR 3006) can go to staging (East Staging, East Stage 2) 4/5 moves 
+5- used 
+3- Car (BVR 3006) assigned to train, destination (Tolvern, Tolvern Yard)
+3-  
+1- Success 4/4 cars at location (Brackwater) assigned to train (BV1)
+7- The following cars were ignored, requested moves (5) for location 
+7- (Brackwater) completed 
+7- Car (BVR 1003) type (Boxcar) load (Grain) at (Brackwater, Brackwater Yard 
+7- B) 
+7- Car (BVR 1002) type (Boxcar) empty (Mty) at (Brackwater, Brackwater Yard 
+7- A) 
+7- Car (BVR 1001) type (Boxcar) load (L) at (Brackwater, Brackwater Yard A)
+7- Car (BVR 4005) type (Scalecar) load (L) at (Brackwater, Brackwater Old 
+7- Spur) 
+7- Car (BVR 2001) type (Hopper) load (Coal) at (Brackwater, Brackwater Yard 
+7- A) 
+7- Car (BVR 3017) type (Gondola) empty (Mty) at (Brackwater, Brackwater Yard 
+7- A) 
+7- Car (BVR 3016) type (Boxcar) empty (Mty) at (Brackwater, Brackwater Yard 
+7- A) 
+7- Car (BVR 3015) type (Boxcar) load (Feed) at (Brackwater, Brackwater Yard 
+7- A) 
+7-  
+1- Route location (Tolvern) id 1r4 requests 2 moves, 2/5 moves are available
+5-  
+5- Find destinations for (BVR 3005) type (Boxcar) empty (Mty) at yard 
+5- (Tolvern, Tolvern Yard) 
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Car (BVR 3005) can go to staging (East Staging, East Stage 2) 4/5 moves 
+5- used 
+3- Car (BVR 3005) assigned to train, destination (East Staging, East Stage 2)
+3-  
+5- Find spur for car (BVR 4004) type (Gondola) custom load (Scrap) at spur 
+5- (Tolvern, Tolvern Scrap Shed) 
+7- Spur (Tolvern, Tolvern Coal Dock) can't service car (BVR 4004) with load 
+7- (Scrap) due to schedule (Coal Dock) doesn't service car type (Gondola) 
+7- Spur (Ashgrove, Ashgrove Cannery) can't service car (BVR 4004) with load 
+7- (Scrap) due to type (Gondola) 
+7- Spur (Ashgrove, Ashgrove Feed Mill) can't service car (BVR 4004) with 
+7- load (Scrap) due to type (Gondola) 
+7- Spur at (Brackwater, Brackwater Old Spur) no schedule
+7- Spur at (Brackwater, Brackwater Team Track) no schedule
+7- Spur (Ashgrove-North, North Elevator) can't service car (BVR 4004) with 
+7- load (Scrap) due to schedule (Elevator) doesn't service car type 
+7- (Gondola) 
+7- Could not find a reachable spur for car (BVR 4004) load (Scrap)
+7-  
+5- Try to send car (BVR 4004) custom load (Scrap) to staging
+7- Staging (West Staging, West Stage 1) can accept car's load (Scrap)
+7- Could not find a first hop C/I or yard track that can service car from 
+7- location (Tolvern) 
+7- Staging (East Staging, East Stage 2) can accept car's load (Scrap)
+7- Train (BV1) can't transport car (BVR 4004) to (East Staging, East Stage 
+7- 2) due to Train (BV1) no moves left for route (Main East) id 1r5 
+7- destination (East Staging) 
+7- Staging (Quarry Staging, Quarry Stage 1) can accept car's load (Scrap)
+7- Could not find a last hop C/I or yard track that can service car to 
+7- destination (Quarry Staging) 
+7- Couldn't find staging that would accept car (BVR 4004) and load (Scrap)
+5- Did not assign a destination for car (BVR 4004)
+5-  
+5- Find destinations for (BVR 2002) type (Hopper) empty (Mty) at yard 
+5- (Tolvern, Tolvern Yard) 
+5- Searching location (East Staging) route id 1r5 for possible destination
+5- Used 5/5 moves for route (Main East) id 1r5 destination (East Staging)
+5- Did not assign a destination for car (BVR 2002)
+5-  
+1- Partial 1/2 cars at location (Tolvern) assigned to train (BV1)
+1- No pick ups from staging (East Staging)
+1- Partial 9/12 cars
+1- Build report for train (BV1) has 1 warnings
+5- Build for train (BV1) took 527 mSec

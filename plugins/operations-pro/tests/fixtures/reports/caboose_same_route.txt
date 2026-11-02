@@ -1,0 +1,73 @@
+1- Build Report for train (BT) built on 11/01/2026 22:07
+1- JMRI version 5.16+R909e15189e
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Normal
+5-  
+5- Car routing options:
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (BT):
+5- Allow local moves if car has a custom load or FD
+5-  
+5- Disabled build options for train (BT):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Alden)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (BT) route (Brook Turn):
+3- 1r1 Location (Alden) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r2 Location (Brook) Eastbound requests 5 pick ups, set outs, local moves,  maximum 
+3- train length 1,000 feet 
+3- 1r3 Location (Alden) Westbound requests 5 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (Brook Turn) requests 7 cars and 15 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+1- Train must depart (Alden) with caboose, road ()
+7-  
+1- Found 0 locomotives for train (BT)
+5- 0 locomotives at location (Alden):
+7-  
+5- 0 locomotives at location (Brook):
+7-  
+5-  
+5- Train (BT) services car types:
+5- Baggage, Boxcar, Caboose, Coal, Coilcar, FlatBHPaper, FlatBHWood, FlatBulkHead, 
+5- FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, Gondola, HopChem, HopCmnt, 
+5- HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, Passenger, ReefMech, 
+5- Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7- Exclude car (AR 903) type (Caboose) previously set out by this train's route (Brook 
+7- Turn) at classification/interchange (Alden, Caboose Track) 
+7- Exclude car (AR 902) type (Caboose) previously set out by this train's route (Brook 
+7- Turn) at classification/interchange (Alden, Caboose Track) 
+7- Exclude car (AR 901) type (Caboose) previously set out by this train's route (Brook 
+7- Turn) at classification/interchange (Alden, Caboose Track) 
+7- Exclude car (AR 101) type (Boxcar) previously set out by this train's route (Brook Turn) 
+7- at classification/interchange (Alden, Caboose Track) 
+5-  
+1- Found 3 cars for train (BT)
+5- 0 cars at location (Alden):
+7-  
+5- 3 cars at location (Brook):
+7- Car (AR 104) type (Boxcar) at (Brook, Brook Siding) 3 moves
+7- Car (AR 103) type (Boxcar) at (Brook, Brook Siding) 3 moves
+7- Car (AR 102) type (Boxcar) at (Brook, Brook Siding) 3 moves
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+1- Train (BT) requires caboose, road () departing (Alden) destination (Alden)
+1- NOTE! To make a car a caboose you must select the caboose check box in the "Edit Car" 
+1- window 
+1- NOTE! The train has to also service the car type (Caboose)
+1- Train (BT) requires caboose, can't find caboose at departure (Alden)
+1- Build failed for train (BT)

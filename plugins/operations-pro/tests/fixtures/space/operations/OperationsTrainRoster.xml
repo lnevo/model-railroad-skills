@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xml/XSLT/operations-trains.xsl" type="text/xsl"?>
+<!DOCTYPE operations-config SYSTEM "/xml/DTD/operations-trains.dtd">
+<operations-config>
+  <options>
+    <trainScheduleOptions activeId="1" />
+  </options>
+  <trains>
+    <train id="1" name="BV1" description="Eastbound freight" departHour="08" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="1" engineRoad="" engineModel="GP9" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" leadEngine="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="" showTimes="true" carLoadOption="Exclude" carRoadOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="Main East" id="1" />
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <carLoads>
+        <carLoad name="Tank &amp; Acid" />
+      </carLoads>
+      <carRoads>
+        <carRoad name="QXR" />
+      </carRoads>
+    </train>
+    <train id="2" name="BV2" description="Westbound freight" departHour="08" departMinute="00" builtStartYear="1950" builtEndYear="1980" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" leadEngine="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="" showTimes="true" carLoadOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="Main West" id="2" />
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <carLoads>
+        <carLoad name="Tank &amp; Acid" />
+      </carLoads>
+    </train>
+    <train id="3" name="T10" description="Ashgrove turn" departHour="08" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" leadEngine="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="" showTimes="true" carLoadOption="Exclude" carOwnerOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="Ashgrove Turn" id="3" />
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <carLoads>
+        <carLoad name="Tank &amp; Acid" />
+      </carLoads>
+      <carOwners>
+        <carOwner name="Lessor" />
+      </carOwners>
+    </train>
+    <train id="4" name="Y20" description="Yard switcher" departHour="08" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" leadEngine="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="" showTimes="true" carLoadOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="Brackwater Switcher" id="4" />
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <carLoads>
+        <carLoad name="Tank &amp; Acid" />
+      </carLoads>
+    </train>
+    <train id="5" name="X99" description="Quarry extra" departHour="08" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="1" cabooseRoad="QXR" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" leadEngine="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="" showTimes="true" carLoadOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="Quarry Extra" id="5" />
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <carLoads>
+        <carLoad name="Tank &amp; Acid" />
+      </carLoads>
+    </train>
+    <train id="6" name="T30" description="Tolvern job" departHour="08" departMinute="00" builtStartYear="" builtEndYear="" numberEngines="0" engineRoad="" engineModel="" requires="0" cabooseRoad="" buildNormal="false" toTerminal="false" allowLocalMoves="true" allowReturn="false" allowThroughCars="true" serviceAll="false" sendCustomStaging="false" buildConsist="false" built="false" build="true" buildFailed="false" buildFailedMessage="" printed="false" modified="false" switchListStatus="" leadEngine="" status="Train reset" TerminationDate="" RequestedCars="0" statusCode="0" oldStatusCode="0" comment="" showTimes="true" carLoadOption="Exclude">
+      <rowColor name="" resetRowColor="" />
+      <route name="Tolvern Job" id="6" />
+      <types>
+        <carType name="Boxcar" />
+        <carType name="Caboose" />
+        <carType name="Gondola" />
+        <carType name="Hopper" />
+        <carType name="Tank" />
+        <carType name="Scalecar" />
+        <locoType name="Diesel" />
+      </types>
+      <carLoads>
+        <carLoad name="Tank &amp; Acid" />
+      </carLoads>
+    </train>
+  </trains>
+  <schedules>
+    <schedule id="1" name="Monday" />
+    <schedule id="2" name="Tuesday" />
+  </schedules>
+  <manualBuilds>
+    <manualBuild id="1" trainId="4" comment="">
+      <mbItem id="1m1" sequenceId="1" trainScheduleId="" type="Boxcar" road="" load="Mty" count="1" warn="false" fail="false" remove="false" routeLocationId="4r1" locTrackId="1s1" destinationId="1" destTrackId="1s3" />
+    </manualBuild>
+  </manualBuilds>
+</operations-config>

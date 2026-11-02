@@ -1,0 +1,227 @@
+1- Build Report for train (G1) built on 11/01/2026 22:07
+1- JMRI version 5.16+R909e15189e
+3- Build report detail level: Normal
+5- Build report detail level: Detailed
+7- Build report detail level: Very Detailed
+5-  
+5- Train Build Options:
+5- Build option is set to Aggressive
+5- Perform 2 passes
+5-  
+5- Staging build options:
+5-  
+5- Car routing options:
+5- Use all Trains when Routing
+5-  
+5- Enabled build options for train (G1):
+5- Allow local moves if car has a custom load or FD
+5- Allow cars to travel from origin to terminal
+5-  
+5- Disabled build options for train (G1):
+5- Use Normal mode when building this train
+5- Send all car pick ups to terminal (Iron)
+5- Service all cars with a final destination (FD)
+5- Send cars with custom loads to staging
+5- Build loco consist from single locos
+1-  
+3- Train (G1) route (Grain Run):
+3- 1r1 Staging (Gate Staging) Eastbound requests 7 pick ups, set outs, local moves,  
+3- maximum train length 400 feet 
+3- 1r2 Location (Hill) Eastbound requests 10 pick ups, set outs, local moves,  maximum 
+3- train length 400 feet 
+3- 1r3 Location (Iron) Eastbound requests 10 pick ups, set outs, local moves,  train 
+3- terminates 
+1- Route (Grain Run) requests 13 cars and 27 moves
+1-  
+1- Train requirements:
+1- Train does not require any locomotives
+7-  
+1- Found 0 locomotives for train (G1)
+5- 0 locomotives available from staging (Gate Staging):
+7-  
+5- 0 locomotives at location (Hill):
+7-  
+5- 0 locomotives at location (Iron):
+7-  
+3-  
+1- Train will depart staging (Gate Staging), there are 1 tracks
+3- Staging track (Gate 1) has 0 loco(s) and 7 cars
+5- Train (G1) can depart from staging track (Gate 1)
+7- Done assigning locomotives from staging
+5-  
+5- Train (G1) services car types:
+5- Baggage, Boxcar, Caboose, Coal, Coilcar, FlatBHPaper, FlatBHWood, FlatBulkHead, 
+5- FlatTimber, FlatTrailer, FlatWood, Flatcar, Gon-scrap, Gondola, HopChem, HopCmnt, 
+5- HopCoal, HopCoal-Ety, HopGrain, HopSand, Hopper, MOW, MOWBox, Passenger, ReefMech, 
+5- Reefer, ReeferIce, Stock, Tank Food, Tank Gas, Tank Kero, Tank Oil, Tank Veg 
+7-  
+7- Remove cars not serviced by this train:
+7-  
+7- Remove cars from the other staging tracks:
+5-  
+5- Departing staging (Gate Staging, Gate 1) with 7 cars
+7- Staging car (GR 706) type (Hopper) empty (E)
+7- Staging car (GR 705) type (Hopper) empty (E)
+7- Staging car (GR 704) type (Hopper) empty (E)
+7- Staging car (GR 703) type (Hopper) empty (E)
+7- Staging car (GR 702) type (Hopper) empty (E)
+7- Staging car (GR 701) type (Hopper) empty (E)
+7- Staging car (GR 700) type (Hopper) empty (E)
+5-  
+1- Found 14 cars for train (G1)
+5- 7 cars in staging (Gate Staging):
+7- Car (GR 706) type (Hopper) at (Gate Staging, Gate 1) 0 moves
+7- Car (GR 705) type (Hopper) at (Gate Staging, Gate 1) 0 moves
+7- Car (GR 704) type (Hopper) at (Gate Staging, Gate 1) 0 moves
+7- Car (GR 703) type (Hopper) at (Gate Staging, Gate 1) 0 moves
+7- Car (GR 702) type (Hopper) at (Gate Staging, Gate 1) 0 moves
+7- Car (GR 701) type (Hopper) at (Gate Staging, Gate 1) 0 moves
+7- Car (GR 700) type (Hopper) at (Gate Staging, Gate 1) 0 moves
+7-  
+5- 7 cars at location (Hill):
+7- Car (GR 806) type (Hopper) at (Hill, Hill Elevator) 0 moves
+7- Car (GR 805) type (Hopper) at (Hill, Hill Elevator) 0 moves
+7- Car (GR 804) type (Hopper) at (Hill, Hill Elevator) 0 moves
+7- Car (GR 803) type (Hopper) at (Hill, Hill Elevator) 0 moves
+7- Car (GR 802) type (Hopper) at (Hill, Hill Elevator) 0 moves
+7- Car (GR 801) type (Hopper) at (Hill, Hill Elevator) 0 moves
+7- Car (GR 800) type (Hopper) at (Hill, Hill Elevator) 0 moves
+7-  
+5- 0 cars at location (Iron):
+7-  
+7- Sort cars on FIFO and LIFO tracks:
+7-  
+5- Train does not require caboose when departing (Gate Staging)
+5- Train does not require car with FRED
+7-  
+7- Remove cars not needed by this train:
+3-  
+3- Requested cars (13) for train (G1) the number available (14) building train!
+3-  
+3- Multiple pass build (Aggressive Mode), begin 1 of 2 passes
+3- Departing staging in aggressive mode, find destinations from (Gate Staging) in next pass
+1- Route location (Gate Staging) id 1r1 requests 0 moves, 7/7 moves are available
+5-  
+1- Success 0/0 cars at location (Gate Staging) assigned to train (G1)
+1- Route location (Hill) id 1r2 requests 5 moves, 10/10 moves are available
+5-  
+5- Find destinations for (GR 806) type (Hopper) load (L) at spur (Hill, Hill Elevator)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 806) can go to yard (Iron, Iron Yard) 0/10 moves used
+3- Car (GR 806) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 805) type (Hopper) load (L) at spur (Hill, Hill Elevator)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 805) can go to yard (Iron, Iron Yard) 1/10 moves used
+3- Car (GR 805) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 804) type (Hopper) load (L) at spur (Hill, Hill Elevator)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 804) can go to yard (Iron, Iron Yard) 2/10 moves used
+3- Car (GR 804) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 803) type (Hopper) load (L) at spur (Hill, Hill Elevator)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 803) can go to yard (Iron, Iron Yard) 3/10 moves used
+3- Car (GR 803) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 802) type (Hopper) load (L) at spur (Hill, Hill Elevator)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 802) can go to yard (Iron, Iron Yard) 4/10 moves used
+3- Car (GR 802) assigned to train, destination (Iron, Iron Yard)
+3-  
+1- Success 5/5 cars at location (Hill) assigned to train (G1)
+1- Route location (Iron) id 1r3 requests 3 moves, 5/10 moves are available
+5-  
+5- No cars available for pick up at location (Iron)
+5-  
+1- Partial 0/3 cars at location (Iron) assigned to train (G1)
+3-  
+3- Multiple pass build (Aggressive Mode), begin 2 of 2 passes
+1- Route location (Gate Staging) id 1r1 requests 7 moves, 7/7 moves are available
+5-  
+5- Find destinations for (GR 706) type (Hopper) empty (E) at staging (Gate Staging, Gate 1)
+5- Searching location (Hill) route id 1r2 for possible destination
+7- Can't send (GR 706) to yard (Hill, Hill Yard) due to track capacity, rolling stock 
+7- length 44 feet is greater than track length 0 feet 
+7- Can't send (GR 706) to spur (Hill, Hill Elevator) due to load (E)
+5- Could not find a track for (GR 706) at destination (Hill)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 706) can go to yard (Iron, Iron Yard) 5/10 moves used
+3- Car (GR 706) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 705) type (Hopper) empty (E) at staging (Gate Staging, Gate 1)
+5- Searching location (Hill) route id 1r2 for possible destination
+7- Can't send (GR 705) to yard (Hill, Hill Yard) due to track capacity, rolling stock 
+7- length 44 feet is greater than track length 0 feet 
+7- Can't send (GR 705) to spur (Hill, Hill Elevator) due to load (E)
+5- Could not find a track for (GR 705) at destination (Hill)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 705) can go to yard (Iron, Iron Yard) 6/10 moves used
+3- Car (GR 705) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 704) type (Hopper) empty (E) at staging (Gate Staging, Gate 1)
+5- Searching location (Hill) route id 1r2 for possible destination
+7- Can't send (GR 704) to yard (Hill, Hill Yard) due to track capacity, rolling stock 
+7- length 44 feet is greater than track length 0 feet 
+7- Can't send (GR 704) to spur (Hill, Hill Elevator) due to load (E)
+5- Could not find a track for (GR 704) at destination (Hill)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 704) can go to yard (Iron, Iron Yard) 7/10 moves used
+3- Car (GR 704) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 703) type (Hopper) empty (E) at staging (Gate Staging, Gate 1)
+5- Searching location (Hill) route id 1r2 for possible destination
+7- Can't send (GR 703) to yard (Hill, Hill Yard) due to track capacity, rolling stock 
+7- length 44 feet is greater than track length 0 feet 
+7- Can't send (GR 703) to spur (Hill, Hill Elevator) due to load (E)
+5- Could not find a track for (GR 703) at destination (Hill)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Car (GR 703) can go to yard (Iron, Iron Yard) 8/10 moves used
+3- Car (GR 703) assigned to train, destination (Iron, Iron Yard)
+3-  
+5- Find destinations for (GR 702) type (Hopper) empty (E) at staging (Gate Staging, Gate 1)
+5- Searching location (Hill) route id 1r2 for possible destination
+7- Can't send (GR 702) to yard (Hill, Hill Yard) due to track capacity, rolling stock 
+7- length 44 feet is greater than track length 0 feet 
+7- Can't send (GR 702) to spur (Hill, Hill Elevator) due to load (E)
+5- Could not find a track for (GR 702) at destination (Hill)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Can't pick up (GR 702) length (44) feet using this route, it would exceed train's 
+5- maximum length (400) feet by 40 feet when departing (Hill) route id 1r2 
+5- Did not assign a destination for car (GR 702)
+5-  
+1- Warning car (GR 702) departing staging without a destination
+7-  
+5- Find destinations for (GR 701) type (Hopper) empty (E) at staging (Gate Staging, Gate 1)
+5- Searching location (Hill) route id 1r2 for possible destination
+7- Can't send (GR 701) to yard (Hill, Hill Yard) due to track capacity, rolling stock 
+7- length 44 feet is greater than track length 0 feet 
+7- Can't send (GR 701) to spur (Hill, Hill Elevator) due to load (E)
+5- Could not find a track for (GR 701) at destination (Hill)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Can't pick up (GR 701) length (44) feet using this route, it would exceed train's 
+5- maximum length (400) feet by 40 feet when departing (Hill) route id 1r2 
+5- Did not assign a destination for car (GR 701)
+5-  
+1- Warning car (GR 701) departing staging without a destination
+7-  
+5- Find destinations for (GR 700) type (Hopper) empty (E) at staging (Gate Staging, Gate 1)
+5- Searching location (Hill) route id 1r2 for possible destination
+7- Can't send (GR 700) to yard (Hill, Hill Yard) due to track capacity, rolling stock 
+7- length 44 feet is greater than track length 0 feet 
+7- Can't send (GR 700) to spur (Hill, Hill Elevator) due to load (E)
+5- Could not find a track for (GR 700) at destination (Hill)
+5- Searching location (Iron) route id 1r3 for possible destination
+5- Can't pick up (GR 700) length (44) feet using this route, it would exceed train's 
+5- maximum length (400) feet by 40 feet when departing (Hill) route id 1r2 
+5- Did not assign a destination for car (GR 700)
+5-  
+1- Warning car (GR 700) departing staging without a destination
+7-  
+1- BUILD FAILED could not find destinations for 3 car(s) departing from staging track (Gate 
+1- Staging, Gate 1) 
+1-  GR 702
+1-  GR 701
+1-  GR 700
+1- Build failed for train (G1)

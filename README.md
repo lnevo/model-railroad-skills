@@ -45,6 +45,14 @@ Skills are guidance. They tell Claude how the software behaves, but they don't r
 - **Can do:** cover compose services and profiles, environment settings, first-time database setup, web-app backups and restores, car photos and image upgrades, plus traps confirmed in source.
 - **Can't do:** cover any railroad's seed scripts, session tooling or helpers, or day-to-day operations in STS. It's checked against one fork of the Docker project, and fork-only features were left out.
 
+## Operations Pro (separate plugin)
+
+`operations-pro` builds, changes, runs and explains a JMRI OperationsPro railroad. Unlike everything above it writes data, with a plan shown first and JMRI exited, which is why it is a separate install. See [`plugins/operations-pro/README.md`](plugins/operations-pro/README.md).
+
+```
+claude plugin install operations-pro@model-railroad-skills
+```
+
 ## Live tools
 
 Both servers are read-only by design and run on your machine.
