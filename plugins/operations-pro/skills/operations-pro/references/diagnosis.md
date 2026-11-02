@@ -113,7 +113,7 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `terminal-staging-refuses-train` | With the staging restriction on (the default), no staging track at a train's terminal takes every car and locomotive type, road and load the train carries, so the build fails at A7; a track whose set out list names the train or its route is exempt |
 | `caboose-road-mismatch` | A required caboose road no caboose on the route has |
 | `caboose-interchange-same-route`, `caboose-track-direction` | A turn that needs a caboose (or FRED car) and can set it out on an interchange with Pick ups Any at its home, where the same route then cannot pull it (B6); cabooses on a track whose direction no train that needs one departs in (C9) |
-| `schedule-not-applied` | A car on a scheduled spur still holding the load a line receives to ship something else: it was there before the schedule or placed by hand, and nothing revisits it |
+| `schedule-not-applied` | A car on a scheduled spur still holding the load a line receives to ship something else: it was there before the schedule or placed by hand, and nothing revisits it. A load that a blank Ship line's flip gives is left out, as a real delivery gave it |
 | `route-direction-mismatch`, `route-stop-dead`, `track-direction-unserved` | A stop the location cannot serve, a stop with no moves possible, a track no stop serves |
 | `list-stale-id` | A pick up or set out list naming a deleted train or route |
 | `day-stale-id` | A schedule line or car naming a train schedule (day) that was deleted; JMRI treats it as any day, so clear it or set a real one |

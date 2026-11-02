@@ -192,6 +192,23 @@ class Locomotives(AuditCase):
         found = self.findings(edits, "engine-no-train")
         self.assertEqual([(f["subject"], f["severity"]) for f in found], [("JFN 52", "warning")])
 
+class ScheduleRules(AuditCase):
+    def test_a_load_from_a_blank_ship_flip_was_applied(self):
+        """Car.java:998: a line with a blank Ship flips the load. E to blank then L to Machinery leaves L on
+        the spur from a real delivery, and the next line waits for the next trip in."""
+        edits = self.edits()
+        edits.track("3s11").find("types").append(ET.Element("carType", {"name": "Boxcar"}))
+        edits.add_schedule("98", "3s11", [("Boxcar", "E", ""), ("Boxcar", "L", "Machinery")])
+        edits.car("BOXX1").attrib.update(locationId="3", secLocationId="3s11", load="L")
+        self.assertEqual(self.findings(edits, "schedule-not-applied"), [])
+
+    def test_a_load_no_flip_gives_is_still_reported(self):
+        edits = self.edits()
+        edits.track("3s11").find("types").append(ET.Element("carType", {"name": "Boxcar"}))
+        edits.add_schedule("97", "3s11", [("Boxcar", "L", "Machinery")])
+        edits.car("BOXX1").attrib.update(locationId="3", secLocationId="3s11", load="L")
+        self.assertEqual(len(self.findings(edits, "schedule-not-applied")), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

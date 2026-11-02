@@ -2263,12 +2263,29 @@ class Audit:
             lines = [i for i in schedule.items if i.type == car.type and i.receive == car.load
                      and i.ship and i.ship != car.load]
             ships = {i.ship for i in schedule.items if i.type == car.type}
-            if lines and car.load not in ships:
+            if lines and car.load not in ships and car.load not in self._blank_ship_flips(car, schedule):
                 yield _finding("schedule-not-applied", "warning", str(car),
                                f"Sits on {track.name} with {car.load}, which {schedule.name} line {lines[0].id} "
                                f"receives to ship {lines[0].ship}, but no line was applied, so it leaves with "
                                f"{car.load}.", CAR_SET,
                                "ops_session update_car load, or ops_deliver_car to another track and back")
+
+    def _blank_ship_flips(self, car: Car, schedule) -> set[str]:
+        """The loads a line with a blank Ship leaves behind: Car.java:998 flips an empty to the car's return
+        when loaded load and anything else to its return when empty load, so such a car was delivered."""
+        rr = self.rr
+        loaded, empty = car.rwl_load or rr.default_load, car.rwe_load or rr.default_empty
+        out = set()
+        for item in schedule.items:
+            if item.type != car.type or item.ship:
+                continue
+            if not item.receive:  # A blank Receive takes either kind.
+                out |= {loaded, empty}
+            elif self.g._load_type(replace(car, load=item.receive)) == "Empty":
+                out.add(loaded)
+            else:
+                out.add(empty)
+        return out
 
     def rule_caboose(self):
         rr = self.rr
@@ -2521,7 +2538,7 @@ class Audit:
     def rule_engine_trains(self):
         rr = self.rr
         carried = {kind for t in rr.trains.values() for kind in self.g._train_types(t)}
-        leads: dict[str, Engine] = {}
+        leads = {}
         for engine in self._engines():  # RollingStockGroup.add: the first member leads until one is named lead.
             if engine.consist and (engine.lead or engine.consist not in leads):
                 leads[engine.consist] = engine
