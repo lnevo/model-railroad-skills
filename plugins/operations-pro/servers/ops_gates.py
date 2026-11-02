@@ -394,7 +394,7 @@ class Gates:
         dest = rr.locations.get(stop.location_id)
         reach = stops.index(origin) + 1
         # A multiple pass build walks the whole route on each pass, with only part of each stop's moves on the
-        # first (TB:312-316, 400-409), so cars from stops after this car's can reach the stop ahead of it.
+        # first (TB:490-496, 563-573), so cars from stops after this car's can reach the stop ahead of it.
         if rr.option("buildOptions", "aggressive") and self.x.train.get(train.id, {}).get("buildNormal") != "true":
             reach = max(reach, stops.index(stop))
         upto = stops[:reach]
@@ -1241,7 +1241,7 @@ class Gates:
 
     def _mb_matches(self, item: dict, other: Car, train: Train, stops: list[Stop]) -> bool:
         """TrainBuilder.checkItem, for a car in the train's car list (on the route, no train, no destinations).
-        A rebuild resets the train first (Train:3197), and Car.reset:1078 restores the previous final
+        A rebuild resets the train first (Train:3197), and Car.reset:1088 restores the previous final
         destination, so a car on this train counts as it will stand then."""
         rr = self.rr
         own = bool(other.train_id) and other.train_id == train.id
@@ -2621,7 +2621,7 @@ class Audit:
 
     def rule_leg_caboose_stop(self):
         """A caboose change happens at the leg's start. To add one, getCaboose looks only at that stop
-        (TBC:113-175); to remove one, it is set out there. A location that refuses every caboose type can
+        (TBC:112-175); to remove one, it is set out there. A location that refuses every caboose type can
         hold none for the first and take none for the second, and the build fails."""
         rr = self.rr
         kinds = {c.type for c in rr.cars.values() if c.caboose}

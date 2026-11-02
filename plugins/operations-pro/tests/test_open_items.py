@@ -66,7 +66,7 @@ class AggressiveMoves(Review):
         return gates._move_competitors(car, train, stops, stops[0], stops[-1])
 
     def test_later_stops_compete_in_a_multiple_pass_build(self):
-        """TB:312-316 and 400-409: every pass walks the route, so later stops' cars can arrive first."""
+        """TB:490-496 and 563-573: every pass walks the route, so later stops' cars can arrive first."""
         self.assertGreater(self.competitors(self.scenario(self.aggressive)), self.competitors(self.copy()))
 
     def test_a_train_built_normally_keeps_route_order(self):
