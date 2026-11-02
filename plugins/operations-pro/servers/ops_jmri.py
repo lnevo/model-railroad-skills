@@ -207,6 +207,7 @@ def deliver_car(directory: str | Path, car: str, location: str, track: str) -> d
 
     def prepare(editor) -> tuple[list[str], tuple[str, ...]]:
         element = editor.car(target.id)
+        editor.clear_last_route(element)  # RollingStockSetFrame:476-479; the worker calls setLocation only.
         for attr in CAR_ATTRS:
             element.attrib.pop(attr, None)
             if new_car.get(attr):

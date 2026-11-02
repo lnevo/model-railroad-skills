@@ -32,7 +32,8 @@ def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) 
     random = str(line.get("random", "") or "")
     if random not in SCHEDULE_RANDOM:
         raise Refused(f"random must be blank or one of {', '.join(SCHEDULE_RANDOM[1:])} (percent), not {random!r}")
-    # ScheduleItem:347-351 parses count and wait with no catch: a bad value stops the load.
+    # ScheduleItem:347-351 parses count and wait with no catch: a value Java cannot read (a fraction, text,
+    # or above 2147483647) stops the whole location file loading, so _int_field holds them to Java's int.
     count = _int_field("count", line.get("count", 1), 1)
     wait = _int_field("wait", line.get("wait", 0))
     element = ET.Element("item", {
@@ -50,7 +51,9 @@ def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) 
 
 @action()
 def add_schedule(ed: Editor, name: str, lines: list[dict], comment: str = "") -> str:
-    """Add a schedule. Each line: type, and any of road, receive, ship, random, wait, count, setout_day, pickup_day, destination, track."""
+    """Add a schedule. Each line: type, and any of road, receive, ship, random, wait, count, setout_day, pickup_day, destination, track.
+    count and wait are whole numbers up to 2147483647 (Java's int): JMRI cannot load a file holding more."""
+    name = ed.check_name("schedule", name)
     if name in [s.get("name") for s in ed.schedules()]:
         raise Refused(f"Schedule {name!r} already exists; JMRI would share one schedule by name")
     if not lines:
@@ -99,6 +102,7 @@ def _no_holders(ed: Editor, schedule: ET.Element) -> None:
 def rename_schedule(ed: Editor, schedule: str, new: str) -> str:
     """Rename a schedule and the name copy each track keeps."""
     element = ed.schedule(schedule)
+    new = ed.check_name("schedule", new)
     if new in [s.get("name") for s in ed.schedules()]:
         raise Refused(f"Schedule {new!r} already exists")
     element.set("name", new)

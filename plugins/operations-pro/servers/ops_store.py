@@ -377,6 +377,12 @@ def restore(directory: str | Path, set_name: str, folder: str = "backups", file:
     for name in names:
         _replace(base, name, (source / name).read_bytes())
     out = {"restored": set_name, "files": names, "backup_of_previous_state": safety}
+    left = [n for n in FILES if n not in names and (base / n).is_file()]
+    if file is None and left:
+        # JMRI's own Restore does the same: it copies what the set holds (BackupBase.copyBackupSet:249-283).
+        out["not_restored"] = left
+        out["note"] = (f"The set has no {', '.join(left)}, so the current {'copies stay' if len(left) > 1 else 'one stays'}"
+                       ", with the newer state. Run ops_audit before starting JMRI.")
     if file is not None:
         out["note"] = ("Only this file came back. The others still hold the newer state, and they refer to "
                        "locations, tracks, trains and cars by id, so run ops_audit before starting JMRI.")

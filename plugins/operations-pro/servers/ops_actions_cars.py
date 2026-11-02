@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import split_name
 from ops_store import Refused
-from ops_actions import Editor, action, _indent
+from ops_actions import JAVA_INT, SETUP_FILE, Editor, action, _indent, _int_field
 
 
 # ---- Rolling stock ------------------------------------------------------------------
@@ -13,6 +13,9 @@ from ops_actions import Editor, action, _indent
 
 CAR_FIELDS = {"length": "length", "color": "color", "weight": "weight", "weight_tons": "weightTons", "built": "built",
               "owner": "owner", "comment": "comment", "rfid": "rfid", "value": "value", "blocking": "blocking"}
+# RollingStock:259-265 reads a length that is not a whole number as 0, and RollingStock:1561-1566 drops a
+# blocking value it cannot parse; so both must be ints JMRI reads (minimum, maximum).
+CAR_NUMBERS = {"length": (0, JAVA_INT[1]), "blocking": JAVA_INT}
 CAR_FLAGS = {"out_of_service": "outOfService", "location_unknown": "locUnknown", "passenger": "passenger",
              "hazardous": "hazardous", "caboose": "caboose", "fred": "fred", "utility": "utility"}
 
@@ -21,7 +24,7 @@ def _car_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
     for key, value in fields.items():
         if key in CAR_FIELDS:
             attr = CAR_FIELDS[key]
-            text = str(value)
+            text = str(_int_field(key, value, *CAR_NUMBERS[key])) if key in CAR_NUMBERS else str(value)
             element.attrib.pop(attr, None)
             if text and text != "0":
                 element.set(attr, text)
@@ -86,8 +89,12 @@ def _return_when(ed: Editor, element: ET.Element, prefix: str, value: dict | Non
 
 @action()
 def add_car(ed: Editor, road: str, number: str, type: str, length: int, location: str | None = None,
-            track: str | None = None, **fields) -> str:
-    """Add a car. New roads, colours, owners and lengths are registered too."""
+            track: str | None = None, force: bool = False, **fields) -> str:
+    """Add a car. New roads, colours, owners and lengths are registered too. A location needs a track, and the
+    car must suit it (type, and no longer than the track), as JMRI's Add Car window checks; force places it anyway."""
+    road = ed.check_name("road", road)
+    number = ed.check_name("road number", str(number))
+    length = _int_field("length", length, *CAR_NUMBERS["length"])
     identity = f"{road}{number}"
     if identity in [c.get("id") for c in ed.cars()]:
         raise Refused(f"Car {identity} already exists")
@@ -101,11 +108,32 @@ def add_car(ed: Editor, road: str, number: str, type: str, length: int, location
     holder.append(element)
     ed.register("lengths", "length", str(length), "value")
     element.set("load", empty)
-    if location:
-        _put(ed, element, location, track)
     _car_fields(ed, element, fields)
+    if location:
+        if not track:
+            raise Refused("Give the track too: JMRI's Add Car window refuses a location without a track "
+                          "(rsFullySelect), and a car with no track is left out of every build")
+        if not force:
+            _fits(ed, element, ed.location(location), ed._one(ed.location(location).findall("track"), track, "track"))
+        _put(ed, element, location, track)
     _indent(holder, 1)
     return f"Added car {road} {number}."
+
+
+def _fits(ed: Editor, car: ET.Element, place: ET.Element, target: ET.Element) -> None:
+    """What RollingStock.setLocation refuses and the Add Car window asks about (Track.isRollingStockAccepted:
+    the type at the track and its location, then a car longer than the whole track)."""
+    kind = car.get("type")
+    if kind not in ed.type_entries(target) or kind not in ed.type_entries(place):
+        raise Refused(f"{target.get('name')} does not take {kind}. Add the type there, or give force to place it anyway")
+    settings = ed.docs.get(SETUP_FILE)
+    unit = settings.root.find("./operations/settings") if settings is not None else None
+    couplers = 1 if unit is not None and unit.get("lengthUnit") == "Meter" else 4  # RollingStock.COUPLERS.
+    need = int(car.get("length", "0")) + couplers
+    have = int(target.get("length", "0")) if target.get("length", "0").isdigit() else 0
+    if need > have and not target.get("pool"):
+        raise Refused(f"{car.get('roadName')} {car.get('roadNumber')} needs {need} with couplers and "
+                      f"{target.get('name')} is {have} long. Give force to place it anyway")
 
 
 @action(session=True)
@@ -132,7 +160,8 @@ def _put(ed: Editor, element: ET.Element, location: str, track: str | None) -> N
 
 @action(session=True)
 def place_car(ed: Editor, car: str, location: str, track: str, force: bool = False) -> str:
-    """Set a car where it really is. No schedule runs and no move is counted. Use JMRI's Set Car to apply a schedule."""
+    """Set a car where it really is. No schedule runs and no move is counted. Use JMRI's Set Car to apply a schedule.
+    As Set Car does, a car that moves forgets the train that last set it out."""
     element = ed.car(car)
     _free(element)
     if element.get("kernel") and element.get("leadKernel") != "true":
@@ -149,7 +178,10 @@ def place_car(ed: Editor, car: str, location: str, track: str, force: bool = Fal
                 raise Refused(f"{target.get('name')} does not take {member.get('type')}")
     for member in members:
         _free(member)
+        was = (member.get("locationId"), member.get("secLocationId"))
         _put(ed, member, location, track)
+        if was != (member.get("locationId"), member.get("secLocationId")):
+            ed.clear_last_route(member)  # Set Car forgets the train that set it out (RollingStockSetFrame:472-479).
     return f"Placed {len(members)} car(s) on {target.get('name')}."
 
 

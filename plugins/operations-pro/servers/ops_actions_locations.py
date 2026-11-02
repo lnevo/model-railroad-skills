@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from ops_data import (ALL, ANY, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, INTERCHANGE, ROUTES, SPUR, STAGING,
                       TRAINS, YARD)
 from ops_store import Refused
-from ops_actions import (Editor, LOAD_BITS, SPUR_BITS, STAGING_BITS, TRACK_CHILDREN, action, _bool, _indent,
+from ops_actions import (JAVA_INT, Editor, LOAD_BITS, SPUR_BITS, STAGING_BITS, TRACK_CHILDREN, action, _bool, _indent,
                          _int_field, _mask, _next, _remove_types, _set_list)
 
 
@@ -18,6 +18,7 @@ def add_location(ed: Editor, name: str, types: list[str] | None = None, directio
                  like: str | None = None, comment: str = "") -> str:
     """Add a location. Types come from types, or like, or, as a new location in JMRI does (Location:116-123),
     every car type and every locomotive type, so a train that carries locomotives can end here."""
+    name = ed.check_name("location", name)
     if name in [x.get("name") for x in ed.locations()]:
         raise Refused(f"Location {name!r} already exists")
     wanted = types if types is not None else (ed.type_entries(ed.location(like)) if like else
@@ -60,6 +61,7 @@ def update_location(ed: Editor, location: str, directions: str | int | None = No
 def rename_location(ed: Editor, location: str, new: str) -> str:
     """Rename a location. Ids stay; every stored copy of the name follows."""
     element = ed.location(location)
+    new = ed.check_name("location", new)
     if new in [x.get("name") for x in ed.locations()]:
         raise Refused(f"Location {new!r} already exists")
     old, identity = element.get("name"), element.get("id")
@@ -89,13 +91,13 @@ def add_track(ed: Editor, location: str, name: str, type: str, length: int, type
     if type not in (SPUR, YARD, INTERCHANGE, STAGING):
         raise Refused(f"type must be {SPUR}, {YARD}, {INTERCHANGE} or {STAGING}")
     place = ed.location(location)
+    name = ed.check_name("track", name)
     if name in [t.get("name") for t in place.findall("track")]:
         raise Refused(f"{place.get('name')} already has track {name!r}")
     existing = [t.get("trackType") for t in place.findall("track")]
     if existing and (type == STAGING) != (STAGING in existing):
         raise Refused("JMRI's windows keep staging and other track types at separate locations")
-    if length < 0:
-        raise Refused("length cannot be negative")
+    length = _int_field("length", length)  # Track:2533-2538: anything else loads as 0.
     number = _next([*(t.get("id") for t in place.findall("track")), *ed.retired_tracks(place.get("id"))], "s")
     identity = f"{place.get('id')}s{number}"
     element = ET.Element("track", {"id": identity, "name": name, "trackType": type,
@@ -161,9 +163,7 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
     kind = element.get("trackType")
     place = ed.location_of(element)
     if length is not None:
-        if length < 0:
-            raise Refused("length cannot be negative")
-        element.set("length", str(length))
+        element.set("length", str(_int_field("length", length)))
     if directions is not None:
         element.set("dir", str(_mask(directions)))
     for name in add_types or []:
@@ -213,6 +213,7 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
         if priority != "Normal":
             element.set("trackPriority", priority)
     if blocking_order is not None:
+        blocking_order = _int_field("blocking_order", blocking_order, JAVA_INT[0])  # Track:2551-2556.
         element.attrib.pop("blockingOrder", None)
         if blocking_order:
             element.set("blockingOrder", str(blocking_order))
@@ -271,8 +272,7 @@ def _schedule_options(element: ET.Element, mode: str | None, factor: int | None,
             raise Refused("schedule_mode must be sequential or match")
         element.set("scheduleMode", "0" if mode == "sequential" else "1")
     if factor is not None:
-        if not 0 <= factor <= 10000:
-            raise Refused("reservation_factor must be 0 to 10000")
+        factor = _int_field("reservation_factor", factor, 0, 10000)
         element.set("factor", str(factor))
     if hold is not None:
         element.set("holdCustomLoads", _bool(hold))
@@ -321,15 +321,16 @@ def _pool(element: ET.Element, value: dict) -> None:
         element.attrib.pop(attr, None)
     if value.get("name"):
         element.set("pool", value["name"])
-        element.set("minLength", str(value.get("min_length", 0)))
+        element.set("minLength", str(_int_field("pool min_length", value.get("min_length", 0))))  # Track:2758.
         if "max_length" in value:
-            element.set("maxLength", str(value["max_length"]))
+            element.set("maxLength", str(_int_field("pool max_length", value["max_length"])))
 
 
 @action()
 def rename_track(ed: Editor, track: str, new: str, location: str | None = None) -> str:
     """Rename a track. Track names are stored once, so only the track changes."""
     element = ed.track(track, location)
+    new = ed.check_name("track", new)
     if new in [t.get("name") for t in ed.location_of(element).findall("track")]:
         raise Refused(f"Track {new!r} already exists there")
     element.set("name", new)
@@ -395,14 +396,8 @@ def delete_location(ed: Editor, location: str) -> str:
     return f"Deleted location {element.get('name')}."
 
 
-JAVA_INT = (-2 ** 31, 2 ** 31 - 1)
-
-
 def _moves(value) -> int:
-    number = _int_field("moves", value, minimum=JAVA_INT[0])
-    if number > JAVA_INT[1]:
-        raise Refused(f"moves must be at most {JAVA_INT[1]}")
-    return number
+    return _int_field("moves", value, minimum=JAVA_INT[0])
 
 
 @action()

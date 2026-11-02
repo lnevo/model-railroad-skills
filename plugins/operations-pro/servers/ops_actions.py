@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ops_data import (ALL, ANY, EXCLUDE, EXCLUDE_ROUTES, EXCLUDE_TRAINS, INCLUDE, INTERCHANGE, ROUTES, SPUR,
                       STAGING, TRAINS, TYPE_AND_LOAD, YARD, DIRECTIONS, split_name)
-from ops_data import blank_file, is_fresh
+from ops_data import blank_file, is_fresh, loose_car_match
 from ops_store import Doc, FILES, Refused
 import ops_paperwork as paper
 
@@ -70,16 +70,45 @@ def _mask(value) -> int:
     return total
 
 
-def _int_field(name: str, value, minimum: int = 0) -> int:
-    """A whole number for a field JMRI parses with Integer.parseInt."""
-    if isinstance(value, bool) or not isinstance(value, int):
-        text = str(value).strip() if isinstance(value, str) else None
-        if text is None or not text.lstrip("-").isdigit():
-            raise Refused(f"{name} must be a whole number, not {value!r}")
-        value = int(text)
-    if value < minimum:
+JAVA_INT = (-2 ** 31, 2 ** 31 - 1)
+_WHOLE = re.compile(r"[+-]?[0-9]+(?:\.0*)?")
+
+
+def _int_field(name: str, value, minimum: int = 0, maximum: int = JAVA_INT[1]) -> int:
+    """A whole number for a field JMRI parses with Integer.parseInt. An int, or a number or text that is
+    a whole number (12.0, "12"), is written as the int; a fraction, true/false or other text is refused, and
+    so is anything outside Java's int range: JMRI logs an error and keeps its default for most such fields,
+    and a schedule line's count or wait stops the whole location file loading (ScheduleItem:347-352)."""
+    number = None
+    if isinstance(value, bool):
+        number = None
+    elif isinstance(value, int):
+        number = value
+    elif isinstance(value, float):
+        number = int(value) if value.is_integer() else None
+    elif isinstance(value, str) and _WHOLE.fullmatch(value.strip()):
+        number = int(value.strip().split(".")[0])
+    if number is None:
+        raise Refused(f"{name} must be a whole number, not {value!r}")
+    if number < minimum:
         raise Refused(f"{name} cannot be less than {minimum}")
-    return value
+    if number > maximum:
+        raise Refused(f"{name} must be at most {maximum}" + (
+            ", the largest number JMRI can read" if maximum == JAVA_INT[1] else ""))
+    return number
+
+
+# OperationsXml.checkFileName refuses . < > : " \ / | ? * in names; train and location names become
+# file names (build report, manifest, switch list), where every one but "." breaks the file. The "."
+# rule is only the edit window's, so it is let through.
+FILE_CHARS = '<>:"\\/|?*'
+# Control.java: the edit windows' name lengths, which Operations.xml can raise under <control>.
+NAME_LIMITS = {"location": ("max_len_string_location_name", 25), "track": ("max_len_string_track_name", 25),
+               "train": ("max_len_string_train_name", 25), "route": ("max_len_string_route_name", 25),
+               "schedule": ("max_len_string_location_name", 25), "type": ("max_len_string_attibute", 12),
+               "load": ("max_len_string_attibute", 12), "road": ("max_len_string_attibute", 12),
+               "road number": ("max_len_string_road_number", 10)}
+SPLIT_LIMIT = ("location", "track", "type", "load", "road", "road number")  # Checked on the part before "-".
 
 
 def _remove_types(holder: ET.Element, names) -> None:
@@ -139,6 +168,7 @@ class Editor:
                 self.docs.setdefault(name, Doc(base / name, blank_file(name)))
         self.moves_allowed: set[str] = set()  # Track ids whose moves an action was asked to change.
         self.deleted_tracks: set[str] = set()  # Track ids deleted in this plan.
+        self.last_route_cleared: set[str] = set()  # Car ids whose lastRouteId an action cleared.
         self._backup_ids: set[str] | None = None
 
     def retired_tracks(self, location_id: str) -> list[str]:
@@ -234,11 +264,63 @@ class Editor:
         return self.docs[ENGINE_FILE].root.findall("./engines/engine")
 
     def car(self, text: str) -> ET.Element:
-        key = text.replace(" ", "").upper()
-        for car in self.cars():
-            if car.get("id", "").replace(" ", "").upper() == key:
-                return car
-        raise Refused(f"No car {text!r}")
+        """A car by its exact id, road then number as JMRI keys it (RollingStockManager.getById is a plain
+        Hashtable), or exactly as JMRI shows it, road, a space, number. Case counts, since bvr1001 and
+        BVR1001 can both exist."""
+        cars = self.cars()
+        found = next((c for c in cars if c.get("id") == text), None)
+        if found is None:
+            found = next((c for c in cars if f"{c.get('roadName')} {c.get('roadNumber')}" == text), None)
+        if found is not None:
+            return found
+        loose = loose_car_match([c.get("id", "") for c in self.cars()], text)
+        raise Refused(f"No car {text!r}" + (f". Did you mean {', '.join(loose[:4])}? Give the id exactly: road "
+                                            "then number, case and spaces as JMRI holds them" if loose else ""))
+
+    def name_limit(self, kind: str) -> int:
+        key, default = NAME_LIMITS[kind]
+        doc = self.docs.get(SETUP_FILE)
+        node = doc.root.find(f"./control/maximumStringLengths/{key}") if doc is not None else None
+        text = node.get("length", "") if node is not None else ""
+        return int(text) if text.isdigit() else default
+
+    def check_name(self, kind: str, text) -> str:
+        """A new name as JMRI's edit windows take it: trimmed, not blank, not only hyphens, within the
+        window's length, no reserved file characters in a train, location or road name, no " & " in a type
+        or load (it joins a type to a load in load lists, CarLoad.SPLIT_CHAR)."""
+        if not isinstance(text, str):
+            raise Refused(f"A {kind} name must be text, not {text!r}")
+        name = text.strip()
+        if not name:
+            raise Refused(f"A {kind} name cannot be blank")
+        if "-" in name and not name.replace("-", ""):
+            raise Refused(f"A {kind} name needs more than hyphens: JMRI's hyphen feature hides what follows one")
+        if kind in ("type", "load") and TYPE_AND_LOAD in name:
+            raise Refused(f"A {kind} name cannot contain {TYPE_AND_LOAD.strip()!r} with spaces round it: JMRI "
+                          "joins a type and a load that way in track and train load lists, and refuses it")
+        if kind in ("train", "location", "road", "road number") and any(c in name for c in FILE_CHARS):
+            why = (": JMRI writes it into file names (build reports, manifests, switch lists)"
+                   if kind in ("train", "location") else "")
+            raise Refused(f"A {kind} name cannot contain any of {' '.join(FILE_CHARS)}{why}; JMRI's window "
+                          "refuses them")
+        if kind in ("type", "load", "road"):
+            part = name.split("-")[0]
+        elif kind in SPLIT_LIMIT:
+            part = split_name(name)
+        else:
+            part = name
+        limit = self.name_limit(kind)
+        if len(part) > limit:
+            raise Refused(f"A {kind} name can be at most {limit} characters{' before a hyphen' if part != name else ''}"
+                          f" in JMRI's windows; {part!r} has {len(part)}")
+        return name
+
+    def clear_last_route(self, car: ET.Element) -> None:
+        """Forget the train that last set the car out, as Set Car and Edit Car do when they move it
+        (RollingStockSetFrame:476-479, RollingStockEditFrame:583-584). guard lets only this clearing through."""
+        for attr in ("lastRouteId", "lastTrain", "lastTrainId"):
+            car.attrib.pop(attr, None)
+        self.last_route_cleared.add(car.get("id"))
 
     # Name registers in the car file.
     def registered(self, group: str, tag: str) -> list[ET.Element]:
@@ -319,6 +401,8 @@ def guard(editor: Editor, allowed_cars: tuple[str, ...] = ()) -> None:
         if old is None or car.get("id") in allowed_cars:
             continue
         for attr in CAR_DERIVED:
+            if attr == "lastRouteId" and car.get(attr) is None and car.get("id") in editor.last_route_cleared:
+                continue
             if old.get(attr) != car.get(attr):
                 raise Refused(f"Internal check: {attr} on car {car.get('id')} would change")
     old_trains = {t.get("id"): t for t in before.trains()}

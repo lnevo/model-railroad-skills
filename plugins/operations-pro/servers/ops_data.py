@@ -95,11 +95,31 @@ def split_name(name: str) -> str:
     return parts[0].strip()
 
 
+JAVA_INT_MIN, JAVA_INT_MAX = -2 ** 31, 2 ** 31 - 1
+UNCAUGHT_ITEM_NUMBERS = ("sequenceId", "count", "wait", "hits")
+_JAVA_INT_TEXT = re.compile(r"[+-]?[0-9]+")
+
+
+def java_int(value: str | None) -> int | None:
+    """What Integer.parseInt makes of an attribute: digits with an optional sign, inside Java's int
+    range. None where Java throws NumberFormatException."""
+    if not isinstance(value, str) or not _JAVA_INT_TEXT.fullmatch(value):
+        return None
+    number = int(value)
+    return number if JAVA_INT_MIN <= number <= JAVA_INT_MAX else None
+
+
 def _int(value: str | None, default: int = 0) -> int:
-    try:
-        return int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return default
+    """JMRI's reading of a number attribute: its default where Integer.parseInt fails, as for 12.5,
+    true or 3000000000 (Track:2533-2538 and the other loaders catch the error and keep the default)."""
+    number = java_int(value)
+    return default if number is None else number
+
+
+def loose_car_match(ids: list[str], text: str) -> list[str]:
+    """Car ids that match text when case and spaces are ignored."""
+    key = text.replace(" ", "").upper()
+    return [i for i in ids if i.replace(" ", "").upper() == key]
 
 
 def _names(parent: ET.Element | None, tag: str, attr: str = "name") -> list[str]:
@@ -479,6 +499,9 @@ class Railroad:
             self._blank.update(missing)
         self.directory = base
         self.warnings: list[str] = []
+        # (file, subject, attribute=value) for numbers a JMRI loader parses with no catch: JMRI cannot load
+        # that file at all, and a later save writes what it did load over it.
+        self.unloadable: list[tuple[str, str, str]] = []
         if self.fresh:
             self.warnings.append("No Operations files here yet, so this is the empty railroad JMRI 5.16 writes. "
                                  "The first ops_apply writes all six files.")
@@ -591,6 +614,11 @@ class Railroad:
         for element in root.findall("./schedules/schedule"):
             schedule = Schedule(element.get("id", ""), element.get("name", ""))
             for item in element.findall("item"):
+                for attr in UNCAUGHT_ITEM_NUMBERS:  # ScheduleItem:335-375: a bad one stops the whole file loading.
+                    value = item.get(attr)
+                    if value is not None and java_int(value) is None:
+                        self.unloadable.append((REQUIRED[0], f"schedule {schedule.name} line {item.get('id', '')}",
+                                                f"{attr}={value!r}"))
                 schedule.items.append(ScheduleItem(
                     id=item.get("id", ""), sequence=_int(item.get("sequenceId")),
                     type=item.get("type", ""), road=item.get("road", ""),
@@ -785,11 +813,16 @@ class Railroad:
 
     # Lookups. Each accepts an id or a name, ignoring case and spaces in car ids.
     def find_car(self, text: str) -> Car:
-        key = text.replace(" ", "").upper()
-        for car in self.cars.values():
-            if car.id.replace(" ", "").upper() == key:
-                return car
-        raise KeyError(f"No car {text!r}")
+        """By exact id, as JMRI keys cars, or exactly as JMRI shows one ("BVR 1001"). Case counts; a near
+        miss is named in the error."""
+        if text in self.cars:
+            return self.cars[text]
+        shown = next((c for c in self.cars.values() if f"{c.road} {c.number}" == text), None)
+        if shown is not None:  # As JMRI shows a car: road, a space, number.
+            return shown
+        loose = loose_car_match(list(self.cars), text)
+        raise KeyError(f"No car {text!r}" + (f". Did you mean {', '.join(loose[:4])}? Give the id exactly: road "
+                                            "then number, case and spaces as JMRI holds them" if loose else ""))
 
     def find_location(self, text: str) -> Location:
         for location in self.locations.values():

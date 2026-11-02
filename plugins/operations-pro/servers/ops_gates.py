@@ -1595,6 +1595,33 @@ class Audit:
                            "and could save the empty roster over it. Keep JMRI closed.", "Backups",
                            "ops_backups, then ops_restore with file to put this one file back")
 
+    def rule_file_numbers(self):
+        """A number JMRI's loader parses with no catch (ScheduleItem:335-375: sequenceId, count, wait, hits).
+        Integer.parseInt throws, LocationManagerXml stops part-way, and the half-loaded roster stays in use:
+        a later save writes it over the file, losing every schedule from that line on and the tracks'
+        schedule assignments."""
+        for name, subject, value in getattr(self.rr, "unloadable", []):
+            yield _finding("file-number", "error", f"{name}: {subject}",
+                           f"{value} is not a whole number Java can read (at most 2147483647), so JMRI cannot "
+                           f"load {name}, and its next save would erase schedules. Keep JMRI closed and fix the "
+                           "value first.", "Backups",
+                           "replace_schedule_lines with a smaller count or wait, or ops_restore a backup set")
+
+    def rule_leg_stops(self):
+        """A leg 2 or 3 whose start or end is not a stop on the train's route. Train.load resolves them
+        against the route (Train:4249-4263), keeps the options with no stop, and a caboose or locomotive
+        change then fails the build ("change location missing", TrainBuilder:272-274)."""
+        for train in self.rr.trains.values():
+            route = self.rr.routes.get(train.route_id)
+            stops = {s.id for s in route.stops} if route else set()
+            for leg in train.legs:
+                for end in ("start", "end"):
+                    if leg[end] and leg[end] not in stops:
+                        yield _finding("leg-stop", "error", train.name,
+                                       f"Leg {leg['leg']} {end} {leg[end]} is not a stop on this train's route, "
+                                       "so JMRI drops it and the leg's change fails the build.", BUILD_OPTIONS,
+                                       "Leg 2 and leg 3: set_train_leg again")
+
     def rule_type_carriage(self):
         rr = self.rr
         for kind in sorted(self._fed_types()):
