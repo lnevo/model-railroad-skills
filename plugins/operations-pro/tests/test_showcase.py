@@ -1353,7 +1353,7 @@ class WholeRailroad(unittest.TestCase):
     @NEEDS_JMRI
     def test_isolation(self):
         """After session 1 every tagged car sits on a track its case names, or on a yard, interchange or staging
-        track. Tracks cannot carry comments, so the map is the guide's Find it lines."""
+        track. Tracks carry no case code, so the map is the guide's Find it lines."""
         pointers = guide_pointers()
         comments = car_comments()
         rr0 = ops_data.load(SHOWCASE)
