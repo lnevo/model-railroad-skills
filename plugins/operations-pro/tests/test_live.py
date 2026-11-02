@@ -221,5 +221,42 @@ class Live(unittest.TestCase):
             ops_live.ask(self.url, "automation", name="Nothing")
 
 
+# ---- Manual builds and automations (start) ----------------------------------------------
+# An automation written by the file lane, run by the agent in a real JMRI. No step opens a window:
+# messages and print steps are refused by add_automation, and none is run here.
+SESSION_STEPS = [{"do": "build_train", "train": "BV1"}, {"do": "counter"},
+                 {"do": "move_train", "train": "BV1", "stop": "Ashgrove"}, {"do": "terminate_train", "train": "BV1"}]
+
+
+@unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
+class LiveWrittenAutomation(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.prepared = tempfile.TemporaryDirectory(prefix="opspro-live-")
+        cls.addClassCleanup(cls.prepared.cleanup)
+        root = Path(cls.prepared.name)
+        cls.source = root / "operations"
+        shutil.copytree(DEMO, cls.source)
+        with mock.patch.dict(os.environ, {"OPS_PLAN_DIR": str(root / "plans")}), \
+                mock.patch.object(ops_store, "running_jmri", return_value=[]):
+            ops_store.apply(ops_live.install_agent(cls.source)["plan_id"])
+            ops_store.apply(ops_store.plan(cls.source, [
+                {"action": "add_automation", "name": "Session", "steps": SESSION_STEPS}])["plan_id"])
+
+    setUp = Live.setUp
+
+    def test_a_written_automation_runs_to_the_end(self):
+        result = ops_live.ask(self.url, "automation", name="Session")
+        self.assertFalse(result["still_running"], result)
+        ops_live.ask(self.url, "save")
+        automation = next(a for a in ops_data.read_automations(self.ops) if a["name"] == "Session")
+        self.assertEqual([(s["ran"], s["successful"]) for s in automation["steps"]], [(True, True)] * 4)
+        train = ops_data.load(self.ops).find_train("BV1")
+        self.assertFalse(train.built)
+
+
+# ---- Manual builds and automations (end) ------------------------------------------------
+
+
 if __name__ == "__main__":
     unittest.main()
