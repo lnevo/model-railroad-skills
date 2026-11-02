@@ -1116,7 +1116,8 @@ class AutomationCases(FCase):
             {"action": "set_startup_automation", "automation": "Evening Session"}])
         keep = Path(self.work.name) / "kept"
         keep.mkdir()
-        ops_jmri.run_worker(folder, {"save": True, "build": True, "only": OTHERS}, keep)
+        # This automation never ends, so the worker waits out its limit: five seconds is plenty for the first two steps.
+        ops_jmri.run_worker(folder, {"save": True, "build": True, "only": OTHERS, "automation_ticks": 50}, keep)
         steps = next(a for a in ops_data.read_automations(keep) if a["name"] == "Evening Session")["steps"]
         self.assertEqual([s["ran"] for s in steps], [True, True, False, False])
 

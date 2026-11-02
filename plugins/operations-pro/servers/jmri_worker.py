@@ -24,7 +24,7 @@ from jmri.jmrit.operations.setup import OperationsSetupXml  # noqa: E402
 from jmri.jmrit.operations.trains import TrainManager, TrainManagerXml  # noqa: E402
 
 JOB = json.loads(java.lang.System.getProperty("worker.job"))
-AUTOMATION_TICKS = 200  # 100 ms each
+AUTOMATION_TICKS = JOB.get("automation_ticks", 200)  # 100 ms each
 XMLS = (OperationsSetupXml, LocationManagerXml, RouteManagerXml, CarManagerXml, EngineManagerXml, TrainManagerXml)
 
 # A failed build asks for the lead engine's DCC address, which needs the roster settings.
