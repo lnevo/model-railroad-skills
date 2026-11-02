@@ -1317,7 +1317,8 @@ def add_train(ed: Editor, name: str, route: str, like: str | None = None, serve_
 
 @action()
 def update_train(ed: Editor, train: str, **fields) -> str:
-    """Change train settings: description, engines, requires, departure, flags, types and road, load and owner lists."""
+    """Change train settings: description, engines, requires, departure, flags, types and road, load and owner lists.
+    engine_model and engine_road take what the Edit Train window offers: a roster model, a road of its engines, or blank."""
     element = ed.train(train)
     notes = _train_fields(ed, element, fields)
     _indent(element, 2)

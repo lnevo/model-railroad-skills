@@ -617,6 +617,11 @@ ENGINE_PLAN = [
 ]
 
 
+def ops_actions_audit(folder):
+    import ops_gates
+    return ops_gates.Gates(ops_data.load(folder)).audit()["findings"]
+
+
 def _engine_xml(folder):
     return ET.parse(Path(folder) / "OperationsEngineRoster.xml").getroot()
 
@@ -958,6 +963,44 @@ class RealJmri(Case):
         self.assertTrue(result["builds"]["T10"]["built"], result["builds"]["T10"]["message"])
         engines = {e.get("id"): e for e in _engine_xml(keep).iter("engine")}
         self.assertEqual({engines[i].get("trainId") for i in ("BV201", "BV202")}, {self.rr().find_train("T10").id})
+
+    def test_a_train_model_and_road_survive_and_build(self):
+        self.edit({"action": "update_train", "train": "T10", "engines": "1", "engine_model": "GP9",
+                   "engine_road": "BV"})
+        keep = Path(self.temp.name) / "built"
+        keep.mkdir()
+        result = ops_jmri.run_worker(self.ops, {"build": True, "save": True}, keep)
+        self.assertEqual(result["log_errors"], [])
+        train = next(t for t in ET.parse(keep / "OperationsTrainRoster.xml").getroot().iter("train")
+                     if t.get("name") == "T10")
+        self.assertEqual((train.get("engineModel"), train.get("engineRoad")), ("GP9", "BV"))
+        self.assertTrue(result["builds"]["T10"]["built"], result["builds"]["T10"]["message"])
+        taken = [e for e in _engine_xml(keep).iter("engine") if e.get("trainId") == train.get("id")]
+        self.assertEqual([(e.get("model"), e.get("roadName")) for e in taken], [("GP9", "BV")])
+
+    def test_a_split_consist_is_taken_from_the_lead_stop(self):
+        # What the consist-split finding says: addEngineToTrain gives every member the lead's route location.
+        self.edit(*ENGINE_PLAN[:3], {"action": "place_engine", "engine": "BV202", "location": "Tolvern",
+                                     "track": "Tolvern Yard"},
+                  {"action": "update_train", "train": "T10", "engines": "2", "engine_model": "GP38"})
+        path = self.ops / "OperationsEngineRoster.xml"
+        text = path.read_text()
+        text = text.replace("<newConsists />", '<newConsists>\n    <consist name="Pair" />\n  </newConsists>', 1)
+        text = text.replace('id="BV201"', 'id="BV201" consist="Pair" leadConsist="true"', 1)
+        text = text.replace('id="BV202"', 'id="BV202" consist="Pair"', 1)
+        path.write_text(text)
+        report = ops_actions_audit(self.ops)
+        self.assertIn("Pair", {f["subject"] for f in report if f["rule"] == "consist-split"})
+        keep = Path(self.temp.name) / "built"
+        keep.mkdir()
+        result = ops_jmri.run_worker(self.ops, {"build": True, "save": True}, keep)
+        self.assertTrue(result["builds"]["T10"]["built"], result["builds"]["T10"]["message"])
+        engines = {e.get("id"): e for e in _engine_xml(keep).iter("engine")}
+        lead, other = engines["BV201"], engines["BV202"]
+        self.assertEqual(other.get("trainId"), lead.get("trainId"))
+        self.assertTrue(lead.get("routeLocationId"))
+        self.assertEqual(other.get("routeLocationId"), lead.get("routeLocationId"))
+        self.assertNotEqual(other.get("locationId"), lead.get("locationId"))
 
     def test_a_file_saved_by_jmri_renders_byte_for_byte(self):
         _, keep = self.read_back()

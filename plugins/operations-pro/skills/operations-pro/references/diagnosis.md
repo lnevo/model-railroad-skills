@@ -58,6 +58,7 @@ A build in aggressive mode shows half the moves on the first pass. Two identical
 | New train takes nothing | Train missing from the tracks' Pick ups and Set outs lists; a copy named with a hyphen difference | Audit `train-not-on-list`; `add_train` adds the lists |
 | Caboose not found | Not flagged caboose; caboose road list; track direction or pick up list | Audit `caboose-road-mismatch` |
 | Build fails on a kernel | Members on different tracks | Audit `kernel-split` |
+| Build finds no locomotive | Model or road the train asks for; type, loco road, owner or built dates refuse every engine; consist size not exactly the count; out of service | Audit `engine-no-train`, `model-type-no-train`, `model-type-no-track` |
 | Every car refused at a spur | Length typo; type not on the track; load option | Audit `type-no-track`, `car-on-refusing-track` |
 | Car goes to staging instead of the spur | Spur full or not routable; no Hold; Destinations filter | `ops_why_not` to the spur |
 | Custom-load car became a default load | RWE to an unscheduled spur; blank ship with the wrong load type; arrived in staging with the convert option | Audit `rwe-to-unscheduled-spur`, `custom-empty-flagged-load` |
