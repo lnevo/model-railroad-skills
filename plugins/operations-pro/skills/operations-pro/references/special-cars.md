@@ -70,7 +70,7 @@
   - A single buffer car flagged passenger with a negative blocking number (`update_car` `passenger`, `blocking`): it leads the train, and on the way back it is set out on its starting track.
   - A buffer kernel of the right size, but the members take the lead's load (see Kernels).
 - A car POST through JSON can turn a load-hazardous car into a car-hazardous one, because the default is the combined value.
-- Buffer cars that must return to their starting track: flag them passenger. Without the flag the car fails the same-location rule (D4, "switcher False") and stays home. The passenger flag is the exemption.
+- Buffer cars that must return to their starting track: flag them passenger. Without the flag the car fails the same-location rule (D4, "switcher False") and stays home. With Allow cars to return to staging on, it passes D4 but does not ride: JMRI logs "Leave car in staging" and shows a local move on the manifest (TrainBuilderCars:1904-1914), and `ops_why_not` says so in `notes`. The passenger flag is the exemption.
 
 ## LCL, icing, RIP, TOFC and floats
 

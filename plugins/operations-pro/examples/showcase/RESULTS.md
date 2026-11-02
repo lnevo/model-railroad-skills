@@ -7,7 +7,7 @@ What was built, what each case does in real headless JMRI 5.16, which test holds
 - Build files `build/00` to `build/76` are replayed by `build.py`. In stage 4 every step of every file was also applied through the native tools (`ops_plan` then `ops_apply`, and `ops_deliver_car`; `ops_dir` always explicit) on a fresh copy of `servers/blank`, by sub-agents that were forbidden scripts. The six Operations XML files of that native copy are **byte-identical** to the `build.py` replay before the JMRI merge, and the `ops_data.load` records are equal (0 differences). No native refusal occurred that `build.py` did not also hit.
 - The shipped folder is `build.py --ship`: the replay, one real JMRI load-and-save, and a real build of every train for `buildstatus/`. JMRI's save re-orders some lists (car types, loads), so the shipped files differ from the native copy in order only.
 - `backups/` was cleared after the merge and one set taken with the native `ops_backup_now`.
-- Shipped state: no audit errors, six intended findings (see GUIDE). All 18 trains build in session 1. Active day Tuesday. Nothing is built or terminated in the shipped files.
+- Shipped state: no audit errors, three intended findings (see GUIDE). All 18 trains build in session 1. Active day Tuesday. Nothing is built or terminated in the shipped files.
 - Tests: `tests/test_showcase.py` (97 tests). Cases assert in three chains of three real JMRI sessions; experiments run on scratch copies.
 - Honest note on path: the build was native throughout. The confirmations in the table below were run by the tests (server functions, "script") except the rows listed under "Native confirmation record", which were run with the plugin's own tools. Batches A to F were built in stage 3 through `build.py` and the server functions in places; stage 4 repeated every step natively.
 
@@ -18,6 +18,8 @@ A fresh review checked 201 claims in `GUIDE.md` against JMRI 5.16 source and rea
 ## Plugin behaviour check
 
 Five fresh `claude -p --plugin-dir` sessions from an unrelated folder, one plain question each, naming no tool or skill. The operations-pro skill triggered in all five. `ops-diagnoser` was used in none, including the long build report question. Tools chosen were `ops_why_not`, `ops_explain_build`, `ops_audit`, `ops_list`, `ops_dry_run` and `ops_actions`, plus file reading. Four answers were right. The MODE answer was right about the cause but stated it as likely. Two sessions could not run a second session, because the test setup did not permit shell copies.
+
+After the plugin fixes, the same check with five new plain questions: `ops-diagnoser` ran in three of five, on the failed build, the long report and the cars left behind. The two it missed were a single car's question, which stays in the main session by design, and a question about adding a track comment. The skill loaded in three of five; the two sessions that started the agent directly did not load it. Five sessions are still a small sample.
 
 ## Hand edits
 
@@ -42,7 +44,7 @@ For every case: state, whether it worked first time (No means a plugin fault, a 
 | U01 | Reworded | No | BraeDunmereSessions.test_u01_*; BraeDunmereWhyNot.test_u01_* | native | ops_why_not JFN 101 to Brae Feed Mill, LOCAL-B: can_move true, E8 pass, E10 pass | loads Include Feed on the mill: D16 fails, E8 "Brae Feed Mill Include: Covered Hopper E" | Seeded by one delivered car; merged railroad puts the empty hopper on the mill in session 1 (built alone it went to Dunmere Yard) |
 | U02 | Reworded | No | BraeDunmereSessions.test_u02_* | script | ops_list cars JFN 201 (Canned, fd Grocery Dock); manifest line | place_car without delivery: audit schedule-not-applied | JFN 202 dropped; default empties compete for every spur |
 | U03 | Reworded | No | BraeDunmereSessions.test_u03_* | script | ops_why_not WNDR 1 to Brae Lumber: D7 then E2,E3,E4,E10,F2 | schedule removed from Lumber Dealer: only schedule-unused; cars still arrive | Cars start loaded through ops_deliver_car; plan claimed load-no-receiver, JMRI says schedule-unused |
-| U04 | Reworded | No | HopKessockSawyerCases.test_U04_* | script | ops_why_not JFN 401 to Sawyer Pasta Plant: can_move true | pickups false + local_moves false: C2 fails, 0 cars; local_moves alone does not stop JMRI | Second route stop does not break it; why_not G3 disagrees with JMRI |
+| U04 | Reworded | No | HopKessockSawyerCases.test_U04_* | script | ops_why_not JFN 401 to Sawyer Pasta Plant: can_move true | pickups false + local_moves false: C2 fails, 0 cars; local_moves alone does not stop JMRI | Second route stop does not break it; why_not agrees: G3 passes, as the car falls to the train's own route |
 | U05 | Proved | Yes | HollisOakhavenCases.test_u05_* | native | ops_why_not GNDX 501 to Hollis Mill, LOCAL-H: track_order Hollis Track 2 before Hollis Track 1 | set_track_moves Hollis Track 2 200: order reverses, cars go to Track 1 |  |
 | U06 | Reworded | No | StagingCases.test_u06_*; MergedCases.test_u06_* | native | ops_explain_build CUSTOM JFN 601: generate load, C10 refusals, route West Custom > Carrow Yard > Brae Depot | depot schedules removed: generator-no-target info; CUSTOM still builds, load diverted toward staging | Depots were in the plan for batch B but not built; added in 75_fix.json. Try-this reworded (no C10 failure) |
 | U07 | Proved | Yes | StagingCases.test_u07_* | script | ops_dry_run both trains built; ops_why_not SWPX 1 to East Swap SWAP-E: A7 pass | East Swap ignore_used_percent 0: staging-departure-blocked; SWAP-E fails A7 | Try-this reworded: only the first train fails |
@@ -54,7 +56,7 @@ For every case: state, whether it worked first time (No means a plugin fault, a 
 | U13 | Proved | Yes | StagingCases.test_u13_*; HollisOakhavenCases.test_u13_*; BraeDunmereSessions.test_u13_* | script | ops_explain_build MODE engines JFN 56 JFN 55; manifests | caboose pick ups Any: caboose-interchange-same-route, B6; Brae Engine Track ignore_used 0: A8; place_car on kernel member refused | Loco change costs two of the stop moves |
 | U14 | Reworded | No | DaysCases.*; MergedCases.test_u14_*; BraeDunmereSessions.test_u14_* | script | ops_list days; ops_why_not DAYX 1 to Tuesday Dock LOCAL-B: A1, F1 pass | Saturday active + applied: A1 and F1 fail; JMRI builds six trains | set_line_days for Tuesday Dock added to 60_f (it had no home) |
 | U15 | Reworded | No | AutomationCases.* | script | ops_list automations five steps; JMRI ran all five | message_yes_no step refused; own-terminate wait never finishes | Close Out helper added; wait needs another actor |
-| U16 | Proved | Yes | HollisOakhavenCases.test_u16_* | native | ops_explain_build LOCAL-H TEMX 1: assigned to Oakhaven Team, says nothing of the manual line; report text has it | delete_manual_build + 1 move: TEMX 1 stays |  |
+| U16 | Proved | Yes | HollisOakhavenCases.test_u16_* | native | ops_explain_build LOCAL-H TEMX 1: assigned to Oakhaven Team, and manual_build gives the line | delete_manual_build + 1 move: TEMX 1 stays |  |
 | U17 | Reworded | No | PaperworkCases.* | script | ops_list manifest; LOCAL-B manifest text | unmatched brace refused by the plugin |  |
 | U18 | Reworded | No | HopKessockSawyerCases.test_U18_* | script | LOCAL VALLEY FLYER manifest order | FLYX 5 blocking -9: picked up first | Station spurs fenced to VALLEY FLYER |
 | U19 | Reworded | No | HollisOakhavenCases.test_u19_* | native | ops_why_not POOX 1901 to Hollis Pool 1: can_move true; saved lengths 132 and 268 | min_length 350 refused; pool removed 2 and 4 | Three cars per track, not all six on Pool 1 |
@@ -64,14 +66,14 @@ For every case: state, whether it worked first time (No means a plugin fault, a 
 | U23 | Proved | Yes | BackupCases.* | native | ops_backup_now then ops_backups: one set, six files, complete | delete_car then ops_restore, audit unchanged | Shipped set taken with the native tool |
 | U24 | Proved | Yes | HollisOakhavenCases.test_u24_* | script | ops_list cars RIPX 1 load L; track load_options | load_options [] : RIPX 1 turns E |  |
 | R01 | Proved | Yes | HollisOakhavenCases.test_r01_* | native | ops_why_not JFN 5101 to Oakhaven Cannery LOCAL-H: single train, E7 E8 E9 D16 G12 pass | LOCAL-H drops false: D1, G6 fail |  |
-| R02 | Reworded | No | FerrisNorthwoodCases.test_r02_* | native | ops_why_not JFN 5201 to Cold Store EAST FREIGHT: two trains through interchange Ferris Exchange; first_failure D1 though can_move true | destinations Include Linden: interchange-no-exit, G12 fails | Car goes to Hop instead of waiting |
+| R02 | Reworded | No | FerrisNorthwoodCases.test_r02_* | native | ops_why_not JFN 5201 to Cold Store EAST FREIGHT: two trains through interchange Ferris Exchange; direct_failure D1, can_move true | destinations Include Linden: interchange-no-exit, G12 fails | Car goes to Hop instead of waiting |
 | R03 | Proved | No | HollisOakhavenCases.test_r03_*; MergedCases.test_r03_* | native | ops_why_not JFN 5301 to Linden Pipe Yard LOCAL-H: two trains through yard Carrow Transfer | carRoutingViaYards false: could not route, G12; build still delivers | Destination lines added in 55_c after Linden Pipe Yard exists |
 | R04 | Proved | No | HollisOakhavenCases.test_r04_*; FerrisNorthwoodCases.test_r04_* | native | ops_why_not JFN 5401 to Northwood Steel LOCAL-H: 3 trains | Ferris Relay destinations Include Linden: interchange-no-exit, G12 | Northwood Steel track moved after Ferris Relay in 40_d to clear a blocked plan |
-| R05 | Reworded | No | HopKessockSawyerCases.test_R05_* | native | ops_why_not JFN 5501 to Linden Pier: two trains through staging Hop; first_failure D14, G8 disagree with JMRI | carRoutingViaStaging false: could not route car, G12 | JFN 5502 made a Hopper |
+| R05 | Reworded | No | HopKessockSawyerCases.test_R05_* | native | ops_why_not JFN 5501 to Linden Pier: two trains through staging Hop; direct_failure D14, can_move true, as JMRI delivers it | carRoutingViaStaging false: could not route car, G12 | JFN 5502 made a Hopper |
 | R06 | Reworded | No | FerrisNorthwoodCases.test_r06_* | script | ops_why_not GTEX 1 to Gate Yard NORTH JOB: D6 fails | destinations all: D6 passes; car on Gate Yard | Filter reversed from the plan |
 | R07 | Reworded | No | FerrisNorthwoodCases.test_r07_* | script | ops_why_not XFRX 1 to Northwood Shed NORTH JOB: B6 pass | pickup Any: B6 fails |  |
 | R08 | Proved | No | FerrisNorthwoodCases.test_r08_*; MergedCases.test_r08_* | native | ops_why_not BOXX 1 to Hop EAST FREIGHT: E7 fails (can_move false); JFN 5801 to Ferris Routed: router two trains, E7 pass | only_final_destination false: E7 passes |  |
-| R09 | Proved | Yes | HollisOakhavenCases.test_r09_* | native | ops_explain_build LOCAL-H JFN 5901: E9 at plant and overflow, sends to yard; why_not passes E9 before the build | forwardToYard false: car stays on Hollis Quarry |  |
+| R09 | Proved | Yes | HollisOakhavenCases.test_r09_* | native | ops_explain_build LOCAL-H JFN 5901: E9 at plant and overflow, sends to yard; why_not leaves E9 not_checked before the build | forwardToYard false: car stays on Hollis Quarry |  |
 | R10 | Reworded | No | FerrisNorthwoodCases.test_r10_* | script | ops_list tracks pool fields | pool removed: only four cars move | Pools 120 ft; three and two, not all on Pool 1 |
 | R11 | Reworded | No | HopKessockSawyerCases.test_R11_* | script | ops_why_not KESX 1 to Class 1 KESSOCK SWITCHER: D19 pass | allowLocalInterchange false: D19 fails, switcher-local-off |  |
 | R12 | Proved | Yes | HopKessockSawyerCases.test_R12_* | script | ops_why_not SWYX 1 to Sawyer Warehouse: can_move true | allowLocalSpur false: D19; yard to yard still moves |  |
@@ -102,10 +104,10 @@ Nothing was dropped. Reworded: U01 (seeded by one delivered car), U02 (JFN 202 r
 | Row | can_move | Router and gates |
 |---|---|---|
 | R01 JFN 5101 to Oakhaven Cannery, LOCAL-H | true | "single train"; E7, E8, E9, D16, G12 pass |
-| R02 JFN 5201 to Cold Store, EAST FREIGHT | true | "two trains through interchange Ferris Exchange"; first_failure D1; E7, E8, E9, G12 pass |
-| R03 JFN 5301 to Linden Pipe Yard, LOCAL-H | true | "two trains through yard Carrow Transfer"; first_failure D1; G12 pass |
-| R04 JFN 5401 to Northwood Steel, LOCAL-H | true | "3 trains": Carrow Relay, Ferris Relay, Northwood Steel; first_failure D1 |
-| R05 JFN 5501 to Linden Pier, EAST FREIGHT | true | "two trains through staging Hop"; first_failure D14 and G8 fail: disagrees with JMRI, which delivers the car |
+| R02 JFN 5201 to Cold Store, EAST FREIGHT | true | "two trains through interchange Ferris Exchange"; direct_failure D1; E7, E8, E9, G12 pass |
+| R03 JFN 5301 to Linden Pipe Yard, LOCAL-H | true | "two trains through yard Carrow Transfer"; direct_failure D1; G12 pass |
+| R04 JFN 5401 to Northwood Steel, LOCAL-H | true | "3 trains": Carrow Relay, Ferris Relay, Northwood Steel; direct_failure D1 |
+| R05 JFN 5501 to Linden Pier, EAST FREIGHT | true | "two trains through staging Hop"; direct_failure D14; JMRI delivers the car |
 | R08 BOXX 1 to Hop, EAST FREIGHT | false | E7 fails "car has final destination none; only routed cars: True"; router not used |
 | R08 JFN 5801 to Ferris Routed, EAST FREIGHT | true | "two trains through interchange Ferris Routed"; E7 pass |
 | R09 JFN 5904 to Oakhaven Plant, LOCAL-H | true | "single train"; E9 pass (used 0, length 100); the real build refuses the plant at E9 (12 feet left) |
@@ -117,4 +119,4 @@ Nothing was dropped. Reworded: U01 (seeded by one delivered car), U02 (JFN 202 r
 
 ## Disagreements between the plugin and real JMRI
 
-Recorded in GUIDE "Known limits": `ops_why_not` for a switcher with local moves off (G3), for R05 (D14, G8), for HZMX 9 passenger false and for the service-all setting; E9 before a build; the audit's `single-destination-schedule` false positive for road-listed spurs (it depends on car order in the file, so it appears only after JMRI has saved the folder).
+Recorded in GUIDE "Known limits": what a build uses up as it goes stays open in `ops_why_not` (moves, train length, room for cars bound for the same track), with `notes` saying what follows.
