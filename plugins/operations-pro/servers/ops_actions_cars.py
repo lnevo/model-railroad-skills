@@ -17,11 +17,18 @@ CAR_FLAGS = {"out_of_service": "outOfService", "location_unknown": "locUnknown",
              "hazardous": "hazardous", "caboose": "caboose", "fred": "fred", "utility": "utility"}
 
 
+def rfid_text(value) -> str:
+    """RollingStock.setRfid makes the text an IdTag and keeps the tag's system name: "ID" and the text, unless
+    it already starts with "ID". Writing that form means JMRI's first save does not change it."""
+    text = str(value).strip()
+    return text if not text or text.startswith("ID") else "ID" + text
+
+
 def _car_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
     for key, value in fields.items():
         if key in CAR_FIELDS:
             attr = CAR_FIELDS[key]
-            text = str(value)
+            text = rfid_text(value) if key == "rfid" else str(value)
             element.attrib.pop(attr, None)
             if text and text != "0":
                 element.set(attr, text)

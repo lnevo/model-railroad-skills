@@ -83,8 +83,10 @@ def set_train_leg(ed: Editor, train: str, leg: int, locos: str = "none", caboose
     """Set a train's leg 2 or leg 3, as the Edit Train build options window does. locos: none, change (a loco
     change at start), add (more locos from start, optionally set out at end), remove, or helpers (from start to end).
     caboose: keep, remove, or change (add one when the train has none). start and end are route stops, by location
-    name, stop id or position from 1. engines is a count or Auto HPT, with optional model and road. locos none and
-    caboose keep clears the leg. A train moved to another route loses its legs."""
+    name, stop id or position from 1; only add and helpers may start at the departure, and not when it is staging.
+    engines is a count or Auto HPT, with optional model and road; 0 is taken only for change, which then sets the
+    departure power out at start and the train goes on with none. locos none and caboose keep clears the leg. A train
+    moved to another route loses its legs."""
     element = ed.train(train)
     n = _int_field("leg", leg)
     if n not in (2, 3):
@@ -119,8 +121,16 @@ def set_train_leg(ed: Editor, train: str, leg: int, locos: str = "none", caboose
             raise Refused(f"end ({last.get('name')}) must come after start ({first.get('name')}) on the route")
     elif locos == "helpers":
         raise Refused("Helpers need end, the stop where they leave the train (the window's SelectLocationEndHelper)")
+    departs = ed.location(stops[0].get("locationId"))
+    from_staging = any(t.get("trackType") == "Staging" for t in departs.findall("track"))
     if first is stops[0]:
-        raise Refused("start is the departure; a leg begins at a later stop. Set departure power with update_train")
+        if locos not in ("add", "helpers") or caboose != "keep":
+            raise Refused("start is the departure; only add and helpers can begin there (more power or a pusher out "
+                          "of the departure). Set the departure's own locomotives and caboose with update_train")
+        if from_staging:
+            raise Refused(f"start is the departure, and {departs.get('name')} is staging: JMRI then takes this leg's "
+                          "locomotives from the departure staging track too, which must hold exactly the train's own "
+                          "count, so the build fails every way (TrainBuilderEngines:149-172). Start at a later stop")
     notes = []
     model = _no_choice(ed, "engine_model", model)
     road = _no_choice(ed, "engine_road", road)
@@ -134,10 +144,17 @@ def set_train_leg(ed: Editor, train: str, leg: int, locos: str = "none", caboose
         if engines in (None, ""):
             raise Refused(f"locos {locos} needs engines, the number of locomotives")
         count = str(engines).strip()
-        offered = [str(i) for i in range(1, _max_engines(ed) + 1)] + [AUTO_HPT]
+        offered = [str(i) for i in range(0, _max_engines(ed) + 1)] + [AUTO_HPT]
         if count not in offered:
             raise Refused(f"engines must be one of {', '.join(offered)} (the window's list, from Settings, maximum "
-                          "locomotives). 0 would do nothing, and Auto is not offered for a leg")
+                          "locomotives). Auto is not offered for a leg")
+        if count == "0" and locos != "change":
+            # TrainBuilderEngines:157-158 returns at once for 0 away from staging, so the leg adds nothing.
+            raise Refused(f"engines 0 with locos {locos} does nothing: the builder finds no locomotives for it. "
+                          "0 does something only for change, where the departure power is set out at start and "
+                          "the train goes on without locomotives")
+        if count == "0" and (model or road):
+            raise Refused("engines 0 takes no model or road: no locomotive is picked up")
         if count == AUTO_HPT and n == 3:
             raise Refused("Auto HPT on leg 3 stops the build with an error when no locomotives are found: "
                           "TrainBuilderEngines reads the leg 3 count as a number there. Give a number")
@@ -176,8 +193,7 @@ def set_train_leg(ed: Editor, train: str, leg: int, locos: str = "none", caboose
             raise Refused("The train has no caboose to remove at this leg, so the window offers only Add caboose "
                           "(requires caboose on the train, or a caboose added on leg 2)")
     if locos == "remove":
-        departs = ed.location(stops[0].get("locationId"))
-        if any(t.get("trackType") == "Staging" for t in departs.findall("track")):
+        if from_staging:
             raise Refused("A train departing staging cannot remove locomotives en route; the window turns that "
                           "choice off")
     other_n = 5 - n
@@ -197,6 +213,9 @@ def set_train_leg(ed: Editor, train: str, leg: int, locos: str = "none", caboose
     for key, value in values.items():
         element.set(f"leg{n}{key}", value)
     where = first.get("name") + (f" to {last.get('name')}" if last is not None else "")
+    if count == "0" and locos == "change":
+        notes.append(f"With 0 engines the departure locomotives are set out at {first.get('name')} and the train "
+                     "goes on with none.")
     return " ".join([f"Leg {n} of {name}: locos {locos}, caboose {caboose}, at {where}.", *notes])
 
 
@@ -316,9 +335,14 @@ def _rename_load_checked(previous):
         if not clashes:
             return text
         for holder in clashes:
-            for entry in holder.findall("carLoad"):
-                if entry.get("name") == new and id(entry) not in keep:
-                    holder.remove(entry)  # CarLoads.replaceName keeps the existing load's settings.
+            entries = [e for e in holder.findall("carLoad") if e.get("name") == new]
+            target = next(e for e in entries if id(e) in keep)
+            for renamed in [e for e in entries if id(e) not in keep]:
+                # CarLoadEditFrame.replaceLoadName (343-372): the old load's type, priority, hazardous flag and
+                # comments are set on the target, then the old name is deleted. The target keeps its place.
+                target.attrib.clear()
+                target.attrib.update(renamed.attrib)
+                holder.remove(renamed)
         for parent in list(ed.loc_root.iter()) + list(ed.train_root.iter()):
             for tag in ("carLoads", "carShipLoads"):
                 for holder in parent.findall(tag):
@@ -333,7 +357,8 @@ def _rename_load_checked(previous):
 
 ACTIONS["rename_load"]["run"] = _rename_load_checked(ACTIONS["rename_load"]["run"])
 ACTIONS["rename_load"]["help"] += (" Refused when the new name already exists for that type, unless merge is true: "
-                                   "the two then become one, keeping the existing load's settings.")
+                                   "the two then become one, taking the renamed load's settings (load type, priority, "
+                                   "hazardous flag and comments) as JMRI's Replace does.")
 
 
 # ---- Custom loads (end) -------------------------------------------------------------

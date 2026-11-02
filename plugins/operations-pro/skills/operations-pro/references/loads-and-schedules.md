@@ -53,7 +53,7 @@ There is no single action. It is two actions in one `ops_plan`: `add_schedule` f
 - `add_schedule` takes `name`, `lines` and an optional `comment`. A line takes `type` (required) and any of `road`, `receive`, `ship`, `random`, `wait`, `count`, `setout_day`, `pickup_day`, `destination`, `track`, `comment`.
 - `update_track` takes `track`, `location` (to tell same-named tracks apart), `schedule` and `schedule_mode` (`sequential` or `match`). Other fields leave the track alone.
 - The track must be a spur. Name the car types and loads the lines use before the plan, with `add_car_type` and `add_load` earlier in the same plan if they do not exist.
-- `delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; it then merges the two, as JMRI's Replace does.
+- `delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; it then merges the two, as JMRI's Replace does: the surviving load takes the renamed load's load type, priority, hazardous flag and comments.
 - Plan first and read the findings. Converting a track can add routing findings such as "No chain of trains takes Feed from ... to ...": the new receive or ship load has no train path. Fix the routes, or choose loads the trains already connect, before `ops_apply`; a plan with new errors is blocked.
 - Cars already on the track keep their loads. A schedule does not revisit parked cars.
 

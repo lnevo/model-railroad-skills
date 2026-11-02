@@ -32,6 +32,17 @@ def leg(**fields):
 
 CHANGE_AT_BRACKWATER = leg(train="BV1", leg=2, locos="change", start="Brackwater", engines=1, model="GP9")
 
+# A train out of a yard: Brackwater (east), Tolvern, Brackwater (west), with one more GP9 at each place.
+YARD_TRAIN = (
+    {"action": "add_route", "name": "Yard Line", "stops": [
+        {"location": "Brackwater", "direction": "East"}, {"location": "Tolvern", "direction": "East"},
+        {"location": "Brackwater", "direction": "West"}]},
+    {"action": "add_engine", "road": "VX", "number": "201", "model": "GP9", "location": "Tolvern",
+     "track": "Tolvern Yard"},
+    {"action": "add_engine", "road": "VX", "number": "202", "model": "GP9", "location": "Brackwater",
+     "track": "Brackwater Yard A"},
+    {"action": "add_train", "name": "YT", "route": "Yard Line", "engines": "1"})
+
 
 class Extras(Case):
     def run_actions(self, *actions):
@@ -89,7 +100,9 @@ class TrainLegs(Extras):
             "needs start": leg(train="BV1", leg=2, locos="change", engines=1),
             "ignores end": leg(train="BV1", leg=2, locos="change", start=2, end=4, engines=1),
             "must come after start": leg(train="BV1", leg=2, locos="add", start=4, end=2, engines=1),
-            "0 would do nothing": leg(train="BV1", leg=2, locos="change", start=2, engines=0),
+            "engines 0 with locos add does nothing": leg(train="BV1", leg=2, locos="add", start=2, engines=0),
+            "engines 0 with locos helpers": leg(train="BV1", leg=2, locos="helpers", start=2, end=3, engines=0),
+            "engines 0 takes no model": leg(train="BV1", leg=2, locos="change", start=2, engines=0, model="GP9"),
             "Auto is not offered": leg(train="BV1", leg=2, locos="change", start=2, engines="Auto"),
             "leg 3 count as a number": leg(train="BV1", leg=3, locos="add", start=3, engines="Auto HPT"),
             "no caboose to remove": leg(train="BV1", leg=2, caboose="remove", start=2),
@@ -101,12 +114,31 @@ class TrainLegs(Extras):
             "Unknown locomotive model": leg(train="BV1", leg=2, locos="change", start=2, engines=1, model="ZZ9"),
             "has road": leg(train="BV1", leg=2, locos="change", start=2, engines=1, road="QQ"),
             "No caboose has road": leg(train="X99", leg=2, caboose="change", start=2, caboose_road="ZZ"),
-            "start is the departure": leg(train="BV1", leg=2, locos="change", start=1, engines=1),
+            "only add and helpers can begin there": leg(train="BV1", leg=2, locos="change", start=1, engines=1),
+            "West Staging is staging": leg(train="BV1", leg=2, locos="helpers", start=1, end=3, engines=1),
             "no stop": leg(train="BV1", leg=2, locos="change", start="Quarry Staging", engines=1),
         }
         for words, action in cases.items():
             with self.subTest(words):
                 self.assertIn(words, self.refused(action))
+
+    def test_zero_engines_on_a_change(self):
+        lines = self.run_actions(*YARD_TRAIN, leg(train="YT", leg=2, locos="change", start="Tolvern", engines=0))
+        self.assertIn("set out at Tolvern and the train goes on with none", lines[-1])
+        self.assertEqual(self.raw_train("YT").get("leg2Engines"), "0")
+
+    def test_add_and_helpers_may_start_at_a_yard_departure(self):
+        self.run_actions(*YARD_TRAIN, leg(train="YT", leg=2, locos="helpers", start=1, end="Tolvern", engines=1))
+        raw = self.raw_train("YT")
+        route = raw.find("route").get("id")
+        self.assertEqual((raw.get("leg2Options"), raw.get("leg2Start"), raw.get("leg2End")),
+                         ("2", f"{route}r1", f"{route}r2"))
+        self.run_actions(leg(train="YT", leg=2, locos="add", start=1, end=2, engines=1))
+        self.assertEqual(self.raw_train("YT").get("leg2Options"), "16")
+        for locos in ("change", "remove"):
+            with self.subTest(locos):
+                self.assertIn("only add and helpers can begin there",
+                              self.refused(leg(train="YT", leg=2, locos=locos, start=1, engines=1)))
 
     def test_leg_three_must_start_after_leg_two(self):
         self.assertIn("Leg 3 must start after leg 2", self.refused(
@@ -199,11 +231,16 @@ class Loads(Extras):
         self.assertIn("pass merge true", self.refused({"action": "rename_load", "old": "Junk", "new": "Feed"}))
         before = [dict(e.attrib) for e in ET.parse(self.ops / "OperationsCarRoster.xml").getroot().iter("carLoad")
                   if e.get("name") == "Feed"]
+        junk = next(e for e in ET.parse(self.ops / "OperationsCarRoster.xml").getroot().iter("carLoad")
+                    if e.get("name") == "Junk")
         lines = self.run_actions({"action": "rename_load", "old": "Junk", "new": "Feed", "merge": True})
         self.assertIn("Merged", lines[0])
         after = [dict(e.attrib) for e in ET.parse(self.ops / "OperationsCarRoster.xml").getroot().iter("carLoad")
                  if e.get("name") == "Feed"]
-        self.assertEqual(before, after)
+        # CarLoadEditFrame.replaceLoadName: the survivor takes the renamed load's settings.
+        self.assertEqual(len(after), len(before))
+        self.assertEqual(after[0], {**junk.attrib, "name": "Feed"})
+        self.assertNotEqual(before[0], after[0])
         self.assertNotIn("Junk", [x.name for x in self.rr().loads["Boxcar"]])
 
     def test_rename_to_a_new_name_still_works(self):
@@ -316,6 +353,48 @@ BACKUP_PROBE = textwrap.dedent('''
 ''')
 
 
+# The Edit Car Loads window's Replace for one type, after its confirm dialog (CarLoadEditFrame:343-372),
+# then a JMRI save: what the rename_load merge must match.
+REPLACE_LOAD_PROBE = textwrap.dedent('''
+    import json
+    import java
+    from jmri import InstanceManager as IM
+    from jmri.jmrit.roster import RosterConfigManager
+    from jmri.util import FileUtil
+    FileUtil.setUserFilesPath(None, java.lang.System.getProperty("ops.home") + "/")
+    from jmri.jmrit.operations import OperationsXml
+    from jmri.jmrit.operations.locations import LocationManagerXml
+    from jmri.jmrit.operations.rollingstock.cars import CarManager, CarManagerXml, CarLoads
+    from jmri.jmrit.operations.rollingstock.engines import EngineManagerXml
+    from jmri.jmrit.operations.routes import RouteManagerXml
+    from jmri.jmrit.operations.setup import OperationsSetupXml
+    from jmri.jmrit.operations.trains import TrainManagerXml
+    job = json.loads(java.lang.System.getProperty("worker.job"))
+    IM.setDefault(RosterConfigManager, RosterConfigManager())
+    xmls = (OperationsSetupXml, LocationManagerXml, RouteManagerXml, CarManagerXml, EngineManagerXml, TrainManagerXml)
+    for xml in xmls:
+        IM.getDefault(xml)
+    kind, old, new = job["replace_load"]
+    loads = IM.getDefault(CarLoads)
+    values = (loads.getLoadType(kind, old), loads.getPriority(kind, old), loads.isHazardous(kind, old),
+              loads.getPickupComment(kind, old), loads.getDropComment(kind, old))
+    loads.addName(kind, new)
+    loads.setLoadType(kind, new, values[0])
+    loads.setPriority(kind, new, values[1])
+    loads.setHazardous(kind, new, values[2])
+    loads.setPickupComment(kind, new, values[3])
+    loads.setDropComment(kind, new, values[4])
+    IM.getDefault(CarManager).replaceLoad(kind, old, new)
+    loads.deleteName(kind, old)
+    for xml in xmls:
+        IM.getDefault(xml).setDirty(True)
+    OperationsXml.save()
+    with open(java.lang.System.getProperty("worker.out"), "w") as handle:
+        json.dump({}, handle)
+    java.lang.System.exit(0)
+''')
+
+
 @unittest.skipUnless(ops_jmri.jmri_home(), "JMRI is not installed")
 class RealJmriExtras(Extras):
     def saved(self):
@@ -364,6 +443,70 @@ class RealJmriExtras(Extras):
         self.assertIn("Locomotive change at (Brackwater), departs with 1 loco(s), model (GP9)", report)
         self.assertIn("Loco (BV 101) assigned to train, departs (West Staging)", report)
         self.assertIn("Loco (BV 103) assigned to train, departs (Brackwater)", report)
+
+    def build(self, train):
+        row = ops_jmri.run_worker(self.ops, {"build": True})["builds"][train]
+        return row, " ".join(row["report_text"].split())
+
+    def test_jmri_sets_the_power_out_on_a_change_to_zero(self):
+        self.run_actions(*YARD_TRAIN, leg(train="YT", leg=2, locos="change", start="Tolvern", engines=0))
+        row, report = self.build("YT")
+        self.assertTrue(row["built"], row["message"])
+        self.assertIn("Locomotive change at (Tolvern), departs with 0 loco(s)", report)
+        self.assertRegex(report, r"Loco \(BV 103\) assigned to train, departs \(Brackwater\) destination (?:\d- )?\(Tolvern")
+        self.assertNotIn("Loco (VX 201) assigned", report)
+
+    def test_jmri_builds_helpers_from_a_yard_departure(self):
+        self.run_actions(*YARD_TRAIN, leg(train="YT", leg=2, locos="helpers", start=1, end="Tolvern", engines=1))
+        row, report = self.build("YT")
+        self.assertTrue(row["built"], row["message"])
+        self.assertIn("Train requests 1 helpers from (Brackwater) to (Tolvern)", report)
+        self.assertRegex(report, r"Loco \(VX 202\) assigned to train, departs \(Brackwater\) destination (?:\d- )?\(Tolvern")
+
+    def test_jmri_fails_helpers_from_a_staging_departure(self):
+        """Why set_train_leg refuses it: written by hand, as the window would, the build fails."""
+        self.run_actions({"action": "add_train", "name": "ST", "route": "Main East", "engines": "1"},
+                         leg(train="ST", leg=2, locos="helpers", start=2, end=3, engines=1))
+        path = self.ops / "OperationsTrainRoster.xml"
+        text = path.read_text(encoding="utf-8")
+        start = text.index('name="ST"')
+        tag_end = text.index(">", start)
+        tag = text[start:tag_end].replace('leg2Start="1r2"', 'leg2Start="1r1"').replace('leg2End="1r3"',
+                                                                                        'leg2End="1r2"')
+        path.write_text(text[:start] + tag + text[tag_end:], encoding="utf-8")
+        self.assertEqual(self.raw_train("ST").get("leg2Start"), "1r1")
+        row, report = self.build("ST")
+        self.assertFalse(row["built"])
+        self.assertIn("could not pick up at departure (West Staging)", report)
+
+    def test_load_merge_matches_the_window_replace(self):
+        self.run_actions({"action": "add_load", "name": "Wheat", "types": ["Boxcar"], "load_type": "Empty",
+                          "priority": "High", "hazardous": True, "pickup_comment": "pc1", "drop_comment": "dc1"},
+                         {"action": "add_load", "name": "Corn", "types": ["Boxcar"], "priority": "Low"},
+                         {"action": "update_car", "car": "BVR1002", "load": "Wheat"})
+        window = Path(self.temp.name) / "window"
+        window.mkdir()
+        with tempfile.TemporaryDirectory() as scratch:
+            probe = Path(scratch) / "probe.py"
+            probe.write_text(REPLACE_LOAD_PROBE, encoding="utf-8")
+            with mock.patch.object(ops_jmri, "WORKER", probe):
+                result = ops_jmri.run_worker(self.ops, {"replace_load": ["Boxcar", "Wheat", "Corn"]}, window)
+        self.assertEqual(result["log_errors"], [])
+        self.run_actions({"action": "rename_load", "old": "Wheat", "new": "Corn", "car_type": "Boxcar",
+                          "merge": True})
+        _, keep = self.saved()
+
+        def boxcar(folder):
+            root = ET.parse(folder / "OperationsCarRoster.xml").getroot()
+            holder = next(h for h in root.findall("./loads/load") if h.get("type") == "Boxcar")
+            car = next(c for c in root.iter("car") if c.get("id") == "BVR1002")
+            return [dict(e.attrib) for e in holder.findall("carLoad")], car.get("load")
+
+        theirs = boxcar(window)
+        self.assertEqual(theirs[1], "Corn")
+        self.assertIn({"name": "Corn", "loadType": "Empty", "priority": "High", "hazardous": "true",
+                       "pickupComment": "pc1", "dropComment": "dc1"}, theirs[0])
+        self.assertEqual(boxcar(keep), theirs)
 
     def test_engine_moves_pick_the_locomotive(self):
         picked = {}

@@ -75,7 +75,7 @@ A schedule or an alternate on a non-spur, a Destinations filter on a yard or spu
 
 Set a track's length to zero first so nothing new is sent, wait for its drop count to reach zero, then delete. Deleting a track fires events that clear final destinations pointing at it. The plugin's `delete_track`, `delete_location`, `delete_route`, `delete_schedule`, `delete_train` and `delete_load` refuse while anything still points at the record and list what does.
 
-`delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; the two loads then become one, keeping the existing one's settings. A track cannot change type: empty it, `delete_track`, then `add_track` the new type.
+`delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; the two loads then become one with the renamed load's settings (load type, priority, hazardous flag and comments), as JMRI's Replace does. A track cannot change type: empty it, `delete_track`, then `add_track` the new type (once a delete and an add of a track in one plan was refused with "moves ... would change", because the new track took the deleted one's id; if that happens, use two plans).
 
 ## The JSON server
 
@@ -103,7 +103,7 @@ Types: car, cars, carType, engine, engines, kernel, location, locations, rolling
 - The plugin has no import action. To load a car list, turn each row into an `add_car` action (all rows in one `ops_plan`); fields such as built, weight, comment and the load carry over. Applied through the plan, 180 rows is a normal job.
 - JMRI's own CSV import takes the car columns plus division, schedule id, RWE, RWL, destination, final destination and train. Its error "missing one or more of the first four required car attributes" says a line lacked the first four columns; the delimiter or a header row are the first things to look at (not checked against the source), and the plugin does not diagnose it.
 - Routes import; an existing route is not overwritten. Trains and schedules export only.
-- The RFID attribute on a car is the lower-case `rfid`, shown once RFID is enabled in Settings.
+- The RFID attribute on a car is the lower-case `rfid`, shown once RFID is enabled in Settings. JMRI keeps it as the IdTag's system name, `ID` and the text (unchanged when it already starts with `ID`), so the actions write that form and JMRI's first save does not change it.
 
 ## Car history
 
