@@ -9,11 +9,12 @@ Build, change, run and understand a JMRI OperationsPro railroad with Claude, wit
 OperationsPro is powerful, and much of how it behaves isn't obvious from its screens. This plugin works across the whole job:
 
 - **Building a railroad:** locations, tracks, industries with their schedules, routes, trains, loads, cars, locomotives and consists, divisions, train schedule days, and manifest and switch list formats, in the order the program needs, with a change that spans many screens made in one step. Start from an empty Operations folder or from one you already have.
-- **Generating traffic:** custom loads, schedules, staging, interchanges and multi-train routing that send cars where you intend.
+- **Generating traffic:** custom loads, schedules, staging (including load conversion on arrival, planned pick ups for a swap, and the home division rule), interchanges and multi-train routing that send cars where you intend.
 - **Running sessions:** building and terminating trains, Set Car, manual corrections, and resetting between sessions.
 - **Finding out why:** explaining a failed build, a stuck car, a held car, drained spurs or full yards from the build report and the data, with the setting that changes it.
-- **Yards and special moves:** classification, arrival and departure tracks, switchers, locomotive changes, cabooses, kernels, unit trains, passenger blocking and buffer cars.
-- **Looking after the data:** auditing it, importing it, backing it up, recovering it, and moving between JMRI versions.
+- **Yards and special moves:** classification, arrival and departure tracks (including the A/D track recipe), switchers, cabooses and the two traps that hide them, kernels, passenger blocking and buffer cars. Locomotive changes, helpers and caboose changes en route are written with `set_train_leg` (leg 2 and leg 3 of Edit Train), and `set_engine_moves` rests or promotes a locomotive. Unit trains are a modelling choice, not a builder setting.
+- **Looking after the data:** auditing it, backing it up on demand (`ops_backup_now`), and recovering it: `ops_backups` and `ops_restore` work on a folder with a missing or corrupt file, and `ops_restore` with `file` puts back just that one file. A folder with no Operations files starts as an empty railroad. Cars are loaded by turning each CSV row into an `add_car` action; there is no import action, and JMRI's own importer errors are not diagnosed. Moving between JMRI versions is outside what was checked.
+- **Paperwork settings:** page, font, colours, tabs, which fields print, phrase text, per-train railroad name and logo path, and CSV files at build. It does not print, and it cannot set a logo's image type or size, bold text, or two fonts.
 
 ## Parts
 
@@ -46,12 +47,12 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | `ops_plan` | No | Works out a change and shows the diff and any new audit findings |
 | `ops_apply` | Yes | Applies a plan |
 | `ops_session` | Yes | Applies a car correction without a separate plan step |
-| `ops_deliver_car` | Yes | Sets a car on a track and runs that track's schedule, as Set Car does |
+| `ops_deliver_car` | Yes | Sets a car on a track and runs that track's schedule, as Set Car does. Refuses a car already on that track, as Set Car runs a schedule only when the track changes |
 | `ops_why_not`, `ops_audit`, `ops_list` | No | Explain a stuck car from the files, check the railroad, list records |
 | `ops_explain_build` | No | Reads a train's build report: outcome, each stop's moves, excluded cars and each car's story with gate ids |
 | `ops_build_check` | No | Compares real builds before and after a plan, on copies |
 | `ops_dry_run` | No | Runs a whole session on a copy; each train comes back with its build report read as `ops_explain_build` reads it (`detail`: summary, normal, full) |
-| `ops_backups`, `ops_restore` | Restore only | Lists backup sets and puts one back |
+| `ops_backups`, `ops_restore` | Restore only | Lists backup sets and puts one back, or with `file` only one lost or unreadable file; both work on a broken folder |
 | `ops_backup_now` | Adds a backup set | Takes a backup set now, in JMRI's own `backups` folder, as `ops_apply` does before a change |
 
 These work on a running JMRI, and don't need it exited:
@@ -110,6 +111,7 @@ The builder makes random choices, so two identical builds can differ. The build 
 
 - It only ever works on the Operations folder you point it at, and JMRI's checks run on temporary copies.
 - `ops_build_check`, `ops_dry_run` and `ops_deliver_car` need JMRI installed. Set `JMRI_HOME` if it isn't found.
+- It does not write a train's build or terminate script, a track's type (empty it, delete it and add the new type), a car's final destination (it is derived), a car added to a built train (use a manual build line before the build), or Track Analysis. Printing itself, CSV column content and web or tablet manifests are outside it.
 - JMRI's JSON server doesn't cover schedules, Operations routes, loads or divisions, so those are changed through the files.
 - A train's own build or terminate script runs as usual, and can still open a window or hang. So can an automation step with a message, a Message Yes or No step or a print step: JMRI shows a modal window and the run waits there. `add_automation` and `update_automation` refuse those unless `allow_dialogs` is set, and warn about train scripts, wait steps and steps that start an outside program.
 - `ops_explain_build` reads a file, so for a JMRI on another computer copy the report or paste its text. `ops_live_report` fetches only the end of it.

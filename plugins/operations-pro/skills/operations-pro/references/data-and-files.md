@@ -29,8 +29,20 @@ There is no seventh file. Generated folders beside them: `buildstatus`, `manifes
 - An automatic backup set is taken when Operations initialises, default on, under `autoBackups/<date>_<nn>`.
 - `backups` fills only from the Backup button, or from the plugin, which backs up before every write so JMRI's Restore window lists those sets too.
 - JMRI has two restore entry points, the Restore dialog and the restore files action. Which folders each can reach was not checked.
-- To move a railroad: copy the six files into the same folder of the other install with JMRI closed.
-- `ops_backups` lists sets; `ops_restore` puts one back after backing up the current state. `ops_backup_now` takes a set on demand, as the plugin does before a write, for example right after a build and before printing; it copies the files on disk, so save JMRI first.
+- To move a railroad: copy all six files into the same folder of the other install with JMRI closed. Copy them as one set. The files refer to each other by id, and ids are reused: tracks are `<location>s<n>`, and a deleted track's id is given to the next track added. Copying only the location and route files from a test copy into the real railroad can leave a car's track id pointing at a different track, and the car then sits on it with no warning from the audit. A car whose track no longer exists is caught (`car-unplaced`; `ops_why_not` B1). Compare the cars' tracks after a partial copy.
+- A lost or damaged file is recoverable, and the recovery tools work on the broken folder:
+
+| Step | Tool |
+|---|---|
+| Take a set now (after a build, before printing; JMRI may stay running, but save first so the files are current) | `ops_backup_now` |
+| List sets: JMRI's `backups`, `autoBackups` (taken each time Operations starts), the plugin's own | `ops_backups` |
+| Put a whole set back; the current state is backed up first | `ops_restore` with `set` and `folder` |
+| Put back one lost or unreadable file; the others keep the newer state, so run `ops_audit` after | `ops_restore` with `file` |
+| See what is wrong | `ops_audit` reads a missing or corrupt file as empty and reports `file-missing` or `file-unreadable` |
+
+- JMRI itself, started on a corrupt location file, loads no locations and may save the empty roster over it. Do not start it before the file is back.
+- The automatic set predates any builds since it was taken, so restoring it after an accidental Terminate returns the cars to their pre-build tracks; build again, and since the builder is random the trains may differ from the ones printed. A set taken with `ops_backup_now` right after the build keeps the built state.
+- A folder that has none of the four roster files is an empty railroad: the first `ops_apply` writes all six. A folder missing only some of them is refused for changes (writing would lose what they held) until they are restored.
 
 ## Fields that depend on others
 
@@ -61,7 +73,9 @@ A schedule or an alternate on a non-spur, and a Destinations filter on a yard or
 
 ## Deleting
 
-Set a track's length to zero first so nothing new is sent, wait for its drop count to reach zero, then delete. Deleting a track fires events that clear final destinations pointing at it. The plugin's `delete_track`, `delete_location`, `delete_route`, `delete_schedule` and `delete_train` refuse while anything still points at the record and list what does.
+Set a track's length to zero first so nothing new is sent, wait for its drop count to reach zero, then delete. Deleting a track fires events that clear final destinations pointing at it. The plugin's `delete_track`, `delete_location`, `delete_route`, `delete_schedule`, `delete_train` and `delete_load` refuse while anything still points at the record and list what does.
+
+`delete_load` removes a custom load only once no car, schedule line, track or train load list or manual build line names it. `rename_load` onto a name the type already has is refused unless `merge` is set; the two loads then become one, keeping the existing one's settings. A track cannot change type: empty it, `delete_track`, then `add_track` the new type (once a delete and an add of a track in one plan was refused with "moves ... would change", because the new track took the deleted one's id; if that happens, use two plans).
 
 ## The JSON server
 
@@ -86,9 +100,14 @@ Types: car, cars, carType, engine, engines, kernel, location, locations, rolling
 
 ## Import and export
 
-- Cars import from CSV with the car columns plus division, schedule id, RWE, RWL, destination, final destination and train.
+- The plugin has no import action. To load a car list, turn each row into an `add_car` action (all rows in one `ops_plan`); fields such as built, weight, comment and the load carry over. Applied through the plan, 180 rows is a normal job.
+- JMRI's own CSV import takes the car columns plus division, schedule id, RWE, RWL, destination, final destination and train. Its error "missing one or more of the first four required car attributes" says a line lacked the first four columns; the delimiter or a header row are the first things to look at (not checked against the source), and the plugin does not diagnose it.
 - Routes import; an existing route is not overwritten. Trains and schedules export only.
 - The RFID attribute on a car is the lower-case `rfid`, shown once RFID is enabled in Settings.
+
+## Car history
+
+JMRI's car logger is off by default. Turn it on with `set_option` group `logger`, name `carLogger`, value true (`engineLogger` and `trainLogger` are the same settings for engines and trains; `set_option` refuses a group or name the file lacks). After a build and terminate JMRI writes a CSV under `operations/logger/` with the car, type, load, location, track, final destination, train, moves and date. The plugin has no tool that reads that CSV; open it, or read it with `Read`.
 
 ## Several computers
 

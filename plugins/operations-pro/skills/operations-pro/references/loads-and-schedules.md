@@ -32,7 +32,7 @@ Further cases:
 
 - Load generation from staging applies the receive load at build. The car leaves with the load the schedule asked for.
 - Quick service tracks apply both at build.
-- Set Car applies a schedule only when the track changes and the user answers yes. Nothing else revisits parked cars, so adding a schedule does not touch cars already on the spur. `ops_deliver_car` and `ops_live_car` do what Set Car does.
+- Set Car applies a schedule only when the track changes and the user answers yes (CarSetFrame:600-630). Nothing else revisits parked cars, so adding a schedule does not touch cars already on the spur. `ops_deliver_car` and `ops_live_car` do what Set Car does, so `ops_deliver_car` refuses a car that is already on that track. To load a car parked before the schedule existed, set its load with `update_car` (`ops_session`), or deliver it to another track and back. The audit reports `schedule-not-applied` for a parked car holding the load a line receives.
 - Wait counts builds, not visits: it falls by one each time a train that could serve the car builds, and the load changes when it reaches zero. A car departing staging ignores wait.
 - Disable Load Change skips the ship load, the ship destination and the id clear. Wait and pick up day still apply.
 - Moving a car with a JSON location change does not apply a schedule.
@@ -71,6 +71,8 @@ There is no single action. It is two actions in one `ops_plan`: `add_schedule` f
 
 - Blank receive matches any load. It is fine for cars arriving from other tracks, but load generation from staging rejects blank, E and L, so a spur fed only from staging needs a custom receive. The audit reports `blank-receive-on-staging-fed-spur`.
 - Blank ship flips by load type: an empty becomes the car's RWL load, or default L; a load becomes the RWE load, or default E. A custom empty flagged Load therefore flips to E. The audit reports `custom-empty-flagged-load` and `load-flagged-empty`.
+- The same flip happens when a car is delivered to a spur that has **no** schedule: a default E arriving there turns L, and an L turns E. So making a track a spur is enough to turn empties into loads; no schedule is needed. A rest-of-the-world track that must send cars back loaded can be a spur with a one-line schedule (receive E, ship L), a modelling choice that works in JMRI. An interchange cannot have a schedule, and no action changes a track's type: empty the track, `delete_track`, then `add_track` the new type.
+- `load_options` `disable_load_change` on a spur stops the flip (and the ship load), so a loaded car delivered to a RIP-style spur with no schedule keeps its load.
 - A ship destination with a blank track sets the final destination to the location only. The builder then tries that location's tracks, scheduled first, the rest by moves, all types mixed, so a yard can win over an unscheduled spur.
 - Staging cannot be chosen as a schedule destination track; the schedule window removes staging tracks.
 - A schedule needs at least one line with a car type.
@@ -81,13 +83,16 @@ There is no single action. It is two actions in one `ops_plan`: `add_schedule` f
 Return when empty and return when loaded hold a load, a location and a track, each optional. On delivery the order is: the ship load is set; RWE or RWL fires if the new load equals its load name and the car has no final destination; then a schedule line's destination overwrites the final destination. So a schedule destination beats RWE, and a ship load beats the RWE load.
 
 - A final destination already on the car stops load generation from staging.
-- In staging, the "Empty cars with custom loads" option converts arrivals: the car gets its RWE load, or default E.
+- In staging, the "Empty cars with custom loads" option converts arrivals, in three branches that `staging.md` (Arrivals) sets out. Giving the car a RWE load equal to its current load strips it to E; keeping a load needs load type Empty plus the same load as RWL.
+- `update_car` `return_when_empty` and `return_when_loaded` take a `destination`, a `track`, a `load`, or any of them; a load alone is kept, as JMRI allows.
 - RWE sending a custom empty to a spur with no schedule converts the car to a default load on arrival and drops it out of routing. The audit reports `rwe-to-unscheduled-spur`.
 - A RWE location with no track avoids the reserved-in-route accounting.
 
 ## Divisions
 
-A car with a home division behaves differently by load type: an empty cannot leave its division without a load first, and a car with a custom empty counts as empty. A car with no division is unchanged, so divisions can be left unused. Departure staging must be able to load divisional empties, or they stick and fail the build. The home division search runs before the load test and uses the router.
+A car with a home division behaves differently by load type: an empty cannot leave its division without a load first, and a car with a custom empty counts as empty. A car with no division is unchanged, so divisions can be left unused. The home division search runs before the load test and uses the router.
+
+What departure staging needs for divisional empties is a reachable location **in the car's division** that takes them. Giving staging a custom load for them does not fix a failing build: JMRI applies the division rule to generated loads too and refuses a spur in another division. See `staging.md`, Home divisions and departure staging.
 
 `set_load_type` changes a custom load's Load or Empty type; `routing.md` has the division actions.
 

@@ -16,7 +16,7 @@ Ask first: staging or a loop, default loads only or custom loads, and which trai
 3. **Routes:** `add_route`, one per train pattern, with each stop's direction, moves and train length.
 4. **Trains:** `add_train`, which also puts the train on the pick up and set out lists of the tracks along its route.
 5. **Cars:** `add_car`, then `place_car` on the starting track. Kernels with `set_kernel`.
-6. **Locomotives:** `add_engine_type` if the defaults do not fit, `add_engine` on its starting track, consists with `set_consist`. A model's type, length and horsepower are shared by all its engines. Divisions, if used, with `add_division`, `set_location_division` and `set_car_division`. Cars a train must take first: `set_manual_build`. A session to run unattended: `add_automation` with steps that open no window (`references/sessions.md`).
+6. **Locomotives:** `add_engine_type` if the defaults do not fit, `add_engine` on its starting track, consists with `set_consist`, locomotive changes or helpers en route with `set_train_leg`, and a resting locomotive with `set_engine_moves`. A model's type, length and horsepower are shared by all its engines. Divisions, if used, with `add_division`, `set_location_division` and `set_car_division`. Cars a train must take first: `set_manual_build`. A session to run unattended: `add_automation` with steps that open no window (`references/sessions.md`).
 7. **Check:** `ops_audit`, then `ops_dry_run`, which builds and terminates every train on a copy. Each train comes back with its report already read (outcome and findings; `detail` normal or full for more, or `ops_explain_build` with a car); fix what they say before the first real session.
 
 A minimal working railroad is two locations with a yard each, one route between them, one train and a few cars of one type. Everything else is added to that, one plan at a time.
@@ -58,10 +58,11 @@ Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops
 
 ## Facts that trip everyone
 
-- A spur with a schedule refuses any car with no matching line. A spur with no schedule refuses every custom load.
+- A spur with a schedule refuses any car with no matching line. A spur with no schedule refuses every custom load, and flips a default E to L (or L to E) on delivery.
+- `can_move: true` from `ops_why_not` means the gates pass, not that the builder will choose that track: ties go to the later stop, and at a location schedule tracks come first, then the lowest move count.
 - Default E and L cars are never routed. They take the first accepting track on the building train's own route, scheduled tracks first. A car with a final destination is always routed, whatever its load.
 - A schedule acts three times: as a gate on entry, at build when the line is assigned, and on delivery when the load changes. Set Car applies it only when the track changes and the user says yes.
-- Staging can send a default empty. What blocks it is a Ship Load Option that excludes E, a train that does not carry E, or no track ahead that takes E.
+- Staging can send a default empty. What blocks it is a Ship Load Option that excludes E, a train that does not carry E, or no track ahead that takes E. A car with a home division also needs a reachable location in its division; a generated load does not get round that.
 - Every car on a departure staging track must leave or the build fails, except in on-time mode.
 - Yards ignore pick up and set out lists and the Destinations filter. Interchanges, spurs and staging filter trains; only interchanges and staging filter destinations.
 - The Destinations filter holds locations, not tracks, and tests the car's final destination. With no final destination it tests the next location the train would use.
@@ -73,6 +74,17 @@ Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops
 
 ## Out of scope
 
-Printing and third-party paperwork tools (the plugin writes manifest and switch list formats; see `sessions.md`), RFID and reporters, train icons on panels, locale and scale settings, migration from other programs, and version-specific bugs. Give the confirmed facts in `sessions.md` and `data-and-files.md` where they touch these, and say the rest is outside what this skill checked.
+**The plugin does not write:**
+
+- A train's build or terminate script (a security risk, and a script can hang on a dialog). An automation with build, wait and terminate steps is the alternative (`sessions.md`).
+- A track's type. Empty the track, `delete_track`, then `add_track` with the new type.
+- A car's final destination: it is derived. It comes from a schedule line's ship destination, a return-when-empty or loaded setting, a manual build line with a destination, or the home division search; `ops_deliver_car` runs the schedule as Set Car does.
+- A car added to a train that is already built. Write a manual build line before the build (`set_manual_build`); a line cannot name one car, only type, road and load.
+- Track Analysis windows, and any third-party formatter or spreadsheet tool.
+- A CSV import (`add_car` for each row does the job; `data-and-files.md`).
+
+**Paperwork.** The plugin sets what JMRI writes for manifests and switch lists: page, font, colours, tabs, which lines and fields print, header and phrase text, a train's own railroad name, logo path and times, and the CSV files written at build (they appear only on the next build; see `sessions.md`). Out of scope are printing itself (printers, drivers, PDF output), CSV column content, bold text or comment colours, two fonts, field-length limits, the logo's image type and size, and web and tablet manifests.
+
+**Also outside what this skill checked:** RFID and reporters, train icons on panels, locale and scale settings, migration from other programs, and version-specific bugs. Give the confirmed facts in `sessions.md` and `data-and-files.md` where they touch these, and say the rest is outside what this skill checked.
 
 Checked against JMRI 5.16 source, tag v5.16.

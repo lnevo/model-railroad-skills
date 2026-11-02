@@ -28,7 +28,23 @@
 - Routed, the "only cars with a final destination" option, exists on interchanges and staging. It refuses any car with no final destination, except cabooses and FRED cars. With it on, the custom search fallback cannot leave a car there.
 - Pick ups and Set outs lists hold train or route ids and are read on interchanges and spurs. Yards return Any whatever is stored, and the audit reports `yard-pickup-list` and `yard-drop-list`. Changing the option from train to route clears the list.
 - Interchanges can be descriptive rather than physical. That is a modelling choice.
-- The `setup_interchange` action sets trains in, trains out, Routed and destinations in one step.
+- The `setup_interchange` action sets trains in, trains out, Routed and destinations in one step. `pulled_by` is the pick up list; `set_out_by` the set out list. Words in option fields are lower case (`trains`, `routes`, `any`).
+- An interchange cannot have a schedule; a car's route through a rest-of-the-world interchange that must come back loaded needs a spur instead (`loads-and-schedules.md`).
+
+### A/D track for a yard switcher
+
+Goal: arriving road trains leave every car on one arrival track, and a yard switcher then sorts them onto class tracks. Yards ignore pick up and set out lists, so the class tracks and the A/D track must be **interchanges**. No action changes a track's type, and a track with cars on it cannot be deleted, so:
+
+1. Empty the tracks being converted (`place_car` the cars elsewhere).
+2. `delete_track` them, then `add_track` each as an interchange.
+3. `setup_interchange`: the A/D track is set out by the road trains and pulled by the switcher; each class track is set out by the switcher only.
+4. `set_option` group `buildOptions`, name `allowLocalInterchange`, true: interchange to interchange moves by a local switcher are off by default (D19; `allowLocalSpur` and `allowLocalYard` are the siblings in the same group).
+
+Tested in real JMRI: the road train set out all four cars on the A/D track, and after it terminated the switcher moved them to the class tracks, two each. Audit `switcher-local-off` points at this setting.
+
+### Routed cars through yards
+
+If the router cannot route a car and falls back to a random staging track, check `set_option` group `router`, name `carRoutingViaYards` (default off): it lets the router hop through a yard (two trains through a yard) when no interchange chain exists.
 
 ## The Destinations filter
 
@@ -38,6 +54,7 @@
 - As a gate on the destination track (E6): the car's **final** destination must be admitted. A car with no final destination passes.
 - An interim interchange or staging track must admit the car's final destination, so a filter there closes that hop for those cars. Yards have no filter, so nothing in the yard stops a car passing through it. Either exclude every final destination reached through that yard on the tracks that feed it, or turn on the EXTREME option in car routing, which tests each hop against the car's track.
 - A filter that leaves out the location a schedule names makes the builder skip that spur and fall to the route search, so cars scatter. Accept all is the usual fix.
+- The filter holds locations only, so it cannot say "this type goes there". An interchange can hold a type that none of its allowed destinations takes (JMRI's Check Destinations warns of it): such a car gets no destination, while cars of other types leave. The fix is to admit a destination that takes the type (`setup_interchange` `destinations`), or take the type off the interchange. The audit's `interchange-no-exit` warning checks type and load against the destinations; `ops_why_not` D6 shows the location tested.
 
 ## Directions
 

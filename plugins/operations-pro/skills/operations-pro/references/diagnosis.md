@@ -41,6 +41,8 @@ Wording follows the message keys and may differ a little between versions.
 | Stuck cars in staging after the car list | Every car on the departure track must leave (B20) |
 | "called before trains completely loaded" in the log | Files loaded in the wrong order; a hand edit or a bad file |
 
+**The headline failure line names a screen that is often the wrong one.** "Could not find destinations for N cars departing from staging" (B20) and "requires caboose, can't find caboose at departure" (B17) are consequences. The cause is in the stuck cars' stories (the gate on each refusal) and in the excluded-cars list (a caboose barred by B6 or C9). Read those first; the summary names the most frequent refusal, which is not always the deciding one (for a car stopped by train length, the D9 line decides, not the E9 lines for tracks it never reached).
+
 A build in aggressive mode shows half the moves on the first pass. Two identical builds can differ because staging and load picks are random, so compare several runs; `ops_build_check` does that.
 
 ## Symptoms
@@ -48,7 +50,8 @@ A build in aggressive mode shows half the moves on the first pass. Two identical
 | Symptom | Likely causes | Check |
 |---|---|---|
 | Car on hold or never moves | No accepting track on the route; default load with nothing pointing it; custom load with no receiving schedule; wait count; interchange same-route rule; direction | `ops_why_not` to each candidate destination |
-| Build fails from staging | One car on the track cannot leave: ship option excludes E, train does not carry the load, out of service, no room ahead, divisional empty | `ops_why_not` for each car on that track; audit `staging-departure-blocked` |
+| Build fails from staging | One car on the track cannot leave: ship option excludes E, train does not carry the load, out of service, no room ahead, divisional empty with no reachable location in its division | `ops_why_not` for each car on that track; audit `staging-departure-blocked`, `staging-type-unserved`, `staging-division-unreachable` |
+| Builds in normal mode, fails in aggressive | See the next section | Compare the first-pass lines of the report |
 | Cars scatter across a yard despite a schedule | Destinations filter leaves out the schedule's location; spur full; length failure before the spur | Audit `interchange-no-exit`; `ops_why_not` to the spur |
 | Car stuck on an interchange | Custom search fallback left it there with no final destination; Pick ups Any on the same route; Destinations filter with no exit | Audit; `ops_why_not` with the pulling train |
 | Same train cannot pull from an interchange it served | Pick ups Any and the car's last route is this route | Name the train or route in Pick ups |
@@ -67,6 +70,26 @@ A build in aggressive mode shows half the moves on the first pass. Two identical
 | Edits vanished | Made while JMRI ran; overwritten by autosave or exit | Restore; redo with JMRI exited |
 | Cars gone after a start | Bad file | `ops_restore` from `autoBackups` |
 | Remote build never finishes | A dialog open on the JMRI computer | Use `ops_train`, which turns dialogs off |
+
+## Builds in normal mode but fails in aggressive
+
+Applies to a train that departs staging. In normal mode the builder makes one pass, and the staging cars are placed first. In aggressive mode the departure staging adjustment runs only on the first pass (lesson 94), so the cars at the first towns can fill the train, or use up the stop moves or the train length, before the staging cars are placed. Those cars then have nowhere to go and the build fails with "could not find destinations for N cars departing from staging".
+
+| Sign in the report | Meaning |
+|---|---|
+| Departure staging shows 0 moves used on the first pass while the next stop is at its limit | The yard cars went first |
+| The staging car's story ends at D9 ("would exceed train's maximum length") or D3 (moves) | The train filled up |
+
+What worked in JMRI 5.16, tested:
+
+| Fix | Result |
+|---|---|
+| `update_train` `build_normal` true (the train's own normal mode) | Built |
+| `set_option` group `buildOptions`, name `stagingTryNormal` true (Settings: try normal mode for a train from staging; the default is on, and the test had turned it off) | Built |
+| Raise Max Length alone | Still failed: the next limit was the stop's moves (D3) |
+| Lower the moves at the first towns, so the train never reaches its length | The documented alternative (lesson 113); not tested here |
+
+Raising one limit can just move the failure to the next one; read the new refusal after each change.
 
 ## Audit findings
 

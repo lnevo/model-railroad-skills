@@ -45,6 +45,17 @@ For a car to get a load:
 
 Room at the spur: cars present plus cars en route, scaled by the track's "% from staging" reservation factor. Raising it to 200 or 300 lets more cars head for one spur. The alternate's length is **not** counted for staging cars; that only applies elsewhere. Pool minimum length counts, so raising it makes room.
 
+## Home divisions and departure staging
+
+A car with a home division and no final destination gets one before any load test (`build-order.md`, step 5). A divisional empty can leave staging only if some reachable location in its division takes it. JMRI applies the division rule to a generated load as well, so the older advice to "load the empties in staging" does not rescue the build: a generated load is refused at a spur in another division ("wrong division"), and the build fails with the car departing staging with a load that the track restricts. What works, tested in real JMRI:
+
+| Fix | Effect |
+|---|---|
+| Put a location the trains reach into the car's division (`set_location_division`) | The empties get a home destination there |
+| Clear the cars' division (`set_car_division` with none) | Behaves as before divisions |
+
+The audit reports `staging-division-unreachable`. The build summary may blame the router (G12); the car's own story shows the division lines (C12).
+
 ## Ship Load Options
 
 - Exist on staging only. The panel appears once a generate option is on.
@@ -55,9 +66,32 @@ The `setup_custom_staging` action sets a track for all-custom loads: convert arr
 
 ## Arrivals
 
-- "Empty cars with custom loads" converts a car on arrival to its RWE load, or default E. Downstream tracks must then accept E, and staging must accept arriving loads.
-- The terminal track must be empty, have set outs for this train, and have no drops pending (gate A7). The builder uses only the assigned track.
+What happens to the load of a car that arrives in staging depends on the track's load options. The options are `swap_default` (exchange default loads), `empty_custom` (empty cars with custom loads) and `empty_default`, set with `update_track` `load_options`.
+
+| Option | Car arriving | Result |
+|---|---|---|
+| `swap_default` | Default E | Becomes loaded (seen in JMRI: an empty set out in staging turned L) |
+| `swap_default` | Default L | Becomes empty (Car.java:935-955) |
+| `empty_custom` | A custom load | Branches in the table below |
+| `empty_default` | Default L | Becomes empty (Car.java:935-955) |
+
+`empty_custom` converts a custom load in one of three ways (Car.java:941-955), tested in this order:
+
+| The car's load | Result |
+|---|---|
+| Load type Empty, and the car has a return-when-loaded (RWL) load | The RWL load. If the car already holds that load nothing changes, so the load is kept |
+| Equals the car's return-when-empty (RWE) load name | Default E. Setting RWE to the load you want to keep therefore strips it |
+| Anything else | The RWE load, or default E |
+
+- To keep a permanent load through staging, make the load's type Empty (`set_load_type`) and give the car the same load as its RWL load (`update_car` `return_when_loaded` with `load`; a destination is not needed). The audit then warns `load-flagged-empty`, because load type also drives the blank-Ship flip and the division rules. Or keep such cars off the option: a separate staging track without it is a modelling choice.
+- Downstream tracks must accept E after a conversion, and the staging track must accept the arriving loads.
+- The terminal track must be empty, or have planned pick ups (see below), and have set outs that admit this train and no drops pending (gate A7). The builder uses only the assigned track.
+- With the staging restriction on (the default), the terminal location and track must take every car and locomotive type, road and load the train carries, or A7 fails. `add_train` gives a train every car and locomotive type, so list the same types on the staging location and track (`add_location` with no `types` takes them all). The audit reports `terminal-staging-refuses-train`; the other way out is Settings, staging restriction off.
 - Return to staging at the same location needs the train or Settings option.
+
+### Two full trains swapping staging tracks
+
+Each train fills its staging track and terminates on the other's, so both fail A7: the terminal track is full. Normal mode fails, and so does aggressive with staging immediately available, because each track counts as leaving only once the other train is built (a deadlock). What works in JMRI 5.16 is planned pick ups on both staging tracks: `update_track` `ignore_used_percent` 100. Both then build, in normal and in aggressive mode. The same setting widens a full industry for a swap; see `moves-and-balance.md`.
 
 ## Staging as a destination
 
