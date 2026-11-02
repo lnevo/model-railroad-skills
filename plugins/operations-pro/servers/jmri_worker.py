@@ -15,6 +15,7 @@ from jmri.util import FileUtil
 FileUtil.setUserFilesPath(None, java.lang.System.getProperty("ops.home") + "/")
 
 from jmri.jmrit.operations import OperationsXml  # noqa: E402
+from jmri.jmrit.operations.automation import AutomationManager  # noqa: E402
 from jmri.jmrit.operations.locations import LocationManager, LocationManagerXml, Track  # noqa: E402
 from jmri.jmrit.operations.rollingstock.cars import CarManager, CarManagerXml  # noqa: E402
 from jmri.jmrit.operations.rollingstock.engines import EngineManager, EngineManagerXml  # noqa: E402
@@ -23,6 +24,7 @@ from jmri.jmrit.operations.setup import OperationsSetupXml  # noqa: E402
 from jmri.jmrit.operations.trains import TrainManager, TrainManagerXml  # noqa: E402
 
 JOB = json.loads(java.lang.System.getProperty("worker.job"))
+AUTOMATION_TICKS = 200  # 100 ms each
 XMLS = (OperationsSetupXml, LocationManagerXml, RouteManagerXml, CarManagerXml, EngineManagerXml, TrainManagerXml)
 
 # A failed build asks for the lead engine's DCC address, which needs the roster settings.
@@ -38,6 +40,22 @@ out = {"version": str(jmri.Version.name()), "cars": len(cars.getList()),
        "locations": len(locations.getLocationsByNameList()),
        "routes": len(IM.getDefault(RouteManager).getRoutesByNameList()),
        "trains": len(trains.getTrainsByNameList()), "builds": {}}
+
+def settle_automations():
+    """A startup automation runs on its own thread, so saving now could miss its last steps. Wait for it to start
+    and go quiet, with a limit, as a wait step for a train nobody terminates never ends."""
+    manager = IM.getDefault(AutomationManager)
+    startup = manager.getStartupAutomation()
+    started = startup is None
+    quiet = 0
+    for _ in range(AUTOMATION_TICKS):
+        running = any(a.isRunning() or a.isActionRunning() for a in manager.getAutomationsByNameList())
+        started = started or running or any(i.isActionRan() for i in startup.getItemsBySequenceList())
+        quiet = quiet + 1 if started and not running else 0
+        if quiet >= 5:
+            return
+        java.lang.Thread.sleep(100)
+
 
 if JOB.get("build"):
     trains.setBuildMessagesEnabled(False)  # A failed build must not open a dialog.
@@ -66,7 +84,9 @@ if JOB.get("build"):
         for train in trains.getTrainsByTimeList():
             if train.isBuilt():
                 train.terminate()
-                out["builds"][train.getName()]["terminated"] = not bool(train.isBuilt())
+                row = out["builds"].get(train.getName())  # A train an automation built has no row of its own.
+                if row is not None:
+                    row["terminated"] = not bool(train.isBuilt())
 
 if JOB.get("car"):
     car = cars.getById(JOB["car"])
@@ -84,6 +104,7 @@ if JOB.get("car"):
             car.loadNext(track)
 
 if JOB.get("save"):
+    settle_automations()
     for xml in XMLS:
         IM.getDefault(xml).setDirty(True)
     OperationsXml.save()
