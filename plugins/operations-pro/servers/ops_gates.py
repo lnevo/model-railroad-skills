@@ -150,9 +150,10 @@ GATES: dict[str, tuple[str, str, str]] = {
             "Requires; when a caboose or FRED car is there, what refused it is the cause (often B6 or C9)"),
     "B18": ("Kernel together on one track", CAR, "Kernel, or move the members together"),
     "B19": ("Manual build lines", TRAIN, "Manual build lines"),
-    "B20": ("Departure staging: every car on the track must leave", "the stuck car's own refusals",
+    "B20": ("Departure staging: car is on the track used, and every car there must leave", "the stuck car's own refusals",
             "each car on a departure staging track needs a destination on this train, so fix what refused it "
-            "(its story names the gate)"),
+            "(its story names the gate); a car on another track waits until that track has the fewest moves "
+            "of those that pass"),
     "C1": ("Pick up stop not skipped", TRAIN, "Skip list"),
     "C2": ("Pick ups or local moves on at the stop", ROUTE, "Pick ups?, Local moves?"),
     "C3": ("Staging pick ups only at the start of the route", ROUTE, "Route order"),
@@ -769,6 +770,29 @@ class Gates:
         problems.extend(self._pool_order(train, track)[0])
         return problems
 
+    def departure_choice(self, train: Train) -> tuple[Track | None, list[tuple[Track, list[str]]],
+                                                      list[tuple[Track, list[str]]]]:
+        """The search of TB:231-245, as (chosen, rejected, unsure). Tracks are tried by moves and the first that
+        passes is the only one used, so nothing past it counts. A track the files cannot settle goes in unsure
+        with what is in doubt, and the search carries on as the build might. chosen is the first sure track,
+        which is the track used only when unsure is empty. With the dialog on (TB:228), the user picks."""
+        rr, stops = self.rr, self.rr.stops(train)
+        place = rr.locations.get(stops[0].location_id) if stops else None
+        tracks = [t for t in self.track_order(place) if t.is_staging] if place else []
+        asked = len(tracks) > 1 and rr.option("buildOptions", "promptStagingEnabled")
+        rejected, unsure = [], []
+        for track in tracks:
+            problems = self.staging_problems(train, track)
+            if problems:
+                rejected.append((track, problems))
+                continue
+            doubts = self.staging_doubts(train, track) + (["the build asks which track to use"] if asked else [])
+            if doubts:
+                unsure.append((track, doubts))
+                continue
+            return track, rejected, unsure
+        return None, rejected, unsure
+
     def _last_move(self, car: Car) -> datetime:
         """RollingStock.getLastMoveDate. A blank or unreadable date keeps the default, earlier than any real one."""
         text = self.x.car.get(car.id, {}).get("date", "")
@@ -959,17 +983,13 @@ class Gates:
                       "; ".join(f"{t.name}: {', '.join(self.terminal_track_problems(train, t))}" for t in tracks))
             out.append(gate("A7", bool(usable), reason))
         if first is not None and first.is_staging:
-            tracks = [t for t in first.tracks if t.is_staging]
-            report = {t.name: self.staging_problems(train, t) for t in tracks}
-            good = [t for t in tracks if not report[t.name]]
-            sure = [t for t in good if not self.staging_doubts(train, t)]
-            if sure or not good:
-                reason = (f"can depart from {', '.join(t.name for t in sure)}" if sure else
-                          "; ".join(f"{name}: {', '.join(problems)}" for name, problems in report.items()))
-                out.append(gate("A8", bool(sure), reason))
+            chosen, rejected, unsure = self.departure_choice(train)
+            if unsure:
+                out.append(self._open("A8", "; ".join(f"{t.name}: {', '.join(d)}" for t, d in unsure)))
+            elif chosen is None:
+                out.append(gate("A8", FAIL, "; ".join(f"{t.name}: {', '.join(p)}" for t, p in rejected)))
             else:
-                out.append(self._open("A8", "; ".join(
-                    f"{t.name}: {', '.join(self.staging_doubts(train, t))}" for t in good)))
+                out.append(gate("A8", PASS, f"can depart from {chosen.name}, the first usable track by moves"))
         else:
             out.append(gate("A8", PASS, "train does not start in staging"))
         out.append(self._engine_gate(train))
@@ -1206,8 +1226,19 @@ class Gates:
         track = rr.tracks.get(car.track_id)
         if not stops or track is None or not track.is_staging or car.location_id != stops[0].location_id:
             return self._gate("B20", PASS, "car is not on departure staging")
-        problems = self.staging_problems(train, track)
-        return self._gate("B20", not problems, ", ".join(problems) or f"{track.name} can depart")
+        chosen, rejected, unsure = self.departure_choice(train)
+        problems = next((p for t, p in rejected if t is track), None)
+        if problems:
+            return self._gate("B20", FAIL, ", ".join(problems))
+        if any(t is track for t, _ in unsure) or (unsure and chosen is track):
+            return self._open("B20", f"which track departs is settled in the build: "
+                                     + "; ".join(f"{t.name}: {', '.join(d)}" for t, d in unsure))
+        if chosen is not track:
+            # adjustCarsInStaging keeps only the cars on the departure track (TBB:1036-1039).
+            name = chosen.name if chosen else next((t.name for t, _ in unsure), "another track")
+            return self._gate("B20", FAIL, f"the train departs from {name}, the first usable track by moves, "
+                                           f"and leaves the cars on {track.name}")
+        return self._gate("B20", PASS, f"{track.name} can depart, the first usable track by moves")
 
     def _pickup_gates(self, car: Car, train: Train, stops: list[Stop], stop: Stop | None,
                       goal: Stop | None, target: Track | None = None) -> list[dict]:

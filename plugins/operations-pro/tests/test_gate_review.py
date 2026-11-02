@@ -212,5 +212,51 @@ class StagingPool(Review):
         self.assertEqual(self.gate(out, "A8")["status"], "pass")
 
 
+class DepartureTrack(Review):
+    """The build departs the first track that passes, by moves, and only that track (TB:231-245)."""
+
+    @staticmethod
+    def two_good(x):
+        turn_ends_at_carrow(x)
+        x.track("1s6").set("moves", "5")
+        x.add_car("TSTX901", "TRNX1", roadNumber="901", secLocationId="1s6")
+
+    def test_the_track_with_more_moves_stays(self):
+        """Real build: departs Turn A and excludes TRNX 901 (TBB:1036-1039)."""
+        folder = self.scenario(self.two_good)
+        out = self.why_not(folder, "TRNX 901", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "pass")
+        self.assertIn("Turn A", self.gate(out, "A8")["reason"])
+        self.assertNotIn("Turn B", self.gate(out, "A8")["reason"])
+        self.assertEqual(self.gate(out, "B20")["status"], "fail")
+        self.assertIn("Turn A", self.gate(out, "B20")["reason"])
+        self.assertFalse(out["can_move"])
+
+    def test_the_track_chosen_passes(self):
+        out = self.why_not(self.scenario(self.two_good), "TRNX 1", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "B20")["status"], "pass")
+        self.assertTrue(out["can_move"], out["first_failure"])
+
+    def test_the_second_track_is_used_when_the_first_is_refused(self):
+        def change(x):
+            self.two_good(x)
+            x.track("1s5").set("moves", "9")
+            x.track("1s6").set("moves", "0")
+            x.car("TRNX1").set("type", "Observation")
+            x.train("17").find("./types").remove(x.train("17").find("./types/carType[@name='Observation']"))
+        folder = self.scenario(change)
+        out = self.why_not(folder, "TRNX 901", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "B20")["status"], "pass")
+
+    def test_an_auto_count_leaves_the_choice_open(self):
+        """How many locomotives the train wants depends on the cars, so no track is settled before the build."""
+        def change(x):
+            self.two_good(x)
+            x.train("17").set("numberEngines", "AUTO")
+        out = self.why_not(self.scenario(change), "TRNX 901", "Linden", None, "TURN")
+        self.assertEqual(self.gate(out, "A8")["status"], "not_checked")
+        self.assertEqual(self.gate(out, "B20")["status"], "not_checked")
+
+
 if __name__ == "__main__":
     unittest.main()
