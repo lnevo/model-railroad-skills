@@ -506,7 +506,7 @@ def set_manifest_text(ed: Editor, group: str, key: str, text: str | None = None)
             _indent(holder, 1)
         return f"{group} text {key} is JMRI's default: {defaults[key]!r}."
     if paper.is_pattern(group, key):
-        problem = paper.pattern_problem(text, defaults[key])
+        problem = paper.pattern_problem(text, defaults[key], group, key)
         if problem:
             raise Refused(f"{group} text {key}: {problem}. JMRI's text is {defaults[key]!r}")
     if holder is None:

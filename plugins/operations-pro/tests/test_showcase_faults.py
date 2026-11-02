@@ -317,3 +317,25 @@ class BackupCount(Faults):
     def test_few_sets_do_not_warn(self):
         plan = ops_store.plan(self.copy(), [{"action": "update_car", "car": "HZMX 9", "blocking": -2}])
         self.assertFalse([w for w in plan["warnings"] if "backup sets" in w])
+
+
+class WriteActions(Faults):
+    def test_text_keys_are_the_ones_jmri_stores(self):
+        """trains/Xml.java:19, 163: a key JMRI does not read vanishes on its next save."""
+        import ops_paperwork as paper
+        for group, tag in (("manifest", "finalDest"), ("header", "finalDest"), ("header", "comment")):
+            self.assertIn(tag, paper.TEXTS[group][1])
+        self.assertNotIn("Final_Dest", paper.TEXTS["header"][1])
+
+    def test_a_text_may_use_every_argument_jmri_passes(self):
+        """TrainManifest:198-200 passes the train's name though the default text shows only {0}."""
+        import ops_paperwork as paper
+        default = paper.TEXTS["manifest"][1]["trainTerminates"]
+        self.assertIsNone(paper.pattern_problem("Train {1} ends in {0}", default, "manifest", "trainTerminates"))
+        self.assertIn("{9}", paper.pattern_problem("Train {9}", default, "manifest", "trainTerminates"))
+
+    def test_a_schedule_line_with_an_undefined_load_is_refused(self):
+        line = {"type": "Boxcar", "receive": "NoSuchLoad"}
+        with self.assertRaises(ops_store.Refused) as caught:
+            ops_store.plan(self.copy(), [{"action": "add_schedule", "name": "Bad", "lines": [line]}])
+        self.assertIn("NoSuchLoad", str(caught.exception))

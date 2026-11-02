@@ -199,7 +199,7 @@ TEXTS = {
         "from": "from",
         "to": "to",
         "dest": "->",
-        "Final_Dest": "->",
+        "finalDest": "->",
         "addHelpers": "Add helpers at {0}",
         "removeHelpers": "Remove helpers at {0}",
         "locoChange": "Locomotive change at {0}",
@@ -231,9 +231,9 @@ TEXTS = {
         "road": "Road", "number": "Number", "engineNumber": "Number", "type": "Type", "model": "Model",
         "hp": "HP", "length": "Length", "weight": "Weight", "load": "Load", "load_type": "Load Type",
         "color": "Color", "track": "Track", "destination": "Destination", "dest_Track": "Dest&Track",
-        "Final_Dest": "Final Dest", "fd_Track": "FD&Track", "location": "Location", "consist": "Consist",
+        "finalDest": "Final Dest", "fd_Track": "FD&Track", "location": "Location", "consist": "Consist",
         "dcc_addr": "DCC Address", "kernel": "Kernel", "owner": "Owner", "division": "Division", "rwe": "RWE:",
-        "Comment": "Comment", "setOut_msg": "SetOut Msg", "pickUp_msg": "PickUp Msg", "hazardous": "Hazardous",
+        "comment": "Comment", "setOut_msg": "SetOut Msg", "pickUp_msg": "PickUp Msg", "hazardous": "Hazardous",
         "last_train": "Last Train", "last_moved": "Last Moved", "last_location": "Last Location",
     }),
 }
@@ -242,17 +242,35 @@ TEXTS = {
 PLACEHOLDER = re.compile(r"\{(\d+)\}")
 
 
+# How many arguments JMRI passes each text, which can be more than its default shows, such as the train's
+# name and description (the new Object[] at each call in TrainManifest and TrainSwitchLists).
+ARGUMENTS = {
+    **{("manifest", k): n for k, n in (("trainTerminates", 4), ("addHelpers", 7), ("removeHelpers", 6), ("locoChange", 4),
+                                       ("cabooseChange", 4), ("locoCabooseChange", 4), ("trainDepartsCars", 8),
+                                       ("trainDepartsLoads", 9), ("manifestForTrain", 2), ("noScheduledWork", 4),
+                                       ("noScheduledWorkWithRouteComment", 5), ("scheduledWork", 4),
+                                       ("workDepartureTime", 5), ("workArrivalTime", 5))},
+    **{("switch_list", k): n for k, n in (("scheduledWorkTrain", 2), ("trainVisits", 3), ("visitNumberDone", 3),
+                                          ("visitNumber", 5), ("visitNumberDeparted", 5), ("visitNumberTerminates", 5),
+                                          ("visitNumberTerminatesDeparted", 5), ("departsAt", 3),
+                                          ("departsExpectedArrival", 4), ("departedExpected", 4),
+                                          ("trainDirectionChange", 4), ("trainDepartsCars", 8),
+                                          ("trainDepartsLoads", 9), ("trainDone", 3), ("noCarPickUps", 3),
+                                          ("noCarSetOuts", 3), ("holdCar", 7))},
+}
+
+
 def is_pattern(group: str, tag: str) -> bool:
     return group != "header" and (bool(PLACEHOLDER.search(TEXTS[group][1][tag])) or tag == "switchListTrack")
 
 
-def pattern_problem(text: str, default: str) -> str | None:
+def pattern_problem(text: str, default: str, group: str = "", tag: str = "") -> str | None:
     """Why MessageFormat would refuse this text or print it differently from what was typed, or None.
 
     MessageFormat.applyPattern: a single quote starts quoted text, '' is one quote, and an
     unmatched brace throws, which JMRI prints on the manifest as an illegal argument error.
     """
-    allowed = {int(n) for n in PLACEHOLDER.findall(default)}
+    allowed = {int(n) for n in PLACEHOLDER.findall(default)} | set(range(ARGUMENTS.get((group, tag), 0)))
     index = 0
     while index < len(text):
         char = text[index]
