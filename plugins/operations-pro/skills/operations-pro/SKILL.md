@@ -16,7 +16,7 @@ Ask first: staging or a loop, default loads only or custom loads, and which trai
 3. **Routes:** `add_route`, one per train pattern, with each stop's direction, moves and train length.
 4. **Trains:** `add_train`, which also puts the train on the pick up and set out lists of the tracks along its route.
 5. **Cars:** `add_car`, then `place_car` on the starting track. Kernels with `set_kernel`.
-6. **Locomotives:** `add_engine_type` if the defaults do not fit, `add_engine` on its starting track, consists with `set_consist`. A model's type, length and horsepower are shared by all its engines. Divisions, if used, with `add_division`, `set_location_division` and `set_car_division`.
+6. **Locomotives:** `add_engine_type` if the defaults do not fit, `add_engine` on its starting track, consists with `set_consist`. A model's type, length and horsepower are shared by all its engines. Divisions, if used, with `add_division`, `set_location_division` and `set_car_division`. Cars a train must take first: `set_manual_build`. A session to run unattended: `add_automation` with steps that open no window (`references/sessions.md`).
 7. **Check:** `ops_audit`, then `ops_dry_run`, which builds and terminates every train on a copy. Each train comes back with its report already read (outcome and findings; `detail` normal or full for more, or `ops_explain_build` with a car); fix what they say before the first real session.
 
 A minimal working railroad is two locations with a yard each, one route between them, one train and a few cars of one type. Everything else is added to that, one plan at a time.

@@ -54,7 +54,7 @@ Setter names are the Java methods, useful when reading a build report or the sou
 | B16 | Wait count is zero. It falls by one for each build by a train that could serve the car, and the car stays | Set Car, Wait |
 | B17 | Cabooses and FRED cars move only as the train's own: a caboose when the train requires one at departure, or a leg adds one, at that stop, of the right road, to the end of its leg; a FRED car only when the train requires FRED, at departure. Every other caboose and FRED car is removed. Several that qualify: the builder takes one, preferring the lead locomotive's road | Edit Train, Requires |
 | B18 | Kernel: lead exists and all members are on one track. Non-lead members are removed; a split kernel fails the build | Edit Car, Kernel |
-| B19 | Manual build lines take matching cars first (no train, destination or final destination; type, road, load, stop, track, pick up day). A line with a destination sends the car there; with Remove set, matching cars it does not place leave the build. A line set to fail that asks for more cars than can match it fails the build | Edit Train, manual build |
+| B19 | Manual build lines take matching cars first (no train, destination or final destination; type, road, load, stop, track, pick up day). A line with a destination sends the car there; with Remove set, matching cars it does not place leave the build. A line set to fail that asks for more cars than can match it fails the build. Written with `set_manual_build` | Edit Train, manual build |
 | B20 | Departure staging: only that track's cars, and all of them must stay in the list unless on-time mode is on | Staging track Pick ups |
 
 ### C. Pick up, per stop

@@ -93,6 +93,22 @@ class SkillTest(unittest.TestCase):
         self.assertEqual([n for n in names if f"`{n}`" not in text], [])
         self.assertNotIn("does not write engines", text)
 
+    # ---- Manual builds and automations (start)
+    def test_manual_build_and_automation_actions_are_in_the_references(self):
+        import ops_actions
+        source = (ROOT / "servers" / "ops_actions.py").read_text()
+        block = source[source.index("# ---- Manual builds and automations (start)"):
+                       source.index("# ---- Manual builds and automations (end)")]
+        names = re.findall(r"@action\([^)]*\)\ndef ([a-z_]+)", block)
+        self.assertEqual(len(names), 6)
+        self.assertTrue(all(n in ops_actions.ACTIONS for n in names))
+        text = "".join(p.read_text() for p in (SKILL / "references").glob("*.md"))
+        self.assertEqual([n for n in names if f"`{n}`" not in text], [])
+        self.assertNotIn("can run automations but not create them", text)
+        readme = (ROOT / "README.md").read_text()
+        self.assertNotIn("manual builds, automations", readme)
+    # ---- Manual builds and automations (end)
+
     def test_readme_counts_match_code(self):
         import ops_actions
         text = (ROOT / "README.md").read_text()
