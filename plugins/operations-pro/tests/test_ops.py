@@ -981,7 +981,7 @@ class ServerTests(unittest.TestCase):
         out = call(self.env, INIT, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = out[1]["result"]["tools"]
         writers = {"ops_apply", "ops_session", "ops_deliver_car", "ops_restore", "ops_install_agent", "ops_train",
-                   "ops_live_car", "ops_live_save", "ops_live_automation"}
+                   "ops_live_car", "ops_live_save", "ops_live_automation", "ops_backup_now"}
         readers = {"ops_why_not", "ops_audit", "ops_list", "ops_actions", "ops_plan", "ops_build_check",
                    "ops_dry_run", "ops_backups", "ops_live_status", "ops_live_report", "ops_explain_build"}
         self.assertEqual({t["name"] for t in tools}, writers | readers)
@@ -1029,7 +1029,7 @@ class ServerTests(unittest.TestCase):
         allowed = {"__future__", "collections", "concurrent", "copy", "dataclasses", "datetime", "difflib",
                    "hashlib", "json", "os", "pathlib", "re", "shutil", "subprocess", "sys", "tempfile", "time",
                    "typing", "urllib", "uuid", "xml", "mcp_stdio", "ops_actions", "ops_actions_automations",
-                   "ops_actions_cars", "ops_actions_engines", "ops_actions_locations", "ops_actions_names",
+                   "ops_actions_cars", "ops_actions_engines", "ops_actions_extras", "ops_actions_locations", "ops_actions_names",
                    "ops_actions_schedules", "ops_actions_setup", "ops_actions_trains", "ops_data", "ops_gates",
                    "ops_jmri", "ops_live", "ops_paperwork", "ops_report", "ops_report_messages", "ops_router", "ops_store"}
         for path in SERVERS.glob("*.py"):

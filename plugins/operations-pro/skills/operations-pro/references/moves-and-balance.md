@@ -46,6 +46,7 @@ Track priority and load priority decide which cars are **analysed first**: track
 - Reserved length counts cars en route. The spur's "% from staging" factor scales it for load generation.
 - Planned pick ups, the ignore-used-length percentage, let the builder discount part of the used length. Cars will fill the freed room, so keeping it to tracks where only locos go is a modelling choice.
 - A pool shares length between tracks, with a minimum per track. It does not make the builder search those tracks as one. Pool requests change track lengths at build time, so a pooled track's length is not a stable input. Modelling drawers as a location with rows as tracks is a modelling choice.
+- A pool's minimums must not add up to more than its tracks' lengths. JMRI's pool window shows "ERROR: Minimum > Length" then, but loads such a pool without complaint, and a track lends length only down to its minimum. The pool actions refuse it, and audit `pool-minimum-over-length` finds an existing one. Lower the minimums or lengthen the tracks.
 - Set a track's length to zero to retire it: nothing new is sent and the cars there are pulled. Delete it once the drop count reaches zero.
 - Entering a yard track shorter than real to give operators spare room is a modelling choice.
 

@@ -98,6 +98,7 @@ Errors stop traffic; warnings are settings JMRI ignores or traps; info is worth 
 | `engine-no-train` | A locomotive whose type some train takes, but every train refuses it by loco road list, owner, built dates, or the model and road it asks for (count 0 asks for none, except from departure staging); out of service engines are left out |
 | `engine-location-refuses-type`, `engine-on-refusing-track` | A locomotive at a location, or on a track, that does not take its type: Set Locomotive refuses the spot without force, and no train sets it out there |
 | `consist-split` | Consist members on different tracks; a train taking the lead adds the others at the lead's stop, wherever they sit |
+| `pool-minimum-over-length` | A pool whose track minimums add up to more than its tracks' lengths, JMRI's "ERROR: Minimum > Length" |
 
 ## When the report and the tools disagree
 

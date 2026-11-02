@@ -6,6 +6,8 @@
 - Loco type is an available manifest attribute but absent from the default formats, so a fine-grained type costs nothing on paper.
 - A train out of staging with a variable loco count should require zero engines: staging must clear, so the train takes what is there.
 - A loco change at a track that the departing loco will free fails on room unless the track uses planned pick ups. Keep such a track for locos only.
+- Changes en route are the train's leg 2 and leg 3 (Edit Train, build options): change, add, remove or helper locomotives at a stop, and keep, remove, change or add a caboose there. `set_train_leg` writes them with the window's own checks; a train moved to another route loses its legs.
+- The builder takes the locomotive with the lowest move count first. `ops_list engines` shows the counts and `set_engine_moves` sets them, so a high count rests a locomotive.
 - Horsepower can be entered or derived from tractive effort. Auto horsepower per ton sizes consists.
 - `OperationsEngineRoster.xml` does not exist until something writes it.
 - JMRI keeps a locomotive's type, length, horsepower, weight and B unit on its model, not on the engine. Only model names are stored, so on load each engine sets its model and the last one read wins; the next save writes that value onto every engine of the model. Horsepower and weight need a model at all.

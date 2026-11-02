@@ -470,7 +470,8 @@ def _check_train_power(ed: Editor, train: ET.Element) -> list[str]:
 
 # Each group registers its actions on import, so this order is the order of ACTIONS. The manual builds
 # and automations group wraps actions of earlier groups (delete_track, delete_location, delete_train,
-# set_train_route and the renames), so it loads last. Every name a group defines is also a name of this
+# set_train_route and the renames), so it loads after the others; the extras group (train legs, engine
+# moves, delete_load and the pool and stop time checks) wraps actions of every group, so it loads last. Every name a group defines is also a name of this
 # module, as it was before the split.
 import ops_actions_names  # noqa: E402
 import ops_actions_locations  # noqa: E402
@@ -480,10 +481,11 @@ import ops_actions_cars  # noqa: E402
 import ops_actions_setup  # noqa: E402
 import ops_actions_engines  # noqa: E402
 import ops_actions_automations  # noqa: E402
+import ops_actions_extras  # noqa: E402
 
 for _group in (ops_actions_names, ops_actions_locations, ops_actions_schedules,
                ops_actions_trains, ops_actions_cars, ops_actions_setup,
-               ops_actions_engines, ops_actions_automations):
+               ops_actions_engines, ops_actions_automations, ops_actions_extras):
     for _key, _value in vars(_group).items():
         if not _key.startswith("__") and _key not in globals():
             globals()[_key] = _value

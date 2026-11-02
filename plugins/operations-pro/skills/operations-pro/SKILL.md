@@ -50,7 +50,7 @@ Read one file, not all of them. The gate ids in `build-order.md` are the ids `op
 
 ## Tools
 
-Read: `ops_explain_build`, `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`, `ops_plan`, `ops_build_check`, `ops_dry_run`, `ops_backups`.
+Read: `ops_explain_build`, `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`, `ops_plan`, `ops_build_check`, `ops_dry_run`, `ops_backups`, `ops_backup_now` (takes a set; JMRI may stay running).
 Write with JMRI exited: `ops_apply`, `ops_session`, `ops_deliver_car`, `ops_restore`, `ops_install_agent`.
 Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops_live_report`, `ops_live_automation`.
 

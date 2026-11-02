@@ -2019,3 +2019,31 @@ def _day_note(rr: Railroad, train: Train) -> str:
     listed = "does not list it" if train.build else "lists it"
     return f"; active day {day.name} {listed}, so Apply (apply_day) would turn Build {turn}"
 # ---- End of train schedule days and manifest formats --------------------------------
+
+
+# ---- Pool minimums (start) ----------------------------------------------------------
+def _rule_pool_minimums(self):
+    """PoolTrackFrame:270 shows ERROR: Minimum > Length when a pool's minimums add up to more than its
+    tracks' lengths. Track.load (Track:2754-2768) reads the minimums without that check, so JMRI loads such
+    a pool silently; Pool.requestTrackLength then lends length only down to each track's minimum."""
+    for location in self.rr.locations.values():
+        pools: dict[str, list[Track]] = {}
+        for track in location.tracks:
+            if track.pool:
+                pools.setdefault(track.pool, []).append(track)
+        for name, tracks in sorted(pools.items()):
+            minimum = 0
+            for track in tracks:
+                value = self.g.x.track.get(track.id, {}).get("minLength", "0")
+                minimum += int(value) if JAVA_INT.fullmatch(value) else 0
+            length = sum(t.length for t in tracks)
+            if minimum > length:
+                yield _finding("pool-minimum-over-length", "warning", f"{location.name}, {name}",
+                               f"Pool minimum lengths add up to {minimum}, more than its tracks' {length} "
+                               f"({', '.join(t.name for t in tracks)}). JMRI's pool window shows ERROR: Minimum > "
+                               "Length, and the pool lends length only down to each track's minimum.",
+                               "Edit Location > track > Pool", "Lower the minimums, or lengthen the tracks")
+
+
+Audit.rule_pool_minimums = _rule_pool_minimums
+# ---- Pool minimums (end) ------------------------------------------------------------

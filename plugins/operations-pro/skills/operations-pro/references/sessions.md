@@ -36,6 +36,7 @@
 - Schedule days never use the calendar. Schedule lines carry a set out day and a pick up day that are tested against the active day.
 - Manifest and report dates come from the JMRI timebase, which may be a fast clock.
 - On-time mode uses departure times and a dwell time, default 60. Otherwise departure time only feeds expected times on paperwork and the timing check against other trains' pulls.
+- A route stop's `depart_time` (HH:MM) fixes the manifest time at that stop, and later stops follow from it; `wait` adds minutes there to the travel time. Both are stop fields of `add_route` and `update_stop`, and `ops_list routes` shows them.
 - A train schedule holds an id, a name, a comment and a list of trains. The builder never reads the list: it reads only the active id, against a car's pick up day and a schedule line's set out day. The list matters when Apply sets each train's Build box from it.
 - A car's pick up day naming a schedule that no longer exists lets the car go any day. A schedule line's set out day naming one is never used to pick a custom load, yet the line still accepts cars any day, so delete days with their lines in mind.
 - With no train schedules at all, JMRI makes Sunday to Saturday on its next save. Its Restore button adds them by name.

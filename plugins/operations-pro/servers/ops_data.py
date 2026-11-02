@@ -220,6 +220,8 @@ class Stop:
     drops: bool = True
     local: bool = True
     random: str = "Off"
+    wait: int = 0  # Minutes added to the travel time here (RouteLocation:650).
+    depart_time: str = ""  # HH:MM that fixes the manifest time here, blank for none (RouteLocation:660).
     split = property(lambda self: split_name(self.name))
 
 
@@ -260,6 +262,8 @@ class Train:
     service_all: bool = False  # Service all cars with a final destination (Train.java 3056).
     leg2_options: int = 0
     leg3_options: int = 0
+    # Leg 2 and leg 3 as Train.store writes them (Train:4549-4573): only legs with options, stops by id.
+    legs: list[dict] = field(default_factory=list)
 
     @property
     def changes_caboose(self) -> bool:
@@ -284,6 +288,19 @@ class Train:
         start = _int(self.built_start, 0)
         end = _int(self.built_end, 99999)
         return start < built_year(built) < end
+
+
+def _legs(e: ET.Element) -> list[dict]:
+    """Each leg with options, as the train file holds it: Train.load reads these attributes (Train:4099-4150)."""
+    out = []
+    for n in (2, 3):
+        options = _int(e.get(f"leg{n}Options"))
+        if options:
+            out.append({"leg": n, "options": options, "engines": e.get(f"leg{n}Engines", "0"),
+                        "model": e.get(f"leg{n}Model", ""), "road": e.get(f"leg{n}Road", ""),
+                        "caboose_road": e.get(f"leg{n}CabooseRoad", ""), "start": e.get(f"leg{n}Start", ""),
+                        "end": e.get(f"leg{n}End", "")})
+    return out
 
 
 def built_year(text: str) -> int:
@@ -357,6 +374,7 @@ class Engine:
     destination_id: str = ""
     division_id: str = ""
     out_of_service: bool = False
+    moves: int = 0  # The builder takes the lowest count first (EngineManager.getAvailableTrainList).
 
 
 @dataclass
@@ -556,7 +574,8 @@ class Railroad:
                     pickups=stop.get("pickups", "yes") == "yes",
                     drops=stop.get("drops", "yes") == "yes",
                     local=stop.get("localMoves", "yes") == "yes",
-                    random=stop.get("randomControl", "Off")))
+                    random=stop.get("randomControl", "Off"), wait=_int(stop.get("wait")),
+                    depart_time=stop.get("departTime", "")))
             self.routes[route.id] = route
 
     def _read_trains(self) -> None:
@@ -584,7 +603,8 @@ class Railroad:
                 allow_return=e.get("allowReturn") == "true",
                 send_custom_staging=e.get("sendCustomStaging") == "true",
                 service_all=e.get("serviceAll") == "true",
-                leg2_options=_int(e.get("leg2Options")), leg3_options=_int(e.get("leg3Options")))
+                leg2_options=_int(e.get("leg2Options")), leg3_options=_int(e.get("leg3Options")),
+                legs=_legs(e))
             self.trains[train.id] = train
         for schedule in root.findall("./schedules/schedule"):
             self.train_schedules[schedule.get("id", "")] = schedule.get("name", "")
@@ -638,7 +658,8 @@ class Railroad:
                             weight_tons=e.get("weightTons", ""), b_unit=e.get("bUnit") == "true",
                             consist=e.get("consist", ""), lead=e.get("leadConsist") == "true",
                             train_id=e.get("trainId", ""), destination_id=e.get("destinationId", ""),
-                            division_id=e.get("divisionId", ""), out_of_service=e.get("outOfService") == "true")
+                            division_id=e.get("divisionId", ""), out_of_service=e.get("outOfService") == "true",
+                            moves=_int(e.get("moves")))
             self.engines[engine.id] = engine
 
     # ---- Train schedule days and manifest formats ----------------------------------

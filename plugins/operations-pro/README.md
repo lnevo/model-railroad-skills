@@ -2,7 +2,7 @@
 
 Build, change, run and understand a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first. The skill carries the rules the program applies, and the tools do the work at the level of the railroad rather than one field at a time, with a change plan you see before anything is written.
 
-**Status: in development.** 78 actions and 20 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
+**Status: in development.** 81 actions and 21 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
@@ -52,6 +52,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | `ops_build_check` | No | Compares real builds before and after a plan, on copies |
 | `ops_dry_run` | No | Runs a whole session on a copy; each train comes back with its build report read as `ops_explain_build` reads it (`detail`: summary, normal, full) |
 | `ops_backups`, `ops_restore` | Restore only | Lists backup sets and puts one back |
+| `ops_backup_now` | Adds a backup set | Takes a backup set now, in JMRI's own `backups` folder, as `ops_apply` does before a change |
 
 These work on a running JMRI, and don't need it exited:
 

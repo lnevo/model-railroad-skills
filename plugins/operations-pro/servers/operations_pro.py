@@ -100,6 +100,27 @@ def explain_build(args: dict) -> object:
     return ops_report.explain_file(path, car, detail)
 
 
+# ---- On-demand backup (start) ---------------------------------------------------------
+def backup_now(args: dict) -> object:
+    """A backup set taken as ops_apply takes one, without parsing the files, so it works on a broken folder too."""
+    from pathlib import Path
+    from ops_data import REQUIRED
+    base = Path(folder(args)).expanduser()
+    if (base / "operations").is_dir() and not (base / REQUIRED[0]).exists():
+        base = base / "operations"
+    present = [n for n in ops_store.FILES if (base / n).is_file()]
+    if not present:
+        raise ops_store.Refused(f"No Operations files in {base}")
+    notes = ops_store._warnings(base)
+    if ops_store.running_jmri():
+        notes.append("JMRI is running here, so the set holds the files on disk, which lag JMRI until it saves. "
+                     "Save first (ops_live_save, or Save in JMRI) for a set that matches what JMRI shows.")
+    return {"backup": ops_store.backup(base, "manual"), "folder": "backups", "files": present,
+            "missing": [n for n in ops_store.FILES if n not in present], "notes": notes,
+            "restore": "ops_restore with this set, or JMRI's Restore window, which lists the same folder."}
+# ---- On-demand backup (end) -----------------------------------------------------------
+
+
 def action_help(args: dict) -> object:
     wanted = args.get("session_only")
     return {name: {"session": entry["session"], "help": entry["help"]}
@@ -186,6 +207,10 @@ def tools() -> list[Tool]:
                              "track": {"type": "string"}},
               "required": ["car", "location", "track"]},
              lambda a: ops_jmri.deliver_car(folder(a), a["car"], a["location"], a["track"]), read_only=False),
+        Tool("ops_backup_now",
+             "Take a backup set now, in JMRI's own backups folder, as ops_apply does before a change: for example "
+             "right after a build and before printing. Copies the files on disk; JMRI may stay running.",
+             {"type": "object", "properties": directory}, backup_now, read_only=False),
         Tool("ops_backups", "List backup sets.", {"type": "object", "properties": directory},
              lambda a: ops_store.backups(folder(a))),
         Tool("ops_restore",

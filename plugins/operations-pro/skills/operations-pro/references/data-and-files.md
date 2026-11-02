@@ -30,7 +30,7 @@ There is no seventh file. Generated folders beside them: `buildstatus`, `manifes
 - `backups` fills only from the Backup button, or from the plugin, which backs up before every write so JMRI's Restore window lists those sets too.
 - JMRI has two restore entry points, the Restore dialog and the restore files action. Which folders each can reach was not checked.
 - To move a railroad: copy the six files into the same folder of the other install with JMRI closed.
-- `ops_backups` lists sets; `ops_restore` puts one back after backing up the current state.
+- `ops_backups` lists sets; `ops_restore` puts one back after backing up the current state. `ops_backup_now` takes a set on demand, as the plugin does before a write, for example right after a build and before printing; it copies the files on disk, so save JMRI first.
 
 ## Fields that depend on others
 
