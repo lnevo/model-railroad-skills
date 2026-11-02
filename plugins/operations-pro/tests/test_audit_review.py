@@ -168,6 +168,30 @@ class BuiltTrains(AuditCase):
                 car.attrib.update(trainId=train.get("id"), routeLocationId="1r1")
         self.assertEqual([f for f in self.findings(edits, "staging-departure-blocked") if f["subject"] == "CUSTOM"], [])
 
+class Locomotives(AuditCase):
+    def spare(self):
+        edits = self.edits()
+        for train in edits.root("trains").iter("train"):
+            train.attrib.update(engineModel="GP9", leg2Model="GP9", leg3Model="GP9")
+        return edits
+
+    def test_a_consist_member_is_not_judged_on_its_own_model(self):
+        """TBE:226 skips non-leads and TBE:892-899 takes them with the lead: JFN 52, model SW9 under a GP9 lead,
+        went out on LOCAL-B in the real build."""
+        edits = self.spare()
+        edits.root("engines").find(".//engine[@id=\x27JFN52\x27]").set("model", "SW9")
+        self.assertEqual(self.findings(edits, "engine-no-train"), [])
+
+    def test_a_lone_spare_is_a_warning(self):
+        """Nothing in the builder needs every locomotive used, so a spare one costs no build."""
+        edits = self.spare()
+        engine = edits.root("engines").find(".//engine[@id=\x27JFN52\x27]")
+        engine.set("model", "SW9")
+        for name in ("consist", "leadConsist"):
+            engine.attrib.pop(name, None)
+        found = self.findings(edits, "engine-no-train")
+        self.assertEqual([(f["subject"], f["severity"]) for f in found], [("JFN 52", "warning")])
+
 
 if __name__ == "__main__":
     unittest.main()

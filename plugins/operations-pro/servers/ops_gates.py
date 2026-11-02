@@ -2521,14 +2521,22 @@ class Audit:
     def rule_engine_trains(self):
         rr = self.rr
         carried = {kind for t in rr.trains.values() for kind in self.g._train_types(t)}
+        leads: dict[str, Engine] = {}
+        for engine in self._engines():  # RollingStockGroup.add: the first member leads until one is named lead.
+            if engine.consist and (engine.lead or engine.consist not in leads):
+                leads[engine.consist] = engine
         for engine in self._engines():
             # A type no train takes is model-type-no-train; out of service is the owner's choice.
             if engine.out_of_service or engine.type not in carried:
                 continue
+            # The builder tests only a consist's lead (TBE:226) and takes the others with it (TBE:892-899).
+            if engine.consist and leads[engine.consist] is not engine:
+                continue
             reasons = [(t.name, self._loco_refusal(t, engine)) for t in rr.trains.values()]
             if all(r for _, r in reasons):
                 text = "; ".join(f"{n}: {r}" for n, r in reasons[:4]) + ("; ..." if len(reasons) > 4 else "")
-                yield _finding("engine-no-train", "error", f"{engine.road} {engine.number}",
+                # A warning: no build needs every locomotive, and one in staging is staging-departure-blocked's.
+                yield _finding("engine-no-train", "warning", f"{engine.road} {engine.number}",
                                f"No train takes this locomotive. {text}.", TRAIN,
                                "Locomotive roads (Train Road Options), owners and built dates (Train Build "
                                "Options), or the locomotive count, model and road")
