@@ -265,7 +265,7 @@ class Editor:
         return self._one(self.locations(), text, "location")
 
     def track(self, text: str, location: str | None = None) -> ET.Element:
-        pool = self.location(location).findall("track") if location else self.tracks()
+        pool = self.location(location).findall("track") if location is not None else self.tracks()
         return self._one(pool, text, "track")
 
     def location_of(self, track: ET.Element) -> ET.Element:

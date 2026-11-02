@@ -26,7 +26,7 @@ def add_location(ed: Editor, name: str, types: list[str] | None = None, directio
         _text("like", like)
     if types is not None:
         types = _names("types", types)
-    wanted = types if types is not None else (ed.type_entries(ed.location(like)) if like else
+    wanted = types if types is not None else (ed.type_entries(ed.location(like)) if like is not None else
                                               ed.car_types() + [t for t in ed.loco_types() if t not in ed.car_types()])
     number = _next(x.get("id") for x in ed.locations())
     # No ops attribute: Location(Element) never reads it and store() derives it from the tracks.
@@ -436,7 +436,7 @@ def set_track_moves(ed: Editor, moves: dict[str, int]) -> str:
 @action()
 def reset_moves(ed: Editor, location: str | None = None) -> str:
     """Zero move counts at one location or everywhere. Only on request: it changes where traffic goes."""
-    tracks = ed.location(location).findall("track") if location else ed.tracks()
+    tracks = ed.location(location).findall("track") if location is not None else ed.tracks()
     for track in tracks:
         track.set("moves", "0")
         ed.moves_allowed.add(track.get("id"))

@@ -159,6 +159,20 @@ ROWS = [
     ("set_manifest_creator", {"directory": 5}, "must be text", []),
     ("set_manifest_creator", {"creator": "nope"}, "creator must be one of", []),
     ("set_train_options", {"train_action": 5}, "train_action must be one of", []),
+    ("add_car", {"road": "NEW", "number": "1", "type": "Boxcar", "length": 40, "location": [], "track": "Brackwater Yard B"}, "by name or id as text", []),
+    ("reset_moves", {"location": []}, "by name or id as text", []),
+    ("delete_track", {"track": "Brackwater Yard B", "location": []}, "by name or id as text", []),
+    ("add_car", {"road": "NEW", "number": "1", "type": "Boxcar", "length": 40, "location": {}, "track": "Brackwater Yard B"}, "by name or id as text", []),
+    ("reset_moves", {"location": {}}, "by name or id as text", []),
+    ("delete_track", {"track": "Brackwater Yard B", "location": {}}, "by name or id as text", []),
+    ("add_car", {"road": "NEW", "number": "1", "type": "Boxcar", "length": 40, "location": 0, "track": "Brackwater Yard B"}, "by name or id as text", []),
+    ("reset_moves", {"location": 0}, "by name or id as text", []),
+    ("delete_track", {"track": "Brackwater Yard B", "location": 0}, "by name or id as text", []),
+    ("add_car", {"road": "NEW", "number": "1", "type": "Boxcar", "length": 40, "location": "", "track": "Brackwater Yard B"}, "No location", []),
+    ("reset_moves", {"location": ""}, "No location", []),
+    ("delete_track", {"track": "Brackwater Yard B", "location": ""}, "No location", []),
+    ("add_car", {"road": "NEW", "number": "1", "type": "Boxcar", "length": 40, "location": "Brackwater", "track": []}, "by name or id as text", []),
+    ("add_car_type", {"name": "Autorack", "like": []}, "Unknown type", []),
 ]
 
 

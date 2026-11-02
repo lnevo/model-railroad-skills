@@ -125,8 +125,8 @@ def add_car(ed: Editor, road: str, number: str, type: str, length: int, location
     ed.register("lengths", "length", str(length), "value")
     element.set("load", empty)
     _car_fields(ed, element, fields)
-    if location:
-        if not track:
+    if location is not None:
+        if track is None:
             raise Refused("Give the track too: JMRI's Add Car window refuses a location without a track "
                           "(rsFullySelect), and a car with no track is left out of every build")
         if not force:
@@ -170,7 +170,7 @@ def _put(ed: Editor, element: ET.Element, location: str, track: str | None) -> N
     place = ed.location(location)
     element.set("locationId", place.get("id"))
     element.attrib.pop("secLocationId", None)
-    if track:
+    if track is not None:
         element.set("secLocationId", ed._one(place.findall("track"), track, "track").get("id"))
 
 

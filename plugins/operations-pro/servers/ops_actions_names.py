@@ -39,7 +39,7 @@ def add_car_type(ed: Editor, name: str, like: str | None = None) -> str:
                       "so a car type and a loco type with one name could not be told apart")
     ed.register("types", "type", name)
     done = [0, 0, 0]
-    if like:
+    if like is not None:
         ed.need_type(like)
         for location in ed.locations():
             if like in ed.type_entries(location):

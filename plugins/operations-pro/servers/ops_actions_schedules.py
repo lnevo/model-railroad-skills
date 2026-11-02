@@ -31,8 +31,8 @@ def _line(ed: Editor, schedule_id: str, number: int, sequence: int, line: dict) 
     for key in ("road", "receive", "ship", "comment"):
         _text(f"A schedule line's {key}", line.get(key, ""))
     destination = line.get("destination")
-    place = ed.location(destination) if destination else None
-    if line.get("track") and place is None:
+    place = ed.location(destination) if destination is not None else None
+    if line.get("track") is not None and place is None:
         raise Refused("A schedule line's track needs a destination too")
     track = ed._one(place.findall("track"), line["track"], "track") if line.get("track") else None
     if place is not None and place.findall("track") and all(

@@ -225,7 +225,7 @@ def add_engine_type(ed: Editor, name: str, like: str | None = None) -> str:
     _type_name(ed, name)
     _engine_register(ed, "types", "type", name)
     done = [0, 0, 0]
-    if like:
+    if like is not None:
         for location in ed.locations():
             if like in ed.type_entries(location):
                 done[0] += ed.add_type_to(location, name, 2)
