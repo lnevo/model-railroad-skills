@@ -124,6 +124,7 @@ Set `OPS_DIR` to your Operations folder, or pass `ops_dir` on each call. Tools r
 ```
 python3 plugins/operations-pro/tests/run.py          # every test, with progress and the time left
 python3 plugins/operations-pro/tests/run.py fast     # no real JMRI, under a minute: run this while working
+python3 plugins/operations-pro/tests/run.py test_router   # only the files for the area you are changing
 python3 plugins/operations-pro/tests/run.py status   # where a run is now, from any other shell
 python3 -m unittest discover -s plugins/operations-pro/tests   # every test, one file at a time
 ```

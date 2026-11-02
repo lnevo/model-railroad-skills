@@ -32,6 +32,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 
 from ops_data import INTERCHANGE, QUICK_SERVICE, SPUR, STAGING, YARD, Car, Location, Track, Train
 
@@ -108,6 +109,7 @@ def _minutes(time: str) -> int | None:
     return day * 24 * 60 + hour * 60 + minute
 
 
+@lru_cache(maxsize=4096)
 def _ignore_case(text: str) -> str:
     return text.upper().lower()  # String.compareToIgnoreCase folds each character both ways.
 
@@ -126,6 +128,8 @@ class Router:
         self.steps: list[str] = []
         self.uncertain: list[str] = []
         self._service_status: dict[str, str] = {}
+        self._by_name: list[Train] | None = None
+        self._able: dict[tuple, bool] = {}
         self._bumped: dict[str, int] = {}  # Track.addDropRS bumps moves on each new destination (TR:818).
         self._loaded_moves = gates.loaded_moves()  # Moves as JMRI holds them after a load.
         self.shown: list[dict] | None = None  # Car.getRoutePath: cleared with the final destination (C:390).
@@ -134,7 +138,9 @@ class Router:
 
     # Lists the Java builds from the managers.
     def _trains_by_name(self) -> list[Train]:
-        return sorted(self.rr.trains.values(), key=lambda t: _ignore_case(t.name))  # TM:604, 677
+        if self._by_name is None:  # The railroad does not change during one Router's call.
+            self._by_name = sorted(self.rr.trains.values(), key=lambda t: _ignore_case(t.name))  # TM:604, 677
+        return self._by_name
 
     def _tracks_by_name(self, location: Location, kind: str | None) -> list[Track]:
         by_id = sorted(location.tracks, key=lambda t: t.id)  # LOC:850 sorts ids as strings.
@@ -344,9 +350,12 @@ class Router:
 
     def able(self, train: Train, car: Car) -> bool:
         """Train.isTrainAbleToService (T:1985)."""
-        road = train.accepts_caboose_road(car.road) if car.caboose else train.accepts_road(car.road)
-        return (car.type in train.types and train.accepts_load(car.load, car.type)
-                and train.accepts_built(car.built) and train.accepts_owner(car.owner) and road)
+        key = (train.id, car.road, car.caboose, car.type, car.load, car.built, car.owner)
+        if key not in self._able:
+            road = train.accepts_caboose_road(car.road) if car.caboose else train.accepts_road(car.road)
+            self._able[key] = (car.type in train.types and train.accepts_load(car.load, car.type)
+                               and train.accepts_built(car.built) and train.accepts_owner(car.owner) and road)
+        return self._able[key]
 
     def _switcher(self, train: Train) -> bool:
         stops = self.rr.stops(train)
