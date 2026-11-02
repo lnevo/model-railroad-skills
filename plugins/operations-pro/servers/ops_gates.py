@@ -1643,11 +1643,16 @@ class Audit:
                 continue
             if item.ship not in {x.name for x in rr.loads.get(item.type, [])}:
                 continue
+            # A blank Receive takes any load (Schedule.java:490-494), so the custom-load search
+            # (TBC:1070-1096) sends cars there too. It skips only the car's own track (TBC:1074-1076):
+            # a car loaded on this spur cannot be sent back to it, so the shipper never counts.
             receivers = [t for t, _, other in lines if t is not track and other.type == item.type
-                         and other.receive == item.ship]
+                         and (other.receive == item.ship
+                              or (other.receive == "" and self._track_takes(t, item.type, item.ship)))]
             if not receivers:
                 yield _finding("load-no-receiver", "error", f"{item.type} {item.ship}",
-                               f"{schedule.name} ships {item.ship} and no schedule receives it.", SCHEDULE,
+                               f"{schedule.name} ships {item.ship} and no schedule on another spur receives it.",
+                               SCHEDULE,
                                "A receive line for this load on another spur")
                 continue
             if len({t.id for t in receivers}) == 1:
@@ -2070,15 +2075,27 @@ class Audit:
 
     def rule_caboose(self):
         rr = self.rr
+        # getCaboose looks only at the stop it is given (TBC:113, 148, 175): the departure, or a leg's
+        # start for a caboose change (TrainBuilder:289-304); none there throws buildErrorReqDepature.
         for train in rr.trains.values():
-            if not train.requires & REQUIRES_CABOOSE or not train.caboose_road:
+            stops = rr.stops(train)
+            if not stops:
                 continue
-            stops = {s.location_id for s in rr.stops(train)}
-            if not any(c.caboose and c.road == train.caboose_road and c.location_id in stops
-                       for c in rr.cars.values()):
-                yield _finding("caboose-road-mismatch", "error", train.name,
-                               f"Requires a {train.caboose_road} caboose and none is on its route.",
-                               TRAIN, "Caboose road")
+            by_id = {s.id: s for s in stops}
+            needs = []
+            if train.requires & REQUIRES_CABOOSE and train.caboose_road:
+                needs.append((train.caboose_road, stops[0], "departure"))
+            for leg in train.legs:
+                start = by_id.get(leg["start"])
+                if leg["options"] & ADD_CABOOSE and leg["caboose_road"] and start:
+                    needs.append((leg["caboose_road"], start, f"leg {leg['leg']} start"))
+            for road, stop, where in needs:
+                if not any(c.caboose and c.road == road and c.location_id == stop.location_id
+                           for c in rr.cars.values()):
+                    yield _finding("caboose-road-mismatch", "error", train.name,
+                                   f"Requires a {road} caboose at {stop.name} ({where}) and none is there; the "
+                                   "builder looks only at that stop, not along the route.",
+                                   TRAIN, "Caboose road")
 
     def rule_directions(self):
         rr = self.rr
@@ -2091,8 +2108,13 @@ class Audit:
                                    f"{directions(location.dir)}, so no work happens there.",
                                    LOCATION, "Train direction, or the stop's direction")
         served = {s.direction for r in rr.routes.values() for s in r.stops}
+        # A local switcher ignores track direction for pick ups and set outs (TBB:1479-1482, 1618-1622).
+        switched = {s.location_id for r in rr.routes.values() if r.stops and len({s.split for s in r.stops}) == 1
+                    for s in r.stops}
         for t in rr.tracks.values():
             location = rr.locations[t.location_id]
+            if location.id in switched:
+                continue
             live = {s.direction for r in rr.routes.values() for s in r.stops if s.location_id == location.id}
             if live and not any(d & t.dir for d in live) and served:
                 yield _finding("track-direction-unserved", "warning", t.name,
@@ -2141,16 +2163,19 @@ class Audit:
 
     def rule_stale_days(self):
         """A day id no train schedule holds. JMRI treats it as any day (B15 and F1 pass it, TrainBuilderBase 965,
-        Schedule.checkScheduleItem), but a spur line with one is never used to pick a custom load (2286)."""
+        Schedule.checkScheduleItem), but a spur line with a stale set out day is never used to pick a custom
+        load (TBB:2288-2303 tests only the set out day; the pick up day is not on that path)."""
         rr = self.rr
         gone = lambda day: bool(day) and day != ANY_DAY and day not in rr.train_schedules
+        tails = {"set out": ", and load generation never uses a line with a missing set out day.",
+                 "pick up": "; load generation does not read the pick up day, so the line is still used."}
         for schedule in rr.schedules.values():
             for item in schedule.items:
                 for label, day in (("set out", item.setout_day), ("pick up", item.pickup_day)):
                     if gone(day):
                         yield _finding("day-stale-id", "warning", f"{schedule.name} line {item.id}",
                                        f"The {label} day is id {day}, which no train schedule holds. It behaves as "
-                                       "any day, and a line with a missing day is never used to pick a custom load.",
+                                       f"any day{tails[label]}",
                                        SCHEDULE, f"Clear the {label} day or set a real one")
         for car in rr.cars.values():
             if gone(car.pickup_day):
@@ -2176,11 +2201,13 @@ class Audit:
             members = [c for c in rr.cars.values() if c.kernel == kernel]
             places = {(c.location_id, rr.tracks[c.track_id].split if c.track_id in rr.tracks else None)
                       for c in members}
+            # With no leadKernel flag the first member loaded leads (RollingStockGroup.java:40-42).
+            leads = [c for c in members if c.lead] or members[:1]
             if len(places) > 1:
                 yield _finding("kernel-split", "error", kernel,
                                "Members are on different tracks. Any train that sees them fails to build.",
                                CAR, "Move the members together")
-            elif not any(c.lead and not c.out_of_service for c in members):
+            elif all(c.out_of_service for c in leads):
                 yield _finding("kernel-split", "error", kernel,
                                "No lead car in service. Any train that sees the kernel fails to build.",
                                CAR, "Lead car, or Out of Service on the lead")
@@ -2195,6 +2222,11 @@ class Audit:
             elif car.type not in track.types:
                 yield _finding("car-on-refusing-track", "warning", str(car),
                                f"Sits on {track.name}, which does not take type {car.type}.", CAR_SET, "Track")
+            elif car.location_id in rr.locations and car.type not in rr.locations[car.location_id].types:
+                # Track.isTypeNameAccepted asks the location first (Track.java:977-982).
+                yield _finding("car-on-refusing-track", "warning", str(car),
+                               f"Sits on {track.name}, and its location {rr.locations[car.location_id].name} does "
+                               f"not take type {car.type}.", CAR_SET, "Track, or the location's car types")
 
     def rule_service(self):
         rr = self.rr
