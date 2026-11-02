@@ -1847,18 +1847,28 @@ class Audit:
                 if (track.id, target.id, item.ship) in seen:
                     continue
                 seen.add((track.id, target.id, item.ship))
-                car = rr.at(self._sample(item.type, item.ship), track.location_id, track.id)
                 # A sequential schedule's pointer moves, so ask only whether trains connect.
-                if self.g.route_path(car, target, check_target=False) is None:
+                if not self._connects(item.type, item.ship, track, target):
                     yield _finding("routing-gap", "error", f"{item.type} {item.ship}",
                                    f"No chain of trains takes {item.ship} from {track.name} to {target.name}.",
                                    ROUTE, "A train serving both ends, or a connecting interchange")
 
-    def _sample(self, kind: str, load: str) -> Car:
+    def _samples(self, kind: str, load: str) -> list[Car]:
+        """One stand-in for each road, owner and build date the type holds, as a road or owner list can refuse
+        one and take another, so the answer cannot follow file order. With none of the type, every road."""
+        seen: dict = {}
         for car in self.rr.cars.values():
             if car.type == kind:
-                return replace(car, load=load, fd_id="", fd_track_id="", last_route_id="")
-        return Car(id="sample", road="", number="0", type=kind, length="40", load=load)
+                seen.setdefault((car.road, car.owner, car.built), car)
+        if seen:
+            return [replace(c, load=load, fd_id="", fd_track_id="", last_route_id="") for c in seen.values()]
+        roads = sorted({c.road for c in self.rr.cars.values()}) or [""]
+        return [Car(id="sample", road=r, number="0", type=kind, length="40", load=load) for r in roads]
+
+    def _connects(self, kind: str, load: str, origin: Track, target: Track) -> bool:
+        """Whether a chain of trains takes some car of this type and load from origin to target."""
+        return any(self.g.route_path(self.rr.at(car, origin.location_id, origin.id), target, check_target=False)
+                   is not None for car in self._samples(kind, load))
 
     def rule_schedule_destinations(self):
         rr = self.rr
@@ -1886,9 +1896,7 @@ class Audit:
                                    f"{item.type} with {item.ship}, so they cannot be delivered.", SCHEDULE,
                                    "Leave Destination blank on a line so the search picks one, or let a track there take the load")
                     break
-                reachable = any(self.g.route_path(rr.at(self._sample(item.type, item.ship), o.location_id, o.id),
-                                                  target, check_target=False) is not None
-                                for o in owners for target in takers)
+                reachable = any(self._connects(item.type, item.ship, o, target) for o in owners for target in takers)
                 if owners and not reachable:
                     yield _finding("single-destination-schedule", "warning", schedule.name,
                                    f"Every line sends cars to {where}, and no chain of trains takes "

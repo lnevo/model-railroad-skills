@@ -41,9 +41,6 @@ JMRI = NEEDS_JMRI
 # Findings the audit may keep, each intended; GUIDE.md "Intended findings" gives the reason for every one.
 INTENDED_FINDINGS = {
     ("warning", "staging-ship-excludes-empty", "West Custom"),     # U06: an all-custom staging track
-    ("warning", "single-destination-schedule", "Grain Co Loads"),  # R10: the audit's sample car has the wrong road
-    ("warning", "single-destination-schedule", "Fiddle North"),    # U08: the same false positive (JFN-only depots)
-    ("warning", "single-destination-schedule", "Fiddle South"),    # U08: the same false positive
     ("info", "train-not-on-list", "Ferris Transfer"),              # R07: the pick up list names one route
 }
 

@@ -142,3 +142,18 @@ class LocoChange(Faults):
     def test_room_at_the_change_stop_passes(self):
         self.assertEqual(self.gate(self.why_not(SHOWCASE, "MODX 1", "East Staging", None, "MODE"), "A8")["status"],
                          "pass")
+
+
+class AuditSample(Faults):
+    def test_a_road_list_does_not_raise_a_false_warning(self):
+        """F1: the sample car was the first of the type in the file, so the answer followed file order."""
+        rules = [(f["rule"], f["subject"]) for f in Gates(ops_data.load(SHOWCASE)).audit()["findings"]]
+        for subject in ("Fiddle North", "Fiddle South", "Grain Co Loads"):
+            self.assertNotIn(("single-destination-schedule", subject), rules)
+
+    def test_a_road_nobody_can_reach_still_warns(self):
+        rr = ops_data.load(SHOWCASE)
+        gates = Gates(rr)
+        with mock.patch.object(gates, "route_path", return_value=None):
+            rules = [(f["rule"], f["subject"]) for f in gates.audit()["findings"]]
+        self.assertIn(("single-destination-schedule", "Grain Co Loads"), rules)
