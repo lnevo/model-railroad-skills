@@ -290,6 +290,21 @@ class StagingTrains(AuditCase):
         found = self.findings(edits, "staging-division-unreachable")
         self.assertEqual([(f["subject"], f["severity"]) for f in found], [("HOP OUT, East Mode", "warning")])
 
+class StagingCabooses(AuditCase):
+    def test_a_caboose_leaving_staging_goes_only_to_the_leg_end(self):
+        """TBC:88-108 search one destination, rld, and fail with buildErrorCarStageDest: a real HOP OUT failed
+        with a caboose on East Hop when Carrow, the end of its leg, refused the type and Linden took it."""
+        edits = self.edits()
+        edits.drop_type(edits.location("3"), "Caboose")
+        for place in [edits.location("7"), *edits.location("7").iter("track")]:
+            place.find("types").append(ET.Element("carType", {"name": "Caboose"}))
+            if place.get("name") == "Linden Pier":  # No schedule: this stop on the way would take the caboose.
+                for name in ("schedule", "scheduleId", "itemId", "itemCount"):
+                    place.attrib.pop(name, None)
+        edits.add_car("BOXX1", "BOXX999", type="Caboose", caboose="true", locationId="2", secLocationId="2s4", load="E")
+        found = [f for f in self.findings(edits, "staging-departure-blocked") if f["subject"] == "HOP OUT"]
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("BOXX 999", found[0]["message"])
 
 if __name__ == "__main__":
     unittest.main()

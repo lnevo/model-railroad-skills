@@ -2119,12 +2119,20 @@ class Audit:
                 out.append(f"{car} ({seen[key]})")
         return out
 
+    def _places_for(self, car: Car, train: Train, stops: list[Stop]) -> list[str]:
+        """Location ids a car leaving departure staging may go to. A caboose or FRED car is searched for one
+        destination, the end of its leg (TBC:88-108, 249-266), and no other stop will do."""
+        if car.caboose or car.fred:
+            legs = self.g._leg_ends(train, stops)
+            return [(legs[0][1] if legs else stops[-1]).location_id]
+        return list(dict.fromkeys(s.location_id for s in stops[1:]))
+
     def _first_refusal(self, car: Car, train: Train, stops: list[Stop]) -> str:
         """Empty when some track at a later stop passes every gate the files decide; else the closest refusal:
         fewest failures, then a track open to this train, then the later stop, since that is where the car was
         nearest to going. The first track tried says little: a spur on the way often refuses it by design."""
         closest, best = "", None
-        for position, location_id in enumerate(dict.fromkeys(s.location_id for s in stops[1:])):
+        for position, location_id in enumerate(self._places_for(car, train, stops)):
             location = self.rr.locations.get(location_id)
             if location is None:
                 continue
