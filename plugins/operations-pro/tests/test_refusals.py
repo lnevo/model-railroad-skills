@@ -14,7 +14,7 @@ from ops_store import Refused  # noqa: E402
 from test_write import Case  # noqa: E402
 
 TWO_STOPS = [{"location": "Brackwater", "direction": "East"}, {"location": "Tolvern", "direction": "East"}]
-LINE = {"type": "Boxcar", "receive": "E", "ship": "L"}
+LINE = {"type": "Boxcar", "receive": "Mty", "ship": "L"}
 PLACE = [{"action": "place_engine", "engine": "BV101", "location": "Tolvern", "track": "Tolvern Yard"},
          {"action": "place_engine", "engine": "BV102", "location": "Tolvern", "track": "Tolvern Yard"}]
 
