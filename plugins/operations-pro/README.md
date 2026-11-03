@@ -4,6 +4,78 @@ Build, change, run and understand a JMRI OperationsPro railroad with an AI agent
 
 **Status: in development.** 85 actions and 22 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
 
+## Install
+
+You need `python3`. On Windows `python3` may not exist, so use `py` or `python` in the commands and config below. `ops_build_check`, `ops_dry_run` and `ops_deliver_car` also need JMRI installed.
+
+| Platform | How it installs | Skill and tools | `ops-diagnoser` agent | Run on a real agent? |
+|---|---|---|---|---|
+| Claude Code | Plugin | Yes | Yes, limited to reading tools | Yes |
+| Cursor | Plugin folder (CLI), or by hand | Should work | Not confirmed; without it the skill does the diagnosis itself | Not yet |
+| Codex | By hand | Should work | No; the skill does the diagnosis itself | Not yet |
+
+On every platform the server refuses a stale plan, and refuses to apply one while JMRI is running. Two protections depend on the platform: showing you the plan before it is applied is an instruction to the agent, and only Claude Code holds the diagnoser to reading tools.
+
+After installing, tell the agent where your data is by setting `OPS_DIR` to your Operations folder, or by giving it the path when you ask.
+
+### Claude Code
+
+```
+claude plugin marketplace add lnevo/model-railroad-skills
+claude plugin install operations-pro@model-railroad-skills
+```
+
+### Cursor
+
+Get a copy of this repository:
+
+```
+git clone https://github.com/lnevo/model-railroad-skills.git ~/model-railroad-skills
+```
+
+For the command line, load the plugin folder each time you start:
+
+```
+cursor-agent --plugin-dir ~/model-railroad-skills/plugins/operations-pro
+```
+
+For the editor, add the server to `~/.cursor/mcp.json`, using the full path to your copy, and copy the skill in:
+
+```json
+{
+  "mcpServers": {
+    "operations-pro": {
+      "command": "python3",
+      "args": ["/full/path/to/model-railroad-skills/plugins/operations-pro/servers/operations_pro.py"]
+    }
+  }
+}
+```
+
+```
+mkdir -p ~/.cursor/skills
+cp -R ~/model-railroad-skills/plugins/operations-pro/skills/operations-pro ~/.cursor/skills/
+```
+
+Copy the skill again after each `git pull`.
+
+### Codex
+
+Get a copy of this repository, link the skill, and add the server:
+
+```
+git clone https://github.com/lnevo/model-railroad-skills.git ~/model-railroad-skills
+mkdir -p ~/.agents/skills
+ln -s ~/model-railroad-skills/plugins/operations-pro/skills/operations-pro ~/.agents/skills/operations-pro
+codex mcp add operations-pro -- python3 ~/model-railroad-skills/plugins/operations-pro/servers/operations_pro.py
+```
+
+Add `--env OPS_DIR=/path/to/operations` before the `--` to set your Operations folder.
+
+### Other platforms
+
+The plugin folder holds the open [Agent Plugins](https://agent-plugins.org) files, `plugin.json` and `mcp.json`, and the skill follows the [Agent Skills](https://agentskills.io/) format. Any agent that runs a local MCP server can use `servers/operations_pro.py`. Gemini CLI and Antigravity have no package yet.
+
 ## What it helps with
 
 OperationsPro is powerful, and much of how it behaves isn't obvious from its screens. This plugin works across the whole job:
