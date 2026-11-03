@@ -14,7 +14,9 @@ You need `python3`. On Windows `python3` may not exist, so use `py` or `python` 
 | Cursor | Plugin folder (CLI), or by hand | Should work | Not confirmed; without it the skill does the diagnosis itself | Not yet |
 | Codex | By hand | Should work | No; the skill does the diagnosis itself | Not yet |
 
-On every platform the server refuses a stale plan, and refuses to apply one while JMRI is running. Two protections depend on the platform: showing you the plan before it is applied is an instruction to the agent, and only Claude Code holds the diagnoser to reading tools.
+On every platform, the server will not apply a plan while JMRI is running, or if the Operations files have changed since the plan was made.
+
+Two other protections are weaker. The agent is told to show you each plan and wait for your agreement, but nothing forces it to, so read what it proposes. And only Claude Code limits the `ops-diagnoser` agent to reading tools, so on other platforms a diagnosis is not guaranteed to leave your data unchanged.
 
 After installing, tell the agent where your data is by setting `OPS_DIR` to your Operations folder, or by giving it the path when you ask.
 
