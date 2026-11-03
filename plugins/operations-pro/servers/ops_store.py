@@ -333,7 +333,8 @@ def apply(plan_id: str, allow_new_errors: bool = False) -> dict:
         raise
     _own_write[str(base)] = newest_change(base)
     shutil.rmtree(folder, ignore_errors=True)
-    return {"applied": True, "files": manifest["changed"], "backup": set_name,
+    saved = {"backup": set_name} if set_name else {"backup_note": "The folder had no files, so nothing to back up."}
+    return {"applied": True, "files": manifest["changed"], **saved,
             "summary": manifest["summary"], "findings_before": len(before), "findings_after": len(after),
             "next": "Start JMRI and open Operations so it reads the new files."}
 

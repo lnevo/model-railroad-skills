@@ -489,9 +489,12 @@ def delete_automation(ed: Editor, automation: str) -> str:
 
 @action()
 def set_startup_automation(ed: Editor, automation: str | None) -> str:
-    """Choose the automation JMRI runs each time it loads the trains (Automation > Startup), or none."""
+    """Choose the automation JMRI runs each time it loads the trains (Automation > Startup), or none: give none or blank."""
     if automation is not None and not isinstance(automation, str):
         raise Refused(f"An automation must be given by name or id as text, not {automation!r}")
+    named = [a.get("name") for a in ed.train_root.iter("automation")]
+    if automation and automation.strip().lower() == "none" and automation not in named:
+        automation = ""
     identity = _automation(ed, automation).get("id") if automation else ""
     _train_section(ed, "automationOptions").set("automationStartupId", identity)
     if not identity:

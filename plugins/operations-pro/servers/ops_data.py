@@ -191,6 +191,7 @@ class Track:
     moves: int = 0
     dir: int = 15
     types: list[str] = field(default_factory=list)
+    loco_types: list[str] = field(default_factory=list)
     road_option: str = ALL
     roads: list[str] = field(default_factory=list)
     load_option: str = ALL
@@ -355,6 +356,12 @@ class Train:
     legs: list[dict] = field(default_factory=list)
     # The staging track a built train was sent to, kept until the train is reset (Train:4274-4281, 4385).
     termination_track_id: str = ""
+    description: str = ""
+    comment: str = ""
+    depart_hour: str = "00"
+    depart_minute: str = "00"
+    engine_road: str = ""
+    engine_model: str = ""
 
     @property
     def changes_caboose(self) -> bool:
@@ -668,7 +675,7 @@ class Railroad:
             id=e.get("id", ""), name=e.get("name", ""), location_id=location_id,
             type=SPUR if kind == "Siding" else kind,
             length=_int(e.get("length")), moves=_int(e.get("moves")), dir=_int(e.get("dir"), 15),
-            types=_names(e.find("types"), "carType"),
+            types=_names(e.find("types"), "carType"), loco_types=_names(e.find("types"), "locoType"),
             road_option=e.get("carRoadOption", e.get("carRoadOperation", ALL)),
             roads=_names(e.find("carRoads"), "carRoad"),
             load_option=e.get("carLoadOption", ALL), loads=_names(e.find("carLoads"), "carLoad"),
@@ -757,7 +764,10 @@ class Railroad:
                 service_all=e.get("serviceAll") == "true",
                 leg2_options=_int(e.get("leg2Options")), leg3_options=_int(e.get("leg3Options")),
                 legs=_legs(e),
-                termination_track_id=e.get("terminationTrack", ""))
+                termination_track_id=e.get("terminationTrack", ""),
+                description=e.get("description", ""), comment=e.get("comment", ""),
+                depart_hour=e.get("departHour", "00"), depart_minute=e.get("departMinute", "00"),
+                engine_road=e.get("engineRoad", ""), engine_model=e.get("engineModel", ""))
             self.trains[train.id] = train
         for schedule in root.findall("./schedules/schedule"):
             self.train_schedules[schedule.get("id", "")] = schedule.get("name", "")

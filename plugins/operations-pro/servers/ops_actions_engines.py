@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from ops_data import split_name
 from ops_store import Doc, Refused
 from ops_actions import (DEFAULT_ENGINE_LENGTHS, DEFAULT_ENGINE_TYPES, DEFAULT_MODELS, ENGINE_FILE, Editor,
-                         MODEL_FIELDS, action, declare_fields, _bool, _indent, _int_field, _model_values, _names, _next, _place, _text)
+                         MODEL_FIELDS, action, declare_fields, _bool, _flag, _indent, _int_field, _model_values, _names, _next, _place, _text)
 from ops_actions_names import _rename_values
 from ops_actions_cars import _free, rfid_text
 
@@ -165,7 +165,7 @@ def _engine_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
             if key == "owner" and text:
                 ed.register("owners", "owner", text)
         elif key in ENGINE_FLAGS:
-            _set_ordered(element, {ENGINE_FLAGS[key]: "true" if value else None}, ENGINE_ORDER)
+            _set_ordered(element, {ENGINE_FLAGS[key]: "true" if _flag(key, value) else None}, ENGINE_ORDER)
         elif key in MODEL_FIELDS:
             raise Refused(f"JMRI keeps {key} on the engine's model, so it is the same for every engine of that "
                           "model. Change it with update_engine_model.")

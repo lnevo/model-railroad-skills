@@ -7,7 +7,7 @@ from ops_store import Refused
 import ops_paperwork as paper
 from ops_actions import (Editor, SETUP_FILE, TRAIN_CHILDREN, TRAIN_ROOT_ORDER, action, declare_fields, _active_nodes, _bool, _day,
                          _day_id, _days, _indent, _insert_ordered, _int_field, _next, _place, _set_active,
-                         _set_day_trains)
+                         _set_day_trains, _text)
 
 
 # ---- Setup ----------------------------------------------------------------------------
@@ -21,11 +21,53 @@ INT_SETTINGS = {"settings": ("trainDirection", "trainLength", "maxEngines", "sca
 DOUBLE_SETTINGS = {"settings": ("hpt",)}
 
 
+# Setup:87-98, as the scale buttons on the Settings window name them (OperationsSettingsPanel:42-53).
+SCALES = {"Z": 1, "N": 2, "TT": 3, "HOn3": 4, "OO": 5, "HO": 6, "Sn3": 7, "S": 8, "On3": 9, "O": 10, "Gauge 1": 11,
+          "G 1/24": 12}
+
+
+def _scale(value) -> int:
+    known = ", ".join(SCALES)
+    if isinstance(value, str) and not value.strip().isdigit():
+        exact = SCALES.get(value.strip())
+        found = exact or next((n for k, n in SCALES.items() if k.lower() == value.strip().lower()), None)
+        if found is None:
+            raise Refused(f"settings.scale must be one of {known}, not {value!r}")
+        return found
+    number = _int_field("settings.scale", value)
+    if number not in SCALES.values():  # Setup.setScale has no case for any other number.
+        raise Refused(f"settings.scale must be one of {known}, or its number from 1 to 12, not {value!r}")
+    return number
+
+
+def _railroad_name(ed: Editor, value) -> str:
+    """Setup.store writes <railRoad> first, and only when the name differs from the JMRI preferences (Setup:2022-2026);
+    Setup.load reads it (Setup:2278-2288). Blank removes it, and JMRI then uses the preferences name."""
+    operations = ed.docs[SETUP_FILE].root.find("operations")
+    node = operations.find("railRoad")
+    text = _text("The railroad name", value).strip()
+    if not text:
+        if node is not None:
+            operations.remove(node)
+        return "Cleared the railroad name: JMRI uses the name in its preferences."
+    if node is None:
+        node = ET.Element("railRoad")
+        operations.insert(0, node)
+        _indent(operations, 1)
+    node.set("name", text)
+    return f"Set the railroad name to {text}."
+
+
 @action()
 def set_option(ed: Editor, group: str, name: str, value: str | bool | int) -> str:
-    """Set an existing Operations.xml setting, such as group router, name carRoutingViaYards."""
+    """Set an existing Operations.xml setting, such as group router, name carRoutingViaYards. Group railroad, name name
+    sets the railroad name, even on a blank file. settings.scale takes the name on the Settings window, such as HO."""
     if SETUP_FILE not in ed.docs:
         raise Refused("No Operations.xml here. Start JMRI once to create it.")
+    if group.lower() == "railroad" and name == "name":
+        return _railroad_name(ed, value)
+    if group == "settings" and name == "scale":
+        value = _scale(value)
     node = ed.docs[SETUP_FILE].root.find(f"./operations/{group}")
     if node is None or name not in node.attrib:
         raise Refused(f"No setting {group}.{name} in this file. JMRI writes every setting it knows, "

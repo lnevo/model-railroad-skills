@@ -43,7 +43,7 @@ def _stop_values(element: ET.Element, stop: dict) -> None:
         element.set("departTime", _text("depart_time", stop["depart_time"]))
     for key, attr in (("pickups", "pickups"), ("drops", "drops"), ("local_moves", "localMoves")):
         if key in stop:
-            element.set(attr, _yes(stop[key]))
+            element.set(attr, _yes(stop[key], key))
 
 
 def _setup_value(ed: Editor, name: str, default: int) -> int:
@@ -242,7 +242,7 @@ def _train_fields(ed: Editor, element: ET.Element, fields: dict) -> list[str]:
         if key in TRAIN_FIELDS:
             element.set(TRAIN_FIELDS[key], _train_value(ed, key, value))
         elif key in TRAIN_FLAGS:
-            element.set(TRAIN_FLAGS[key], _bool(value))
+            element.set(TRAIN_FLAGS[key], _bool(value, key))
         elif key in TRAIN_LISTS:
             attr, tag, item = TRAIN_LISTS[key]
             value = _dict(key, value)

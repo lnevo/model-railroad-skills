@@ -19,7 +19,7 @@ from ops_actions import ACTIONS, field_list
 from ops_data import Railroad, directions, load
 from ops_gates import Gates
 
-LIST_TYPES = ("locations", "tracks", "schedules", "routes", "trains", "cars", "engines", "loads")
+LIST_TYPES = ("locations", "tracks", "schedules", "routes", "trains", "cars", "engines", "loads", "settings")
 # ---- Train schedule days and manifest formats: rr.days and rr.manifest list as records.
 LIST_TYPES += ("days", "manifest")
 # ---- End of train schedule days and manifest formats
@@ -45,8 +45,9 @@ def why_not(args: dict) -> object:
 def _brief(out: dict) -> dict:
     """The answer without the gates that passed, the long spur list or the track-order note."""
     short = {k: v for k, v in out.items() if k not in ("gates", "track_note", "track_order", "note")}
-    short["gates"] = [g for g in out["gates"] if g["status"] != "pass"]
-    short["gates_passed"] = len(out["gates"]) - len(short["gates"])
+    short["gates"] = [g for g in out["gates"] if g["status"] == "fail"]
+    short["gates_passed"] = sum(g["status"] == "pass" for g in out["gates"])
+    short["gates_not_checked"] = len(out["gates"]) - len(short["gates"]) - short["gates_passed"]
     router = dict(out["router"])
     search = router.get("spur_search")
     if search:
@@ -69,19 +70,52 @@ def _track(rr: Railroad, track) -> dict:
     return row
 
 
+def _named(rr: Railroad, row: dict) -> dict:
+    """A car or engine row with names beside the ids, so nobody maps 5s1 by hand."""
+    def place(key, track_key):
+        where, track = rr.locations.get(row.get(key, "")), rr.tracks.get(row.get(track_key, ""))
+        return (where.name if where else "", track.name if track else "")
+    row["location"], row["track"] = place("location_id", "track_id")
+    row["destination"], row["destination_track"] = place("destination_id", "dest_track_id")
+    if "fd_id" in row:
+        row["final_destination"], row["final_track"] = place("fd_id", "fd_track_id")
+    train = rr.trains.get(row.get("train_id", ""))
+    row["train"] = train.name if train else ""
+    return row
+
+
+def _train_row(rr: Railroad, train) -> dict:
+    route = rr.routes.get(train.route_id)
+    return {**asdict(train), "route": route.name if route else "", "departs": f"{train.depart_hour}:{train.depart_minute}"}
+
+
+def _settings(rr: Railroad, wanted: str | None) -> dict:
+    """Every setting in Operations.xml, by group; a filter keeps the groups whose name holds it."""
+    groups = {k: v for k, v in rr.setup.items() if k != "railRoad"}
+    if wanted:
+        groups = {k: v for k, v in groups.items() if wanted.lower() in k.lower()}
+    return {"railroad": rr.name, **groups}
+
+
 def _matches(row: dict, wanted: str) -> bool:
-    """A record whose name, road and number, id or location holds the text; spaces and case do not count."""
+    """A record whose name, road and number, id, location or track holds the text; spaces and case do not count."""
     key = wanted.replace(" ", "").lower()
-    keys = ("id", "name", "location", "road", "road_number", "number")
+    keys = ("id", "name", "location", "track", "road", "road_number", "number")
     text = " ".join(str(row.get(k, "")) for k in keys) + str(row.get("road", "")) + str(row.get("number", ""))
     return key in text.replace(" ", "").lower()
 
 
 def list_items(args: dict) -> object:
     rr = railroad(args)
-    kind = args["type"]
+    kind = args.get("type")
     if kind not in LIST_TYPES:
         raise ValueError(f"type must be one of: {', '.join(LIST_TYPES)}")
+    if kind == "settings":
+        return _settings(rr, args.get("filter"))
+    if kind == "trains":
+        return [_train_row(rr, t) for t in rr.trains.values()]
+    if kind in ("cars", "engines"):
+        return [_named(rr, asdict(x)) for x in getattr(rr, kind).values()]
     if kind == "tracks":
         return [_track(rr, t) for t in rr.tracks.values()]
     if kind == "locations":
@@ -153,6 +187,24 @@ def backup_now(args: dict) -> object:
 # ---- On-demand backup (end) -----------------------------------------------------------
 
 
+FINDINGS_IN_FULL = 3  # A rule with more findings than this in a plan is counted, with one example.
+
+
+def brief_plan(result: dict) -> dict:
+    """A plan's findings without the repeats: a blank railroad's first plan can raise one rule eighty times."""
+    findings = result.get("new_findings", [])
+    rules: dict[str, list[dict]] = {}
+    for finding in findings:
+        rules.setdefault(finding["rule"], []).append(finding)
+    many = {rule: rows for rule, rows in rules.items() if len(rows) > FINDINGS_IN_FULL}
+    if not many:
+        return result
+    return {**result, "new_findings": [f for f in findings if f["rule"] not in many],
+            "new_findings_by_rule": {rule: {"count": len(rows), "severity": rows[0]["severity"],
+                                            "example": rows[0]["message"]} for rule, rows in many.items()},
+            "new_findings_note": "Counted by rule. ops_audit on the applied folder lists each one."}
+
+
 def action_help(args: dict) -> object:
     wanted = args.get("session_only")
     one = args.get("action")
@@ -203,11 +255,12 @@ def tools() -> list[Tool]:
              "Check a whole railroad for types, loads and locomotives nothing can carry, schedule and routing "
              "gaps, and settings JMRI silently ignores.",
              {"type": "object", "properties": directory}, audit),
-        Tool("ops_list", "List one kind of OperationsPro record from the XML files.",
+        Tool("ops_list", "List one kind of OperationsPro record from the XML files, or the settings by group.",
              {"type": "object",
               "properties": {**directory, "type": {"type": "string", "enum": list(LIST_TYPES)},
                              "filter": {"type": "string", "description": "Only records whose name, road and number, "
-                                        "id or location holds this text"}},
+                                        "id, location or track holds this text; for settings, the groups whose "
+                                        "name holds it"}},
               "required": ["type"]},
              list_items),
         Tool("ops_actions", "List every change action with its help, each field (name, required, default, what it "
@@ -216,20 +269,31 @@ def tools() -> list[Tool]:
              action_help),
         Tool("ops_plan",
              "Work out a change to the Operations files without touching them. Returns a plan id, the diff "
-             "and new audit findings. Show these to the user before ops_apply.",
+             "and new audit findings, counted per rule when one rule has many. Show these to the user before ops_apply.",
              {"type": "object", "properties": {**directory, **actions}, "required": ["actions"]},
-             lambda a: ops_store.plan(folder(a), a["actions"])),
+             lambda a: brief_plan(ops_store.plan(folder(a), a["actions"]))),
         Tool("ops_build_check",
              "Build every enabled train several times on copies, before and after a plan, using real JMRI, "
              "and compare. Changes nothing.",
              {"type": "object", "properties": {**plan_id, "runs": {"type": "integer"}}, "required": ["plan_id"]},
              lambda a: ops_jmri.build_check(a["plan_id"], a.get("runs", 4))),
         Tool("ops_dry_run",
-             "Run a session on a copy with real JMRI: build all enabled trains, then terminate them, and report. "
-             "Each train comes back with its build report read as ops_explain_build reads it: "
-             "outcome and findings by default, detail 'normal' or 'full' for more. Changes nothing.",
-             {"type": "object", "properties": {**directory, "terminate": {"type": "boolean"}, "detail": DETAIL}},
-             lambda a: ops_jmri.dry_run(folder(a), a.get("terminate", True), a.get("detail", "summary"))),
+             "Run a session on a copy with real JMRI and report, changing nothing. Plain, it builds every enabled train "
+             "in time order from one start state, then terminates them: gate and routing questions, not hand-offs. "
+             "Give order to run trains in sequence, each from what the last left, which proves hand-offs and "
+             "interchange room. Each train comes back with its build report read as ops_explain_build reads it: "
+             "outcome and findings by default, detail 'normal' or 'full' for more. A startup automation runs first "
+             "and its steps are listed.",
+             {"type": "object",
+              "properties": {**directory, "terminate": {"type": "boolean"}, "detail": DETAIL,
+                             "trains": {"type": "array", "items": {"type": "string"},
+                                        "description": "Only these trains, for a shorter answer. Not with order"},
+                             "order": {"type": "array", "description": "The session in sequence. Each step is a train "
+                                       "name, a list of trains built then terminated together, or {trains, terminate}. "
+                                       "A train can run again in a later step, as the next session",
+                                       "items": {}}}},
+             lambda a: ops_jmri.dry_run(folder(a), a.get("terminate", True), a.get("detail", "summary"),
+                                        a.get("order"), a.get("trains"))),
         Tool("ops_apply",
              "Apply a plan. JMRI must be fully exited. Backs up the set, writes, audits and restores on failure. "
              "A plan with new audit errors is refused unless the user accepts them: renaming something that "
