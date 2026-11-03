@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
+from pathlib import Path
 
 import ops_jmri
 import ops_live
@@ -23,6 +24,26 @@ LIST_TYPES = ("locations", "tracks", "schedules", "routes", "trains", "cars", "e
 # ---- Train schedule days and manifest formats: rr.days and rr.manifest list as records.
 LIST_TYPES += ("days", "manifest")
 # ---- End of train schedule days and manifest formats
+
+REFERENCES = Path(__file__).parents[1] / "skills" / "operations-pro" / "references"
+INSTRUCTIONS = (
+    "Tools for a JMRI OperationsPro railroad. Read before you change: ops_audit, ops_why_not, ops_explain_build. "
+    "Setup changes go through ops_plan: show the user the diff and any new audit findings, and call ops_apply only "
+    "after they agree, with JMRI exited. A build report beats anything worked out from the files. Leave move counts "
+    "alone unless asked. ops_reference returns the rules for loads, staging, routing, sessions and diagnosis."
+)
+
+
+def reference_names() -> list[str]:
+    return sorted(p.stem for p in REFERENCES.glob("*.md"))
+
+
+def reference(args: dict) -> dict:
+    """One rules file, chosen by name from the list, so no client needs the plugin's install path."""
+    name = args["name"]
+    if name not in reference_names():
+        raise ValueError(f"No reference {name!r}. Choose from: {', '.join(reference_names())}")
+    return {"name": name, "text": (REFERENCES / f"{name}.md").read_text()}
 
 
 def folder(args: dict) -> str:
@@ -382,8 +403,14 @@ def tools() -> list[Tool]:
              {"type": "object", "properties": {**url, "name": {"type": "string"}}, "required": ["name"]},
              lambda a: ops_live.ask(ops_live.base_url(a.get("jmri_url")), "automation", name=a["name"]),
              read_only=False),
+        Tool("ops_reference",
+             "Read one of the OperationsPro rules files: diagnosis for symptoms and report lines, build-order for "
+             "the gate ids, and one file each for the other topics. Changes nothing.",
+             {"type": "object", "properties": {"name": {"type": "string", "enum": reference_names()}},
+              "required": ["name"]},
+             reference),
     ]
 
 
 if __name__ == "__main__":
-    serve("operations-pro", tools())
+    serve("operations-pro", tools(), INSTRUCTIONS)

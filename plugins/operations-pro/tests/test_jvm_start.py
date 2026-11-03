@@ -96,7 +96,7 @@ class JythonCache(unittest.TestCase):
 
 class ServerVersion(unittest.TestCase):
     def test_the_server_reports_the_plugin_version(self):
-        plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+        plugin = json.loads((ROOT / "plugin.json").read_text())
         self.assertEqual(mcp_stdio.PLUGIN_VERSION, plugin["version"])
 
 

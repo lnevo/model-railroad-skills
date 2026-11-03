@@ -19,10 +19,10 @@ class Tool:
         self.read_only = read_only
 
 
-PLUGIN_VERSION = json.loads((Path(__file__).parents[1] / ".claude-plugin" / "plugin.json").read_text())["version"]
+PLUGIN_VERSION = json.loads((Path(__file__).parents[1] / "plugin.json").read_text())["version"]
 
 
-def handle(message: dict, server_name: str, tools: dict[str, Tool]) -> dict | None:
+def handle(message: dict, server_name: str, tools: dict[str, Tool], instructions: str = "") -> dict | None:
     """Return the response to one JSON-RPC message, or None for a notification."""
     method = message.get("method")
     request_id = message.get("id")
@@ -34,6 +34,8 @@ def handle(message: dict, server_name: str, tools: dict[str, Tool]) -> dict | No
             "capabilities": {"tools": {}},
             "serverInfo": {"name": server_name, "version": PLUGIN_VERSION},
         }
+        if instructions:  # For clients without the skill: they may show this to the model.
+            result["instructions"] = instructions
     elif method == "ping":
         result = {}
     elif method == "tools/list":
@@ -67,7 +69,7 @@ def _error(request_id: object, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
 
 
-def serve(server_name: str, tools: list[Tool]) -> None:
+def serve(server_name: str, tools: list[Tool], instructions: str = "") -> None:
     by_name = {t.name: t for t in tools}
     for line in sys.stdin:
         if not line.strip():
@@ -76,6 +78,6 @@ def serve(server_name: str, tools: list[Tool]) -> None:
             message = json.loads(line)
         except ValueError:
             continue
-        response = handle(message, server_name, by_name)
+        response = handle(message, server_name, by_name, instructions)
         if response is not None:
             print(json.dumps(response), flush=True)

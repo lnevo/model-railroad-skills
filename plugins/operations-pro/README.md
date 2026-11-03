@@ -1,8 +1,8 @@
-# Operations Pro for Claude Code
+# Operations Pro
 
-Build, change, run and understand a JMRI OperationsPro railroad with Claude, without teaching it OperationsPro first. The skill carries the rules the program applies, and the tools do the work at the level of the railroad rather than one field at a time, with a change plan you see before anything is written.
+Build, change, run and understand a JMRI OperationsPro railroad with an AI agent, without teaching it OperationsPro first. The skill carries the rules the program applies, and the tools do the work at the level of the railroad rather than one field at a time, with a change plan you see before anything is written.
 
-**Status: in development.** 85 actions and 21 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
+**Status: in development.** 85 actions and 22 tools. It can set up a railroad from nothing, audit one, change the files with JMRI exited, run trains in a running JMRI, and explain what the builder did and why. Rules are written for JMRI 5.16.
 
 ## What it helps with
 
@@ -31,7 +31,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | Dry run | Builds and terminates every enabled train on a copy and reports | Done |
 | Session control | Build, move, terminate and reset trains in a running JMRI | Done |
 | Demo railroad | An invented railroad with deliberate faults, for tests | Done, builds in real JMRI 5.16 |
-| MCP server | Exposes the tools below to Claude | Done |
+| MCP server | Exposes the tools below to the agent | Done |
 
 
 
@@ -66,6 +66,8 @@ These work on a running JMRI, and don't need it exited:
 | `ops_live_report` | Yes | Reads the end of a build report or manifest |
 | `ops_live_automation` | Yes | Runs a named automation |
 | `ops_install_agent` | | Copies the agent beside the Operations files and plans its startup entry |
+
+`ops_reference` reads one of the rules files by name, so a platform without skills can still reach them.
 
 ## Diagnosis
 

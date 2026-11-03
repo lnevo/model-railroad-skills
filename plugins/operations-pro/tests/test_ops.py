@@ -1101,10 +1101,25 @@ class ServerTests(unittest.TestCase):
         writers = {"ops_apply", "ops_session", "ops_deliver_car", "ops_restore", "ops_install_agent", "ops_train",
                    "ops_live_car", "ops_live_save", "ops_live_automation", "ops_backup_now"}
         readers = {"ops_why_not", "ops_audit", "ops_list", "ops_actions", "ops_plan", "ops_build_check",
-                   "ops_dry_run", "ops_backups", "ops_live_status", "ops_live_report", "ops_explain_build"}
+                   "ops_dry_run", "ops_backups", "ops_live_status", "ops_live_report", "ops_explain_build",
+                   "ops_reference"}
         self.assertEqual({t["name"] for t in tools}, writers | readers)
         for entry in tools:
             self.assertEqual(entry["annotations"]["readOnlyHint"], entry["name"] in readers, entry["name"])
+
+    def test_initialize_carries_the_core_rules(self):
+        text = call(self.env, INIT)[0]["result"]["instructions"]
+        for rule in ("ops_plan", "JMRI exited", "ops_reference"):
+            self.assertIn(rule, text)
+
+    def test_reference_reads_a_rules_file_by_name(self):
+        out = call(self.env, INIT, tool("ops_reference", {"name": "diagnosis"}))
+        self.assertTrue(json.loads(self.text(out[1]))["text"].startswith("# Diagnosis"))
+
+    def test_reference_refuses_a_path(self):
+        out = call(self.env, INIT, tool("ops_reference", {"name": "../SKILL"}))
+        self.assertTrue(out[1]["result"].get("isError"))
+        self.assertIn("Choose from", self.text(out[1]))
 
     def test_explain_build_over_the_wire(self):
         out = call(self.env, INIT, tool("ops_explain_build", {"train": "X99"}))
