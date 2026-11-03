@@ -229,7 +229,7 @@ def update_track(ed: Editor, track: str, location: str | None = None, length: in
     if only_final_destination is not None:
         if kind not in (INTERCHANGE, STAGING):
             raise Refused("Only interchange and staging tracks can require a final destination")
-        element.set("onlyCarWithFD", _bool(only_final_destination))
+        element.set("onlyCarWithFD", _bool(only_final_destination, "only_final_destination"))
     if schedule != "":
         _assign_schedule(ed, element, schedule)
     _schedule_options(element, schedule_mode, reservation_factor, hold_custom)
@@ -306,7 +306,9 @@ def _schedule_options(element: ET.Element, mode: str | None, factor: int | None,
     if mode is None and factor is None and hold is None:
         return
     if not element.get("scheduleId"):
-        raise Refused("Schedule options need a schedule on the track")
+        # Track.store writes these only with a schedule (Track:2935-2943), so JMRI would drop them on its next save.
+        raise Refused("Schedule options need a schedule on the track, as JMRI saves them only with one. Use "
+                      "add_industry, or name schedule in this same action")
     if mode is not None:
         if mode not in ("sequential", "match"):
             raise Refused("schedule_mode must be sequential or match")
@@ -315,7 +317,7 @@ def _schedule_options(element: ET.Element, mode: str | None, factor: int | None,
         factor = _int_field("reservation_factor", factor, 0, 10000)
         element.set("factor", str(factor))
     if hold is not None:
-        element.set("holdCustomLoads", _bool(hold))
+        element.set("holdCustomLoads", _bool(hold, "hold_custom"))
 
 
 def _alternate(ed: Editor, element: ET.Element, place: ET.Element, alternate: str | None) -> None:

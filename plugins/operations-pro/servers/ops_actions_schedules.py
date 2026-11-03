@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import ALL, ANY, EXCLUDE, INCLUDE, INTERCHANGE, SPUR, STAGING, TRAINS
 from ops_store import Refused
-from ops_actions import Editor, SCHEDULE_RANDOM, action, _day_id, _indent, _int_field, _names, _next, _text
+from ops_actions import Editor, SCHEDULE_RANDOM, action, _day_id, _flag, _indent, _int_field, _names, _next, _text
 from ops_actions_locations import add_track, update_track
 
 
@@ -147,23 +147,42 @@ def delete_schedule(ed: Editor, schedule: str) -> str:
 
 
 @action()
-def add_industry(ed: Editor, location: str, name: str, length: int, lines: list[dict], types: list[str] | None = None,
-                 mode: str = "match", alternate: str | None = None, hold_custom: bool = False,
-                 directions: str | int | None = None) -> str:
-    """Add a spur and its schedule in one step. Types default to those in the lines."""
+def add_industry(ed: Editor, location: str, name: str, length: int, lines: list[dict] | None = None,
+                 types: list[str] | None = None, mode: str = "match", alternate: str | None = None,
+                 hold_custom: bool = False, directions: str | int | None = None, schedule: str | None = None,
+                 share_schedule: bool = False, drop: dict | None = None, pickup: dict | None = None) -> str:
+    """Add a spur and its schedule in one step. Types default to those in the lines. The schedule is named after the
+    spur unless schedule names it; JMRI finds schedules by name, so two spurs of one name need different ones.
+    share_schedule puts the spur on an existing schedule instead, and takes no lines. drop and pickup are the
+    track's set out and pick up lists."""
     ed.check_name("track", name)
-    lines = _lines(lines)
+    title = f"{name} Schedule" if schedule is None else _text("schedule", schedule, blank=False)
+    if _flag("share_schedule", share_schedule):
+        if lines is not None:
+            raise Refused("share_schedule uses the schedule's own lines, so give no lines")
+        if types is None:
+            raise Refused("share_schedule needs types, as there are no lines to take them from")
+        ed.schedule(title)
+    else:
+        lines = _lines(lines)
+        if title in [s.get("name") for s in ed.schedules()]:
+            raise Refused(f"Schedule {title!r} already exists. Name this industry's with schedule, or give "
+                          "share_schedule to use the same lines on both spurs")
     if types is not None:
         types = _names("types", types)
     wanted = types if types is not None else sorted({str(line.get("type")) for line in lines})
-    schedule = f"{name} Schedule"
-    add_schedule(ed, schedule, lines)
+    if not share_schedule:
+        add_schedule(ed, title, lines)
     add_track(ed, location, name, SPUR, length, types=wanted, directions=directions)
-    settings: dict = {"schedule": schedule, "schedule_mode": mode, "hold_custom": hold_custom}
+    settings: dict = {"schedule": title, "schedule_mode": mode, "hold_custom": hold_custom}
     if alternate:
         settings["alternate"] = alternate
+    if drop is not None:
+        settings["drop"] = drop
+    if pickup is not None:
+        settings["pickup"] = pickup
     update_track(ed, name, location=location, **settings)
-    return f"Added industry {name} at {location} with schedule {schedule}."
+    return f"Added industry {name} at {location} with schedule {title}."
 
 
 @action()
@@ -239,24 +258,26 @@ def setup_custom_staging(ed: Editor, track: str, location: str | None = None, sh
 
 
 @action()
-def setup_interchange(ed: Editor, track: str, location: str | None = None, set_out_by: list[str] | None = None,
-                      pulled_by: list[str] | None = None, routed_only: bool | None = None,
-                      destinations: list[str] | None = None) -> str:
-    """Set an interchange's trains in, trains out, Routed flag and destinations in one step."""
+def setup_interchange(ed: Editor, track: str, location: str | None = None, set_out_by: list[str] | dict | None = None,
+                      pulled_by: list[str] | dict | None = None, routed_only: bool | None = None,
+                      destinations: list[str] | dict | None = None) -> str:
+    """Set an interchange's trains in, trains out, Routed flag and destinations in one step. Each list is a plain list
+    of names (empty for any train or all destinations), or {option, names} as update_track takes."""
     element = ed.track(track, location)
     if element.get("trackType") != INTERCHANGE:
         raise Refused(f"{element.get('name')} is not an interchange")
     settings: dict = {}
-    for label, given in (("set_out_by", set_out_by), ("pulled_by", pulled_by), ("destinations", destinations)):
-        if given is not None:
-            _names(label, given)
+    def chosen(label, given, option, empty):
+        if isinstance(given, dict):
+            return given
+        return {"option": option, "names": _names(label, given)} if _names(label, given) else {"option": empty}
     if set_out_by is not None:
-        settings["drop"] = {"option": TRAINS, "names": set_out_by} if set_out_by else {"option": ANY}
+        settings["drop"] = chosen("set_out_by", set_out_by, TRAINS, ANY)
     if pulled_by is not None:
-        settings["pickup"] = {"option": TRAINS, "names": pulled_by} if pulled_by else {"option": ANY}
+        settings["pickup"] = chosen("pulled_by", pulled_by, TRAINS, ANY)
     if routed_only is not None:
         settings["only_final_destination"] = routed_only
     if destinations is not None:
-        settings["destinations"] = {"option": INCLUDE, "names": destinations} if destinations else {"option": ALL}
+        settings["destinations"] = chosen("destinations", destinations, INCLUDE, ALL)
     update_track(ed, element.get("id"), **settings)
     return f"Set interchange {element.get('name')}."

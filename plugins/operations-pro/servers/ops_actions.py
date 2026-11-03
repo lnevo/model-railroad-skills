@@ -86,7 +86,8 @@ def field_list(name: str) -> list[dict]:
         if parameter.kind is parameter.VAR_KEYWORD:
             continue
         row: dict = {"name": key, "required": parameter.default is parameter.empty}
-        if not row["required"] and parameter.default not in (None, ""):
+        plain = isinstance(parameter.default, (str, int, float, list, dict))  # Not a marker such as _KEEP.
+        if not row["required"] and plain and parameter.default != "":
             row["default"] = parameter.default
         out.append(row)
     seen = {row["name"] for row in out}
@@ -111,8 +112,21 @@ def field_problem(name: str, item: dict) -> str:
     return "; ".join(p for p in parts if p)
 
 
-def _bool(value) -> str:
-    return "true" if value else "false"
+def _flag(name: str, value) -> bool:
+    """A yes or no setting: true or false, or the words JMRI's files use. Any other text is refused, since Python
+    would read "no" and "false" as true and the setting would go in the wrong way round with no error."""
+    if isinstance(value, bool):
+        return value
+    word = value.strip().lower() if isinstance(value, str) else None
+    if word in ("true", "yes"):
+        return True
+    if word in ("false", "no"):
+        return False
+    raise Refused(f"{name} must be true or false, not {value!r}")
+
+
+def _bool(value, name: str = "This setting") -> str:
+    return "true" if _flag(name, value) else "false"
 
 
 def _text(name: str, value, blank: bool = True) -> str:
@@ -133,8 +147,8 @@ def _names(name: str, value, empty: bool = True) -> list[str]:
     return list(value)
 
 
-def _yes(value) -> str:
-    return "yes" if value else "no"
+def _yes(value, name: str = "This setting") -> str:
+    return "yes" if _flag(name, value) else "no"
 
 
 def _dict(name: str, value) -> dict:
@@ -323,7 +337,14 @@ class Editor:
         return self.loc_root.findall("./locations/location/track")
 
     def location(self, text: str) -> ET.Element:
-        return self._one(self.locations(), text, "location")
+        try:
+            return self._one(self.locations(), text, "location")
+        except Refused:
+            home = [x.get("name") for x in self.locations() if text in [t.get("name") for t in x.findall("track")]]
+            if not home:
+                raise
+            raise Refused(f"{text} is a track at {' and '.join(home)}, not a location. Give the location and the "
+                          "track separately.") from None
 
     def track(self, text: str, location: str | None = None) -> ET.Element:
         pool = self.location(location).findall("track") if location is not None else self.tracks()
@@ -659,7 +680,8 @@ def _check_train_power(ed: Editor, train: ET.Element) -> list[str]:
         roads = sorted({e.get("roadName") for e in ed.engines() if not model or e.get("model") == model})
         if road not in roads:
             raise Refused(f"No locomotive {'of model ' + model + ' ' if model else ''}has road {road!r}. The Edit "
-                          f"Train window offers {', '.join(roads) or 'no roads'}, or blank for any.")
+                          f"Train window offers {', '.join(roads) or 'no roads'}, or blank for any. Add the "
+                          "locomotives before the trains, or set this later with update_train.")
         option = train.get("locoRoadOption", ALL)
         listed = road in [r.get("name") for r in train.findall("./locoRoads/locoRoad")]
         if option != ALL and listed != (option == INCLUDE):

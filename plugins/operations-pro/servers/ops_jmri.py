@@ -100,7 +100,20 @@ def _refused_before_build(name: str, row: dict, log_errors: list[str]) -> str:
     return f"Build on time refused this train before building, so there is no report: {why}. See gate A2."
 
 
-def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
+# What JMRI logs as an error but is not one. Car.getScheduleItem logs this line (Car:259-262) for a car still holding
+# its schedule line when the builder looks at a spur with no schedule, which is every normal overflow to an alternate.
+EXPECTED_LOG = {"Schedule missing for car": "JMRI writes this when a car overflows to an alternate track with no "
+                                            "schedule. The move is correct."}
+
+
+def split_log(lines: list[str]) -> tuple[list[str], list[dict]]:
+    """Separate the log lines that need reading from the ones JMRI writes in normal running, which are only counted."""
+    counts = {key: sum(key in line for line in lines) for key in EXPECTED_LOG}
+    errors = [line for line in lines if not any(key in line for key in EXPECTED_LOG)]
+    return errors, [{"line": key, "count": n, "means": EXPECTED_LOG[key]} for key, n in counts.items() if n]
+
+
+def run_worker(source: Path, job: dict, keep: Path | None = None, timeout: int = TIMEOUT) -> dict:
     """Copy the files from source and run one job. With keep, leave the saved files and build reports there."""
     home = jmri_home()
     if home is None:
@@ -124,16 +137,17 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
                        "-Dpython.cachedir.skip=false", f"-Dworker.out={output}", f"-Dworker.job={json.dumps(job)}",
                        "-cp", classpath, "org.python.util.jython", str(WORKER)]
             try:
-                done = subprocess.run(command, capture_output=True, text=True, timeout=TIMEOUT, cwd=root)
+                done = subprocess.run(command, capture_output=True, text=True, timeout=timeout, cwd=root)
             except subprocess.TimeoutExpired as exc:
-                raise Refused(f"JMRI did not finish in {TIMEOUT} seconds") from exc
+                raise Refused(f"JMRI did not finish in {timeout} seconds") from exc
             except OSError as exc:
                 raise Refused(f"Could not start Java: {exc}") from exc
             if not output.is_file():
                 raise Refused("JMRI stopped without a result: " + (done.stderr or done.stdout)[-800:])
         result = json.loads(output.read_text(encoding="utf-8"))
-        result["log_errors"] = [line[:240] for line in (done.stdout + done.stderr).splitlines()
-                                if " ERROR " in line or "Exception" in line][:LOG_ERRORS]
+        errors, result["log_notes"] = split_log([line[:240] for line in (done.stdout + done.stderr).splitlines()
+                                                 if " ERROR " in line or "Exception" in line])
+        result["log_errors"] = errors[:LOG_ERRORS]
         for name, row in result.get("builds", {}).items():
             report = Path(row.pop("report", "") or "/nonexistent")
             text = report.read_text(encoding="utf-8", errors="replace") if report.is_file() else ""
@@ -141,6 +155,12 @@ def run_worker(source: Path, job: dict, keep: Path | None = None) -> dict:
             refused = _refused_before_build(name, row, result["log_errors"])
             if refused:
                 row["refused_before_build"] = refused
+        for step in result.get("steps", []):
+            for name, row in step["trains"].items():
+                row["report_tail"] = row["report_text"][-1500:]
+                refused = _refused_before_build(name, row, result["log_errors"])
+                if refused:
+                    row["refused_before_build"] = refused
         if keep is not None:
             for name in FILES:
                 if (operations / name).is_file():
@@ -242,6 +262,11 @@ def build_check(plan_id: str, runs: int = 4) -> dict:
 
 def _compact(row: dict, detail: str) -> dict:
     """In a summary each car appears once, and a long train is cut; detail normal or full keeps every car."""
+    set_outs: dict[str, int] = {}
+    for car in row.get("placed", []):
+        key = f"{car['location']} / {car['track']}"
+        set_outs[key] = set_outs.get(key, 0) + 1
+    row["set_outs"] = dict(sorted(set_outs.items()))
     if detail != "summary":
         return row
     row.pop("placed", None)
@@ -251,12 +276,80 @@ def _compact(row: dict, detail: str) -> dict:
     return row
 
 
-def dry_run(directory: str | Path, terminate: bool = True, detail: str = "summary") -> dict:
-    """A whole session on a copy: build all, terminate all, report. The real files are not touched."""
-    result = run_worker(load(directory).directory, {"build": True, "terminate": terminate})
+def order_steps(order, known, terminate: bool) -> list[dict]:
+    """A session order as steps. An item is a train name, a list of trains that run together, or {trains, terminate}."""
+    if not isinstance(order, (list, tuple)) or not order:
+        raise Refused("order must be a list of steps: train names, lists of train names, or {trains, terminate}")
+    steps, left_built = [], set()
+    for item in order:
+        step = dict(item) if isinstance(item, dict) else {"trains": [item] if isinstance(item, str) else item}
+        if set(step) - {"trains", "terminate"}:
+            raise Refused(f"An order step takes trains and terminate, not {sorted(set(step) - {'trains', 'terminate'})}")
+        names = step.get("trains")
+        names = [names] if isinstance(names, str) else names
+        if not isinstance(names, (list, tuple)) or not names or not all(isinstance(n, str) for n in names):
+            raise Refused(f"An order step needs train names, not {item!r}")
+        unknown = [n for n in names if n not in known]
+        if unknown:
+            raise Refused(f"No train {', '.join(unknown)}. Trains: {', '.join(sorted(known))}")
+        again = [n for n in names if n in left_built]
+        if again:
+            # Train.build resets a built train first (Train:3197), which would put its cars back and hide the session.
+            raise Refused(f"{', '.join(again)} is still built from an earlier step. Terminate it there")
+        ends = step.get("terminate", terminate)
+        if not isinstance(ends, bool):
+            raise Refused(f"An order step's terminate must be true or false, not {ends!r}")
+        if not ends:
+            left_built |= set(names)
+        steps.append({"trains": list(names), "terminate": ends})
+    return steps
+
+
+def _run_notes(result: dict) -> dict:
+    """What a dry run says beside its builds. A startup automation appears only when the railroad has one."""
+    out = {"jmri": result["version"], "jmri_log_errors": result["log_errors"], "notes": _version_note(result)}
+    if result.get("log_notes"):
+        out["jmri_log_notes"] = result["log_notes"]
+    trace = result.get("startup_automation")
+    if trace:
+        out["startup_automation"] = trace
+        if trace["running"]:
+            out["notes"] = [*out["notes"], f"The startup automation {trace['name']} had not finished when the builds "
+                            "began, probably at a step waiting for a train."]
+    return out
+
+
+ORDER_SECONDS = 60  # allowed per step, on top of TIMEOUT
+
+
+def dry_run(directory: str | Path, terminate: bool = True, detail: str = "summary", order: list | None = None,
+            trains: list[str] | None = None) -> dict:
+    """A session on a copy, the real files untouched. With no order: build all, or just trains, each from the same
+    start, then terminate all. With order: run the steps in sequence, each train starting from what the last left."""
+    if detail not in DETAILS:
+        raise Refused(f"detail must be one of: {', '.join(DETAILS)}")
+    rr = load(directory)
+    known = {t.name for t in rr.trains.values()}
+    if order is not None:
+        if trains is not None:
+            raise Refused("Give order or trains, not both: an order already names its trains")
+        steps = order_steps(order, known, terminate)
+        result = run_worker(rr.directory, {"order": steps}, timeout=TIMEOUT + ORDER_SECONDS * len(steps))
+        done = [{"step": s["step"], "trains": {n: _compact(attach_report(r, detail), detail) for n, r in s["trains"].items()}}
+                for s in result["steps"]]
+        return {"steps": done, **_run_notes(result)}
+    job: dict = {"build": True, "terminate": terminate}
+    if trains is not None:
+        unknown = [n for n in trains if n not in known]
+        if unknown:
+            raise Refused(f"No train {', '.join(unknown)}. Trains: {', '.join(sorted(known))}")
+        job["only"] = list(trains)
+    result = run_worker(rr.directory, job)
     builds = {name: _compact(attach_report(row, detail), detail) for name, row in result["builds"].items()}
-    return {"jmri": result["version"], "builds": builds, "jmri_log_errors": result["log_errors"],
-            "notes": _version_note(result)}
+    out = {"builds": builds, **_run_notes(result)}
+    if detail != "summary" and trains is None and len(builds) > 2:
+        out["notes"] = [*out["notes"], "This detail is long for a whole railroad. Give trains to read one or two."]
+    return out
 
 
 CAR_ATTRS = ("load", "wait", "pickupId", "scheduleId", "nextDestId", "nextDestTrackId", "nextLoad", "routePath",

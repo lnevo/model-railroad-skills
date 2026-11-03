@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 from ops_data import split_name
 from ops_store import Refused
-from ops_actions import JAVA_INT, SETUP_FILE, Editor, action, declare_fields, _indent, _int_field, _names, _text
+from ops_actions import JAVA_INT, SETUP_FILE, Editor, action, declare_fields, _flag, _indent, _int_field, _names, _text
 
 
 # ---- Rolling stock ------------------------------------------------------------------
@@ -53,12 +53,8 @@ def _car_fields(ed: Editor, element: ET.Element, fields: dict) -> None:
         elif key in CAR_FLAGS:
             attr = CAR_FLAGS[key]
             element.attrib.pop(attr, None)
-            if value:
+            if _flag(key, value):
                 element.set(attr, "true")
-        elif key == "type":
-            if value not in ed.car_types():
-                raise Refused(f"Unknown car type {value!r}")
-            element.set("type", value)
         elif key == "load":
             _car_load(ed, element, value)
         elif key in ("return_when_empty", "return_when_loaded"):
@@ -152,11 +148,34 @@ def _fits(ed: Editor, car: ET.Element, place: ET.Element, target: ET.Element) ->
                       f"{target.get('name')} is {have} long. Give force to place it anyway")
 
 
+def _new_type(ed: Editor, element: ET.Element, kind, force: bool, load) -> None:
+    """A type change, checked as a car of that type would be: a custom load is kept per type, and a track that
+    does not take the type would refuse the car at its next move (Track.isRollingStockAccepted)."""
+    if not isinstance(kind, str) or kind not in ed.car_types():
+        raise Refused(f"Unknown car type {kind!r}")
+    if element.get("secLocationId") and not force:
+        target = ed.track(element.get("secLocationId"))
+        if kind not in ed.type_entries(target):
+            raise Refused(f"{target.get('name')} does not take {kind}, and the car is on it. Add the type there, move "
+                          "the car first, or give force")
+    element.set("type", kind)
+    if load is None and element.get("load") not in ed.defaults():
+        try:
+            _car_load(ed, element, element.get("load"))
+        except Refused:
+            raise Refused(f"{kind} has no load {element.get('load')!r}, which this car carries. Give a load in the "
+                          "same action, or add it with add_load") from None
+
+
 @action(session=True)
-def update_car(ed: Editor, car: str, **fields) -> str:
-    """Change a car's plain fields: length, colour, owner, load, flags, out of service, return-when-empty or loaded. Refused while it is on a train."""
+def update_car(ed: Editor, car: str, force: bool = False, **fields) -> str:
+    """Change a car's plain fields: type, length, colour, owner, load, flags, out of service, return-when-empty or
+    loaded. Refused while it is on a train. A new type must suit the car's track unless force, and its load."""
     element = ed.car(car)
     _free(element)
+    if "type" in fields:
+        _new_type(ed, element, fields["type"], _flag("force", force), fields.get("load"))
+        fields = {k: v for k, v in fields.items() if k != "type"}
     _car_fields(ed, element, fields)
     return f"Updated car {element.get('id')}."
 
@@ -282,5 +301,6 @@ def delete_car(ed: Editor, car: str) -> str:
     return f"Deleted car {element.get('id')}."
 
 
-declare_fields("add_car", [*CAR_FIELDS, *CAR_FLAGS])
-declare_fields("update_car", [*CAR_FIELDS, *CAR_FLAGS])
+CAR_OTHER = ("load", "return_when_empty", "return_when_loaded")
+declare_fields("add_car", [*CAR_FIELDS, *CAR_FLAGS, *CAR_OTHER])
+declare_fields("update_car", [*CAR_FIELDS, *CAR_FLAGS, "type", *CAR_OTHER])

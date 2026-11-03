@@ -1,8 +1,10 @@
 """Run under JMRI's own jython, always against a scratch copy of the Operations files.
 
 Properties: ops.home (holds operations/), worker.out (JSON result), worker.job (JSON).
-Job fields: build, only (train names, build just those), terminate, save, car, location, track.
+Job fields: build, only (train names, build just those), terminate, save, car, location, track,
+order (steps, each {trains, terminate}, run in sequence on one state).
 """
+import io
 import json
 import os
 
@@ -46,7 +48,9 @@ def settle_automations():
     and go quiet, with a limit, as a wait step for a train nobody terminates never ends."""
     manager = IM.getDefault(AutomationManager)
     startup = manager.getStartupAutomation()
-    started = startup is None
+    if startup is None:
+        return
+    started = False
     quiet = 0
     for _ in range(AUTOMATION_TICKS):
         running = any(a.isRunning() or a.isActionRunning() for a in manager.getAutomationsByNameList())
@@ -57,28 +61,78 @@ def settle_automations():
         java.lang.Thread.sleep(100)
 
 
-if JOB.get("build"):
+def startup_trace():
+    """What the startup automation did: without this a dry run cannot tell a step that ran from one that did not."""
+    startup = IM.getDefault(AutomationManager).getStartupAutomation()
+    if startup is None:
+        return None
+    steps = []
+    for item in startup.getItemsBySequenceList():
+        train = item.getTrain()
+        steps.append({"step": item.getSequenceId(), "action": item.getActionName(),
+                      "train": train.getName() if train is not None else "", "ran": bool(item.isActionRan()),
+                      "ok": bool(item.isActionSuccessful())})
+    return {"name": startup.getName(), "running": bool(startup.isRunning()), "steps": steps}
+
+
+def row_for(train):
+    moved = sorted(c.getId() + " > " + c.getDestinationName() + " / " + c.getDestinationTrackName()
+                   for c in cars.getByTrainList(train))
+    row = {"built": bool(train.isBuilt()), "failed": bool(train.isBuildFailed()),
+           "message": train.getStatus(), "cars": moved}
+    # Structured state for the gates: what the build placed, and where the train departs from.
+    row["placed"] = [{"car": c.getId(), "location": c.getDestinationName(),
+                      "track": c.getDestinationTrackName(),
+                      "track_id": c.getDestinationTrack().getId() if c.getDestinationTrack() else ""}
+                     for c in cars.getByTrainList(train) if c.getDestination() is not None]
+    depart = train.getDepartureTrack()
+    row["departure_track"] = depart.getName() if depart is not None else ""
+    row["departure_track_id"] = depart.getId() if depart is not None else ""
+    row["engines"] = [e.getId() for e in IM.getDefault(EngineManager).getByTrainList(train)]
+    report = os.path.join(java.lang.System.getProperty("ops.home"), "operations", "buildstatus",
+                          "train (" + train.getName() + ").txt")
+    row["report"] = report if os.path.isfile(report) else ""
+    return row
+
+
+if JOB.get("build") or JOB.get("order"):
+    # The startup automation began when the trains loaded (TrainManagerXml:124), on its own thread. Building alongside
+    # it would race it, so it finishes first and the builds start from what it left.
     trains.setBuildMessagesEnabled(False)  # A failed build must not open a dialog.
+    settle_automations()
+    out["startup_automation"] = startup_trace()
+
+if JOB.get("order"):
+    # One JMRI for the whole list, so each train starts from what the last one left, as in a real session. A later
+    # build of the same train overwrites its report file, so each step keeps the text.
+    out["steps"] = []
+    for number, step in enumerate(JOB["order"]):
+        rows = {}
+        for name in step["trains"]:
+            train = trains.getTrainByName(name)
+            train.build()
+            row = row_for(train)
+            report = row.pop("report")
+            row["report_text"] = io.open(report, encoding="utf-8", errors="replace").read() if report else ""
+            rows[name] = row
+        if step.get("terminate", True):
+            for name in step["trains"]:
+                train = trains.getTrainByName(name)
+                if train.isBuilt():
+                    train.terminate()
+                    rows[name]["terminated"] = not bool(train.isBuilt())
+        out["steps"].append({"step": number + 1, "trains": rows})
+
+if JOB.get("build"):
     for train in trains.getTrainsByTimeList():
         if not train.isBuildEnabled() or (JOB.get("only") and train.getName() not in JOB["only"]):
             continue
-        train.build()
-        moved = sorted(c.getId() + " > " + c.getDestinationName() + " / " + c.getDestinationTrackName()
-                       for c in cars.getByTrainList(train))
-        row = {"built": bool(train.isBuilt()), "failed": bool(train.isBuildFailed()),
-               "message": train.getStatus(), "cars": moved}
-        # Structured state for the gates: what the build placed, and where the train departs from.
-        row["placed"] = [{"car": c.getId(), "location": c.getDestinationName(),
-                          "track": c.getDestinationTrackName(),
-                          "track_id": c.getDestinationTrack().getId() if c.getDestinationTrack() else ""}
-                         for c in cars.getByTrainList(train) if c.getDestination() is not None]
-        depart = train.getDepartureTrack()
-        row["departure_track"] = depart.getName() if depart is not None else ""
-        row["departure_track_id"] = depart.getId() if depart is not None else ""
-        row["engines"] = [e.getId() for e in IM.getDefault(EngineManager).getByTrainList(train)]
-        report = os.path.join(java.lang.System.getProperty("ops.home"), "operations", "buildstatus",
-                              "train (" + train.getName() + ").txt")
-        row["report"] = report if os.path.isfile(report) else ""
+        if train.isBuilt():  # The startup automation built it and left it built.
+            row = row_for(train)
+            row["built_by_startup_automation"] = True
+        else:
+            train.build()
+            row = row_for(train)
         out["builds"][train.getName()] = row
     if JOB.get("terminate"):
         for train in trains.getTrainsByTimeList():
