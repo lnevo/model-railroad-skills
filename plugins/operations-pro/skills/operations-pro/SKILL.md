@@ -29,7 +29,7 @@ A minimal working railroad is two locations with a yard each, one route between 
 - **Do not hand-edit XML with JMRI running,** and do not edit the XML at all when an action exists. JMRI rewrites whole files from memory on save and exit, and drops anything it does not store.
 - **Leave move counts alone** unless asked. They steer traffic. Only `set_track_moves` and `reset_moves` change them.
 - **Judge by the build report.** `ops_explain_build` reads the file JMRI wrote and names the gate behind each refusal; it beats anything worked out from the files. Two identical builds can differ, so compare sets of outcomes, not one run.
-- **A failed build or a long report goes to the `ops-diagnoser` agent.** When the user asks why a build failed, why cars were left behind across a train, or what a long report says, start that agent first rather than reading the report here. It can only read, and returns the cause with the setting that fixes it. A single car's question with a named train stays here with `ops_why_not`.
+- **A failed build or a long report goes to the `ops-diagnoser` agent.** When the user asks why a build failed, why cars were left behind across a train, or what a long report says, start that agent first rather than reading the report here. It can only read, and returns the cause with the setting that fixes it. If this platform has no such agent, or can't start one, do the same work here: follow `references/diagnosis.md` and change nothing until the cause is reported. A single car's question with a named train stays here with `ops_why_not`.
 - **No changes while a train is built,** apart from cars not on a train. A build keeps per-stop counters in memory only.
 - **Say what you did not run.** A dry run on a copy is not a session on the railroad.
 
@@ -51,7 +51,7 @@ Read one file, not all of them. The gate ids in `build-order.md` are the ids `op
 
 ## Tools
 
-Read: `ops_explain_build`, `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`, `ops_plan`, `ops_build_check`, `ops_dry_run`, `ops_backups`, `ops_backup_now` (takes a set; JMRI may stay running).
+Read: `ops_reference`, `ops_explain_build`, `ops_why_not`, `ops_audit`, `ops_list`, `ops_actions`, `ops_plan`, `ops_build_check`, `ops_dry_run`, `ops_backups`, `ops_backup_now` (takes a set; JMRI may stay running).
 Write with JMRI exited: `ops_apply`, `ops_session`, `ops_deliver_car`, `ops_restore`, `ops_install_agent`.
 Live JMRI: `ops_live_status`, `ops_train`, `ops_live_car`, `ops_live_save`, `ops_live_report`, `ops_live_automation`.
 

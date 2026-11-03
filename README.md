@@ -1,19 +1,34 @@
 # Model railroad skills
 
-Claude Code skills and read-only live tools for model railroad software: JMRI, stock JMRI MQTT, CATS and STS.
+Agent skills and read-only live tools for model railroad software: JMRI, stock JMRI MQTT, CATS and STS.
 
 ## Install
+
+For Claude Code:
 
 ```
 claude plugin marketplace add lnevo/model-railroad-skills
 claude plugin install model-railroad-skills@model-railroad-skills
 ```
 
-The live tools need `python3` and nothing else.
+The live tools need `python3` and nothing else. On Windows, `python3` may not exist; change `command` in `mcp.json` to `py` or `python`.
+
+### Other agent platforms
+
+Each plugin also ships the open [Agent Plugins](https://agent-plugins.org) files, `plugin.json` and `mcp.json`, and its skills follow the [Agent Skills](https://agentskills.io/) format. Those files come from the Claude Code ones: edit `.claude-plugin/plugin.json` or `.mcp.json`, then run `python3 tools/build_portable.py`.
+
+| Platform | Skills and tools | `ops-diagnoser` agent | Tested |
+|---|---|---|---|
+| Claude Code | Yes | Read-only, limited to reading tools | Yes |
+| Cursor | Expected to load | Not confirmed | Not yet |
+| Codex | Expected to load | Not bundled; the skill does the diagnosis itself | Not yet |
+| Gemini CLI, Antigravity | No package yet | No | No |
+
+On any platform, the server still refuses a stale plan or an apply while JMRI is running. Showing you the plan before it is applied is an instruction to the agent, and only Claude Code enforces the diagnoser's read-only tool limit.
 
 ## Skills
 
-Skills are guidance. They tell Claude how the software behaves, but they don't run anything or connect to a layout. Each skill says which source commit it was checked against, and a rule is included only if it was confirmed in the source or official documentation.
+Skills are guidance. They tell the agent how the software behaves, but they don't run anything or connect to a layout. Each skill says which source commit it was checked against, and a rule is included only if it was confirmed in the source or official documentation.
 
 ### `jmri-panel-xml`
 

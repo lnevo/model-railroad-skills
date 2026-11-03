@@ -40,8 +40,9 @@ class AgentTest(unittest.TestCase):
             self.assertNotIn(word, self.tools)
 
     def test_points_at_the_skill(self):
-        self.assertIn("references/diagnosis.md", self.body)
-        self.assertIn("references/build-order.md", self.body)
+        self.assertIn("`ops_reference` with `diagnosis`", self.body)
+        self.assertIn("`build-order`", self.body)
+        self.assertNotIn("CLAUDE_PLUGIN_ROOT", self.body)
 
 
 class SkillTest(unittest.TestCase):
