@@ -59,5 +59,18 @@ class Skills(unittest.TestCase):
             self.assertNotRegex(path.read_text(), r"CLAUDE_|mcp__|Claude", path)
 
 
+class InstallSteps(unittest.TestCase):
+    def test_the_readme_paths_exist(self):
+        text = (ROOT / "plugins" / "operations-pro" / "README.md").read_text()
+        for path in set(re.findall(r"model-railroad-skills/(plugins/operations-pro/\S+?)(?:[\s\"]|$)", text, re.M)):
+            self.assertTrue((ROOT / path).exists(), path)
+
+    def test_the_server_starts_by_full_path_from_anywhere(self):
+        server = ROOT / "plugins" / "operations-pro" / "servers" / "operations_pro.py"
+        done = subprocess.run([sys.executable, str(server)], cwd="/", input=json.dumps(INIT) + "\n",
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(json.loads(done.stdout)["result"]["serverInfo"]["name"], "operations-pro", done.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

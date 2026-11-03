@@ -17,14 +17,7 @@ The live tools need `python3` and nothing else. On Windows, `python3` may not ex
 
 Each plugin also ships the open [Agent Plugins](https://agent-plugins.org) files, `plugin.json` and `mcp.json`, and its skills follow the [Agent Skills](https://agentskills.io/) format. Those files come from the Claude Code ones: edit `.claude-plugin/plugin.json` or `.mcp.json`, then run `python3 tools/build_portable.py`.
 
-| Platform | Skills and tools | `ops-diagnoser` agent | Tested |
-|---|---|---|---|
-| Claude Code | Yes | Read-only, limited to reading tools | Yes |
-| Cursor | Expected to load | Not confirmed | Not yet |
-| Codex | Expected to load | Not bundled; the skill does the diagnosis itself | Not yet |
-| Gemini CLI, Antigravity | No package yet | No | No |
-
-On any platform, the server still refuses a stale plan or an apply while JMRI is running. Showing you the plan before it is applied is an instruction to the agent, and only Claude Code enforces the diagnoser's read-only tool limit.
+Cursor and Codex install by hand or from a plugin folder, and neither has been run on a real agent yet. [Operations Pro's install section](plugins/operations-pro/README.md#install) has the steps. For this plugin, use the repository root as the plugin folder, copy or link each folder in `skills/`, and add `servers/jmri_json.py` and `servers/mqtt_layout.py` as servers.
 
 ## Skills
 
