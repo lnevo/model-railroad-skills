@@ -51,7 +51,7 @@ OperationsPro is powerful, and much of how it behaves isn't obvious from its scr
 | `ops_why_not`, `ops_audit`, `ops_list` | No | Explain a stuck car from the files, check the railroad, list records |
 | `ops_explain_build` | No | Reads a train's build report: outcome, each stop's moves, excluded cars and each car's story with gate ids |
 | `ops_build_check` | No | Compares real builds before and after a plan, on copies |
-| `ops_dry_run` | No | Runs a whole session on a copy; each train comes back with its build report read as `ops_explain_build` reads it (`detail`: summary, normal, full) |
+| `ops_dry_run` | No | Runs a session on a copy; each train comes back with its build report read as `ops_explain_build` reads it (`detail`: summary, normal, full). `order` runs trains in sequence, each from what the last left, to prove hand-offs; `trains` limits it to the named ones |
 | `ops_backups`, `ops_restore` | Restore only | Lists backup sets and puts one back, or with `file` only one lost or unreadable file; both work on a broken folder |
 | `ops_backup_now` | Adds a backup set | Takes a backup set now, in JMRI's own `backups` folder, as `ops_apply` does before a change |
 

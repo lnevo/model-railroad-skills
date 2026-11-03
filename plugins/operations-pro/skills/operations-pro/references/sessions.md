@@ -70,7 +70,10 @@ With JMRI exited, through `ops_plan` and `ops_apply`. `ops_list` with type `auto
 ## Session patterns
 
 - Build, print, terminate in groups so a later group can draw on cars freed by an earlier one. An automation with wait-for-terminate steps does this.
-- A dry run before a session: `ops_dry_run` builds and terminates every enabled train on a copy and reports, changing nothing. A manual backup, build and terminate all days, then Restore does the same by hand.
+- A dry run before a session: `ops_dry_run` builds every enabled train on a copy from one start state, in time order, then terminates them all, and changes nothing. Trains do not see what the ones before them left, so a train that lives on another's set outs looks empty. `trains` limits it to the named ones. A manual backup, build and terminate all days, then Restore does the same by hand.
+- A session in order: `ops_dry_run` with `order` runs one JMRI through the steps, each train starting from what the last left, and is the test for hand-offs and interchange room. A step is a train name, a list of trains built and then terminated together (trains that swap cars must be together, or the second finds the first's power on its staging track), or `{trains, terminate}`. A train can appear again as the next session; it runs whether or not its Build box is ticked. Each step's trains carry `set_outs`, the cars per track. The builder is random, so counts vary slightly between runs. This is the same order an automation would run, without the automation: the first real run still belongs in `ops_live_automation`.
+- A startup automation runs on any copy JMRI loads, on its own thread. `ops_dry_run` lets it finish first, up to 20 seconds, and returns its steps as `startup_automation`, each with `ran` and `ok`; a train it left built comes back marked `built_by_startup_automation` and is not rebuilt. Clear it with `set_startup_automation` none.
+- `jmri_log_notes` counts log lines JMRI writes as errors in normal running, such as the overflow to an alternate; `jmri_log_errors` holds the rest.
 - Only one running JMRI may own the files. Any builder dialog opens on the computer running JMRI.
 
 ## Live lane
