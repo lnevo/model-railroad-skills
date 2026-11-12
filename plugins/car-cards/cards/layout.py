@@ -51,6 +51,27 @@ class SheetSpec:
     rows: int
 
 
+
+PRINT_DPI = 600  # more pixels than this only make the file bigger
+
+
+def print_size(path, width_in: float):
+    """The picture as a PNG stream no wider than the print needs (width_in at PRINT_DPI). Full phone
+    photos would make a sheet of nine 30 MB; this keeps it to a few MB with no visible loss."""
+    import io
+
+    from PIL import Image
+
+    with Image.open(path) as im:
+        im.load()
+        limit = round(width_in * PRINT_DPI)
+        if im.width > limit:
+            im = im.resize((limit, round(im.height * limit / im.width)), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, "PNG", optimize=True)
+    buf.seek(0)
+    return buf
+
 def _in(twips: int) -> float:
     return twips / 1440
 
@@ -496,7 +517,7 @@ def build_card(cell, card: Card, idx: int, spec: SheetSpec, cfg: Config) -> None
     p = h_logo.paragraphs[0]
     para(p, align=WD_ALIGN_PARAGRAPH.LEFT)
     if cfg.logo is not None and Path(cfg.logo).is_file():
-        p.add_run().add_picture(str(cfg.logo), width=Inches(LOGO_W_IN))
+        p.add_run().add_picture(print_size(cfg.logo, LOGO_W_IN), width=Inches(LOGO_W_IN))
 
     # The type: centred capitals between a top and bottom rule that hug the text.
     pad(h_title, left=150, right=0, top=0, bottom=0)
@@ -534,7 +555,7 @@ def build_card(cell, card: Card, idx: int, spec: SheetSpec, cfg: Config) -> None
     p = ic.paragraphs[0]
     para(p, align=WD_ALIGN_PARAGRAPH.CENTER)
     if card.image is not None and Path(card.image).is_file():
-        p.add_run().add_picture(str(card.image), width=Inches(PICTURE_W_IN))
+        p.add_run().add_picture(print_size(card.image, PICTURE_W_IN), width=Inches(PICTURE_W_IN))
     else:
         text(p.add_run(), "NO PHOTO", size=7, color=(140, 140, 140))
     tighten_cell(c_img)

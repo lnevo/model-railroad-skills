@@ -133,6 +133,21 @@ def etree_str(el) -> str:
     return etree.tostring(el, encoding="unicode")
 
 
+class PrintSize(CardFolder):
+    def test_big_pictures_are_shrunk_to_print_resolution(self):
+        big = self.tmp / "big.png"
+        Image.new("RGB", (4000, 1000), (120, 130, 140)).save(big)
+        out = layout.build_sheet([Card("car", "HOPPER", "XX", "1", "", big)], self.tmp / "s.docx", self.cfg)
+        with zipfile.ZipFile(out) as z:
+            media = [n for n in z.namelist() if n.startswith("word/media/")]
+            widths = []
+            for name in media:
+                with z.open(name) as fh, Image.open(fh) as im:
+                    widths.append(im.width)
+        self.assertIn(round(layout.PICTURE_W_IN * layout.PRINT_DPI), widths)
+        self.assertLessEqual(max(widths), round(layout.PICTURE_W_IN * layout.PRINT_DPI))
+
+
 class Spec(CardFolder):
     def test_default_is_the_poker_preset(self):
         spec = layout.sheet_spec(self.cfg)
