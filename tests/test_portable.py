@@ -33,6 +33,9 @@ class PortableFiles(unittest.TestCase):
 
     def test_servers_start_from_the_plugin_root(self):
         for plugin in PLUGINS:
+            if not (plugin / ".mcp.json").is_file():
+                self.assertFalse((plugin / "mcp.json").exists(), plugin)
+                continue
             config = json.loads((plugin / "mcp.json").read_text())
             self.assertEqual(config["$schema"], f"{SCHEMAS}/mcp.schema.json")
             for name, entry in config["mcpServers"].items():
@@ -45,7 +48,7 @@ class PortableFiles(unittest.TestCase):
 
 class Skills(unittest.TestCase):
     def test_skills_meet_the_standard(self):
-        self.assertEqual(len(skills()), 7)
+        self.assertEqual(len(skills()), 8)
         for path in skills():
             head = re.match(r"---\n(.*?)\n---\n", path.read_text(), re.S).group(1)
             fields = dict(line.split(": ", 1) for line in head.splitlines())

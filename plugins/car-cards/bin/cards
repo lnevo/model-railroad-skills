@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run the cards command from the card folder: uses ./.venv when there is one.
+HERE=$(cd "$(dirname "$0")/.." && pwd)
+PY=python3
+[ -x .venv/bin/python ] && PY=.venv/bin/python
+PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" exec "$PY" -m cards "$@"

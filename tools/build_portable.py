@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS = (ROOT, ROOT / "plugins" / "operations-pro")
+PLUGINS = (ROOT, ROOT / "plugins" / "operations-pro", ROOT / "plugins" / "car-cards")
 SCHEMAS = "https://agent-plugins.org/schemas/1.0.0"
 MANIFEST_FIELDS = ("name", "version", "description", "author", "homepage", "repository", "license", "keywords")
 CLAUDE_ROOT = "${CLAUDE_PLUGIN_ROOT}/"
@@ -40,7 +40,8 @@ def outputs() -> dict[Path, str]:
     built = {}
     for plugin in PLUGINS:
         built[plugin / "plugin.json"] = json.dumps(manifest(plugin), indent=2) + "\n"
-        built[plugin / "mcp.json"] = json.dumps(mcp(plugin), indent=2) + "\n"
+        if (plugin / ".mcp.json").is_file():  # a plugin with no MCP server has neither file
+            built[plugin / "mcp.json"] = json.dumps(mcp(plugin), indent=2) + "\n"
     return built
 
 
