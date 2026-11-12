@@ -16,6 +16,10 @@ If a number or a mark is still wrong, fix it on the page. The photo check is a s
 
 The area the OCR reads, and the weight area, were tuned on one kind of car, coal hoppers. Other types may read nothing. The photo check and the reader's edits cover it. A larger, sharper photo helps: in the tests a hopper read correctly at 2400 px wide and not at 1200 px. For a batch of one type, `cards fill` copies details from the best row.
 
+## Weights look wrong, or were copied wrong
+
+The OCR reads the capacity, load limit and light weight stencils, and misreads digits as it does in numbers. `cards fill` copies the best row's values into empty fields of cars of the same road and type, so one misread can spread. Check the weights against a sharp photo before approving, and set them with `cards fill BATCH --set lt_wt_lbs=42600 PHOTO..`, or leave them blank: the card does not print them.
+
 ## White-on-black lettering reads nothing
 
 Light lettering on a dark car often reads nothing. Type the marks and number on the page, or take them from the photo check.
@@ -54,7 +58,11 @@ A card uses the print copy in `images/print/` only when it is newer than the fin
 
 ## `number-length`
 
-The road number has a different number of digits from the usual for that road in the batch. The usual count is the one more than half of that road's cars have. A road seen once is compared with the batch's usual count, so a misread mark does not hide a short number. Check the digits against the photo; if the number is right, leave the row as it is and approve it.
+The road number has a different number of digits from the usual for that road in the batch: the count more than half of that road's cars have. A road with only one car in the batch is not checked. Check the digits against the photo; if the number is right, approve the row (`cards fill BATCH PHOTO --set status=approved`).
+
+## A misread mark, such as `CTET` for `CSXT`
+
+List every mark you use in `roads.known`: a mark that is not in the list gets `road-not-in-fleet`. The photo check also flags it (`ai-disagrees`).
 
 ## `ai-disagrees` on every row of one road
 

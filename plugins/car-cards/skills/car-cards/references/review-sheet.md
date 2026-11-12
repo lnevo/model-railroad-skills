@@ -26,7 +26,7 @@ A flag is a reason to look, not an error.
 | `process-failed` | The photo could not be read. The reason is in the note. |
 | `blurry` | Sharpness is under `review.blur_threshold`. |
 | `no-marks`, `no-number` | The OCR found no reporting marks, or no road number. |
-| `number-length` | The number has a different digit count from the road's usual one. |
+| `number-length` | The number has a different digit count from most cars of the same road in the batch (needs two or more cars of that road). |
 | `road-not-in-fleet` | The marks are not in `roads.known` (only when that list is set). |
 | `same-id-as-<photo>` | Two photos in the batch give the same roster id. |
 | `already-recorded` | The roster id is already in the fleet with a picture. |
