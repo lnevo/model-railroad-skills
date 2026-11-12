@@ -1,6 +1,6 @@
 # Model railroad skills
 
-Agent skills and read-only live tools for model railroad software: JMRI, stock JMRI MQTT, CATS and STS.
+Agent skills and read-only live tools for model railroad software: JMRI, stock JMRI MQTT, CATS and STS. Two separate plugins add Operations Pro management and car cards from photos.
 
 ## Install
 
@@ -59,6 +59,14 @@ Skills are guidance. They tell the agent how the software behaves, but they don'
 
 ```
 claude plugin install operations-pro@model-railroad-skills
+```
+
+## Car cards (separate plugin)
+
+`car-cards` turns phone photos of your cars and locomotives into printed car cards: it crops and reads each photo, puts them on a review page you check in a browser, and prints nine cards to a sheet. It runs a Python command and writes files in a card folder you choose, which is why it is a separate install. See [`plugins/car-cards/README.md`](plugins/car-cards/README.md).
+
+```
+claude plugin install car-cards@model-railroad-skills
 ```
 
 ## Live tools
