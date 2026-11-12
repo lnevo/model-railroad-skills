@@ -29,12 +29,12 @@ class Fakes:
         self.readings: dict[str, dict] = {}   # photo stem -> OCR fields
         self.crop_status: dict[str, str] = {}
         self.blurs: dict[str, float] = {}
-        self.fail: set[str] = set()
+        self.unreadable: set[str] = set()
         self.cut = []
         self.prepared = []
 
         def to_png(src, dest):
-            if src.stem in self.fail:
+            if src.stem in self.unreadable:
                 raise SystemExit("cannot open this photo")
             dest.mkdir(parents=True, exist_ok=True)
             out = dest / f"{src.stem}.png"
@@ -269,7 +269,7 @@ class ReviewTests(Base):
     def test_one_failed_photo_does_not_stop_the_batch(self):
         self.add_photo("a.jpg", reporting_marks="NW", road_number="1")
         self.add_photo("bad.jpg")
-        self.fail = {"bad"}
+        self.unreadable = {"bad"}
         self.run_quiet(batch.review, self.paths, self.cfg, "b1")
         a, bad = self.rows()
         self.assertEqual((a["flags"], bad["flags"], bad["image"]), ("", "process-failed", ""))
