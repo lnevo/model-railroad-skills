@@ -178,7 +178,8 @@ def _parse_markings(text: str) -> dict:
     return out
 
 
-# `marks number` shapes, tried in this order; each returns (marks, number) for a match.
+# `marks number` shapes, tried in this order; each returns (marks, number) for a match. The split
+# number goes first, or the plain pattern would take "XYZ 600" and leave "409" behind.
 def _two_part(m):  # "K S 123" style: marks split by a space
     return f"{m.group(1)} {m.group(2)}", m.group(3)
 
@@ -192,9 +193,9 @@ def _three_three(m):  # "XYZ 600 409": number split in two
 
 
 MARK_PATTERNS = (
+    (r"\b([A-Z&]{2,4})\s+(\d{3})\s+(\d{3})\b", _three_three),
     (r"\b([A-Z]{1,4})\s+([A-Z]{1,2})\s+(\d{2,6})\b", _two_part),
     (r"\b([A-Z&]{2,6})\s+(\d{2,6})\b", _plain),
-    (r"\b([A-Z&]{2,4})\s+(\d{3})\s+(\d{3})\b", _three_three),
 )
 
 
