@@ -11,6 +11,11 @@
       "name": "operations-pro",
       "source": "./plugins/operations-pro",
       "description": "Build, change, run and diagnose a JMRI OperationsPro railroad with an AI agent, without teaching it OperationsPro first: setup from scratch with a plan you see first, sessions in a live JMRI, and build reports explained."
+    },
+    {
+      "name": "car-cards",
+      "source": "./plugins/car-cards",
+      "description": "Turn phone photos of model railroad cars and locomotives into printed car cards: crop, read the lettering, review on one page, and print nine to a sheet."
     }
   ]
 }
