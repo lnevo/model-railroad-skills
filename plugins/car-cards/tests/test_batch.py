@@ -147,7 +147,7 @@ class FlagTests(Base):
     def test_number_length_differs_from_the_same_road(self):
         rows = [review_row(photo=f"{i}.jpg", road_number=n) for i, n in enumerate(["32800", "32801", "3280"])]
         usual = batch.usual_lengths(rows, self.cfg)
-        self.assertEqual(usual, {"NW": 5, "*": 5})
+        self.assertEqual(usual, {"NW": 5})
         self.assertIn("number-length", self.flags(rows[2], usual=usual))
         self.assertNotIn("number-length", self.flags(rows[0], usual=usual))
 
@@ -156,14 +156,18 @@ class FlagTests(Base):
                 review_row(photo="c", reporting_marks="BO", road_number="1")]
         self.assertEqual(batch.usual_lengths(rows, self.cfg), {})
 
-    def test_a_road_seen_once_is_held_to_the_batch(self):
+    def test_a_road_seen_once_is_not_held_to_the_batch(self):
         rows = [review_row(photo=f"{i}.jpg", reporting_marks="CSXT", road_number=n)
                 for i, n in enumerate(["379808", "379738", "379824"])]
+        rows.append(review_row(photo="flat.jpg", reporting_marks="NW", road_number="32800"))
         rows.append(review_row(photo="odd.jpg", reporting_marks="CTET", road_number="4869"))
         usual = batch.usual_lengths(rows, self.cfg)
-        self.assertEqual(usual, {"CSXT": 6, "*": 6})
-        self.assertIn("number-length", self.flags(rows[3], usual=usual))
-        self.assertNotIn("number-length", self.flags(rows[0], usual=usual))
+        self.assertEqual(usual, {"CSXT": 6})
+        self.assertNotIn("number-length", self.flags(rows[3], usual=usual))
+        # The misread mark is caught by the fleet list instead.
+        cfg = replace(self.cfg, known_roads=("CSXT", "NW"))
+        self.assertIn("road-not-in-fleet", self.flags(rows[4], cfg=cfg, usual=usual))
+        self.assertNotIn("road-not-in-fleet", self.flags(rows[3], cfg=cfg, usual=usual))
 
 
 class KindTests(Base):

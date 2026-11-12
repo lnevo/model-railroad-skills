@@ -92,23 +92,18 @@ def _digits(text: str) -> str:
     return re.sub(r"\D", "", text or "")
 
 
-ANY_ROAD = "*"
-
-
 def usual_lengths(rows: list[dict], cfg: Config) -> dict[str, int]:
-    """The digit count most cars have (only when more than half agree): per road for a road with two
-    or more cars in the batch, and for the whole batch under ANY_ROAD. A road seen once is held to
-    the batch's count, so a misread mark such as CTET for CSXT does not hide a short number."""
+    """For each road with two or more cars in the batch, the digit count most of them have (only when
+    more than half agree). A road seen once has nothing to compare with: in a mixed batch that is
+    most roads. A misread mark is caught by road-not-in-fleet (set roads.known) and the photo check."""
     groups: dict[str, list[int]] = {}
     for r in rows:
         if r["kind"] == "car" and _digits(r["road_number"]):
-            n = len(_digits(r["road_number"]))
-            groups.setdefault(cfg.road_code(r["reporting_marks"]), []).append(n)
-            groups.setdefault(ANY_ROAD, []).append(n)
+            groups.setdefault(cfg.road_code(r["reporting_marks"]), []).append(len(_digits(r["road_number"])))
     usual = {}
     for code, lengths in groups.items():
         best = max(set(lengths), key=lengths.count)
-        if lengths.count(best) > len(lengths) / 2 and (code == ANY_ROAD or len(lengths) > 1):
+        if len(lengths) > 1 and lengths.count(best) > len(lengths) / 2:
             usual[code] = best
     return usual
 
@@ -165,7 +160,7 @@ def flag_row(row: dict, cfg: Config, fleet_by_kind: dict, seen: dict, usual: dic
     if not row["road_number"]:
         flags.append("no-number")
     elif usual and row["kind"] == "car":
-        want = usual.get(cfg.road_code(marks), usual.get(ANY_ROAD))
+        want = usual.get(cfg.road_code(marks))
         if want and len(_digits(row["road_number"])) != want:
             flags.append("number-length")
     rid = row["roster_id"]
@@ -396,7 +391,10 @@ def fill(paths: Paths, cfg: Config, name: str, photos: list[str], sets: list[str
                     print(f"  {r['photo']} {f} reads {r[f]}, best row {best['photo']} has {best[f]}")
     set_flags(rows, cfg, paths)
     save(out, rows)
-    print(f"Best row {', '.join(used) or 'none (no two cars share marks and type)'}. Filled {filled} empty details.")
+    if used:
+        print(f"Filled {filled} empty details from the best row of each road and type: {', '.join(used)}.")
+    else:
+        print("Set the values. No details were copied: copying needs two pending cars of the same road and type.")
     print(f"Next: check the page, then run: cards approve {name}")
     return 0
 
