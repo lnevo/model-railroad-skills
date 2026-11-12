@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "car-cards",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Turn phone photos of model railroad cars and locomotives into printed car cards: crop, read the lettering, review on one page, and print nine to a sheet.",
   "author": {
     "name": "lnevo"
