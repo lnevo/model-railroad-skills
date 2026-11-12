@@ -709,7 +709,7 @@ def match_lightbox_white_balance(
     img: Image.Image,
     target: tuple[float, float, float],
 ) -> Image.Image:
-    """Scale RGB so the light-box wall matches the target colour (config crop.wall_rgb)."""
+    """Scale RGB so the light-box wall matches the target colour (the light-box wall colour the source was tuned on)."""
     target_rgb = target
     rgb = img.convert("RGB")
     arr = np.asarray(rgb, dtype=np.float32)

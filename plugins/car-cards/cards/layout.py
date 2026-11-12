@@ -518,6 +518,8 @@ def build_card(cell, card: Card, idx: int, spec: SheetSpec, cfg: Config) -> None
     para(p, align=WD_ALIGN_PARAGRAPH.LEFT)
     if cfg.logo is not None and Path(cfg.logo).is_file():
         p.add_run().add_picture(print_size(cfg.logo, LOGO_W_IN), width=Inches(LOGO_W_IN))
+    elif cfg.short_name:  # no logo: the short name keeps the card's railroad on it
+        text(p.add_run(), cfg.short_name, size=9 if len(cfg.short_name) <= 4 else 7, bold=True)
 
     # The type: centred capitals between a top and bottom rule that hug the text.
     pad(h_title, left=150, right=0, top=0, bottom=0)

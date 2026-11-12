@@ -29,7 +29,6 @@ class Sheet(CardFolder):
         cfg = self.cfg
         if logo:
             Image.new("RGB", (60, 60), (30, 60, 120)).save(self.tmp / "logo.png")
-            cfg = config.load_with_logo(self.tmp) if hasattr(config, "load_with_logo") else cfg
             cfg = dataclasses.replace(cfg, logo=self.tmp / "logo.png")
         cards = [Card("car", "BOX CAR", "NW", str(1000 + i), "Black · Box Car · 50'", FLATCAR) for i in range(10)]
         out = layout.build_sheet(cards, self.tmp / "output" / "sheet.docx", cfg)
@@ -99,9 +98,13 @@ class Sheet(CardFolder):
     def test_with_logo(self):
         self.check(True)
 
-    def test_logo_cell_is_blank_without_one(self):
+    def test_short_name_takes_the_logo_place(self):
         _, doc, _ = self.make(False)
-        self.assertNotIn("LOGO", etree_str(doc.element.body))
+        body = etree_str(doc.element.body)
+        self.assertNotIn("LOGO", body)
+        self.assertEqual(body.count(">TVR<"), 10)
+        _, doc, _ = self.make(True)
+        self.assertNotIn(">TVR<", etree_str(doc.element.body))
 
     def test_frame_ids_stay_unique_past_a_hundred_cards(self):
         cards = [Card("car", "BOX CAR", "NW", str(i), "x", None) for i in range(120)]
