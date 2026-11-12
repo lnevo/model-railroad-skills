@@ -452,20 +452,26 @@ class FillTests(Base):
         c = review_row(photo="c", blur="5000")
         self.assertIs(batch.best_row([a, b, c]), b)
 
-    def test_fill_copies_empty_details_from_the_best_row_only(self):
-        self.make_batch([review_row(photo="a.jpg", road_number="1", car_type="Hopper", color="red", description="mine"),
-                         review_row(photo="b.jpg", road_number="2", car_type="Flat Car")])
+    def test_fill_copies_empty_details_from_the_same_road_and_type(self):
+        self.make_batch([review_row(photo="a.jpg", road_number="1", car_type="Hopper", color="red",
+                                    built="5-70", description="mine"),
+                         review_row(photo="b.jpg", road_number="2", car_type="hopper", color="blue"),
+                         review_row(photo="f.jpg", road_number="3", car_type="Flat Car")])
         out = self.run_quiet(batch.fill, self.paths, self.cfg, "b1", [], [])
-        a, b = self.rows()
-        self.assertEqual((b["car_type"], b["color"], b["description"]), ("Flat Car", "red", ""))
-        self.assertIn("car_type reads Flat Car", out)
+        a, b, f = self.rows()
+        self.assertEqual((b["built"], b["color"], b["description"]), ("5-70", "blue", ""))
+        self.assertIn("b.jpg color reads blue", out)
+        self.assertEqual((f["built"], f["color"]), ("", ""))  # a flat car takes nothing from a hopper
 
     def test_set_applies_to_the_named_photos_only(self):
-        self.make_batch([review_row(photo="a.jpg", road_number="1"), review_row(photo="b.jpg", road_number="2")])
-        self.run_quiet(batch.fill, self.paths, self.cfg, "b1", ["a.jpg"], ["color = red"])
-        a, b = self.rows()
-        self.assertEqual((a["color"], b["color"]), ("red", "red"))  # b filled from the best row
-        self.assertEqual(a["description"], "")
+        self.make_batch([review_row(photo="a.jpg", road_number="1", car_type="Hopper", built="5-70"),
+                         review_row(photo="b.jpg", road_number="2", car_type="Hopper"),
+                         review_row(photo="c.jpg", road_number="3", car_type="Hopper")])
+        self.run_quiet(batch.fill, self.paths, self.cfg, "b1", ["b.jpg"], ["color = red"])
+        a, b, c = self.rows()
+        self.assertEqual((a["color"], b["color"], c["color"]), ("", "red", ""))
+        self.assertEqual((b["built"], c["built"]), ("5-70", ""))  # only the named photo is filled
+        self.assertEqual(b["description"], "")
 
     def test_set_without_photos_and_bad_column(self):
         self.make_batch([review_row(photo="a.jpg", road_number="1")])

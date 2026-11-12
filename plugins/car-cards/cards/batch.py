@@ -359,8 +359,9 @@ def best_row(rows: list[dict]) -> dict:
 
 
 def fill(paths: Paths, cfg: Config, name: str, photos: list[str], sets: list[str]) -> int:
-    """Set fields on the named photos (every pending row when none are named), then fill each pending
-    car's empty details from the batch's best row."""
+    """Set fields on the named photos (every pending row when none are named), then fill each of those
+    cars' empty details from the best row of the same road and car type. A batch can mix car types,
+    so details never cross from a flat car to a hopper; a row with no marks or type is not filled."""
     out, rows = load(paths, name)
     unknown = [p for p in photos if p not in {r["photo"] for r in rows}]
     if unknown:
@@ -372,11 +373,22 @@ def fill(paths: Paths, cfg: Config, name: str, photos: list[str], sets: list[str
     for r in rows:
         if r["status"] == PENDING and (not photos or r["photo"] in photos):
             r.update(values)
-    pending_cars = [r for r in rows if r["kind"] == "car" and r["status"] == PENDING]
-    filled, best = 0, None
-    if pending_cars:
-        best = best_row(pending_cars)
-        for r in pending_cars:
+    def group(r: dict) -> tuple[str, str] | None:
+        code, kind = cfg.road_code(r["reporting_marks"]), cfg.car_type(r["car_type"]).lower()
+        return (code, kind) if code and kind else None
+
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for r in rows:
+        if r["kind"] == "car" and r["status"] == PENDING and group(r):
+            groups.setdefault(group(r), []).append(r)
+    filled, used = 0, []
+    for key, members in groups.items():
+        targets = [r for r in members if not photos or r["photo"] in photos]
+        if not targets or len(members) < 2:
+            continue
+        best = best_row(members)
+        used.append(best["photo"])
+        for r in targets:
             for f in DETAIL_FIELDS:
                 if not r[f] and best[f]:
                     r[f], filled = best[f], filled + 1
@@ -384,7 +396,7 @@ def fill(paths: Paths, cfg: Config, name: str, photos: list[str], sets: list[str
                     print(f"  {r['photo']} {f} reads {r[f]}, best row {best['photo']} has {best[f]}")
     set_flags(rows, cfg, paths)
     save(out, rows)
-    print(f"Best row {best['photo'] if best else 'none'}. Filled {filled} empty details.")
+    print(f"Best row {', '.join(used) or 'none (no two cars share marks and type)'}. Filled {filled} empty details.")
     print(f"Next: check the page, then run: cards approve {name}")
     return 0
 
