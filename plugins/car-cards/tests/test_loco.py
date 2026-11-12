@@ -49,8 +49,23 @@ class LocoPicture(CardFolder):
         self.assertIsNone(res.print)
         self.assertEqual(res.status, "ok")
         w, h = Image.open(res.final).size
-        self.assertEqual(w, 1200)  # the whole photo, not a freight crop
-        self.assertGreater(image.blur_score(res.final), 100)
+        # Cut round the locomotive (the fixture's sits at about x 238-1199, y 446-837 of 1400),
+        # not the whole photo and not a freight crop.
+        self.assertTrue(600 < w < 1100 and 2.0 < w / h < 3.2, (w, h))
+        self.assertGreater(image.blur_score(res.final), self.cfg.blur_threshold)
+
+    def test_auto_box_finds_the_locomotive(self):
+        with Image.open(PHOTOS / "loco.jpg") as im:
+            x0, y0, x1, y1 = loco.auto_box(im.convert("RGB"))
+        self.assertTrue(150 < x0 < 300 and 1150 < x1 < 1300, (x0, x1))
+        self.assertTrue(380 < y0 < 520 and 780 < y1 < 900, (y0, y1))
+
+    def test_no_locomotive_gives_the_whole_photo_for_review(self):
+        blank = self.paths.converted / "blank.png"
+        Image.new("RGB", (1400, 1050), (200, 198, 195)).save(blank)
+        res = loco.loco_picture(blank, self.paths, self.cfg)
+        self.assertEqual(res.status, "review")
+        self.assertEqual(Image.open(res.final).size, (1400, 1050))
 
     def test_box_limits_the_picture(self):
         png = image.to_png(PHOTOS / "loco.jpg", self.paths.converted)

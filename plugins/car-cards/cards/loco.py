@@ -93,17 +93,45 @@ def clean(photo: Image.Image, box: tuple[int, int, int, int], target: float = 17
     return Image.fromarray(np.uint8(np.clip(out, 0, 255)))
 
 
+def auto_box(photo: Image.Image) -> tuple[int, int, int, int] | None:
+    """A box around the locomotive (x0, y0, x1, y1 on the REF_WIDTH copy), or None when no body is
+    found. The mask holds the locomotive and the track; the track is a thin band across the whole
+    photo, so the locomotive is the columns where the mask stands well above it."""
+    ref_h = round(photo.height * REF_WIDTH / photo.width)
+    small = np.asarray(photo.convert("RGB").resize((REF_WIDTH // SMALL, ref_h // SMALL), Image.LANCZOS), float)
+    sh, sw, _ = small.shape
+    bg = np.median(small[: int(sh * 0.07), int(sw * 0.35): int(sw * 0.65)].reshape(-1, 3), 0)
+    keep, _ = loco_mask(small, bg)
+    cols = keep.sum(0)
+    if cols.max() < sh * 0.08:
+        return None
+    xs = np.flatnonzero(cols > 0.35 * cols.max())
+    x0, x1 = xs.min(), xs.max()
+    rows = keep[:, x0: x1 + 1].sum(1)
+    ys = np.flatnonzero(rows > 0.2 * (x1 - x0))
+    if x1 - x0 < sw * 0.15 or len(ys) == 0:
+        return None
+    y0, y1 = ys.min(), ys.max()
+    pad_x, top, bottom = 0.05 * (x1 - x0), 0.25 * (y1 - y0), 0.2 * (y1 - y0)
+    box = (max(0, x0 - pad_x), max(0, y0 - top), min(sw, x1 + pad_x), min(sh, y1 + bottom))
+    return tuple(int(round(v * SMALL)) for v in box)
+
+
 def loco_picture(png: Path, paths: Paths, cfg: Config, box: tuple[int, int, int, int] | None = None) -> CropResult:
     """Write images/final/<stem>.png for a locomotive and remove any images/print/<stem>.png, so a
-    stale freight-style print copy cannot win. box None = the whole photo."""
+    stale freight-style print copy cannot win. box None = found by auto_box, else the whole photo
+    with status "review"."""
     png = Path(png)
     with Image.open(png) as im:
         photo = im.convert("RGB")
+    status = "ok"
     if box is None:
-        box = (0, 0, REF_WIDTH, round(photo.height * REF_WIDTH / photo.width))
+        box = auto_box(photo)
+    if box is None:
+        box, status = (0, 0, REF_WIDTH, round(photo.height * REF_WIDTH / photo.width)), "review"
     out = clean(photo, box)
     paths.final.mkdir(parents=True, exist_ok=True)
     final = paths.final / f"{png.stem}.png"
     out.save(final)
     (paths.print_copies / f"{png.stem}.png").unlink(missing_ok=True)
-    return CropResult(None, final, None, "ok")
+    return CropResult(None, final, None, status)
