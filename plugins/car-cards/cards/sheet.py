@@ -19,14 +19,18 @@ STATUS_CHOICES = (schema.PENDING, schema.APPROVED, schema.REJECTED)
 
 SHEET_SCRIPT = """
 const COLS=__COLS__, FIELDS=__FIELDS__, ROWS=__ROWS__, KEY=__KEY__;
+// Saved edits carry the values the page showed when they were made (base). A field the reader
+// changed keeps their value; every other field takes the page's, so a later cards command shows.
 let saved={}; try{saved=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+const edits=saved.rows||{}, base=saved.base||{};
 const csv=v=>/[",\\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
 function collect(){return ROWS.map((r,i)=>{const o={...r};
  document.querySelectorAll('[data-i="'+i+'"][data-f]').forEach(el=>o[el.dataset.f]=el.value);return o})}
-function store(){const o={};collect().forEach((r,i)=>o[i]=r);
- try{localStorage.setItem(KEY,JSON.stringify(o))}catch(e){}}
+function store(){const o={},b={};collect().forEach((r,i)=>{o[r.photo]=r;b[r.photo]=ROWS[i]});
+ try{localStorage.setItem(KEY,JSON.stringify({rows:o,base:b}))}catch(e){}}
 document.querySelectorAll('[data-i][data-f]').forEach(el=>{
- const s=saved[el.dataset.i]; if(s&&s[el.dataset.f]!==undefined&&!el.readOnly) el.value=s[el.dataset.f];
+ const p=ROWS[el.dataset.i].photo, f=el.dataset.f, s=edits[p], b=base[p];
+ if(s&&s[f]!==undefined&&!el.readOnly&&(!b||s[f]!==b[f])) el.value=s[f];
  el.addEventListener('input',()=>{store();tone(el.dataset.i)})});
 function tone(i){const c=document.getElementById('c'+i), st=document.querySelector('[data-i="'+i+'"][data-f="status"]').value;
  c.className='c '+st}
