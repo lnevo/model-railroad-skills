@@ -38,6 +38,24 @@ class TrimForeground(unittest.TestCase):
         self.assertGreater(cut, 44)
 
 
+class StrayDark(unittest.TestCase):
+    def test_backdrop_corner_beside_the_flatcar_is_left_out(self):
+        # The fixture's car runs from about x 350 to 920; the shadowed backdrop corner sits near
+        # x 150 to 190 and once pulled the box left so the picture was off-centre.
+        with Image.open(PHOTOS / "flatcar.jpg") as im:
+            x, y, w, h = image.plan_crop(im)["box"]
+        self.assertGreater(x, 290)
+        self.assertAlmostEqual(x + w / 2, 635, delta=40)
+
+    def test_one_dark_run_is_kept_whole(self):
+        gray = np.full((200, 400), 220, np.uint8)
+        gray[60:120, 50:350] = 30
+        gray[60:120, 180:190] = 220  # a lettering gap is bridged
+        self.assertEqual(image._drop_stray_dark(gray, (0, 50, 400, 150)), (0, 50, 400, 150))
+        gray[60:90, 5:20] = 30       # a dark corner far to the left is dropped
+        self.assertEqual(image._drop_stray_dark(gray, (0, 50, 400, 150))[0], 50)
+
+
 class ToPng(CardFolder):
     def test_exif_orientation_is_applied(self):
         src = self.tmp / "turned.jpg"

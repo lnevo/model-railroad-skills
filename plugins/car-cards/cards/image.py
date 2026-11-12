@@ -17,7 +17,8 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 from ._img_detect import (  # noqa: F401  (re-exported: the picker and the tests use these)
     BODY_THRESH, LONG_CAR_MIN_FRAC, LONG_CAR_PAD_X, PAD_BOTTOM, PAD_TOP, TIE_MARGIN_COUNT, TRACK_THRESH,
-    Y0, _backdrop_color, _estimate_tie_pitch, _level_image, _trim_foreground, detect_car_bbox,
+    RUN_MERGE_GAP_FRAC, Y0, _backdrop_color, _estimate_tie_pitch, _level_image, _merge_close_runs,
+    _runs_from_flags, _trim_foreground, detect_car_bbox,
     estimate_rotation, match_lightbox_white_balance)
 from .config import Config
 from .paths import Paths
@@ -240,6 +241,21 @@ def _loose_box(size: tuple[int, int]) -> list[float]:
     return [W * (1 - FALLBACK_W) / 2, H * 0.5 - h / 2, w, h]
 
 
+def _drop_stray_dark(gray: np.ndarray, bbox: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+    """Narrow the box to the car when something dark beside it, such as the shadowed corner of a
+    backdrop, was taken in. Above the track the car is one dark run of columns (lettering gaps are
+    bridged); a run apart from it by a wide gap is dropped. The track below may run on: it is ignored."""
+    x0, y0, x1, y1 = bbox
+    upper = gray[y0: y0 + int(0.6 * (y1 - y0)), x0:x1] < BODY_THRESH
+    cols = upper.sum(0) > max(2, 0.04 * upper.shape[0])
+    runs = _merge_close_runs(_runs_from_flags(cols), int(RUN_MERGE_GAP_FRAC * gray.shape[1]))
+    if len(runs) < 2:
+        return bbox
+    mass = [int(upper[:, a:b].sum()) for a, b in runs]
+    a, b = runs[int(np.argmax(mass))]
+    return (x0 + a, y0, x0 + b, y1)
+
+
 def plan_crop(img: Image.Image) -> dict:
     """Level the photo and find the automatic card box on it, without writing anything.
 
@@ -260,6 +276,7 @@ def plan_crop(img: Image.Image) -> dict:
         return {"leveled": leveled, "rotation": rotation, "status": "failed",
                 "box": [round(v) for v in _loose_box(leveled.size)], "crop": None}
     gray = np.asarray(ImageOps.grayscale(leveled), dtype=np.uint8)
+    bbox = _drop_stray_dark(gray, bbox)
     left, top, right, bottom = _centered_crop_box(gray, *bbox)
     crop = leveled.crop((left, top, right, bottom))
     found = finalize_box(leveled, crop, (left, top))
