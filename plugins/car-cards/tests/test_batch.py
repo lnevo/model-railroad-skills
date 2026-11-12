@@ -147,14 +147,23 @@ class FlagTests(Base):
     def test_number_length_differs_from_the_same_road(self):
         rows = [review_row(photo=f"{i}.jpg", road_number=n) for i, n in enumerate(["32800", "32801", "3280"])]
         usual = batch.usual_lengths(rows, self.cfg)
-        self.assertEqual(usual, {"NW": 5})
+        self.assertEqual(usual, {"NW": 5, "*": 5})
         self.assertIn("number-length", self.flags(rows[2], usual=usual))
         self.assertNotIn("number-length", self.flags(rows[0], usual=usual))
 
     def test_number_length_needs_a_majority_and_the_same_road(self):
         rows = [review_row(photo="a", road_number="1234"), review_row(photo="b", road_number="12345"),
                 review_row(photo="c", reporting_marks="BO", road_number="1")]
-        self.assertEqual(batch.usual_lengths(rows, self.cfg), {"BO": 1})
+        self.assertEqual(batch.usual_lengths(rows, self.cfg), {})
+
+    def test_a_road_seen_once_is_held_to_the_batch(self):
+        rows = [review_row(photo=f"{i}.jpg", reporting_marks="CSXT", road_number=n)
+                for i, n in enumerate(["379808", "379738", "379824"])]
+        rows.append(review_row(photo="odd.jpg", reporting_marks="CTET", road_number="4869"))
+        usual = batch.usual_lengths(rows, self.cfg)
+        self.assertEqual(usual, {"CSXT": 6, "*": 6})
+        self.assertIn("number-length", self.flags(rows[3], usual=usual))
+        self.assertNotIn("number-length", self.flags(rows[0], usual=usual))
 
 
 class KindTests(Base):

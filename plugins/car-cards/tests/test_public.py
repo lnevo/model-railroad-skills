@@ -45,8 +45,9 @@ class Public(unittest.TestCase):
     def test_fixture_photos_are_small(self):
         photos = sorted(PHOTOS.glob("*.jpg"))
         self.assertEqual([p.name for p in photos], ["flatcar.jpg", "hopper.jpg", "loco.jpg"])
-        for p in photos:
-            self.assertLess(p.stat().st_size, 120_000, p.name)
+        for p in sorted((PHOTOS.parent).rglob("*")):
+            if p.suffix.lower() in {".jpg", ".jpeg", ".png"}:
+                self.assertLess(p.stat().st_size, 120_000, p.name)
 
 
 if __name__ == "__main__":
