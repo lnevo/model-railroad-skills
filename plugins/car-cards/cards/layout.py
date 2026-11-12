@@ -16,6 +16,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
+from PIL import Image
 
 from .config import Config
 from .paths import Paths
@@ -557,7 +558,15 @@ def build_card(cell, card: Card, idx: int, spec: SheetSpec, cfg: Config) -> None
     p = ic.paragraphs[0]
     para(p, align=WD_ALIGN_PARAGRAPH.CENTER)
     if card.image is not None and Path(card.image).is_file():
-        p.add_run().add_picture(print_size(card.image, PICTURE_W_IN), width=Inches(PICTURE_W_IN))
+        # The row has an exact height: a tall picture is fitted by height so nothing is cut off.
+        max_h_in = (max(H_IMAGE + extra_h, 1700) - IMG_OUTER_PAD_TOP - IMG_OUTER_PAD_BOTTOM
+                    - 2 * IMG_INNER_PAD - 60) / 1440
+        with Image.open(card.image) as im:
+            tall = PICTURE_W_IN * im.height / im.width > max_h_in
+        if tall:
+            p.add_run().add_picture(print_size(card.image, PICTURE_W_IN), height=Inches(max_h_in))
+        else:
+            p.add_run().add_picture(print_size(card.image, PICTURE_W_IN), width=Inches(PICTURE_W_IN))
     else:
         text(p.add_run(), "NO PHOTO", size=7, color=(140, 140, 140))
     tighten_cell(c_img)

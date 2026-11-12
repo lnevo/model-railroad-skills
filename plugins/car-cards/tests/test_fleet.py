@@ -58,6 +58,10 @@ class Record(CardFolder):
         self.assertTrue(row["recorded"])
         self.assertEqual((row["card_built"], row["card_printed"]), ("", ""))
 
+    def test_the_review_note_becomes_the_notes_a_description_rule_reads(self):
+        fleet.record(review(note="covered, cement service"), "b1", self.paths, self.cfg)
+        self.assertEqual(self.cars()[0]["notes"], "covered, cement service")
+
     def test_absolute_image_path_is_stored_relative(self):
         image = self.paths.final / "a.png"
         fleet.record(review(image=str(image)), "b1", self.paths, self.cfg)

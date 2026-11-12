@@ -37,7 +37,7 @@ aliases = {{ Boxcar = "Box Car", Flatcar = "Flat Car", Tank = "Tank Car", Coal =
 # [[descriptions]]
 # type = "Hopper"
 # classes = ["LO"]              # the car class on the sheet
-# words = ["covered", "cement"]  # any of these in the description or note
+# words = ["covered", "cement"]  # any of these in the car's note on the review page
 # label = "Cov Hopper"
 
 [review]

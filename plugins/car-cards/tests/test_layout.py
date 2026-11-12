@@ -30,7 +30,10 @@ class Sheet(CardFolder):
         if logo:
             Image.new("RGB", (60, 60), (30, 60, 120)).save(self.tmp / "logo.png")
             cfg = dataclasses.replace(cfg, logo=self.tmp / "logo.png")
-        cards = [Card("car", "BOX CAR", "NW", str(1000 + i), "Black · Box Car · 50'", FLATCAR) for i in range(10)]
+        wide = self.tmp / "wide.png"  # a finished car picture is about 4:1
+        with Image.open(FLATCAR) as im:
+            im.crop((0, 500, 1200, 800)).save(wide)
+        cards = [Card("car", "BOX CAR", "NW", str(1000 + i), "Black · Box Car · 50'", wide) for i in range(10)]
         out = layout.build_sheet(cards, self.tmp / "output" / "sheet.docx", cfg)
         return cfg, Document(out), out
 
@@ -134,6 +137,16 @@ class Sheet(CardFolder):
 def etree_str(el) -> str:
     from lxml import etree
     return etree.tostring(el, encoding="unicode")
+
+
+class TallPicture(CardFolder):
+    def test_a_tall_picture_is_fitted_by_height(self):
+        out = layout.build_sheet([Card("car", "HOPPER", "XX", "1", "", FLATCAR)], self.tmp / "t.docx", self.cfg)
+        doc = Document(out)
+        pics = [s for s in doc.inline_shapes if s.width > Inches(1)]
+        self.assertEqual(len(pics), 1)
+        self.assertLess(pics[0].height, Inches(1.3))  # the 4:3 photo would be 1.38 in tall at full width
+        self.assertLess(pics[0].width, Inches(1.84))
 
 
 class PrintSize(CardFolder):

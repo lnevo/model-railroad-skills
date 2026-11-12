@@ -50,7 +50,7 @@ cards sheet-import BATCH ~/Downloads/review.csv
 
 Edits stay in the browser between visits, for this batch on this computer. Download before switching browsers.
 
-After a `cards` command rewrites the page, a field the reader changed keeps the reader's value. A field the reader did not change takes the page's new value, so a `cards fill` or `cards ai-notes` shows up without clearing anything.
+After a `cards` command rewrites the page, a field the reader changed keeps the reader's value, unless the command changed that same field: the command came later, so its value shows. A field the reader did not change takes the page's new value, so a `cards fill` or `cards ai-notes` shows up without clearing anything.
 
 ## Adjust crop
 
@@ -78,7 +78,8 @@ For a batch of one car type, set the common columns in one command:
 cards fill BATCH --set reporting_marks=XX --set car_type=Hopper
 ```
 
-- `--set COLUMN=VALUE` sets the column on every pending row, or on the photos named after the batch. `--set COLUMN=` blanks it.
+- `--set COLUMN=VALUE` sets the column on every pending row, or on the photos named after the batch. `--set COLUMN=` blanks it. The columns are the page's fields and `status`.
+- `--set status=approved` (or `rejected`, or `pending`) needs the photos named: it is how to approve a flagged row from the command line. `cards approve` approves the unflagged ones.
 - Then each of those cars' empty details are filled from the best row of the same road and car type. Details are car type, car class, color, length, the three weights and the build date. Not the description.
 - The best row is the one with the most details filled, then the sharper photo.
 - A batch can mix car types, so details never cross from a flat car to a hopper. A row with no marks or no car type is not filled, and a group needs two cars or more.

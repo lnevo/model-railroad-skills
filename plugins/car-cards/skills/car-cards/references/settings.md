@@ -41,11 +41,11 @@ The description line on a card reads `<color> · <type> · <length>'`. A rule ch
 [[descriptions]]
 type = "Hopper"                  # the car type the rule applies to
 classes = ["LO"]                 # matches when the car class is one of these
-words = ["covered", "cement"]    # or when any of these is in the description or notes
+words = ["covered", "cement"]    # or when any of these is in the car's note
 label = "Cov Hopper"             # prints in place of the type
 ```
 
-A rule needs `type` and `label`; `classes` and `words` are optional and nothing else is accepted. Words match in lower case. A description typed into a car's `description` field replaces the whole line. With nothing known, the line prints a dash.
+A rule needs `type` and `label`; `classes` and `words` are optional and nothing else is accepted. Words match in lower case, in the note typed on the review page (`cards records` keeps it as the car's notes). A description typed into a car's `description` field replaces the whole line, rule and all. With nothing known, the line prints a dash.
 
 A locomotive's line is its `description`, or `<builder> · <model> · <length>'` when that is empty.
 

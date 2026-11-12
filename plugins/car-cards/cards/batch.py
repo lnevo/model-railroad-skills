@@ -25,6 +25,7 @@ KIND_FLAGS = ("maybe-loco", "ai-says-loco", "ai-says-car")
 AI_FLAGS = ("ai-disagrees", "ai-says-loco", "ai-says-car")
 # Details one car shares with the rest of its batch (a string of hoppers, say). Not the description:
 # that override belongs to one car.
+FILL_FIELDS = [*EDIT_FIELDS, "status"]  # kind has its own command, the rest are worked out
 DETAIL_FIELDS = ["car_type", "car_class", "color", "length_ft", "capy_lbs", "ld_lmt_lbs", "lt_wt_lbs", "built"]
 
 
@@ -76,11 +77,12 @@ def photos_already_taken(paths: Paths, keep_batch: str | None = None) -> set[str
 def photos_to_review(paths: Paths) -> list[tuple[Path, str]]:
     """New photos in photos/incoming/. A converted copy of the same photo is not a second photo."""
     taken = photos_already_taken(paths)
-    found, listed = [], set()
+    listed = {Path(n).stem for n in taken}  # IMG_1.jpg beside a reviewed IMG_1.HEIC is the same photo
+    found = []
     folder = paths.incoming
     for p in sorted(folder.iterdir()) if folder.is_dir() else []:
         if (p.is_file() and not p.name.startswith(".") and p.suffix.lower() in image.IMAGE_SUFFIXES
-                and p.name not in taken and p.stem not in listed):
+                and p.stem not in listed):
             found.append((p, photo_kind(p)))
             listed.add(p.stem)
     return found
@@ -186,16 +188,22 @@ def norm(text: str) -> str:
 
 def set_flags(rows: list[dict], cfg: Config, paths: Paths, only: set[str] | None = None,
               only_pending: bool = True) -> None:
-    """Work out roster ids and flags again after rows were edited."""
+    """Work out roster ids and flags again after rows were edited. A duplicate id is looked for in
+    every row of the batch that is not rejected, not only the rows being flagged."""
     by_kind = fleet_rows(paths)
     usual = usual_lengths(rows, cfg)
-    seen: dict = {}
-    for r in rows:
-        if r["status"] == RECORDED or (only_pending and r["status"] != PENDING):
-            continue
-        if only is not None and r["photo"] not in only:
-            continue
+    targets = [r for r in rows
+               if r["status"] != RECORDED and not (only_pending and r["status"] != PENDING)
+               and (only is None or r["photo"] in only)]
+    for r in targets:
         r["roster_id"] = fleet.roster_id(r["reporting_marks"], r["road_number"], cfg)
+    owners: dict[tuple[str, str], list[str]] = {}  # cars and locos go to different files
+    for r in rows:
+        if r["roster_id"] and r["status"] != REJECTED:
+            owners.setdefault((r["kind"], r["roster_id"]), []).append(r["photo"])
+    for r in targets:
+        others = [p for p in owners.get((r["kind"], r["roster_id"]), []) if p != r["photo"]]
+        seen = {r["roster_id"]: others[0]} if others else {}
         flags = flag_row(r, cfg, by_kind, seen, usual)
         if "process-failed" in r["flags"] and not r["image"]:
             flags.insert(0, "process-failed")
@@ -275,13 +283,19 @@ def apply_ai_notes(rows: list[dict], notes: dict) -> list[str]:
 
     ``notes`` maps photo name to {"marks", "number", "type", "note"}. The reader only suggests:
     it never changes the OCR fields or the status. Returns photo names that are not in the batch."""
+    if not isinstance(notes, dict) or not all(isinstance(n, dict) for n in notes.values()):
+        raise SystemExit('The notes file must be one JSON object: {"photo": {"marks", "number", "type", "note"}}')
     unknown = [p for p in notes if p not in {r["photo"] for r in rows}]
+
+    def text(value) -> str:  # a reader that could not read a field may send null
+        return "" if value is None else str(value).strip()
+
     for r in rows:
         n = notes.get(r["photo"])
         if n is None:
             continue
-        r["ai_marks"], r["ai_number"] = n.get("marks", ""), str(n.get("number", ""))
-        r["ai_type"], r["ai_note"] = n.get("type", ""), n.get("note", "") or "reviewed"
+        r["ai_marks"], r["ai_number"] = text(n.get("marks")), text(n.get("number"))
+        r["ai_type"], r["ai_note"] = text(n.get("type")), text(n.get("note")) or "reviewed"
         r["flags"] = ";".join([f for f in r["flags"].split(";") if f and f not in AI_FLAGS] + ai_flags(r))
     return unknown
 
@@ -363,8 +377,13 @@ def fill(paths: Paths, cfg: Config, name: str, photos: list[str], sets: list[str
         raise SystemExit(f"Not in the batch: {' '.join(unknown)}")
     values = parse_sets(sets)
     for key in values:
-        if key not in REVIEW_COLUMNS or key == "photo":
-            raise SystemExit(f"Unknown column {key}. Columns: {' '.join(c for c in EDIT_FIELDS)}")
+        if key not in FILL_FIELDS:
+            raise SystemExit(f"Cannot set {key}. Columns: {' '.join(FILL_FIELDS)}")
+    if "status" in values:
+        if values["status"] not in (PENDING, APPROVED, REJECTED):
+            raise SystemExit(f"status must be {PENDING}, {APPROVED} or {REJECTED}")
+        if not photos:
+            raise SystemExit("Name the photos to set a status on; `cards approve` approves the unflagged rows.")
     for r in rows:
         if r["status"] == PENDING and (not photos or r["photo"] in photos):
             r.update(values)
@@ -514,8 +533,9 @@ def records(paths: Paths, cfg: Config, name: str, dry_run: bool = False, allow_p
                          f"{' '.join(nameless)}")
     manifest_path = out / "manifest.csv"
     manifest = fleet.read_rows(manifest_path, MANIFEST_COLUMNS)
+    planned: set[str] = set()  # ids a dry run would add, so a second photo of one car reads as skipped
     for r in todo:
-        outcome = fleet.record(r, name, paths, cfg, dry_run=dry_run)
+        outcome = fleet.record(r, name, paths, cfg, dry_run=dry_run, planned=planned)
         print(f"  {r['photo']}: {outcome}")
         if not dry_run:
             r["status"] = RECORDED

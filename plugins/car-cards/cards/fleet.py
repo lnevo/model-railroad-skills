@@ -58,10 +58,12 @@ def missing_loco_fields(row: dict) -> list[str]:
     return [f for f in schema.LOCO_REQUIRED if not (row.get(f) or "").strip()]
 
 
-def record(review_row: dict, batch: str, paths: Paths, cfg: Config, dry_run: bool = False) -> str:
+def record(review_row: dict, batch: str, paths: Paths, cfg: Config, dry_run: bool = False,
+           planned: set[str] | None = None) -> str:
     """Write one approved review row into cars.csv or locos.csv by its kind. Returns the outcome
     text for the manifest: 'new car X', 'photo added to X', 'skipped: X already has a picture',
-    'new loco X; needs model, loco_type' and so on. With dry_run nothing is written."""
+    'new loco X; needs model, loco_type' and so on. With dry_run nothing is written; pass the same
+    planned set for every row of a dry run so it reports what the real run would."""
     kind = "loco" if review_row.get("kind") == "loco" else "car"
     path, columns = fleet_file(kind, paths)
     rows = read_rows(path, columns)
@@ -73,8 +75,11 @@ def record(review_row: dict, batch: str, paths: Paths, cfg: Config, dry_run: boo
         raise SystemExit(f"{review_row.get('photo', '?')}: a {kind} needs reporting marks and a road number.")
     image = review_row.get("image", "")
     new.update(roster_id=rid, photo=review_row.get("photo", ""),
-               image=paths.rel(paths.resolve(image)) if image else "", batch=batch, recorded=today())
+               image=paths.rel(paths.resolve(image)) if image else "", batch=batch, recorded=today(),
+               notes=review_row.get("note", "") or "")  # description rules read words in the notes
     existing = next((r for r in rows if r["roster_id"] == rid), None)
+    if existing is None and dry_run and planned is not None and rid in planned:
+        return f"skipped: {rid} already has a picture (an earlier photo in this batch)"
     label = "loco" if kind == "loco" else "car"
     if existing is None:
         if kind == "loco":
@@ -82,6 +87,8 @@ def record(review_row: dict, batch: str, paths: Paths, cfg: Config, dry_run: boo
         if not dry_run:
             rows.append(new)
             write_rows(path, columns, rows)
+        elif planned is not None and new["image"]:
+            planned.add(rid)
         outcome = f"new {label} {rid}"
         if kind == "loco":
             outcome += "; needs " + ", ".join(missing_loco_fields(new) or ["nothing"])

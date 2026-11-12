@@ -594,3 +594,48 @@ class CropTests(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReviewFindings(Base):
+    """Cases from the code review of the first full build."""
+
+    def test_fill_takes_only_page_fields_and_a_valid_named_status(self):
+        self.make_batch([review_row(photo="a.jpg"), review_row(photo="b.jpg", road_number="2")])
+        for sets, photos in ((["status=aproved"], ["a.jpg"]), (["status=approved"], []),
+                             (["status=recorded"], ["a.jpg"]), (["kind=loco"], ["a.jpg"]),
+                             (["image=x.png"], ["a.jpg"]), (["roster_id=Z"], ["a.jpg"])):
+            with self.assertRaises(SystemExit, msg=sets):
+                batch.fill(self.paths, self.cfg, "b1", photos, sets)
+        self.run_quiet(batch.fill, self.paths, self.cfg, "b1", ["a.jpg"], ["status=approved"])
+        self.assertEqual([r["status"] for r in self.rows()], ["approved", "pending"])
+
+    def test_a_pending_row_is_flagged_against_an_approved_one(self):
+        rows = [review_row(photo="a.jpg", road_number="1234", roster_id="NW1234", status="approved"),
+                review_row(photo="b.jpg", road_number="1234")]
+        batch.set_flags(rows, self.cfg, self.paths)
+        self.assertIn("same-id-as-a.jpg", rows[1]["flags"])
+        rows[0]["status"] = "rejected"
+        batch.set_flags(rows, self.cfg, self.paths)
+        self.assertNotIn("same-id", rows[1]["flags"])
+
+    def test_a_copy_of_a_reviewed_photo_under_another_suffix_is_not_new(self):
+        for name in ("IMG_1.png", "IMG_1.jpg", "IMG_2.jpg"):
+            self.add_photo(name)
+        self.make_batch([review_row(photo="IMG_1.png")])
+        self.assertEqual([p.name for p, _ in batch.photos_to_review(self.paths)], ["IMG_2.jpg"])
+
+    def test_null_and_bad_ai_notes(self):
+        rows = [review_row(photo="a.jpg")]
+        batch.apply_ai_notes(rows, {"a.jpg": {"marks": None, "number": None, "type": "Hopper", "note": None}})
+        self.assertEqual((rows[0]["ai_marks"], rows[0]["ai_number"], rows[0]["ai_note"]), ("", "", "reviewed"))
+        with self.assertRaises(SystemExit):
+            batch.apply_ai_notes(rows, ["a.jpg"])
+        with self.assertRaises(SystemExit):
+            batch.apply_ai_notes(rows, {"a.jpg": "NW 32800"})
+
+    def test_dry_run_reports_a_second_photo_of_one_car_as_skipped(self):
+        self.make_batch([review_row(photo="a.jpg", status="approved", image="images/final/a.png"),
+                         review_row(photo="b.jpg", status="approved", image="images/final/b.png")])
+        out = self.run_quiet(batch.records, self.paths, self.cfg, "b1", dry_run=True)
+        self.assertIn("a.jpg: new car NW32800", out)
+        self.assertIn("b.jpg: skipped: NW32800 already has a picture", out)

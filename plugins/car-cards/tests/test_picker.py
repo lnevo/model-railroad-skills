@@ -10,7 +10,7 @@ from PIL import Image
 
 from helpers import PHOTOS, CardFolder
 
-from cards import image, picker
+from cards import image, loco, picker
 from cards.schema import REVIEW_COLUMNS
 
 
@@ -90,6 +90,17 @@ class PrepareAndApply(CardFolder):
         r["kind"] = "loco"
         picker.prepare(self.batch, [r], self.paths, self.cfg)
         self.assertEqual(json.loads((self.batch / picker.DATA_FILE).read_text())["hopper.jpg"]["kind"], "loco")
+
+    def test_a_loco_view_starts_from_the_box_its_picture_was_cut_with(self):
+        image.to_png(PHOTOS / "loco.jpg", self.paths.converted)
+        picker.prepare(self.batch, [row("loco.jpg", kind="loco", image="images/final/loco.png")], self.paths, self.cfg)
+        data = json.loads((self.batch / picker.DATA_FILE).read_text())["loco.jpg"]
+        x, y, w, h = data["auto_box"]
+        with Image.open(PHOTOS / "loco.jpg") as im:
+            want = loco.auto_box(im.convert("RGB"))
+        s = 1200 / loco.REF_WIDTH
+        self.assertAlmostEqual(x, want[0] * s, delta=2)
+        self.assertAlmostEqual(w, (want[2] - want[0]) * s, delta=2)
 
     def test_page_parts_and_copy_command(self):
         self.assertEqual(picker.page_parts(self.batch), ("", "", ""))

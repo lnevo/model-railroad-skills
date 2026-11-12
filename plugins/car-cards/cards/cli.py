@@ -23,6 +23,9 @@ from .paths import Paths, find_root
 from .schema import CAR_COLUMNS, LOCO_COLUMNS, PENDING, REVIEW_COLUMNS
 
 
+# Kept by the commands themselves: the id follows marks and number; the rest is card bookkeeping.
+LOCO_KEPT = {"roster_id", "photo", "image", "batch", "recorded", "card_built", "card_printed"}
+
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="cards", description="Car and locomotive cards from phone photos.")
     sub = p.add_subparsers(dest="command", required=True)
@@ -109,12 +112,16 @@ def cmd_locos(args, paths: Paths, cfg) -> int:
     if row is None:
         raise SystemExit(f"{args.roster_id} is not in {paths.locos_csv}. `cards locos status` lists them.")
     values = batch.parse_sets(args.fields)
-    unknown = [k for k in values if k not in LOCO_COLUMNS or k == "roster_id"]
+    settable = [c for c in LOCO_COLUMNS if c not in LOCO_KEPT]
+    unknown = [k for k in values if k not in settable]
     if unknown:
-        raise SystemExit(f"Cannot set {' '.join(unknown)}. Columns: "
-                         f"{' '.join(c for c in LOCO_COLUMNS if c != 'roster_id')}")
+        raise SystemExit(f"Cannot set {' '.join(unknown)}. Columns: {' '.join(settable)}")
+    marks, number = values.get("reporting_marks", row["reporting_marks"]), values.get("road_number", row["road_number"])
+    new_id = fleet.roster_id(marks, number, cfg) or row["roster_id"]
+    if new_id != row["roster_id"] and any(r["roster_id"] == new_id for r in rows):
+        raise SystemExit(f"{new_id} is already a locomotive. Change that one, or pick another number.")
     row.update(values)
-    row["roster_id"] = fleet.roster_id(row["reporting_marks"], row["road_number"], cfg) or row["roster_id"]
+    row["roster_id"] = new_id
     row["card_built"] = row["card_printed"] = ""  # the card changed
     fleet.write_rows(paths.locos_csv, LOCO_COLUMNS, rows)
     missing = fleet.missing_loco_fields(row)

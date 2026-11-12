@@ -25,6 +25,7 @@ from PIL import Image
 
 from . import image as img_mod
 from .config import Config
+from . import loco as loco_mod
 from .loco import REF_WIDTH, clean
 from .paths import Paths
 
@@ -73,8 +74,13 @@ def _view(row: dict, paths: Paths):
     """The image the picker shows and the box is measured on, and the automatic box on it."""
     with Image.open(source_png(row, paths)) as im:
         im.load()
-        if row.get("kind") == "loco":
-            return im.copy(), [round(v) for v in img_mod._loose_box(im.size)]
+        if row.get("kind") == "loco":  # the same box loco_picture cut, or a loose one
+            box = loco_mod.auto_box(im.convert("RGB"))
+            if box is None:
+                return im.copy(), [round(v) for v in img_mod._loose_box(im.size)]
+            s = im.width / loco_mod.REF_WIDTH
+            x0, y0, x1, y1 = (v * s for v in box)
+            return im.copy(), [round(x0), round(y0), round(x1 - x0), round(y1 - y0)]
         plan = img_mod.plan_crop(im)
     return plan["leveled"], [round(v) for v in plan["box"]]
 

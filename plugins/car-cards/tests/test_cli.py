@@ -173,6 +173,16 @@ class Printing(InFolder, CardFolder):
         with self.assertRaises(SystemExit):
             cli.main(["locos", "set", "CSX10", "roster_id=Z"])
 
+    def test_locos_set_keeps_bookkeeping_and_ids_unique(self):
+        for field in ("image=x.png", "photo=x.jpg", "card_printed=2026-01-01", "batch=b9"):
+            with self.assertRaises(SystemExit, msg=field):
+                cli.main(["locos", "set", "CSX10", field])
+        other = dict(self.locos()["CSX10"], roster_id="CSX11", road_number="11")
+        rows = list(self.locos().values()) + [other]
+        fleet.write_rows(self.paths.locos_csv, schema.LOCO_COLUMNS, rows)
+        with self.assertRaises(SystemExit):
+            cli.main(["locos", "set", "CSX10", "road_number=11"])
+
     def test_locos_set_marks_and_number_change_the_id(self):
         run("locos", "set", "CSX10", "road_number=11")
         self.assertIn("CSX11", self.locos())
