@@ -189,16 +189,26 @@ def apply_edits(g, edits):
             raise SchematicError(f"unknown edit {op}")
 
 
+def end_nodes(g, ref):
+    """Every track end that a name or label answers to (a helix track has one at each level it reaches), in plan order."""
+    N, out = g["nodes"], []
+    for e in g["edges"]:
+        for n in (e["u"], e["v"]):
+            if N[n]["kind"] == "end" and (ref in e["names"] or N[n].get("label") == ref) and n not in out:
+                out.append(n)
+    return out
+
+
+def node_ref(g, ref):
+    """The junction or track end a route names: the first track end it answers to, else the junction."""
+    ends = end_nodes(g, ref)
+    return ends[0] if ends else by_label(g, ref)
+
+
 def mark_main(g, routes):
     """Main track is what lies on the given routes (shortest way between each pair); everything else is secondary."""
     N = g["nodes"]
-
-    def node(ref):
-        for e in g["edges"]:
-            for n in (e["u"], e["v"]):
-                if N[n]["kind"] == "end" and (ref in e["names"] or N[n].get("label") == ref):
-                    return n
-        return by_label(g, ref)
+    node = lambda ref: node_ref(g, ref)
 
     adj = collections.defaultdict(list)
     for e in g["edges"]:

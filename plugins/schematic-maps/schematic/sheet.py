@@ -99,9 +99,11 @@ def prepare(graph, opts, tracks):
     return g
 
 
-def build_input(graph, name, opts, tracks, log, milepost=None):
-    """The bands of one input: [(title, band, options)]. `milepost` is its table from mileposts.compute."""
-    g = prepare(graph, opts, tracks)
+def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
+    """The bands of one input: [(title, band, options)]. `milepost` is its table from mileposts.compute; `prepared` is
+    the graph already through `prepare`, which is then copied rather than prepared again."""
+    g = copy.deepcopy(prepared) if prepared is not None else prepare(graph, opts, tracks)
+    opts["helix_tracks"] = tracks
     rail = {}
     if opts.get("main_route") and (opts.get("facing_letters") or opts.get("direction_arrows")):
         rail, conflicts = direction.east(g, opts["main_route"], lambda r: edits.by_label(g, r))
@@ -156,9 +158,11 @@ def build(inputs, data, preferences=True, hints=False):
         if pref is not None:
             o["mileposts"] = pref
     posts = [None] * len(inputs)
+    prepared = [prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)]
     if pref is not None:
-        posts = mileposts.compute([prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)], optlist)
-    per = [build_input(g, name, o, tracks, logs[i], posts[i]) for i, ((g, name), o) in enumerate(zip(inputs, optlist))]
+        posts = mileposts.compute(prepared, optlist)
+    per = [build_input(g, name, o, tracks, logs[i], posts[i], prepared[i])
+           for i, ((g, name), o) in enumerate(zip(inputs, optlist))]
     if pref is not None:
         step = mileposts.choose_step(per, optlist[-1])
         for o in optlist:
@@ -186,7 +190,7 @@ def build(inputs, data, preferences=True, hints=False):
                 room[e] = room.get(e, 0) + 1
             grown.append(f"R12 round {rnd + 1}: {inputs[i][1]} runs lengthened for labels: {', '.join(sorted(edges_))}")
             logs[i] = []
-            per[i] = build_input(inputs[i][0], inputs[i][1], optlist[i], tracks, logs[i], posts[i])
+            per[i] = build_input(inputs[i][0], inputs[i][1], optlist[i], tracks, logs[i], posts[i], prepared[i])
     left, sheet = best
     if left:
         sheet.log.append(f"R12: {left} labels still have no free position")

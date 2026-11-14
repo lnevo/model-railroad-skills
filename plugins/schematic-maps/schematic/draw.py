@@ -230,13 +230,9 @@ def draw_band(band, title, opts, top, left):
         for sid in sorted(strands):
             if sid in diag:
                 continue
-            marks = mileposts.ticks(band, sid, opts["_mp_step"])
             pts = [(X(c), Y(r)) for c, r in drawn[sid]]
-            for share, value in marks:
-                at = mileposts.level_spot(pts, share, 8.0)
-                if at is None:
-                    continue
-                mileposts_mark(P, svg, label, at, mileposts.number(value),
+            for spot, value in mileposts.placed(band, sid, opts["_mp_step"], pts):
+                mileposts_mark(P, svg, label, spot, mileposts.number(value),
                                [sid] if can_grow(band, sid) else [], opts["main_w"] / 2 + 1.5)
     if opts.get("direction_arrows") and not turned:   # a band that runs east to the left somewhere: an arrow per main run
         for row, xa, xb, right, run in direction.main_runs(band, drawn):

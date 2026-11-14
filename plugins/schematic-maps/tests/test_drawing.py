@@ -6,6 +6,7 @@ import unittest
 
 import helpers
 from schematic import fingerprint, label_check, labels, metrics, report, rules
+from schematic.core import SchematicError
 
 
 class Checks(unittest.TestCase):
@@ -703,10 +704,6 @@ class BandFixes(unittest.TestCase):
         self.assertIn("e0a", {e["id"] for e in h["edges"]})
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class Mileposts(unittest.TestCase):
     """Mileposts: counted in scale miles from the origin switch along the route, drawn as ticks when asked."""
 
@@ -726,6 +723,19 @@ class Mileposts(unittest.TestCase):
             pref.write_text(json.dumps(prefs))
             return sheet.build([(helpers.graph(), "example")], d)
 
+    @staticmethod
+    def pair(route_a, route_b, **opts):
+        """Two one-switch levels joined by the helix track Hx: (graphs, options). Switch 1 on the first, 2 on the second."""
+        def level(label, helix_end_first):
+            nodes = {"s": dict(kind="switch", label=label), "h": dict(kind="end", sub="helix", label="")}
+            u, v = ("h", "s") if helix_end_first else ("s", "h")
+            return dict(nodes=nodes, edges=[dict(id="a", u=u, up="E" if u == "h" else "A", v=v,
+                                                 vp="E" if v == "h" else "A", names=["Hx"], cm=254.0, main=True)])
+        graphs = [level("1", False), level("2", True)]
+        o1 = dict(opts, milepost_route=route_a, milepost_origin=dict(switch="1", milepost=0.0), scale_ratio=63360 / 100)
+        o2 = dict(milepost_route=route_b)
+        return graphs, [o1, o2]
+
     def test_off_is_byte_identical_and_draws_nothing_extra(self):
         self.assertEqual(self.build(None).svg(), helpers.build(True).svg())
         self.assertEqual(self.build(False).svg(), helpers.build(True).svg())
@@ -739,14 +749,72 @@ class Mileposts(unittest.TestCase):
         self.assertEqual(near, lower["mp_origin"])
         self.assertAlmostEqual(at, 0.0)
         self.assertGreater(miles, 0)
-        # the track west of the origin counts backwards
-        self.assertLess(min(v[1] for v in lower["mp"].values()), 0)
+        self.assertLess(min(v[1] for v in lower["mp"].values()), 0)         # the track west of the origin counts backwards
 
-    def test_miles_follow_length_and_scale(self):
+    def test_every_route_pair_is_counted_including_the_helix_name_on_the_other_level(self):
+        s = self.build({"step": 0.1})
+        lower = next(b for t, b, _ in s.bands if t == "Lower level")
+        upper = next(b for t, b, _ in s.bands if t == "Upper level")
+        self.assertIn("e21", upper["mp"])             # 22 to Summit: the helix end on the upper level, not the first Summit end
+        self.assertEqual(lower["mp"], upper["mp"])
+
+    def test_a_route_pair_with_no_way_stops(self):
         from schematic import mileposts
-        e = dict(names=["S-1"], cm=254.0)
-        self.assertAlmostEqual(mileposts.edge_miles(e, {}, 87.1), 100 * 87.1 / 63360)
-        self.assertAlmostEqual(mileposts.edge_miles(e, {"S-1": 50.0}, 87.1), 50 * 87.1 / 63360)
+        graphs, opts = self.pair([["1", "Hx"]], [])
+        graphs[0]["edges"][0]["main"] = False
+        with self.assertRaisesRegex(SchematicError, "finds no main track"):
+            mileposts.compute(graphs, opts)
+
+    def test_measured_length_is_shared_among_the_pieces_of_a_named_track(self):
+        from schematic import mileposts
+        g = dict(edges=[dict(id="a", names=["S-1"], cm=100 * 2.54), dict(id="b", names=["S-1"], cm=300 * 2.54),
+                        dict(id="c", names=[], cm=254.0)])
+        inches = mileposts.edge_inches(g, {"S-1": 40.0})
+        self.assertAlmostEqual(inches["a"], 10.0)
+        self.assertAlmostEqual(inches["b"], 30.0)
+        self.assertAlmostEqual(inches["c"], 100.0)            # unnamed: the plan's
+        self.assertAlmostEqual(mileposts.edge_miles(100.0, 87.1), 100 * 87.1 / 63360)
+
+    def test_helix_length_carries_the_count_forward_into_it(self):
+        from schematic import mileposts
+        graphs, opts = self.pair([["1", "Hx"]], [["Hx", "2"]], helix_length_in={"hx": 50})   # 100 in tracks, 1 mile = 100 in
+        t = mileposts.compute(graphs, opts)
+        self.assertAlmostEqual(t[0]["edges"]["a"][2], 1.0)
+        near, at, miles, _ = t[1]["edges"]["a"]
+        self.assertEqual(near, "h")
+        self.assertAlmostEqual(at, 1.0 + 0.5)                 # one mile to the helix end, then the helix's half mile
+
+    def test_a_helix_west_of_the_origin_counts_down(self):
+        from schematic import mileposts
+        graphs, opts = self.pair([["1", "Hx"]], [["Hx", "2"]], helix_length_in=50)
+        opts[0]["milepost_origin"] = None
+        opts[1]["milepost_origin"] = dict(switch="2", milepost=0.0)
+        opts[1]["scale_ratio"] = 63360 / 100
+        opts[1]["helix_length_in"] = 50
+        t = mileposts.compute(graphs, opts)
+        near, at, miles, _ = t[1]["edges"]["a"]
+        self.assertAlmostEqual(at, -1.0)                      # the count runs out of this end: one mile west of switch 2
+        self.assertAlmostEqual(t[0]["edges"]["a"][1], -1.0 - 0.5 - 1.0)   # and the far end is the helix's half mile further down
+
+    def test_helix_lengths_match_track_names_in_any_case_and_an_unknown_one_stops(self):
+        from schematic import mileposts
+        graphs, opts = self.pair([["1", "Hx"]], [["Hx", "2"]], helix_length_in={"HX": 50})
+        self.assertAlmostEqual(mileposts.compute(graphs, opts)[1]["edges"]["a"][1], 1.5)
+        graphs, opts = self.pair([["1", "Hx"]], [["Hx", "2"]], helix_length_in={"Hy": 50})
+        with self.assertRaisesRegex(SchematicError, "HY"):
+            mileposts.compute(graphs, opts)
+
+    def test_bad_origin_and_scale_are_named(self):
+        from schematic import mileposts
+        for bad in (None, "0", True):
+            graphs, opts = self.pair([["1", "Hx"]], [])
+            opts[0]["milepost_origin"] = dict(switch="1", milepost=bad) if bad is not None else dict(switch="1", milepost=None)
+            with self.assertRaisesRegex(SchematicError, "milepost_origin milepost"):
+                mileposts.compute(graphs, opts)
+        graphs, opts = self.pair([["1", "Hx"]], [])
+        opts[0]["scale_ratio"] = "87.1"
+        with self.assertRaisesRegex(SchematicError, "scale_ratio"):
+            mileposts.compute(graphs, opts)
 
     def test_ticks_sit_on_multiples_of_the_step(self):
         from schematic import mileposts
@@ -757,21 +825,61 @@ class Mileposts(unittest.TestCase):
         self.assertAlmostEqual(got[0][0], 0.05 / 0.3)
         self.assertEqual(mileposts.number(0.30000000000000004), "0.3")
 
-    def test_helix_length_carries_the_count_to_the_other_end(self):
-        s = self.build({"step": 0.1})
-        counts = [v[1] for _, b, _ in s.bands for v in b["mp"].values()]
-        self.assertTrue(counts)
+    def test_a_track_cut_short_keeps_only_its_share_of_the_count(self):
+        from schematic import mileposts
+        st = dict(src=("a", "B"), dst=("CUT:e", "E"), edge="e", ends=("a", "b"), cm=100.0, cut_cm=25.0, hidden=False)
+        band = dict(mp={"e": ("a", 1.0, 0.4, "a")}, strands={"e": st})
+        a, b = mileposts.span(band, "e")
+        self.assertAlmostEqual(a, 1.0)
+        self.assertAlmostEqual(b, 1.1)
+        st["dst"], st["src"], st["cut_from"] = ("b", "A"), ("CUT:e", "E"), "a"     # cut at the start: the share by the far node stays
+        a, b = mileposts.span(band, "e")
+        self.assertAlmostEqual(b, 1.4)
+        self.assertAlmostEqual(a, 1.3)
 
-    def test_drawn_with_no_label_faults_and_an_automatic_step(self):
+    def drawn(self, svg):
+        return svg.count('Z" stroke-width="1" fill="#fff"')
+
+    def test_the_automatic_step_counts_the_ticks_as_drawn(self):
+        from schematic import draw, layout, mileposts
+        auto = self.build(True)
+        step = auto.bands[0][2]["_mp_step"]
+        total = 0
+        for title, band, o in auto.bands:
+            cell = o.get("band_cell", {}).get(draw.band_key(title), o["cell"])
+            paths = layout.paths(band)
+            total += sum(len(mileposts.placed(band, sid, step, [(c * cell, r * o["rowh"]) for c, r in paths[sid]]))
+                         for sid in band["strands"] if sid not in band["R"]["diag"])
+        self.assertEqual(self.drawn(auto.svg()), total)
+        self.assertIn(f"mileposts: every {step:g} mile", " ".join(auto.log))
+
+    def test_drawn_with_no_label_faults(self):
         s = self.build({"step": 0.25})
         faults, n = label_check.check(s.svg())
         self.assertEqual(faults, [], faults)
-        auto = self.build(True)
-        self.assertIn("mileposts: every", " ".join(auto.log))
+        self.assertGreater(self.drawn(s.svg()), 0)
+
+    def test_detail_sheets_draw_mileposts_when_on(self):
+        import copy
+        from schematic import detail
+        from test_detail import STATIONS
+        s = copy.copy(self.build({"step": 0.25}))
+        s.bands = [(t, b, dict(o, stations=STATIONS, capacity={})) for t, b, o in s.bands]
+        allo = [o for _, _, o in s.bands]
+        owner, picks, with_marks = detail.owners(allo), dict(detail.selections(allo)), 0
+        for name, members in picks.items():
+            svg, _ = detail.sheet_svg(s.bands, members, name, owner)
+            self.assertEqual(label_check.check(svg)[0], [], name)
+            self.assertEqual(label_check.outside_frame(svg), [], name)
+            with_marks += self.drawn(svg)
+        self.assertGreater(with_marks, 0)
 
     def test_bad_settings_are_named(self):
         from schematic import mileposts
-        from schematic.core import SchematicError
         for bad in ({"step": 0}, {"step": "1"}, {"gap": 1}, "yes"):
             with self.assertRaises(SchematicError):
                 mileposts.preference({"mileposts": bad})
+
+
+if __name__ == "__main__":
+    unittest.main()
