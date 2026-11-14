@@ -7,17 +7,38 @@ link: the sidings, yard tracks and stubs a crew fills. Its length is the measure
 """
 import math
 
+from .core import SchematicError
 from .rules import setting
 
 
-def counts(band, opts):
-    """{strand: cars}, one per track. An unnamed yard track that switches cut into pieces along one drawn row
-    counts once, on its longest piece, from the pieces' summed length; a named track counts on its own. A folded run counts once on its named half,
-    or once per half when its two halves carry different names (a loop drawn as two tracks)."""
+def car_length(opts):
+    """Inches per car from the `capacity` preference, or None when capacity is off. `capacity: {}` or `true`
+    takes the default."""
     cap = opts.get("capacity")
-    if not cap:
-        return {}
-    car_in = float(cap.get("car_in", 7.4)) if isinstance(cap, dict) else 7.4
+    if cap is None or cap is False:
+        return None
+    car_in = cap.get("car_in", 7.4) if isinstance(cap, dict) else 7.4
+    if isinstance(car_in, bool) or not isinstance(car_in, (int, float)) or car_in <= 0:
+        raise SchematicError(f"capacity car_in must be a length in inches above 0, not {car_in!r}")
+    return float(car_in)
+
+
+def measured_length(measured, name):
+    """A measured length for a track name, or for either part of a joined name ("A / B")."""
+    for part in [name] + name.split(" / "):
+        if part.upper() in measured:
+            return measured[part.upper()]
+    return None
+
+
+def tracks(band, opts):
+    """[(strand that shows the count, cars, [strands of the track])], one per track. Pieces of one track are
+    joined: an unnamed track that switches cut into pieces along one drawn row, and the pieces of a named
+    track (all carrying its name). A folded run counts once on its named half, or once per half when its two
+    halves carry different names (a loop drawn as two tracks)."""
+    car_in = car_length(opts)
+    if car_in is None:
+        return []
     measured = {k.upper(): float(v) for k, v in opts.get("track_lengths_in", {}).items()}
     nodes, strands = band["nodes"], band["strands"]
     srow, diag = band["R"]["srow"], band["R"]["diag"]
@@ -35,9 +56,8 @@ def counts(band, opts):
     halves = {}
     for e, _ in pick:
         halves[e] = halves.get(e, 0) + 1
-    inches = {sid: measured.get((strands[sid]["name"] or "").upper(), strands[sid]["cm"] / 2.54 / halves[e])
-              for (e, _), sid in pick.items()}
-    parent = {sid: sid for sid in inches}   # pieces on one row that meet at a switch are one track
+    cm = {sid: strands[sid]["cm"] / halves[e] for (e, _), sid in pick.items()}
+    parent = {sid: sid for sid in cm}
 
     def find(k):
         while parent[k] != k:
@@ -45,11 +65,14 @@ def counts(band, opts):
             k = parent[k]
         return k
 
-    at = {}
-    for sid in sorted(inches):
+    at, by_name = {}, {}
+    for sid in sorted(cm):
         s = strands[sid]
-        if s["name"]:
-            continue                        # a named track is whole already (its measured length covers it)
+        if s["name"]:                       # a named track's pieces are one track
+            if s["name"] in by_name:
+                parent[find(sid)] = find(by_name[s["name"]])
+            by_name.setdefault(s["name"], sid)
+            continue
         for n in (s["src"][0], s["dst"][0]):
             if nodes[n].get("kind") != "switch":
                 continue
@@ -57,31 +80,39 @@ def counts(band, opts):
                 parent[find(other)] = find(sid)
             at.setdefault((n, srow.get(sid)), []).append(sid)
     groups = {}
-    for sid in inches:
+    for sid in cm:
         groups.setdefault(find(sid), []).append(sid)
-    out = {}
+    out = []
     for members in groups.values():
-        total = sum(inches[m] for m in members)
-        if max(strands[m]["cm"] for m in members) <= link_cm:
+        if max(cm[m] for m in members) <= link_cm:
             continue                        # only short links between switches: ladder, not track
-        n = math.floor(total / car_in)
+        name = strands[members[0]]["name"] or ""
+        inches = measured_length(measured, name) if name else None
+        if inches is None:
+            inches = sum(cm[m] for m in members) / 2.54
+        n = math.floor(inches / car_in)
         if n >= 1:
-            show = max(members, key=lambda m: (bool(strands[m]["name"]), strands[m]["cm"], m))
-            out[show] = n
+            show = max(members, key=lambda m: (cm[m], m))
+            out.append((show, n, sorted(members)))
     return out
 
 
-def station_totals(band, opts, cars, x):
-    """{station: cars}: each counted track goes to the station of its west (left) end switch, else its east end."""
+def counts(band, opts):
+    """{strand that shows the count: cars}."""
+    return {show: n for show, n, _ in tracks(band, opts)}
+
+
+def station_totals(band, opts, x, turned=False):
+    """{station: cars}: a track goes to the station of its west end switch (left, or right on a band turned
+    end for end), else the next switch along it; any piece of the track may supply that switch."""
     nodes, strands = band["nodes"], band["strands"]
+    station = {lab: st for st, members in opts.get("stations", {}).items() for lab in members}
     out = {}
-    for sid, n in cars.items():
-        s = strands[sid]
-        ends = sorted((s["src"][0], s["dst"][0]), key=lambda t: x.get(t, 0))
-        for e in ends:
-            name = next((st for st, members in opts.get("stations", {}).items()
-                         if nodes[e].get("kind") == "switch" and nodes[e].get("label") in members), None)
-            if name:
-                out[name] = out.get(name, 0) + n
-                break
+    for _, n, members in tracks(band, opts):
+        ends = {e for m in members for e in (strands[m]["src"][0], strands[m]["dst"][0])
+                if nodes[e].get("kind") == "switch" and nodes[e].get("label") in station}
+        if ends:
+            west = (max if turned else min)(ends, key=lambda e: x.get(e, 0))
+            name = station[nodes[west]["label"]]
+            out[name] = out.get(name, 0) + n
     return out

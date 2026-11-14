@@ -1,7 +1,7 @@
-import math
 """Rules R5 to R7, the checks, labels and the golden fingerprints, on the made-up example."""
 import json
 import os
+import math
 import unittest
 
 import helpers
@@ -444,10 +444,29 @@ class Capacity(unittest.TestCase):
     def test_station_totals_go_to_the_west_end(self):
         from schematic import capacity
         band = self.band()
-        c = {"s": 10, "y1": 8}
         x = {"p": 0, "q": 5, "r": 9, "a": 1, "b": 12}
-        totals = capacity.station_totals(band, {"stations": {"West": ["1"], "East": ["2"]}}, c, x)
-        self.assertEqual(totals, {"West": 10, "East": 8})
+        opts = {"capacity": {}, "track_lengths_in": {"S-1": 74.0}, "stations": {"West": ["1", "2"], "East": ["3"]}}
+        loop, yard = math.floor(300 / 2.54 / 7.4), math.floor(160 / 2.54 / 7.4)
+        # S-1 and K-1 end at switch 1; the unnamed track spans switches 2 and 3; K-2 ends at switch 3
+        self.assertEqual(capacity.station_totals(band, opts, x), {"West": 10 + loop + yard, "East": loop})
+        turned = capacity.station_totals(band, opts, x, turned=True)          # turned end for end: west is right
+        self.assertEqual(turned, {"West": 10 + loop, "East": loop + yard})
+
+    def test_pieces_of_a_named_track_count_once(self):
+        from schematic import capacity
+        band = self.band()
+        band["strands"]["s2"] = dict(band["strands"]["s"], src=("b", "B"), dst=("r", "A"), edge="s2")
+        band["R"]["srow"]["s2"] = 2
+        c = capacity.counts(band, {"capacity": True, "track_lengths_in": {"S-1": 74.0}})
+        self.assertEqual(sorted(v for k, v in c.items() if k in ("s", "s2")), [10])
+
+    def test_bad_car_length_is_named(self):
+        from schematic import capacity
+        from schematic.core import SchematicError
+        for bad in (0, -3, "7", True):
+            with self.assertRaisesRegex(SchematicError, "car_in"):
+                capacity.counts(self.band(), {"capacity": {"car_in": bad}})
+        self.assertEqual(capacity.measured_length({"S-4": 120.0}, "S-4 / S-5"), 120.0)
 
 
 if __name__ == "__main__":

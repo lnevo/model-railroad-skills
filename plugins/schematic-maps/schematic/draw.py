@@ -173,7 +173,7 @@ def draw_band(band, title, opts, top, left):
         label(mid_x, (y1 + y2) / 2 + 1, "HELIX", 10, weight="bold", extra='letter-spacing="1.5"')
         label(mid_x, (y1 + y2) / 2 + 11, "TO " + helix[0][2].upper(), 5.5)
     bottom = Y(max(srow.values()))
-    totals = capacity.station_totals(band, opts, cars, x)
+    totals = capacity.station_totals(band, opts, x, turned)
     lane_h = 40 if totals else 30
     lanes = []
     for name, members in opts.get("stations", {}).items():
