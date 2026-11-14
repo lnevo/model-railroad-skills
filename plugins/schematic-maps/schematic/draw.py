@@ -321,9 +321,9 @@ def draw_band(band, title, opts, top, left):
         if totals.get(name):
             label((a + b) / 2, yb + 25, f"{totals[name]} CARS", 8, extra='letter-spacing="0.5"')
     bottom += 34 + len(lanes) * lane_h if lanes else 0
-    draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow)
     if opts.get("signals"):
         draw_signals(band, drawn, opts, X, Y, svg, label, P)
+    draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow)
     for num, spots in switch_numbers.items():      # a crossover's two halves share one number, printed once
         cands = []
         if len(spots) == 2:
@@ -349,6 +349,21 @@ def draw_band(band, title, opts, top, left):
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
 
 
+def _harm(P, a, b):
+    """How many pending labels a line a-b would leave with no free position (and had one before)."""
+    n = 0
+    for ask in P.asks:
+        boxes = [labels.text_box(x, y, an, ask["s"], ask["size"], ask["weight"], ask["spacing"])
+                 for x, y, an in ask["cands"]]
+        free = [bx for bx in boxes if P.clear(bx)]
+        if free and all(labels.seg_box_gap(a, b, bx) < 1.4 / 2 + labels.PAD for bx in free):
+            n += 1
+    return n
+
+
+OFFSETS = (14, 20, 26, 32, 40, 50)      # how far outside the outermost switch a limit bracket may stand
+
+
 def draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow):
     """Interlocking limits (layer 1 `control_points`: {name: {"code": optional, "switches": [labels]}}).
 
@@ -362,16 +377,40 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow):
         xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in members]
         if not xs:
             continue
-        ends = (min(xs) - 14, max(xs) + 14)
         ys, room = [], set()
-        for k, pts in drawn.items():
-            for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
-                a, b = (X(c1), Y(r1)), (X(c2), Y(r2))
-                for ex in ends:
+
+        def span(ex):
+            """The heights at which drawn track crosses x = ex, and the strands that do."""
+            found = []
+            for k, pts in drawn.items():
+                for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
+                    a, b = (X(c1), Y(r1)), (X(c2), Y(r2))
                     if min(a[0], b[0]) <= ex <= max(a[0], b[0]):
                         t = (ex - a[0]) / (b[0] - a[0]) if b[0] != a[0] else 0.0
-                        ys.append(a[1] + t * (b[1] - a[1]))
-                        room.add(k)
+                        found.append((a[1] + t * (b[1] - a[1]), k))
+            return found
+
+        ends = []
+        for sign, edge in ((-1, min(xs)), (1, max(xs))):
+            best = None
+            for off in OFFSETS:          # outward until the bracket takes no label's last free position
+                ex = edge + sign * off
+                found = span(ex)
+                if not found:
+                    continue
+                top, bot = min(y for y, _ in found) - 9, max(y for y, _ in found) + 9
+                harm = _harm(P, (ex, top), (ex, bot))
+                if best is None or harm < best[0]:
+                    best = (harm, ex, found)
+                if not harm:
+                    break
+            if best is None:
+                continue
+            ends.append(best[1])
+            ys += [y for y, _ in best[2]]
+            room.update(k for _, k in best[2])
+        if len(ends) < 2:
+            continue
         if not ys:
             continue
         y1, y2 = min(ys) - 9, max(ys) + 9
