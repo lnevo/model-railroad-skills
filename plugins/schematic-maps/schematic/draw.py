@@ -4,7 +4,7 @@ import datetime
 import math
 from xml.sax.saxutils import escape
 
-from . import capacity, direction, fold, labels, mileposts
+from . import capacity, direction, fold, labels, mileposts, stations
 from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
 from .layout import paths
 
@@ -169,11 +169,20 @@ def draw_band(band, title, opts, top, left):
     def X(c):
         return left + (c - x0) * cell
 
-    def Y(r):
-        return top + 30 + lead + (r - y0) * rowh
-
     # a band can be turned end for end (180 degrees): the line work is rotated, the lettering stays upright
     turned = band_key(title) in opts.get("rotate_bands", ())
+    pre = opts.get("precomputed", {})              # a detail sheet is handed the whole band's counts
+    totals = pre["totals"] if "totals" in pre else capacity.station_totals(band, opts, x, turned)
+    bars = plan_bars(band, opts, X, totals, turned)
+    lane_h = 40 if totals else 30
+    n_top = 1 + max((b[4] for b in bars if b[1] == "top"), default=-1)
+    if turned:       # the turn brings the bars below the tracks to the top, where the title is: keep room on that side too
+        n_top = max(n_top, 1 + max((b[4] for b in bars if b[1] == "bottom"), default=-1))
+    shift = 42 + (n_top - 1) * lane_h if n_top else 0       # room above the first track for the bars on top
+
+    def Y(r):
+        return top + 30 + lead + shift + (r - y0) * rowh
+
     cx = (X(x0) + X(max(x.values()))) / 2
     cy = (Y(y0) + Y(max(srow.values()))) / 2
 
@@ -203,7 +212,6 @@ def draw_band(band, title, opts, top, left):
               fixed=True)
 
     drawn = paths(band)
-    pre = opts.get("precomputed", {})              # a detail sheet is handed the whole band's counts
     cars = pre["cars"] if "cars" in pre else capacity.counts(band, opts)    # yard and stub tracks: cars each holds
     for k, pts in drawn.items():
         s = strands.get(k)
@@ -351,25 +359,21 @@ def draw_band(band, title, opts, top, left):
         label(mid_x, (y1 + y2) / 2 + 1, "HELIX", 10, weight="bold", extra='letter-spacing="1.5"')
         label(mid_x, (y1 + y2) / 2 + 11, "TO " + helix[0][2].upper(), 5.5)
     bottom = Y(max(srow.values()))
-    totals = pre["totals"] if "totals" in pre else capacity.station_totals(band, opts, x, turned)
-    lane_h = 40 if totals else 30
-    lanes = []
-    for name, members in opts.get("stations", {}).items():
-        xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in members]
-        if not xs:
-            continue
-        a, b = min(xs) - 10, max(xs) + 10
-        lane = next((i for i, taken in enumerate(lanes) if all(b < p or a > q for p, q in taken)), len(lanes))
-        if lane == len(lanes):
-            lanes.append([])
-        lanes[lane].append((a - 30, b + 30))
-        yb = bottom + 34 + lane * lane_h
-        bracket(svg, P, f"M{a:.1f},{yb - 6} L{a:.1f},{yb} L{b:.1f},{yb} L{b:.1f},{yb - 6}",
-                [(a, yb - 6), (a, yb), (b, yb), (b, yb - 6)])
-        label((a + b) / 2, yb + 14, name.upper(), 12, weight="bold", extra='letter-spacing="1"')
-        if totals.get(name):
-            label((a + b) / 2, yb + 25, f"{totals[name]} CARS", 8, extra='letter-spacing="0.5"')
-    bottom += 34 + len(lanes) * lane_h if lanes else 0
+    for name, side, a, b, lane in bars:
+        sign = 1 if side == "bottom" else -1
+        yb = bottom + 34 + lane * lane_h if side == "bottom" else Y(y0) - 34 - lane * lane_h
+        bracket(svg, P, f"M{a:.1f},{yb - 6 * sign} L{a:.1f},{yb} L{b:.1f},{yb} L{b:.1f},{yb - 6 * sign}",
+                [(a, yb - 6 * sign), (a, yb), (b, yb), (b, yb - 6 * sign)])
+        if side == "bottom":
+            label((a + b) / 2, yb + 14, name.upper(), 12, weight="bold", extra='letter-spacing="1"')
+            if totals.get(name):
+                label((a + b) / 2, yb + 25, f"{totals[name]} CARS", 8, extra='letter-spacing="0.5"')
+        else:                               # on top the name is nearest the bar and the count outside it
+            label((a + b) / 2, yb - 7, name.upper(), 12, weight="bold", extra='letter-spacing="1"')
+            if totals.get(name):
+                label((a + b) / 2, yb - 21, f"{totals[name]} CARS", 8, extra='letter-spacing="0.5"')
+    lows = [b[4] for b in bars if b[1] == "bottom"]
+    bottom += 34 + (1 + max(lows)) * lane_h if lows else 0
     if opts.get("signals"):
         draw_signals(band, drawn, opts, X, Y, svg, label, P)
     for num, spots in switch_numbers.items():      # a crossover's two halves share one number, printed once
@@ -414,6 +418,31 @@ def draw_band(band, title, opts, top, left):
         head=labels.text_width(f"{(title or '').upper()} (CONTINUED)", 12, "bold", 1.5) if title else 0,
         head_y=(top + 4 + lead - 10, top + 4 + lead + 4))      # the title a continued row repeats, and its room
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
+
+
+def plan_bars(band, opts, X, totals, turned=False):
+    """[(station, side, left x, right x, lane)] for each station bar. A bar spans its switches, and the whole of
+    the tracks it lists that touch its switches; bars that overlap along the band stack in lanes, on each side
+    separately. `side` is the side as drawn, so on a band turned end for end the bar is laid out on the opposite side
+    and the turn brings it to the side asked for."""
+    nodes, strands, x = band["nodes"], band["strands"], band["x"]
+    lanes = {"top": [], "bottom": []}
+    out = []
+    for name, e in stations.entries(opts).items():
+        xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in e["switches"]]
+        if not xs:
+            continue
+        xs += [X(x[n]) for sid in stations.listed_strands(band, e)
+               for n in (strands[sid]["src"][0], strands[sid]["dst"][0]) if n in x]
+        a, b = min(xs) - 10, max(xs) + 10
+        side = e["side"] if not turned else {"top": "bottom", "bottom": "top"}[e["side"]]
+        taken = lanes[side]
+        lane = next((i for i, used in enumerate(taken) if all(b < p or a > q for p, q in used)), len(taken))
+        if lane == len(taken):
+            taken.append([])
+        taken[lane].append((a - 30, b + 30))
+        out.append((name, side, a, b, lane))
+    return out
 
 
 def bracket(svg, P, d, pts, w=1.4):

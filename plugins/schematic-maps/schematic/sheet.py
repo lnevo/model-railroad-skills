@@ -13,7 +13,7 @@ import copy
 import json
 from pathlib import Path
 
-from . import columns, direction, draw, edits, layers, layout, mileposts
+from . import columns, direction, draw, edits, layers, layout, mileposts, stations
 from .core import SchematicError
 from .draw import DEFAULTS
 
@@ -149,6 +149,7 @@ def build(inputs, data, preferences=True, hints=False):
     if preferences and sheet_file.exists():        # the sheet's own look reaches every band, not just the last input
         sheet_prefs = json.load(open(sheet_file))
         optlist = [layers.merge(o, sheet_prefs) for o in optlist]
+    stations.check(optlist)
     for o in optlist[:-1]:
         o["helix_style"] = optlist[-1].get("helix_style", "box")
     optlist[-1].setdefault("helix_style", "box")

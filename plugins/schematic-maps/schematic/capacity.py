@@ -7,6 +7,7 @@ link: the sidings, yard tracks and stubs a crew fills. Its length is the measure
 """
 import math
 
+from . import stations
 from .core import SchematicError
 from .rules import setting
 
@@ -108,16 +109,31 @@ def counts(band, opts):
 
 
 def station_totals(band, opts, x, turned=False):
-    """{station: cars}: a track goes to the station of its west end switch (left, or right on a band turned
-    end for end), else the next switch along it; any piece of the track may supply that switch."""
+    """{station: cars}. A station without `tracks` counts the tracks whose west end switch (left, or right on a band
+    turned end for end) is one of its switches, else the next switch along it; any piece of the track may supply
+    that switch. A station with `tracks` counts the listed tracks that touch one of its switches. Stations may
+    overlap, and a track is counted once within one station."""
     nodes, strands = band["nodes"], band["strands"]
-    station = {lab: st for st, members in opts.get("stations", {}).items() for lab in members}
+    st = stations.entries(opts)
+    by_switch = {}
+    for name, e in st.items():
+        for lab in e["switches"]:
+            by_switch.setdefault(lab, []).append(name)
     out = {}
     for _, n, members in tracks(band, opts):
         ends = {e for m in members for e in (strands[m]["src"][0], strands[m]["dst"][0])
-                if nodes[e].get("kind") == "switch" and nodes[e].get("label") in station}
-        if ends:
-            west = (max if turned else min)(ends, key=lambda e: x.get(e, 0))
-            name = station[nodes[west]["label"]]
+                if nodes[e].get("kind") == "switch" and nodes[e].get("label") in by_switch}
+        if not ends:
+            continue
+        legacy = []                         # stations without `tracks`: the west end switch's, else the next one along
+        for e in sorted(ends, key=lambda e: x.get(e, 0), reverse=turned):
+            legacy = [name for name in by_switch[nodes[e]["label"]] if st[name]["tracks"] is None]
+            if legacy:
+                break
+        named = set().union(*(stations.track_names(strands[m]["name"]) for m in members))
+        touching = {nodes[e]["label"] for e in ends}
+        credited = legacy + [name for name, e in st.items() if e["tracks"] is not None and named & e["tracks"]
+                             and touching & set(e["switches"])]
+        for name in dict.fromkeys(credited):
             out[name] = out.get(name, 0) + n
     return out

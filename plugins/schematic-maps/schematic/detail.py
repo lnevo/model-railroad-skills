@@ -11,6 +11,7 @@ drawn larger (`detail_max_scale`, a layer 3 preference).
 import copy
 
 from . import capacity, columns, draw
+from . import stations as stn
 from .core import JUNCTION, SchematicError
 
 DETAIL_REACH = 2.0          # cells of a leaving track that stay on the sheet
@@ -37,22 +38,26 @@ def find_band(bands, members):
 
 
 def owners(all_opts):
-    """{switch label: station name} over every station of every input. A switch in two stations has no one
-    owner, so it stops the run."""
+    """{switch label: [(station, tracks)]} over every station of every input, in listed order; `tracks` is the station's
+    own track list or None. Stations may overlap, so a switch can have several."""
+    stn.check(all_opts)
     out = {}
     for o in all_opts:
-        for name, members in o.get("stations", {}).items():
-            for m in map(str, members):
-                if out.setdefault(m, name) != name:
-                    raise SchematicError(f"switch {m} is in both {out[m]} and {name}; a station owns its switches alone")
+        for name, e in stn.entries(o).items():
+            for m in e["switches"]:
+                if name not in [n for n, _ in out.setdefault(m, [])]:
+                    out[m].append((name, e["tracks"]))
     return out
 
 
-def destination(nodes, n, owner, name):
-    """What a cut track says it runs to: the station that owns the far switch, else the switch."""
+def destination(nodes, n, owner, name, track=""):
+    """What a cut track says it runs to: the station that owns the far switch, else the switch. Of several owners the
+    one that lists the track being cut comes first, then the first listed; the sheet's own name is never an answer."""
     label = nodes[n].get("label") or ""
-    st = owner.get(label)
-    return "TO " + (st if st and st != name else f"SW {label}").upper()
+    mine = [(st, tr) for st, tr in owner.get(label, ()) if st != name]
+    named = stn.track_names(track)
+    pick = next((st for st, tr in mine if tr is not None and named & tr), mine[0][0] if mine else None)
+    return "TO " + (pick or f"SW {label}").upper()
 
 
 def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
@@ -92,7 +97,7 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
             far = end_ids[0]
             cid = f"CUT:{sid}"
             kept_is_src = u not in end_ids
-            dest = destination(nodes, far, owner, name)
+            dest = destination(nodes, far, owner, name, s["name"])
             room = (max(reach, columns.name_cells((s["name"] + " (00)").upper(), opts) + 1) if s["name"] else reach) + pad
             if sid in R["diag"]:             # a slope is cut like a level track: along its columns, the row following
                 (xa, xb), (ra, rb) = (x[u], x[v]), (R["nrow"][u], R["nrow"][v])
@@ -145,11 +150,11 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
 
 
 def inside_stations(opts, members, name):
-    """{station: switches} of the stations that lie wholly inside the group; the group itself when none does."""
+    """{station: station object} of the stations that lie wholly inside the group; the group itself when none does."""
     group = {str(m) for m in members}
-    inside = {st: [str(m) for m in ms] for st, ms in opts.get("stations", {}).items()
-              if ms and {str(m) for m in ms} <= group}
-    return inside or {name: sorted(group)}
+    inside = {st: stn.plain(e) for st, e in stn.entries(opts).items()
+              if e["switches"] and set(e["switches"]) <= group}
+    return inside or {name: {"switches": sorted(group)}}
 
 
 def precomputed(band, opts, take, inside, turned):
@@ -161,10 +166,10 @@ def precomputed(band, opts, take, inside, turned):
         here = [m for m in tracks if m in take]
         if here:
             cars[show if show in take else max(here, key=lambda m: (band["strands"][m]["cm"], m))] = n
-    stations = dict(opts.get("stations", {}))
-    for st, ms in inside.items():
-        stations.setdefault(st, ms)
-    totals = capacity.station_totals(band, dict(opts, stations=stations), band["x"], turned)
+    everyone = {st: stn.plain(e) for st, e in stn.entries(opts).items()}
+    for st, entry in inside.items():
+        everyone.setdefault(st, entry)
+    totals = capacity.station_totals(band, dict(opts, stations=everyone, station_side={}, station_tracks={}), band["x"], turned)
     return {"cars": cars, "totals": {st: totals[st] for st in inside if totals.get(st)}}
 
 
@@ -196,7 +201,7 @@ def detail_options(opts, title, name, inside, sub, pre):
         elif isinstance(v, (list, tuple)):
             out[k] = [b for b in v if b == key] if k in KEEP_SETTINGS else []
     out.pop("system_title", None)
-    out.update(stations=inside, equal_width=False, show_limits=True, sheet=None, fold=False, _folds=[], centre=True,
+    out.update(stations=inside, station_side={}, station_tracks={}, equal_width=False, show_limits=True, sheet=None, fold=False, _folds=[], centre=True,
                title=[name, "Station detail sheet", title],
                max_scale=opts.get("detail_max_scale", DETAIL_SCALE), precomputed=pre,
                signals=cut_signals(opts, sub))
@@ -228,10 +233,11 @@ def selections(opts_list, stations=None, switches=None, name=None):
     one, else the `stations` preference."""
     if switches and stations:
         raise SchematicError("--station and --switches are two ways to choose; use one")
+    stn.check(opts_list)
     key = "detail_sheets" if any(o.get("detail_sheets") for o in opts_list) else "stations"
     known = {}
     for o in opts_list:
-        for st, members in o.get(key, {}).items():
+        for st, members in (stn.members(o) if key == "stations" else o.get(key, {})).items():
             members = [str(m) for m in members]
             if known.setdefault(st, members) != members:
                 raise SchematicError(f"{key} entry {st} is defined differently in two inputs")

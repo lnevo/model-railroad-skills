@@ -250,9 +250,13 @@ class CutDetails(unittest.TestCase):
         self.assertLess(sub["strands"]["e2"]["cut_cm"], band["strands"]["e2"]["cm"])
         self.assertIn("e2", sub["R"]["diag"])
 
-    def test_a_switch_in_two_stations_stops(self):
-        with self.assertRaisesRegex(SchematicError, "switch 2 is in both A and B"):
-            detail.owners([{"stations": {"A": ["1", "2"], "B": ["2"]}}])
+    def test_a_switch_in_two_stations_is_allowed_and_the_listing_track_wins(self):
+        owner = detail.owners([{"stations": {"A": ["1", "2"], "B": {"switches": ["2"], "tracks": ["Main"]}}}])
+        self.assertEqual([n for n, _ in owner["2"]], ["A", "B"])
+        nodes = {"n": {"label": "2"}}
+        self.assertEqual(detail.destination(nodes, "n", owner, "Sheet", "Other"), "TO A")        # first listed
+        self.assertEqual(detail.destination(nodes, "n", owner, "Sheet", "Main"), "TO B")         # lists the track
+        self.assertEqual(detail.destination(nodes, "n", owner, "A", "Other"), "TO B")            # never its own sheet
 
     def test_stations_and_switches_together_or_defined_twice_stop(self):
         with self.assertRaisesRegex(SchematicError, "use one"):
