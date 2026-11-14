@@ -64,10 +64,15 @@ def mark_ways(g, specs):
     """Layer 1 `track_directions`: [from, to] is a track trains run one way on, from switch `from` toward `to`;
     [a, b, "both"] runs both ways. The way rides on the track through the cut into levels and folds."""
     for spec in specs:
-        if not isinstance(spec, list) or len(spec) not in (2, 3) or spec[2:] not in ([], ["both"]):
-            raise SchematicError(f'track_directions entry must be [from, to] or [a, b, "both"], not {spec!r}')
-        e, n0, n1 = edits.edge_between(g, str(spec[0]), str(spec[1]))
-        e["way"] = "both" if spec[2:] else (n0, n1)
+        extra = list(spec[2:]) if isinstance(spec, list) else []
+        both = extra[:1] == ["both"]
+        rest = extra[1:] if both else extra
+        port = rest[0] if rest else None
+        if not isinstance(spec, list) or len(spec) < 2 or len(rest) > 1 or port not in (None, "A", "B", "C", "D"):
+            raise SchematicError('track_directions entry must be [from, to], [from, to, leg] or [a, b, "both"(, leg)], '
+                                 f"leg being the switch leg at the first switch (A to D), not {spec!r}")
+        e, n0, n1 = edits.edge_between(g, str(spec[0]), str(spec[1]), port, unique=True)
+        e["way"] = "both" if both else (n0, n1)
 
 
 def level_bands(g, opts, level_name):
@@ -115,7 +120,7 @@ def build_input(graph, name, opts, tracks, log):
 def in_order(per_input, optlist):
     """Every input's bands, top to bottom by the last input's `band_order`."""
     rank = {w: i for i, w in enumerate(optlist[-1].get("band_order", []))}
-    return sorted((b for bands in per_input for b in bands), key=lambda b: rank.get(b[0].split()[0], 9))
+    return sorted((b for bands in per_input for b in bands), key=lambda b: rank.get(draw.band_key(b[0]), 9))
 
 
 def build_bands(inputs, optlist, log):
