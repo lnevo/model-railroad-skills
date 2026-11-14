@@ -66,6 +66,11 @@ def mark_ways(g, specs):
     for spec in specs:
         if not isinstance(spec, list) or len(spec) not in (2, 3) or spec[2:] not in ([], ["both"]):
             raise SchematicError(f'track_directions entry must be [from, to] or [a, b, "both"], not {spec!r}')
+        n0, n1 = edits.by_label(g, str(spec[0])), edits.by_label(g, str(spec[1]))
+        hits = [e for e in g["edges"] if {e["u"], e["v"]} == {n0, n1}]
+        if len(hits) > 1:                   # parallel tracks: the direction would land on one of them silently
+            raise SchematicError(f"track_directions {spec!r}: {len(hits)} tracks join {spec[0]} and {spec[1]}; "
+                                 "name a switch nearer the track you mean")
         e, n0, n1 = edits.edge_between(g, str(spec[0]), str(spec[1]))
         e["way"] = "both" if spec[2:] else (n0, n1)
 

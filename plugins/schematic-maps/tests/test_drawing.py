@@ -575,5 +575,33 @@ class Capacity(unittest.TestCase):
         self.assertEqual(capacity.measured_length({"S-4": 120.0}, "S-4 / S-5"), 120.0)
 
 
+class BandFixes(unittest.TestCase):
+    def test_band_key_of_an_untitled_band(self):
+        from schematic.draw import band_key
+        self.assertEqual((band_key(None), band_key(""), band_key("  "), band_key("Upper level")), ("", "", "", "Upper"))
+
+    def test_turned_band_defaults_to_reversed(self):
+        from schematic.draw import band_legend
+        o = {"_band_legends": True, "rotate_bands": ["Upper"]}
+        self.assertEqual(band_legend(o, "Upper level"), band_legend({"band_legend": {"Upper": "reversed"}}, "Upper level"))
+        self.assertEqual(band_legend(o, "Lower level"), band_legend({"band_legend": {"Lower": "normal"}}, "Lower level"))
+
+    def test_unknown_band_in_settings_stops(self):
+        from schematic import draw
+        from schematic.core import SchematicError
+        s = helpers.build()
+        with self.assertRaisesRegex(SchematicError, "not a band"):
+            draw.page_svg(s.bands, dict(s.opts, title=["x"], band_legend={"upper": "reversed"}))
+
+    def test_parallel_tracks_in_track_directions_stop(self):
+        from schematic import sheet
+        from schematic.core import SchematicError
+        sw = lambda label: dict(kind="switch", label=label)
+        g = dict(nodes={"p": sw("1"), "q": sw("2")},
+                 edges=[dict(u="p", up="B", v="q", vp="A", cm=50.0, id="e0"), dict(u="p", up="C", v="q", vp="B", cm=60.0, id="e1")])
+        with self.assertRaisesRegex(SchematicError, "2 tracks join"):
+            sheet.mark_ways(g, [["1", "2"]])
+
+
 if __name__ == "__main__":
     unittest.main()

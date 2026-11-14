@@ -19,7 +19,8 @@ def can_grow(band, k):
 
 def band_key(title):
     """The word that names a band in the preferences: the first word of its title."""
-    return (title or " ").split()[0]
+    words = (title or "").split()
+    return words[0] if words else ""
 
 
 LEGENDS = {"normal": {"west": "left"}, "reversed": {"west": "right"}, "none": None}
@@ -31,10 +32,11 @@ def band_legend(opts, title):
     `band_legend` in the preferences, by band: "normal" (west to the left), "reversed" (west to the right), "none",
     or {"west": "left" or "right", "show": "both", "west" or "east"}; "show" names one arrow for a band whose
     traffic runs one way. Once any band declares one, the page legend is not drawn (`_band_legends`) and a band
-    that declares nothing is "normal"."""
+    that declares nothing is "normal", or "reversed" when it is turned end for end (`rotate_bands`)."""
     spec = opts.get("band_legend", {}).get(band_key(title))
     if spec is None:
-        spec = "normal" if opts.get("_band_legends") else "none"
+        turned = band_key(title) in opts.get("rotate_bands", ())
+        spec = ("reversed" if turned else "normal") if opts.get("_band_legends") else "none"
     if isinstance(spec, str):
         if spec not in LEGENDS:
             raise SchematicError(f"band_legend for {band_key(title)} must be normal, reversed, none or "
@@ -139,9 +141,13 @@ def draw_band(band, title, opts, top, left):
 
     P = labels.Placer()
 
+    unturned = set()                        # boxes of fixed text (title, band legend): never turned with the band
+
     def label(xp, yp, s, size, anchor="middle", weight="normal", extra="", fixed=False):
         sp = float(extra.split('letter-spacing="')[1].split('"')[0]) if "letter-spacing" in extra else 0.0
         P.box(labels.text_box(xp, yp, anchor, str(s), size, weight, sp))
+        if fixed:
+            unturned.add(len(P.boxes) - 1)
         if turned and not fixed:
             xp, yp = 2 * cx - xp, 2 * cy - yp + size * 0.7
             anchor = {"start": "end", "end": "start"}.get(anchor, anchor)
@@ -331,7 +337,8 @@ def draw_band(band, title, opts, top, left):
     if opts.get("band_gap") is not None:   # measured to the lowest label or mark, not just the lowest track row
         ends = [b[3] for b in P.boxes] + [max(a[1], b[1]) + w / 2 for a, b, w in P.lines]
         if turned:                          # turned end for end: what was highest is now lowest
-            ends = [2 * cy - b[1] for b in P.boxes] + [2 * cy - min(a[1], b[1]) + w / 2 for a, b, w in P.lines]
+            ends = [b[3] if i in unturned else 2 * cy - b[1] for i, b in enumerate(P.boxes)]
+            ends += [2 * cy - min(a[1], b[1]) + w / 2 for a, b, w in P.lines]
         bottom = max([bottom] + ends)
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
@@ -550,6 +557,13 @@ def title_fields(opts):
 def page_svg(bands, opts):
     """The finished page as SVG text."""
     pw, ph, m = 1056, 816, 48
+    names = {band_key(title) for title, *_ in bands}
+    for o in [opts] + [own[0] for _, _, *own in bands if own]:   # a band named in these settings must exist
+        for key in ("band_legend", "track_arrows"):
+            unknown = set(o.get(key, {})) - names
+            if unknown:
+                raise SchematicError(f"{key} names {', '.join(sorted(unknown))}, which is not a band "
+                                     f"(bands: {', '.join(sorted(names))})")
     own_legends = any(band_key(title) in (own[0] if own else opts).get("band_legend", {}) for title, _, *own in bands)
     top, foot = (56 if own_legends else 96), 100       # clear of the page's direction legend and the title block
     sized = []
