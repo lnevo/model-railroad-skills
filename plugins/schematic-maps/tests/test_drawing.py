@@ -390,20 +390,31 @@ class Direction(unittest.TestCase):
 
 
 class RunHints(unittest.TestCase):
-    def test_a_hint_that_reaches_two_tracks_stops(self):
+    def bands(self):
+        sw = lambda label: dict(kind="switch", label=label)
+        nodes = {"p": sw("1"), "q": sw("2"), "r": sw("7*")}
+        st = lambda ends, edge, name, cm: dict(ends=ends, src=(ends[0], "B"), dst=(ends[1], "A"), edge=edge, name=name, cm=cm)
+        one = dict(nodes=nodes, strands={"e0": st(("p", "q"), "e0", "Main", 100.0), "e1": st(("q", "p"), "e1", "Siding", 90.0),
+                                         "e2": st(("p", "q"), "e2", "", 40.0), "e3": st(("q", "r"), "e3", "S-3 / Lead", 60.0)})
+        other = dict(nodes={"z": sw("9")}, strands={})          # a second band that holds none of these switches
+        return [one, other]
+
+    def check(self, **opts):
         from schematic.columns import check_run_hints
+        check_run_hints(self.bands(), opts)
+
+    def test_hints(self):
         from schematic.core import SchematicError
-        nodes = {"p": dict(kind="switch", label="1"), "q": dict(kind="switch", label="2")}
-        strands = {"e0": dict(ends=("p", "q"), edge="e0", name="Main", cm=100.0),
-                   "e1": dict(ends=("q", "p"), edge="e1", name="Siding", cm=90.0),
-                   "e2.0": dict(ends=("p", "q"), edge="e2", name="", cm=40.0)}
-        with self.assertRaisesRegex(SchematicError, r"min_cells \[1, 2\] matches 3 tracks"):
-            check_run_hints(nodes, strands, {"min_cells": [["1", "2", 3]]})
-        check_run_hints(nodes, {"e0": strands["e0"]}, {"shorten": [["1", "2"]]})       # one track: fine
-        check_run_hints(nodes, strands, {"min_cells": [["1", "2", 3, "Main", "siding"]]})   # the tracks it is for
+        with self.assertRaisesRegex(SchematicError, "reaches 3 tracks"):
+            self.check(min_cells=[["1", "2", 3]])
+        self.check(min_cells=[["1", "2", 3, "Main", "siding"]])          # the tracks it is for, in any band
+        self.check(shorten=[["2", "7", "S-3"]])                           # a moved switch, one part of a joined name
         with self.assertRaisesRegex(SchematicError, "lists YARD"):
-            check_run_hints(nodes, strands, {"shorten": [["1", "2", "Yard"]]})
-        check_run_hints(nodes, {"e2.0": strands["e2.0"], "e2.1": dict(strands["e2.0"])}, {"shorten": [["2", "1"]]})    # a folded run is one track
+            self.check(shorten=[["1", "2", "Yard"]])
+        with self.assertRaisesRegex(SchematicError, "reaches no track"):
+            self.check(min_cells=[["1", "50", 4]])
+        with self.assertRaisesRegex(SchematicError, "lists 5"):                # a number in the list: an error, not a crash
+            self.check(min_cells=[["1", "2", 4, 5]])
 
 
 if __name__ == "__main__":
