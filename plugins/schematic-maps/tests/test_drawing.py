@@ -389,5 +389,111 @@ class Direction(unittest.TestCase):
                     self.assertIn(d.get("facing", "R"), ("R", "L"))
 
 
+def build_with(prefs=(), overrides=()):
+    """The example drawn with extra preference and override keys, from a copy of its layer files."""
+    import json
+    import tempfile
+    from pathlib import Path
+    from schematic import sheet
+    f = helpers.data_with_signals()
+    with tempfile.TemporaryDirectory() as tmp:
+        for p in f.iterdir():
+            if p.name.startswith("example."):
+                (Path(tmp) / p.name).write_text(p.read_text())
+        for name, extra in (("preferences", dict(prefs)), ("plan_overrides", dict(overrides))):
+            path = Path(tmp) / f"example.{name}.json"
+            path.write_text(json.dumps(dict(json.loads(path.read_text()), **extra)))
+        return sheet.build([(helpers.graph(), "example")], tmp)
+
+
+class BandDirections(unittest.TestCase):
+    """A legend per band (normal, reversed, one way or none), arrows per track, and bands spaced by their labels."""
+
+    def test_page_legend_stays_when_no_band_declares_one(self):
+        svg = helpers.build().svg()
+        self.assertIn('y="62" font-size="15"', svg)
+        self.assertNotIn("\u2190 EAST", svg)
+
+    def test_band_legends_replace_the_page_legend(self):
+        svg = build_with({"band_legend": {"Upper": "reversed", "Lower": {"west": "left", "show": "west"}}}).svg()
+        self.assertNotIn('y="62" font-size="15"', svg)
+        self.assertIn(">\u2190 EAST<", svg)          # reversed: east to the left, west to the right
+        self.assertIn(">WEST \u2192<", svg)
+        self.assertIn(">\u2190 WEST<", svg)          # the lower band's one arrow, pointing west
+        self.assertNotIn(">EAST \u2192<", svg)
+        faults, _ = label_check.check(svg)
+        self.assertEqual(faults, [])
+
+    def test_undeclared_band_is_normal_and_none_draws_nothing(self):
+        from schematic import draw
+        self.assertEqual(draw.band_legend({"band_legend": {}, "_band_legends": True}, "Lower level"), ("left", "both"))
+        self.assertIsNone(draw.band_legend({"band_legend": {"Lower": "none"}, "_band_legends": True}, "Lower level"))
+        self.assertIsNone(draw.band_legend({}, "Lower level"))
+        texts = [t for t, _ in draw.legend_texts({"left": "West", "right": "East"}, "right", "both")]
+        self.assertEqual(texts, ["\u2190 EAST", "WEST \u2192"])
+
+    def test_bad_legend_is_named(self):
+        from schematic import draw
+        from schematic.core import SchematicError
+        for bad in ("sideways", {"west": "up"}, {"show": "north"}, ["left"]):
+            with self.assertRaisesRegex(SchematicError, "band_legend for Lower"):
+                draw.band_legend({"band_legend": {"Lower": bad}}, "Lower level")
+
+    def test_track_way_on_whole_fold_and_cut_strands(self):
+        from schematic import draw
+        s = lambda src, dst, way: dict(src=(src, "A"), dst=(dst, "B"), way=way)
+        self.assertTrue(draw.track_way(s("a", "b", ("a", "b"))))
+        self.assertFalse(draw.track_way(s("a", "b", ("b", "a"))))
+        self.assertTrue(draw.track_way(s("a", "turn:e", ("a", "b"))))       # fold half holding the from end
+        self.assertFalse(draw.track_way(s("b", "turn:e", ("a", "b"))))      # the half holding the to end
+        self.assertFalse(draw.track_way(s("LINK:A1", "b", ("b", "a"))))     # cut at a level: leaves b leftward
+        self.assertIsNone(draw.track_way(s("a", "b", "both")))
+        self.assertIsNone(draw.track_way(s("a", "b", None)))
+
+    def test_declared_ways_draw_arrows_that_point_the_way(self):
+        import re
+        from schematic import draw
+        built = build_with(overrides={"track_directions": [["11", "1"], ["21", "22", "both"]]})
+        lower = next(b for t, b, _ in built.bands if t == "Lower level")
+        lead = next(s for s in lower["strands"].values() if s["name"] == "Yard Lead")
+        frm, to = lead["way"]                           # from 11 toward 1: the arrow points at 1 as drawn
+        self.assertEqual(draw.track_way(lead), lower["x"][to] > lower["x"][frm])
+        svg = built.svg()
+        arrows = re.findall(r'<path d="M([\d.]+),([\d.]+) L([\d.]+),[\d.]+((?: M[^"]*)?)" stroke-width="1.3"/>', svg)
+        self.assertEqual(len(arrows), 2)
+        heads = sorted(len(a[3].split("M")) - 1 for a in arrows)
+        self.assertEqual(heads, [1, 2])                 # one way: one head; both ways: two
+        self.assertEqual(label_check.check(svg)[0], [])
+        from schematic.core import SchematicError
+        with self.assertRaisesRegex(SchematicError, "track_directions"):
+            build_with(overrides={"track_directions": [["11", "1", "sideways"]]})
+
+    def test_main_arrows_cover_every_main_track_once_per_straight_run(self):
+        import re
+        from schematic import draw
+        from schematic.layout import paths
+        built = build_with({"track_arrows": {"Lower": "main"}})
+        lower = next(b for t, b, _ in built.bands if t == "Lower level")
+        runs = draw.track_runs(lower, paths(lower), "main")
+        self.assertTrue(runs and all(r[3] is None for r in runs))      # no declared way: both ways
+        mains = {k for k, s in lower["strands"].items() if s["main"]}
+        self.assertTrue(set(k for r in runs for k in r[4]) <= mains)
+        self.assertTrue(any(len(r[4]) > 1 for r in runs))             # a straight line through switches: one arrow
+        self.assertEqual(len(re.findall('stroke-width="1.3"', built.svg())), len(runs))
+
+    def test_band_gap_measures_to_the_lowest_label(self):
+        import re
+        from schematic import draw
+        s = helpers.build()
+        title, band, o = s.bands[0]
+        _, _, plain = draw.draw_band(band, title, o, 0, 0)
+        part, _, measured = draw.draw_band(band, title, dict(o, band_gap=20), 0, 0)
+        lowest = max(float(y) for y in re.findall(r'<text x="[\d.]+" y="([\d.]+)"', "".join(part)))
+        self.assertGreaterEqual(measured, lowest)
+        self.assertGreaterEqual(measured, plain)
+        svg = draw.page_svg(s.bands, dict(s.opts, title=s.opts["system_title"], band_gap=20))
+        self.assertEqual(label_check.check(svg)[0], [])
+
+
 if __name__ == "__main__":
     unittest.main()
