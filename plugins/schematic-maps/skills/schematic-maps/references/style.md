@@ -61,7 +61,7 @@ Example names used below are listed at the end, with links.
 
 ## Signal masts
 
-17. **A mast is a stem across its foot, a short arm and one open circle for each head, with its name beyond the stem.** It stands on the right-hand side of the track for the direction it governs, so with east to the right a westward mast is above the track and an eastward one below. Drawn: this follows how the NYAMR Physical Characteristics Book draws masts. A mast on a sloping ladder link is drawn along the slope. A mast listed as planned is dashed; a virtual mast, used only by Dispatcher, is not drawn. From: the NYAMR book, the 1951 plan and the 1958 diagram (flag or arrow glyphs and a number beside them). Not yet: lever numbers, or the mast's aspects.
+17. **A mast is a stem across its foot, a short arm and one open circle for each head, with its name beyond the stem.** It stands on the right-hand side of the track for the direction it governs, so with east to the right a westward mast is above the track and an eastward one below. Drawn: this follows how the NYAMR Physical Characteristics Book draws masts. A mast on a sloping ladder link is drawn along the slope, and so is a mast at a switch whose track leaves it on a slope longer than 2.5 cells (`LONG_SLOPE_CELLS`), which would otherwise stand on a level stretch far from the switch it guards. A mast listed as planned is dashed; a virtual mast, used only by Dispatcher, is not drawn. From: the NYAMR book, the 1951 plan and the 1958 diagram (flag or arrow glyphs and a number beside them). Not yet: lever numbers, or the mast's aspects.
 
 ## Capacity, mileage and what to leave out
 

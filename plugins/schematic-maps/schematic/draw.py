@@ -640,6 +640,33 @@ def signal_spot(pts, cm, edge_cm, cell, slide=0.0):
     return p, (-u[0], -u[1])
 
 
+LONG_SLOPE_CELLS = 2.5      # a mast at the points stays on its run's first level stretch unless the slope before
+                            # it is longer than this: then the level stretch is too far from the switch it guards
+
+
+def _length(pts):
+    return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+
+
+def leading_slope(pts):
+    """The sloped stretch a run leaves its start on, as a polyline, or None when the run starts level."""
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        if a == b:
+            continue
+        if abs(b[1] - a[1]) < 0.01:
+            break
+        out.append(b)
+    return out if len(out) > 1 else None
+
+
+def slope_at_points(pts, cm, cell):
+    """The slope a mast at the points (cm about 0) is drawn on: the run's leading slope when it is longer than
+    LONG_SLOPE_CELLS cells, else None (the mast goes on the first level stretch as usual)."""
+    lead = leading_slope(pts) if cm <= 0.5 else None
+    return lead if lead and _length(lead) > LONG_SLOPE_CELLS * cell else None
+
+
 def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg, label, P):
     """A mast on a run that is all slope (a ladder link): the symbol is drawn along the slope, on the right-hand
     side of the move; its name stays level, in line behind the stem (as the Book has it) or beside the symbol.
@@ -758,6 +785,10 @@ def draw_signals(band, drawn, opts, X, Y, svg, label, P):
         dash = ' stroke-dasharray="1.6 1.2"' if sg["kind"] == "planned" else ""
         if signal_spot(pts, sg["cm_from_toward"], sg["edge_cm"], opts["cell"]) is None:
             draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg, label, P)
+            continue
+        lead = slope_at_points(pts, sg["cm_from_toward"], opts["cell"])
+        if lead:            # at the points, on a long slope: stand on it, not on a level stretch far from the switch
+            draw_sloped_signal(sg, lead, half, heads, r, arm, stem, gap, dash, opts, svg, label, P)
             continue
         best = None
         for slide in (0.0, 0.5, 1.0, -0.4, 1.5, 2.0):      # slide along the level stretch until the symbol is clear

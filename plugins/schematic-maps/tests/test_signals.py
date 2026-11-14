@@ -97,3 +97,22 @@ class MastPiece(unittest.TestCase):
         self.assertEqual(mast_piece(sg, here), ("e7x", 50, 200, "S4"))
         self.assertIsNone(mast_piece(sg, far))                 # it stands on the other band's half
         self.assertEqual(mast_piece(dict(sg, cm_from_toward=300), far), ("e7y", 100, 200, "LINK:A1"))
+
+
+class MastAtPoints(unittest.TestCase):
+    """A mast at the points stands on the first level stretch, unless the run leaves the switch on a long slope."""
+
+    def test_long_slope_carries_the_mast(self):
+        from schematic.draw import slope_at_points
+        pts = [(100, 0), (50, 50), (0, 50)]               # 70 px of slope (5 cells of 14), then level
+        self.assertEqual(slope_at_points(pts, 0.0, 14), [(100, 0), (50, 50)])
+
+    def test_short_slope_keeps_the_level_stretch(self):
+        from schematic.draw import slope_at_points
+        pts = [(100, 0), (90, 10), (0, 10)]               # 14 px: one cell
+        self.assertIsNone(slope_at_points(pts, 0.0, 14))
+
+    def test_level_start_or_mast_out_on_the_run(self):
+        from schematic.draw import slope_at_points
+        self.assertIsNone(slope_at_points([(100, 50), (60, 50), (10, 0)], 0.0, 14))
+        self.assertIsNone(slope_at_points([(100, 0), (50, 50), (0, 50)], 30.0, 14))
