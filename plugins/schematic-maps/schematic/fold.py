@@ -25,6 +25,8 @@ BAD, BRACKET, PER_TRACK = 100000.0, 500.0, 5.0
 
 def setting(opts):
     """The smallest allowed scale, or None when folding is off."""
+    if opts.get("fold") is False:           # an explicit false wins over a min scale
+        return None
     if opts.get("fold_min_scale") is not None:
         return float(opts["fold_min_scale"])
     return DEFAULT_MIN if opts.get("fold") else None
@@ -43,8 +45,26 @@ def tracks_crossing(fold, u):
     return out
 
 
-def cost(fold, u):
-    """How bad a cut at u is: BAD per thing it would cut through, then a little for each track it crosses."""
+def head_clash(fold, u):
+    """A row starting at cut u repeats the band's title there: is anything in the way of its text?"""
+    wd, (y0, y1) = fold.get("head", 0), fold.get("head_y", (0, 0))
+    if not wd:
+        return False
+    x0, x1 = u - 2, u + wd + 2
+    for bx0, by0, bx1, by1 in fold["boxes"]:
+        if bx0 < x1 and bx1 > x0 and by0 < y1 and by1 > y0:
+            return True
+    for a, b, w in fold["lines"]:
+        if min(a[0], b[0]) < x1 and max(a[0], b[0]) > x0 and min(a[1], b[1]) - w < y1 and max(a[1], b[1]) + w > y0:
+            return True
+    return False
+
+
+def cost(fold, u, cache=None):
+    """How bad a cut at u is: BAD per thing it would cut through (or, for the title the next row repeats, lie
+    under), then a little for each track it crosses. `cache` keeps the answers for one band."""
+    if cache is not None and u in cache:
+        return cache[u]
     c = 0.0
     lo, hi = fold["track_y"]
     for a, b, w in fold["lines"]:
@@ -52,7 +72,7 @@ def cost(fold, u):
             horizontal = a[1] == b[1]
             on_tracks = lo - 1 <= min(a[1], b[1]) and max(a[1], b[1]) <= hi + 1
             if not horizontal and on_tracks:
-                c += BAD                        # a slope, or a vertical stub, on the tracks
+                c += BAD                        # a slope, or a vertical stub on the tracks
             elif horizontal and not on_tracks:
                 c += BRACKET                    # a station bracket
     for x0, y0, x1, y1 in fold["boxes"]:
@@ -61,10 +81,15 @@ def cost(fold, u):
     for x0, x1 in fold["zones"]:
         if x0 < u < x1:
             c += BAD
-    return c + PER_TRACK * len(tracks_crossing(fold, u))
+    if head_clash(fold, u):
+        c += BAD
+    c += PER_TRACK * len(tracks_crossing(fold, u))
+    if cache is not None:
+        cache[u] = c
+    return c
 
 
-def cuts(fold, width, cap):
+def cuts(fold, width, cap, cache=None):
     """Where to cut a band `width` units long into rows of at most `cap`: ([cut positions], clean). `clean` is
     False when some cut had to go through something."""
     out, start, clean = [], 0.0, True
@@ -73,9 +98,9 @@ def cuts(fold, width, cap):
         lo, hi = start + 0.8 * even, min(start + cap, start + 1.2 * even)
         best, u = None, hi
         while u >= lo:
-            c = cost(fold, u) + abs(u - start - even) * 0.01      # a clean cut beats an even one; then the evener
+            c = cost(fold, round(u, 1), cache) + abs(u - start - even) * 0.01   # a clean cut beats an even one
             if best is None or c < best[0]:
-                best = (c, u)
+                best = (c, round(u, 1))
             u -= STEP
         clean &= best[0] < BAD
         out.append(best[1])
@@ -89,52 +114,63 @@ def rows_of(width, cut_list):
     return [(edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
 
 
-def row_extent(width, seg):
-    """How far right a row reaches from the left of the page's drawing area, in drawing units."""
+def row_extent(width, seg, shift=0.0):
+    """How far right a row reaches from the left of the page's drawing area, in drawing units; `shift` is the
+    band's own `band_shift`, which moves the whole band."""
     s, e = seg
     s = 0.0 if s is None else s
     last = e is None
     e = width if last else e
-    return ROW_LEFT + (e - s) + (RIGHT_EXTRA if last else ARROW)
+    return ROW_LEFT + shift + (e - s) + (RIGHT_EXTRA if last else ARROW)
 
 
-def plan(sized, opts, scale_of):
-    """Choose how many rows to fold the long bands into. `sized` is [[title, band, o, width, height], ...].
-    Returns (entries, notes) or None when folding does not help. entries are (index, seg, number, rows) in page
-    order; seg is None for a band left whole."""
+def shift_of(o, key):
+    return o.get("band_shift", {}).get(key, 0)
+
+
+def plan(sized, opts, scale_of, key):
+    """Choose how many rows to fold the long bands into. `sized` is [[title, band, o, width, height], ...], `key`
+    the function that names a band in the preferences. Returns None when the sheet is not below the floor or no
+    fold raises the scale by 5% of the unfolded one; else a dict: entries (band index, (start, end) or None for a
+    band left whole, row number, rows) in page order, notes, base and scale, and the page's total_w and total_h."""
     floor = setting(opts)
-    widths = [it[3] for it in sized]
     gap = opts.get("band_gap", 78)
 
-    def evaluate(entries):
-        total_w = max(sized[i][3] + 120 if seg is None else row_extent(sized[i][3], seg) + 10 for i, seg, _, _ in entries)
+    def size(entries):
+        total_w = max(sized[i][3] + 120 if seg is None else
+                      row_extent(sized[i][3], seg, shift_of(opts, key(sized[i][0]))) + 10
+                      for i, seg, _, _ in entries)
         total_h = sum(sized[i][4] for i, *_ in entries) + gap * (len(entries) - 1) + 30
-        return scale_of(total_w, total_h)
+        return total_w, total_h
 
     whole = [(i, None, 0, 1) for i in range(len(sized))]
-    base = evaluate(whole)
-    if base >= floor:
+    base = scale_of(*size(whole))
+    if floor is None or base >= floor:
         return None
-    best, widest = (base, None, None), max(widths)
+    caches = [{} for _ in sized]            # one cost per place per band, whatever the number of rows
+    widest, best, last = max(it[3] for it in sized), None, base
     for k in range(2, 9):
         cap = widest / k + 10
         entries, notes = [], []
         for i, (title, band, o, w, h) in enumerate(sized):
-            fold = band.get("fold")
-            turned = title.split()[0] in o.get("rotate_bands", ()) if title.split() else False
-            if w <= cap or fold is None or turned:
+            info = band.get("fold")
+            if w <= cap or info is None or key(title) in o.get("rotate_bands", ()):
                 entries.append((i, None, 0, 1))
                 continue
-            cut_list, clean = cuts(fold, w, cap)
+            cut_list, clean = cuts(info, w, cap, caches[i])
             segs = rows_of(w, cut_list)
             entries += [(i, seg, n, len(segs)) for n, seg in enumerate(segs)]
             notes.append((title, cut_list, clean))
-        s = evaluate(entries)
-        if s > best[0] * 1.05 and (best[1] is None or s > best[0]):
-            best = (s, entries, notes)
-    if best[1] is None:
+        tw, th = size(entries)
+        s = scale_of(tw, th)
+        if best is None or s > best["scale"]:
+            best = dict(entries=entries, notes=notes, base=base, scale=s, total_w=tw, total_h=th)
+        if s >= 1.0 or s <= last:           # as big as it gets, or more rows no longer help
+            break
+        last = s
+    if best is None or best["scale"] < base * 1.05:
         return None
-    return best[1], best[2], base, best[0]
+    return best
 
 
 def arrows(svg, fold, opts, y, seg, number, rows, start_x):

@@ -38,6 +38,7 @@ class Folding(unittest.TestCase):
         self.assertIsNone(fold.setting({"fold": False}))
         self.assertEqual(fold.setting({"fold": True}), fold.DEFAULT_MIN)
         self.assertEqual(fold.setting({"fold_min_scale": 0.5}), 0.5)
+        self.assertIsNone(fold.setting({"fold": False, "fold_min_scale": 0.5}))     # an explicit false wins
 
     def test_a_long_band_folds_into_rows_and_is_drawn_larger(self):
         bands = long_bands()
@@ -86,6 +87,55 @@ class Folding(unittest.TestCase):
         flat, _ = page(bands)
         svg, notes = page(bands, fold_min_scale=0.2)      # already above the floor
         self.assertEqual((svg, notes), (flat, []))
+
+
+    def test_no_cut_lands_beside_a_switch(self):
+        for title, band, o in long_bands():
+            draw.draw_band(band, title, o, 0, 0)          # at the origin, as the fold measures it
+            info = band["fold"]
+            for n, d in band["nodes"].items():
+                if d["kind"] == "switch":
+                    x = (band["x"][n] - min(band["x"].values())) * o["band_cell"][draw.band_key(title)]
+                    for dx in (-3, 0, 3):
+                        self.assertGreaterEqual(fold.cost(info, x + dx), fold.BAD, (title, d["label"], dx))
+
+    def test_the_repeated_title_has_room(self):
+        info = dict(boxes=[(100, 0, 140, 10)], lines=[], track_y=(30, 60), zones=[], head=80, head_y=(0, 12))
+        self.assertGreaterEqual(fold.cost(info, 50), fold.BAD)       # the title would run into the box
+        self.assertLess(fold.cost(info, 150), fold.BAD)
+        self.assertLess(fold.cost(dict(info, head=0), 50), fold.BAD)
+
+    def test_band_shift_moves_a_folded_band_and_band_align_is_said_to_be_ignored(self):
+        bands = long_bands()
+        plain, _ = page(bands, fold=True)
+        shifted, notes = page(bands, fold=True, band_shift={"Lower": 40}, band_align={"Lower": "right"})
+        self.assertNotEqual(plain, shifted)
+        self.assertIn("band_align ignored for Lower level", notes[0])
+
+    def test_a_height_bound_sheet_is_not_folded(self):
+        """Wide bands but many of them: every extra row costs more in height than it gains in width."""
+        bands = long_bands() * 3
+        bands = [(t + str(n), b, dict(o, band_cell={t.split()[0] + str(n): 110})) for n, (t, b, o) in enumerate(bands)]
+        opts = dict(helpers.build(True).opts, equal_width=False, _folds=[])
+        sized = []
+        for title, band, o in bands:
+            _, w, h = draw.draw_band(band, title, o, 0, 0)
+            sized.append([title, band, o, w - 110, h])
+        scale_of = lambda tw, th: min(1.0, (1056 - 96) / tw, (816 - 96 - 100) / th)
+        self.assertIsNone(fold.plan(sized, dict(opts, fold=True), scale_of, draw.band_key))
+
+    def test_plan_gives_the_size_it_chose(self):
+        bands = long_bands()
+        opts = dict(helpers.build(True).opts, equal_width=False, _folds=[], fold=True)
+        page(bands, fold=True)
+        sized = []
+        for title, band, o in bands:
+            _, w, h = draw.draw_band(band, title, o, 0, 0)
+            sized.append([title, band, o, w - 110, h])
+        scale_of = lambda tw, th: min(1.0, (1056 - 96) / tw, (816 - 96 - 100) / th)
+        chosen = fold.plan(sized, opts, scale_of, draw.band_key)
+        self.assertAlmostEqual(chosen["scale"], scale_of(chosen["total_w"], chosen["total_h"]))
+        self.assertGreaterEqual(chosen["scale"], chosen["base"] * 1.05)
 
 
 if __name__ == "__main__":
