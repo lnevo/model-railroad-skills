@@ -420,7 +420,20 @@ def check_control_points(opts, bands, name):
                                  f"({', '.join(titles)}); a limit bracket needs one band")
 
 
-OFFSETS = (14, 20, 26, 32, 40, 50)      # how far outside the outermost switch a limit bracket may stand
+def _bracket_lines(ex, top, bot):
+    return [((ex, top), (ex, bot), 1.4)]
+
+
+def _unplaced(P, extra):
+    """How many pending labels would find no free position if the lines `extra` were added: the label solve is
+    tried on a copy of the placer, so nothing is changed."""
+    t = labels.Placer()
+    t.lines, t.boxes, t.asks = P.lines + extra, list(P.boxes), P.asks
+    t.solve()
+    return len(t.unplaced)
+
+
+OFFSETS = (14, 20, 26, 32, 40, 50, 62, 76, 92, 110)      # how far outside the outermost switch a limit bracket may stand
 SERIF = 5
 
 
@@ -468,9 +481,10 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
                 free.append(ok)
 
         ends, ys, room = [], [], set()
+        drawn_lines = []                          # this control point's brackets chosen so far
         for sign, edge in ((-1, min(xs)), (1, max(xs))):
             stops = [abs(o - edge) for o in others + taken if sign * (o - edge) > 0]
-            cap = min(stops, default=OFFSETS[-1] + 1) - 6      # stop before a neighbouring switch or bracket
+            cap = min(stops, default=OFFSETS[-1]) - 6      # stop before a neighbouring switch or bracket
             offs = [o for o in OFFSETS if o <= cap] or [max(cap, 3)]
             best = None
             for off in offs:
@@ -482,14 +496,19 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
                     rows = [Y(nrow[n]) for n in mine]
                     top, bot = min(rows) - 9, max(rows) + 9
                 blocked = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in P.boxes)
-                harm = sum(sum(labels.seg_box_gap((ex, top), (ex, bot), bx) >= 1.4 / 2 + labels.PAD for bx in ok) < 2
-                           for ok in free)      # a label left with one place or none
-                if best is None or (blocked, harm) < best[0]:
-                    best = ((blocked, harm), ex, top, bot, found)
-                if not blocked and not harm:
+                hit = [[labels.seg_box_gap((ex, top), (ex, bot), bx) < 1.4 / 2 + labels.PAD for bx in ok] for ok in free]
+                harm = (_unplaced(P, drawn_lines + _bracket_lines(ex, top, bot)), sum(map(sum, hit)))   # then places lost
+                key = (blocked or harm[0] > 0, harm[0], blocked, harm[1])      # clean first, then fewest faults
+                if best is None or key < best[0]:
+                    best = (key, ex, top, bot, found)
+                if key[0] is False and not harm[1]:
                     break
-            _, ex, top, bot, found = best
+            ex, top, bot, found = best[1:]
+            free = [[bx for bx in ok if labels.seg_box_gap((ex, top), (ex, bot), bx) >= 1.4 / 2 + labels.PAD]
+                    for ok in free]
+            free = [ok for ok in free if ok]
             ends.append((ex, top, bot, -SERIF * sign))
+            drawn_lines += _bracket_lines(ex, top, bot)
             ys += [top, bot]
             room.update(k for _, k in found)
         for ex, top, bot, dx in ends:
