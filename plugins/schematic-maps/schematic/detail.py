@@ -59,7 +59,7 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
     """A band holding only the station: nodes, strands, rows and columns copied from the solved band, plus an
     open end at each place a track leaves. Capacity counts and masts are cut with it, from the whole band's."""
     want = {str(m) for m in members}
-    pad = 1 if opts.get("control_points") else 0      # a limit bracket stands in the first stretch of a leaving track
+    pad = 2 if opts.get("control_points") else 0      # a limit bracket stands in the first stretch of a leaving track
     nodes, strands, R, x, need = (band[k] for k in ("nodes", "strands", "R", "x", "need"))
     keep = {n for n, d in nodes.items() if d["kind"] in JUNCTION and d.get("label") in want}
     take = {sid for sid, s in strands.items() if s["src"][0] in keep or s["dst"][0] in keep}

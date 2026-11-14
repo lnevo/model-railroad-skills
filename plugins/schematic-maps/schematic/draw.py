@@ -323,6 +323,10 @@ def draw_band(band, title, opts, top, left):
                                             (cx_ - 11 * dirx, ye - 12, "end" if dirx == 1 else "start")],
                       emit=lambda xy, t=txt: label(xy[0], xy[1], t, 6, anchor=xy[2]))
             elif d.get("sub") == "open":
+                if opts.get("show_limits"):        # a limit bracket must not land on the arrowhead
+                    ab = (min(xe, xe - 6 * dirx) - 5, ye - 5, max(xe, xe - 6 * dirx) + 5, ye + 5)
+                    P.box(ab)
+                    P.arrows = getattr(P, "arrows", []) + [ab]
                 svg.append(f'<path d="M{xe:.1f},{ye:.1f} m{-6 * dirx},-5 l{6 * dirx},5 l{-6 * dirx},5" stroke-width="1.6"/>')
                 P.line((xe - 6 * dirx, ye - 5), (xe, ye), 1.6)           # the labels keep clear of the arrowhead
                 P.line((xe, ye), (xe - 6 * dirx, ye + 5), 1.6)
@@ -526,15 +530,20 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
                 if found:
                     top, bot = min(y for y, _ in found) - 9, max(y for y, _ in found) + 9
                 else:                              # no track leaves the interlocking this far: span its own rows
-                    rows = [Y(nrow[n]) for n in mine]
+                    rows = [Y(nrow[n]) if n in nrow else Y(srow[t]) for n in mine
+                            for t in ([nodes[n]['ins'].get('A') or nodes[n]['outs'].get('A')]
+                                      if n in nrow else [i for i, _ in dx_tracks(nodes, n)])]
                     top, bot = min(rows) - 9, max(rows) + 9
-                blocked = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in P.boxes)
+                blocked = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in P.boxes) or any(
+                    abs(a[0] - ex) < 4 and abs(b[0] - a[0]) < 0.5 and min(a[1], b[1]) < bot and max(a[1], b[1]) > top
+                    for a, b, _ in P.lines)            # not on a bumper or another upright line
                 hit = [[labels.seg_box_gap((ex, top), (ex, bot), bx) < 1.4 / 2 + labels.PAD for bx in ok] for ok in free]
                 harm = (_unplaced(P, drawn_lines + _bracket_lines(ex, top, bot)), sum(map(sum, hit)))   # then places lost
-                key = (blocked or harm[0] > 0, harm[0], blocked, harm[1])      # clean first, then fewest faults
+                onto = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in getattr(P, "arrows", ()))
+                key = (onto, blocked or harm[0] > 0, harm[0], blocked, harm[1])   # never on an arrow; then clean; then fewest faults
                 if best is None or key < best[0]:
                     best = (key, ex, top, bot, found)
-                if key[0] is False and not harm[1]:
+                if not key[0] and key[1] is False and not harm[1]:
                     break
             ex, top, bot, found = best[1:]
             free = [[bx for bx in ok if labels.seg_box_gap((ex, top), (ex, bot), bx) >= 1.4 / 2 + labels.PAD]

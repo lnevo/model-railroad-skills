@@ -757,6 +757,20 @@ class ControlPoints(unittest.TestCase):
         with self.assertRaisesRegex(SchematicError, "more than one band"):
             build_with(overrides={"control_points": {"Both": {"switches": ["2", "21"]}}})
 
+    def test_brackets_stay_clear_of_cut_arrows(self):
+        import re
+        _, svgs = self.details(self.CP)
+        for name in ("Hollow", "Yard"):
+            svg = svgs[name]
+            arrows = [tuple(map(float, m)) for m in re.findall(
+                r'<path d="M([\d.]+),([\d.]+) m(-?[\d.]+),-5 l-?[\d.]+,5 l-?[\d.]+,5"', svg)]
+            brackets = re.findall(r'<path d="M[\d.]+,[\d.]+ L([\d.]+),([\d.]+) L([\d.]+),([\d.]+) L[\d.]+,[\d.]+" stroke-width="1.4"', svg)
+            self.assertTrue(arrows and brackets, name)
+            for x1, y1, x2, y2 in brackets:
+                for ax, ay, dx in arrows:
+                    if float(y1) <= ay <= float(y2):
+                        self.assertFalse(min(ax, ax + dx) - 4 <= float(x1) <= max(ax, ax + dx) + 4, (name, x1, ax, dx))
+
     def test_brackets_stop_at_a_neighbouring_switch(self):
         _, svgs = self.details({"control_points": {"A": {"switches": ["2"]}, "B": {"switches": ["6"]}}})
         self.assertIn('>"A"<', svgs["Hollow"])
