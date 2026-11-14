@@ -13,7 +13,7 @@ import copy
 import json
 from pathlib import Path
 
-from . import columns, direction, draw, edits, layers, layout
+from . import columns, direction, draw, edits, layers, layout, mileposts
 from .core import SchematicError
 from .draw import DEFAULTS
 
@@ -84,8 +84,8 @@ def level_bands(g, opts, level_name):
     return [(opts.get("level_title", level_name.replace("_", " ").capitalize() + " level"), g)]
 
 
-def build_input(graph, name, opts, tracks, log):
-    """The bands of one input: [(title, band, options)]."""
+def prepare(graph, opts, tracks):
+    """One input's whole graph with its edits, helix tracks, main route and track directions applied."""
     opts["helix_tracks"] = tracks
     g = copy.deepcopy(graph if isinstance(graph, dict) else json.load(open(graph)))
     edits.apply_edits(g, opts["edits"])
@@ -96,6 +96,14 @@ def build_input(graph, name, opts, tracks, log):
         for e in g["edges"]:
             e["main"] = e["main"] or e["id"] in keep
     mark_ways(g, opts.get("track_directions", ()))
+    return g
+
+
+def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
+    """The bands of one input: [(title, band, options)]. `milepost` is its table from mileposts.compute; `prepared` is
+    the graph already through `prepare`, which is then copied rather than prepared again."""
+    g = copy.deepcopy(prepared) if prepared is not None else prepare(graph, opts, tracks)
+    opts["helix_tracks"] = tracks
     rail = {}
     if opts.get("main_route") and (opts.get("facing_letters") or opts.get("direction_arrows")):
         rail, conflicts = direction.east(g, opts["main_route"], lambda r: edits.by_label(g, r))
@@ -107,6 +115,8 @@ def build_input(graph, name, opts, tracks, log):
     for title, sub in level_bands(g, opts, name):
         w = []
         band = layout.layout(sub, opts, w)
+        if milepost:
+            band["mp"], band["mp_origin"] = milepost["edges"], milepost["origin"]
         mine = {n: v for n, v in rail.items() if n in band["nodes"]}
         if opts.get("facing_letters") or opts.get("direction_arrows"):
             band["rail"] = dict(direction.drawn(band, direction.east_left(band, rail)), **mine)
@@ -144,7 +154,21 @@ def build(inputs, data, preferences=True, hints=False):
     optlist[-1].setdefault("helix_style", "box")
     tracks = sorted({v for o in optlist for v in o.get("helix", {}).values()})
     logs = [[] for _ in inputs]
-    per = [build_input(g, name, o, tracks, logs[i]) for i, ((g, name), o) in enumerate(zip(inputs, optlist))]
+    pref = next((o["mileposts"] for o in reversed(optlist) if mileposts.preference(o) is not None), None)
+    for o in optlist:                   # one switch for the sheet, set in any input's preferences
+        if pref is not None:
+            o["mileposts"] = pref
+    posts = [None] * len(inputs)
+    prepared = [prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)]
+    if pref is not None:
+        posts = mileposts.compute(prepared, optlist)
+    per = [build_input(g, name, o, tracks, logs[i], posts[i], prepared[i])
+           for i, ((g, name), o) in enumerate(zip(inputs, optlist))]
+    if pref is not None:
+        step = mileposts.choose_step(per, optlist[-1])
+        for o in optlist:
+            o["_mp_step"] = step
+        logs[-1].append(f"mileposts: every {step:g} mile")
     grown = []
     best = None
     for rnd in range(ROOM_ROUNDS + 1):
@@ -167,7 +191,7 @@ def build(inputs, data, preferences=True, hints=False):
                 room[e] = room.get(e, 0) + 1
             grown.append(f"R12 round {rnd + 1}: {inputs[i][1]} runs lengthened for labels: {', '.join(sorted(edges_))}")
             logs[i] = []
-            per[i] = build_input(inputs[i][0], inputs[i][1], optlist[i], tracks, logs[i])
+            per[i] = build_input(inputs[i][0], inputs[i][1], optlist[i], tracks, logs[i], posts[i], prepared[i])
     left, sheet = best
     if left:
         sheet.log.append(f"R12: {left} labels still have no free position")

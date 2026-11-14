@@ -23,6 +23,11 @@ def car_length(opts):
     return float(car_in)
 
 
+def measured(opts):
+    """{TRACK NAME: inches} from layer 1 `track_lengths_in`, names in upper case."""
+    return {k.upper(): float(v) for k, v in opts.get("track_lengths_in", {}).items()}
+
+
 def measured_length(measured, name):
     """A measured length for a track name, or for either part of a joined name ("A / B")."""
     for part in [name] + name.split(" / "):
@@ -39,7 +44,7 @@ def tracks(band, opts):
     car_in = car_length(opts)
     if car_in is None:
         return []
-    measured = {k.upper(): float(v) for k, v in opts.get("track_lengths_in", {}).items()}
+    measured_in = measured(opts)
     nodes, strands = band["nodes"], band["strands"]
     srow, diag = band["R"]["srow"], band["R"]["diag"]
     link_cm = setting(opts, "ladder_link_max_cm")
@@ -87,7 +92,7 @@ def tracks(band, opts):
         if max(cm[m] for m in members) <= link_cm:
             continue                        # only short links between switches: ladder, not track
         name = strands[members[0]]["name"] or ""
-        inches = measured_length(measured, name) if name else None
+        inches = measured_length(measured_in, name) if name else None
         if inches is None:
             inches = sum(cm[m] for m in members) / 2.54
         n = math.floor(inches / car_in)

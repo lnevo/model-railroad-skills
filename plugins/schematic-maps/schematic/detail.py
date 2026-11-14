@@ -139,6 +139,8 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
     if "rail" in band:
         sub["rail"] = {n: v for n, v in band["rail"].items() if n in sub_nodes}
     sub["take"] = take
+    if band.get("mp"):                           # mileposts are counted on the whole band; the cut draws its share
+        sub["mp"], sub["mp_origin"] = band["mp"], band.get("mp_origin")
     return sub
 
 
