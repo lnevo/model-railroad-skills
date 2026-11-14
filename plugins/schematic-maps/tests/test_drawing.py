@@ -339,11 +339,29 @@ class Direction(unittest.TestCase):
         rail, _ = direction.east(g, [["2", "1"]], lambda r: {"1": "s1", "2": "s2"}[r])    # listed the other way
         self.assertEqual(direction.letters(g["nodes"], rail), {"s1": "L", "s2": "R"})
 
-    def test_no_arrows_when_east_is_right_throughout(self):
+    def test_direct_pair_follows_its_own_track(self):
+        """A loop listed as a direct pair seeds along the loop, not the shorter way back round."""
         from schematic import direction
+        sw = lambda label: dict(kind="switch", label=label)
+        N = {"p": sw("1"), "q": sw("2"), "x": sw("3"), "e": dict(kind="end")}
+        E = [("p", "B", "q", "C", 500.0), ("p", "A", "x", "B", 10.0), ("x", "A", "q", "A", 10.0), ("x", "C", "e", "E", 5.0)]
+        g = dict(nodes=N, edges=[dict(u=u, up=up, v=v, vp=vp, cm=cm, main=True, id=f"e{i}")
+                                 for i, (u, up, v, vp, cm) in enumerate(E)])
+        ref = {"1": "p", "2": "q"}.get
+        loop, _ = direction.east(g, [["1", "2", "direct"]], ref)
+        self.assertEqual((loop["p"], loop["q"]), (1, -1))       # leaves p by B, arrives at q by C
+        short, _ = direction.east(g, [["1", "2"]], ref)
+        self.assertEqual((short["p"], short["q"]), (-1, 1))     # the short way: out of p by A, into q by A
+
+    def test_arrows_only_where_east_runs_left(self):
+        from schematic import direction
+        from schematic.layout import paths
         for title, band, _ in helpers.build().bands:
-            rail = direction.drawn(band, False)
-            self.assertEqual(direction.main_runs(dict(band, rail=rail), {}), [], title)
+            right = direction.drawn(band, False)
+            self.assertEqual(direction.main_runs(dict(band, rail=right), paths(band)), [], title)
+            left = {n: -v for n, v in right.items()}
+            runs = direction.main_runs(dict(band, rail=left), paths(band))
+            self.assertTrue(runs and not any(r[3] for r in runs), title)
 
     def test_sheet_letters_every_single_switch(self):
         import json
@@ -357,7 +375,7 @@ class Direction(unittest.TestCase):
                     (Path(tmp) / p.name).write_text(p.read_text())
             prefs = Path(tmp) / "example.preferences.json"
             o = json.loads(prefs.read_text())
-            o["facing_letters"] = True
+            o["facing_letters"] = o["direction_arrows"] = True
             prefs.write_text(json.dumps(o))
             built = sheet.build([(helpers.graph(), "example")], tmp)
         for title, band, _ in built.bands:

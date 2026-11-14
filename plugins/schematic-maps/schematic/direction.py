@@ -30,18 +30,20 @@ def east(g, routes, node_ref):
         adj[e["u"]].append((e["up"], e["v"], e["vp"], e))
         adj[e["v"]].append((e["vp"], e["u"], e["up"], e))
     heap = []
-    for a, b, *_ in routes:
+    for a, b, *how in routes:
         try:
             na, nb = node_ref(a), node_ref(b)
         except Exception:                   # a helix or track name rather than a switch
             continue
         if N[na]["kind"] not in JUNCTION or N[nb]["kind"] not in JUNCTION or na == nb:
             continue
-        for p, m, q, _ in adj[na]:
-            if m == nb:
-                heap.append((0.0, len(heap), na, TAU[p]))      # leaving a toward b is eastward
-                heap.append((0.0, len(heap), nb, -TAU[q]))     # arriving at b from a: that leg is west
-                break
+        if how:                             # "direct": the track that joins the two, however long (a loop)
+            path = next(([(p, m, q)] for p, m, q, e in sorted(adj[na], key=lambda t: not t[3]["main"]) if m == nb), None)
+        else:
+            path = main_path(adj, N, na, nb)
+        if path:                            # the first and last legs of the way along the main from a to b
+            heap.append((0.0, len(heap), na, TAU[path[0][0]]))     # leaving a toward b is eastward
+            heap.append((0.0, len(heap), nb, -TAU[path[-1][2]]))   # arriving at b from a: that leg is west
     heapq.heapify(heap)
     rail, conflicts, seq = {}, set(), len(heap)
     while heap:
@@ -62,8 +64,26 @@ def east(g, routes, node_ref):
     return rail, sorted(conflicts)
 
 
+def main_path(adj, N, a, b):
+    """The shortest way from a to b along main track: [(leg out, next node, leg in)], or None."""
+    heap, seen, seq = [(0.0, 0, a, [])], set(), 0
+    while heap:
+        d, _, u, way = heapq.heappop(heap)
+        if u == b:
+            return way
+        if u in seen:
+            continue
+        seen.add(u)
+        for up, v, vp, e in adj[u]:
+            if e["main"] and v not in seen and N[v]["kind"] in JUNCTION:
+                seq += 1
+                heapq.heappush(heap, (d + e["cm"], seq, v, way + [(up, v, vp)]))
+    return None
+
+
 def drawn(band, east_is_left):
-    """{switch: +1 or -1} from the drawing alone, for a level with no main route: east is right (or left)."""
+    """{switch: +1 or -1} from the drawing alone, for switches the main route does not reach: east is right,
+    or left on a band whose main runs east to the left."""
     flip = -1 if east_is_left else 1
     return {n: (d["sig"] or 1) * flip for n, d in band["nodes"].items() if d.get("kind") in JUNCTION}
 
@@ -84,7 +104,7 @@ def east_left(band, rail):
 
 
 def main_runs(band, drawn):
-    """[(row, x from, x to, east is right)] for each level stretch of drawn main track, when the band runs east to
+    """[(row, x from, x to, east is right, [strands])] for each level stretch of drawn main track, when the band runs east to
     the left anywhere along its main; [] when east is to the right all along it (the page legend says so).
     `drawn` is the drawn path of each strand, as layout.paths gives it."""
     nodes, strands, rail = band["nodes"], band["strands"], band.get("rail", {})
@@ -108,7 +128,7 @@ def main_runs(band, drawn):
         if way is None:
             continue
         if runs and runs[-1][0] == row and runs[-1][3] == way and abs(runs[-1][2] - a) < 1e-6:
-            runs[-1] = (row, runs[-1][1], b, way)        # pieces that meet end to end are one run
+            runs[-1] = (row, runs[-1][1], b, way, runs[-1][4] + [k])    # pieces that meet end to end are one run
         else:
-            runs.append((row, a, b, way))
-    return runs if any(not w for *_, w in runs) else []
+            runs.append((row, a, b, way, [k]))
+    return runs if any(not r[3] for r in runs) else []
