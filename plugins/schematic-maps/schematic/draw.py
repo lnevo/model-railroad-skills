@@ -1,10 +1,11 @@
 """Drawing: bands, masts and the page, as SVG in the NYAMR Physical Characteristics Book style."""
 import collections  # noqa: F401
+import datetime
 import math
 from xml.sax.saxutils import escape
 
 from . import labels
-from .core import dedupe, dx_tracks, legs, other_end  # noqa: F401
+from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
 from .layout import paths
 
 
@@ -392,8 +393,11 @@ def title_fields(opts):
     e.g. ["NOV 14, 2026", "REV 1", "SHEET 1 OF 1"]. Each is left out when not set; none set, no column."""
     out = []
     if opts.get("date"):
-        y, mo, d = (int(x) for x in str(opts["date"]).split("-"))
-        out.append(f"{MONTHS[mo - 1]} {d}, {y}")
+        try:
+            d = datetime.date.fromisoformat(str(opts["date"]))
+        except ValueError:
+            raise SchematicError(f"preference date must be a real date written YYYY-MM-DD, not {opts['date']!r}") from None
+        out.append(f"{MONTHS[d.month - 1]} {d.day}, {d.year}")
     if opts.get("revision") not in (None, ""):
         out.append(f"REV {opts['revision']}")
     if opts.get("sheet"):
@@ -448,13 +452,16 @@ def page_svg(bands, opts):
     svg.append(f'<text x="{cx + 20}" y="62" font-size="15" text-anchor="start" font-weight="bold" letter-spacing="2">'
                f'{escape(opts["right"].upper())} &#8594;</text>')
     bx, by = 24, ph - 24 - 64
-    svg.append(f'<rect x="{bx}" y="{by}" width="330" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>')
+    fields = title_fields(opts)
+    tw = max([330] + [math.ceil(labels.text_width(line.upper(), 14 if i == 0 else 11, "bold" if i == 0 else "normal", 1)) + 20
+                      for i, line in enumerate(opts["title"])])      # the box grows for a long title line
+    svg.append(f'<rect x="{bx}" y="{by}" width="{tw}" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>')
     for i, line in enumerate(opts["title"]):
         svg.append(f'<text x="{bx + 10}" y="{by + 20 + i * 18}" font-size="{14 if i == 0 else 11}" '
                    f'font-weight="{"bold" if i == 0 else "normal"}" letter-spacing="1">{escape(line.upper())}</text>')
-    fields = title_fields(opts)
     if fields:                                # date, revision and sheet in a ruled column at the right of the box
-        cx0, cw = bx + 330, 104
+        cx0 = bx + tw
+        cw = max([104] + [math.ceil(labels.text_width(t, 9.5, "normal", 1)) + 16 for t in fields])
         svg.append(f'<rect x="{cx0}" y="{by}" width="{cw}" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>')
         for i, text in enumerate(fields):
             if i:
