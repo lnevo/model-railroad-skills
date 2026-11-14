@@ -98,13 +98,17 @@ def tracks(band, opts):
 
 
 def counts(band, opts):
-    """{strand that shows the count: cars}."""
+    """{strand that shows the count: cars}. A detail sheet's band carries the whole sheet's counts in `cars`."""
+    if "cars" in band:
+        return dict(band["cars"])
     return {show: n for show, n, _ in tracks(band, opts)}
 
 
 def station_totals(band, opts, x, turned=False):
     """{station: cars}: a track goes to the station of its west end switch (left, or right on a band turned
     end for end), else the next switch along it; any piece of the track may supply that switch."""
+    if "station_totals" in band:           # a detail sheet: counted on the whole band, where a track's west end is
+        return dict(band["station_totals"])
     nodes, strands = band["nodes"], band["strands"]
     station = {lab: st for st, members in opts.get("stations", {}).items() for lab in members}
     out = {}

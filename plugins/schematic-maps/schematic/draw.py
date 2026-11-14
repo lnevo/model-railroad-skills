@@ -279,6 +279,8 @@ def draw_band(band, title, opts, top, left):
                       emit=lambda xy, t=txt: label(xy[0], xy[1], t, 6, anchor=xy[2]))
             elif d.get("sub") == "open":
                 svg.append(f'<path d="M{xe:.1f},{ye:.1f} m{-6 * dirx},-5 l{6 * dirx},5 l{-6 * dirx},5" stroke-width="1.6"/>')
+                P.line((xe - 6 * dirx, ye - 5), (xe, ye), 1.6)           # the labels keep clear of the arrowhead
+                P.line((xe, ye), (xe - 6 * dirx, ye + 5), 1.6)
                 if d.get("label"):
                     label(xe + 8 * dirx, ye + 3, d["label"].upper(), opts["name_px"],
                           anchor="start" if dirx == 1 else "end", weight="bold")
@@ -465,7 +467,8 @@ def mast_piece(sg, strands):
     pieces = [k for k, st in strands.items() if st["edge"] in (edge, edge + "x", edge + "y")]
     if not pieces:
         return None
-    length = {k: strands[k]["cm"] / 2 if k.endswith((".0", ".1")) else strands[k]["cm"] for k in pieces}
+    length = {k: strands[k].get("cut_cm", strands[k]["cm"] / 2 if k.endswith((".0", ".1")) else strands[k]["cm"])
+              for k in pieces}      # a track cut short on a detail sheet counts only the part drawn
     ends = {k: (strands[k]["src"][0], strands[k]["dst"][0]) for k in pieces}
     first = next((k for k in pieces if tn in ends[k]), None)
     if first is None:                       # the toward end is on another band: start at this band's cut end
@@ -598,7 +601,7 @@ def page_svg(bands, opts):
     gap = opts.get("band_gap", 78)            # band_gap also measures each band to its lowest label (draw_band)
     total_h = sum(h for *_, h in sized) + gap * (len(sized) - 1) + 30
     total_w = max(w for *_, w, _ in sized) + 120
-    scale = min(1.0, (pw - 2 * m) / total_w, (ph - top - foot) / total_h)
+    scale = min(opts.get("max_scale", 1.0), (pw - 2 * m) / total_w, (ph - top - foot) / total_h)
     body, y = [], 30
     for title, band, o, w, h in sized:
         side = opts.get("band_align", {}).get(band_key(title), "centre")

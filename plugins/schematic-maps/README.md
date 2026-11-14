@@ -20,10 +20,17 @@ schematic signals tables.xml graph.json NAME NAME.signals.json --data DIR --numb
 schematic draw sheet.svg --data DIR graph.json:NAME
 schematic report --data DIR graph.json:NAME
 schematic fingerprint golden.json --data DIR graph.json:NAME
+schematic detail details/ --data DIR graph.json:NAME                      one sheet per station of the `stations` preference
+schematic detail yard.svg --data DIR graph.json:NAME --station "Yard"      one station
+schematic detail pair.svg --data DIR graph.json:NAME --switches 11 12 --name "Pair"   any group of switches
 schematic check sheet.svg --list
 ```
 
 Layer files in `DIR`: `NAME.plan_overrides.json` (facts about the railroad), `NAME.signals.json` (generated), `NAME.preferences.json` (the look, optional). The skill, [`skills/schematic-maps/SKILL.md`](skills/schematic-maps/SKILL.md), walks through the overrides and the checks.
+
+## Detail sheets
+
+`schematic detail` draws one station, or a named group of switches, as its own larger sheet, cut from the same solved drawing as the overall sheet so the two agree: same order of tracks, same lengths, same capacity counts and masts. Tracks that leave the cut end in an arrow reading `TO <station>` or `TO SW <number>`. Stations come from the `stations` preference (all of them by default); `detail_max_scale` (default 2) sets how far a sheet is enlarged. One selection writes a file, several write a folder of `<station>.svg`.
 
 ## The example
 
