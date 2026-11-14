@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run the schematic command: python3 -m schematic, with the plugin folder on the module path.
+HERE=$(cd "$(dirname "$0")/.." && pwd)
+PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m schematic "$@"

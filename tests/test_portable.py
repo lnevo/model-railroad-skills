@@ -48,7 +48,7 @@ class PortableFiles(unittest.TestCase):
 
 class Skills(unittest.TestCase):
     def test_skills_meet_the_standard(self):
-        self.assertEqual(len(skills()), 8)
+        self.assertEqual(len(skills()), 9)
         for path in skills():
             head = re.match(r"---\n(.*?)\n---\n", path.read_text(), re.S).group(1)
             fields = dict(line.split(": ", 1) for line in head.splitlines())

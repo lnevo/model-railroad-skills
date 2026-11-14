@@ -1,6 +1,6 @@
 # Model railroad skills
 
-Agent skills and read-only live tools for model railroad software: JMRI, stock JMRI MQTT, CATS and STS. Two separate plugins add Operations Pro management and car cards from photos.
+Agent skills and read-only live tools for model railroad software: JMRI, stock JMRI MQTT, CATS and STS. Three separate plugins add Operations Pro management, car cards from photos and schematic maps of a layout's track.
 
 ## Install
 
@@ -67,6 +67,14 @@ claude plugin install operations-pro@model-railroad-skills
 
 ```
 claude plugin install car-cards@model-railroad-skills
+```
+
+## Schematic maps (separate plugin)
+
+`schematic-maps` draws a layout's track as one clean schematic sheet from the track plan's JMRI export: a band for each level, the main line level through every switch, yard ladders, loops, helix tracks and signal masts read from a Layout Editor panel, checked for crossings and overlapping labels. It runs a Python command and writes files you choose, which is why it is a separate install. See [`plugins/schematic-maps/README.md`](plugins/schematic-maps/README.md).
+
+```
+claude plugin install schematic-maps@model-railroad-skills
 ```
 
 ## Live tools
