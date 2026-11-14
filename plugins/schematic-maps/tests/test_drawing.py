@@ -272,3 +272,22 @@ class GridRoom(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TitleBlock(unittest.TestCase):
+    def test_fields(self):
+        from schematic import draw
+        self.assertEqual(draw.title_fields({"date": "2026-11-14", "revision": 1, "sheet": "1 of 1"}),
+                         ["NOV 14, 2026", "REV 1", "SHEET 1 OF 1"])
+        self.assertEqual(draw.title_fields({"revision": 0}), ["REV 0"])
+        self.assertEqual(draw.title_fields({}), [])
+
+    def test_column_only_when_set(self):
+        from schematic import draw
+        s = helpers.build()
+        opts = dict(s.opts, title=s.opts["title"])
+        self.assertNotIn("REV ", draw.page_svg(s.bands, opts))
+        svg = draw.page_svg(s.bands, dict(opts, date="2026-01-05", revision=3))
+        self.assertIn(">JAN 5, 2026<", svg)
+        self.assertIn(">REV 3<", svg)
+        self.assertNotIn("SHEET", svg)

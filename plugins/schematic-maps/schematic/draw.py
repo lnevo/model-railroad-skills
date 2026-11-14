@@ -384,6 +384,23 @@ def draw_signals(band, drawn, opts, X, Y, svg, label, P):
               emit=lambda xy, t=sg["mast"]: label(xy[0], xy[1], t, opts["num_px"], anchor=xy[2]))
 
 
+MONTHS = "JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split()
+
+
+def title_fields(opts):
+    """The title block's own fields, from the options `date` (YYYY-MM-DD), `revision` and `sheet` ("1 of 1"):
+    e.g. ["NOV 14, 2026", "REV 1", "SHEET 1 OF 1"]. Each is left out when not set; none set, no column."""
+    out = []
+    if opts.get("date"):
+        y, mo, d = (int(x) for x in str(opts["date"]).split("-"))
+        out.append(f"{MONTHS[mo - 1]} {d}, {y}")
+    if opts.get("revision") not in (None, ""):
+        out.append(f"REV {opts['revision']}")
+    if opts.get("sheet"):
+        out.append(f"SHEET {str(opts['sheet']).upper()}")
+    return out
+
+
 def page_svg(bands, opts):
     """The finished page as SVG text."""
     pw, ph, m = 1056, 816, 48
@@ -435,6 +452,14 @@ def page_svg(bands, opts):
     for i, line in enumerate(opts["title"]):
         svg.append(f'<text x="{bx + 10}" y="{by + 20 + i * 18}" font-size="{14 if i == 0 else 11}" '
                    f'font-weight="{"bold" if i == 0 else "normal"}" letter-spacing="1">{escape(line.upper())}</text>')
+    fields = title_fields(opts)
+    if fields:                                # date, revision and sheet in a ruled column at the right of the box
+        cx0, cw = bx + 330, 104
+        svg.append(f'<rect x="{cx0}" y="{by}" width="{cw}" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>')
+        for i, text in enumerate(fields):
+            if i:
+                svg.append(f'<path d="M{cx0},{by + i * 64 / 3:.1f} L{cx0 + cw},{by + i * 64 / 3:.1f}" stroke="#000" stroke-width="0.8"/>')
+            svg.append(f'<text x="{cx0 + 8}" y="{by + 14.5 + i * 64 / 3:.1f}" font-size="9.5" letter-spacing="1">{escape(text)}</text>')
     svg.append("</svg>")
     return "\n".join(svg)
 
