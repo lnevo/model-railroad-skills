@@ -106,12 +106,19 @@ def east_left(band, rail):
 def merge_runs(pieces):
     """[(row, x from, x to, way, [strands])] from level pieces (row, x from, x to, way, strand): pieces on a row with
     the same way that meet or overlap are one run, so a straight line carries one arrow."""
+    groups = {}
+    for pc in pieces:                       # a piece of another way between two of a run does not split it
+        groups.setdefault((pc[0], pc[3]), []).append(pc)
     runs = []
-    for row, a, b, way, k in sorted(pieces, key=lambda pc: pc[:3]):
-        if runs and runs[-1][0] == row and runs[-1][3] == way and a <= runs[-1][2] + 1e-6:
-            runs[-1] = (row, runs[-1][1], max(b, runs[-1][2]), way, runs[-1][4] + [k])
-        else:
-            runs.append((row, a, b, way, [k]))
+    for group in groups.values():
+        merged = []
+        for row, a, b, way, k in sorted(group, key=lambda pc: pc[:3]):
+            if merged and a <= merged[-1][2] + 1e-6:
+                merged[-1] = (row, merged[-1][1], max(b, merged[-1][2]), way, merged[-1][4] + [k])
+            else:
+                merged.append((row, a, b, way, [k]))
+        runs += merged
+    runs.sort(key=lambda r: r[:3])
     return runs
 
 

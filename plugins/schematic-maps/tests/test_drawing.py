@@ -666,6 +666,42 @@ class BandFixes(unittest.TestCase):
         self.assertEqual(east, [])                                       # east to the right all along: no arrows
         self.assertEqual([(r[0], r[1], r[2]) for r in west], [(1, 0, 6)])
 
+    def test_review_fixes_for_runs_and_slopes(self):
+        from schematic import direction, draw
+        way = lambda: dict(src=("a", "A"), dst=("b", "B"), main=False, way=("a", "b"))
+        back = dict(way(), way=("b", "a"))
+        # a stub of the other way between two pieces of one run does not split the run
+        runs = direction.merge_runs([(1, 0, 3, True, "p"), (1, 1, 2, False, "s"), (1, 3, 6, True, "q")])
+        self.assertEqual([(r[1], r[2], r[3]) for r in runs], [(0, 6, True), (1, 2, False)])
+        # a nearly upright slope gets no arrow; two strands on one slope share one
+        strands = {"v": way(), "s": way(), "t": way(), "r": back}
+        drawn = {"v": [(0, 0), (0.0000001, 2)], "s": [(0, 0), (4, 2)], "t": [(0, 0), (4, 2)], "r": [(0, 0), (4, 2)]}
+        runs = draw.track_runs({"strands": strands}, drawn, None)
+        self.assertEqual(sorted((r[3], sorted(r[4])) for r in runs), [(False, ["r"]), (True, ["s", "t"])])
+        # the arrow's spots follow the slope: the rows at its two ends ride on the run
+        self.assertEqual(next(r for r in runs if r[3])[5], (0.5, 1.5))
+
+    def test_name_and_move_ask_for_the_leg_only_when_the_owner_left_it_out(self):
+        from schematic import edits
+        from schematic.core import SchematicError
+        sw = lambda label: dict(kind="switch", label=label, alias=label, hand=1, dirs={})
+        g = dict(nodes={"p": sw("1"), "q": sw("2")},
+                 edges=[dict(u="p", up="B", v="q", vp="A", cm=50.0, id="e0", names=[], main=False),
+                        dict(u="p", up="C", v="q", vp="B", cm=60.0, id="e1", names=[], main=False)])
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(g, [dict(op="name", tracks=[["1", "2", "Main"]])])
+        edits.apply_edits(g, [dict(op="name", tracks=[["1", "2", "Main", "B"]])])
+        self.assertEqual([e["names"] for e in g["edges"]], [["Main"], []])
+        # a move whose own lift makes a second track between the pair names the track already there
+        h = dict(nodes={"a": sw("1"), "b": sw("2"), "x": sw("3"), "t": dict(kind="end", label="")},
+                 edges=[dict(u="a", up="B", v="x", vp="A", cm=30.0, id="m1", names=[], main=False),
+                        dict(u="x", up="B", v="b", vp="A", cm=30.0, id="m2", names=[], main=False),
+                        dict(u="x", up="C", v="t", vp="E", cm=30.0, id="m3", names=[], main=False),
+                        dict(u="a", up="C", v="b", vp="B", cm=90.0, id="e0", names=[], main=False)])
+        edits.apply_edits(h, [dict(op="move", switch="3", through=["A", "B"], onto=["1", "2"], cm_from_first=20,
+                                   hand="R", source="owner")])
+        self.assertIn("e0a", {e["id"] for e in h["edges"]})
+
 
 if __name__ == "__main__":
     unittest.main()
