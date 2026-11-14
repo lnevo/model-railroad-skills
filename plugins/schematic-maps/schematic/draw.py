@@ -321,6 +321,7 @@ def draw_band(band, title, opts, top, left):
         if totals.get(name):
             label((a + b) / 2, yb + 25, f"{totals[name]} CARS", 8, extra='letter-spacing="0.5"')
     bottom += 34 + len(lanes) * lane_h if lanes else 0
+    draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow)
     if opts.get("signals"):
         draw_signals(band, drawn, opts, X, Y, svg, label, P)
     for num, spots in switch_numbers.items():      # a crossover's two halves share one number, printed once
@@ -346,6 +347,49 @@ def draw_band(band, title, opts, top, left):
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
+
+
+def draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow):
+    """Interlocking limits (layer 1 `control_points`: {name: {"code": optional, "switches": [labels]}}).
+
+    A square bracket stands across the tracks just outside the outermost switch at each end, from the top
+    track to the bottom track found at that spot, with its serifs turned toward the interlocking. The quoted
+    name (and the short code in brackets) is asked of the label placer like any other label, above the
+    brackets first, then below. Nothing is drawn when `control_points` is not set."""
+    nodes, x = band["nodes"], band["x"]
+    for name, cp in opts.get("control_points", {}).items():
+        members = set(cp["switches"])
+        xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in members]
+        if not xs:
+            continue
+        ends = (min(xs) - 14, max(xs) + 14)
+        ys, room = [], set()
+        for k, pts in drawn.items():
+            for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
+                a, b = (X(c1), Y(r1)), (X(c2), Y(r2))
+                for ex in ends:
+                    if min(a[0], b[0]) <= ex <= max(a[0], b[0]):
+                        t = (ex - a[0]) / (b[0] - a[0]) if b[0] != a[0] else 0.0
+                        ys.append(a[1] + t * (b[1] - a[1]))
+                        room.add(k)
+        if not ys:
+            continue
+        y1, y2 = min(ys) - 9, max(ys) + 9
+        for ex, dx in ((ends[0], 5), (ends[1], -5)):
+            svg.append(f'<path d="M{ex + dx:.1f},{y1:.1f} L{ex:.1f},{y1:.1f} L{ex:.1f},{y2:.1f} L{ex + dx:.1f},{y2:.1f}" '
+                       f'stroke-width="1.4"/>')
+            P.line((ex + dx, y1), (ex, y1), 1.4)
+            P.line((ex, y1), (ex, y2), 1.4)
+            P.line((ex, y2), (ex + dx, y2), 1.4)
+        text = f'"{name.upper()}"' + (f" [{cp['code']}]" if cp.get("code") else "")
+        mid, size = (ends[0] + ends[1]) / 2, opts["name_px"]
+        quarter = (ends[1] - ends[0]) / 4
+        cands = [(mx, yy, "middle") for yy in (y1 - 3, y1 - 3 - size - 2, y2 + size + 2, y2 + 2 * size + 4)
+                 for mx in (mid, mid - quarter, mid + quarter)]
+        P.ask("control point", text, size, cands, weight="bold", spacing=0.4,
+              room=sorted(k for k in room if can_grow(band, k)),
+              emit=lambda xy, t=text: label(xy[0], xy[1], t, size, anchor=xy[2], weight="bold",
+                                            extra='letter-spacing="0.4"'))
 
 
 def _along(pts, dist):

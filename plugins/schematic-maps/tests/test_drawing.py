@@ -611,3 +611,27 @@ class BandFixes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ControlPoints(unittest.TestCase):
+    """Interlocking limits: layer 1 `control_points`, brackets across the tracks and a quoted name."""
+
+    CP = {"control_points": {"Hollow": {"code": "HL", "switches": ["2", "6", "3"]},
+                             "Summit": {"switches": ["21", "22"]},
+                             "Ghost": {"switches": ["99"]}}}
+
+    def test_nothing_set_draws_the_same_sheet(self):
+        self.assertNotIn('"HOLLOW"', helpers.build().svg())
+        self.assertNotIn("&quot;", helpers.build().svg())
+
+    def test_names_codes_and_brackets_are_drawn_without_label_faults(self):
+        sheet = build_with(overrides=self.CP)
+        svg = sheet.svg()
+        self.assertIn('"HOLLOW" [HL]', svg)
+        self.assertIn('>"SUMMIT"<', svg)
+        self.assertNotIn("GHOST", svg)                       # a control point with no switch on the sheet is skipped
+        self.assertEqual(label_check.check(svg)[0], [])
+        plain = helpers.build().svg()
+        self.assertEqual(svg.count("<path") - plain.count("<path"), 4)    # two brackets, two ends each
+        for _, band, _ in sheet.bands:
+            self.assertEqual(band["unplaced"], [])

@@ -23,6 +23,8 @@ schematic fingerprint golden.json --data DIR graph.json:NAME
 schematic check sheet.svg --list
 ```
 
+Interlocking limits are optional: `control_points` in the plan overrides names each control point, an optional short code and the switches it covers; the sheet draws square brackets across the tracks at its outer ends and the quoted name (see style rule 10).
+
 Layer files in `DIR`: `NAME.plan_overrides.json` (facts about the railroad), `NAME.signals.json` (generated), `NAME.preferences.json` (the look, optional). The skill, [`skills/schematic-maps/SKILL.md`](skills/schematic-maps/SKILL.md), walks through the overrides and the checks.
 
 ## The example
