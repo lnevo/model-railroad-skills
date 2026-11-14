@@ -3,7 +3,7 @@ import collections
 import itertools
 import math
 
-from .core import JUNCTION, descend, dx_tracks  # noqa: F401
+from .core import JUNCTION, SchematicError, descend, dx_tracks  # noqa: F401
 
 
 
@@ -13,6 +13,63 @@ def name_cells(name, opts):
 
 class Unsettled(Exception):
     pass
+
+
+def refs(nodes, n):
+    """What a hint may call a junction: its plan part number, its label, and its label without a move star."""
+    d = nodes[n]
+    return {d.get("alias"), d.get("label"), (d.get("label") or "").rstrip("*")} - {None, ""}
+
+
+def hint_tracks(hint, n_fixed):
+    """The track names a run hint lists after its fixed fields (none: any track between the two switches)."""
+    return {str(t).upper() for t in hint[n_fixed:]}
+
+
+def strand_names(s):
+    """A strand's names as a hint may list them: each of a joined "A / B" name too."""
+    full = (s["name"] or "").upper()
+    return {full} | set(full.split(" / ")) if full else set()
+
+
+def hint_applies(kind, hint, sid, s, nodes):
+    """Whether a `min_cells` or `shorten` hint reaches this strand; the layout and the check both use this."""
+    a, b = str(hint[0]), str(hint[1])
+    names = hint_tracks(hint, 3 if kind == "min_cells" else 2)
+    if names and not names & strand_names(s):
+        return False
+    u, v = s["src"][0], s["dst"][0]
+    if kind == "shorten":
+        ends_ = refs(nodes, u) | refs(nodes, v) if u in nodes and v in nodes else set()
+        return a in ends_ and b in ends_
+    e0, e1 = s["ends"]
+    if not ((a in refs(nodes, e0) and b in refs(nodes, e1)) or (a in refs(nodes, e1) and b in refs(nodes, e0))):
+        return False
+    return "." not in sid or b in (refs(nodes, u) if u in nodes else set()) | (refs(nodes, v) if v in nodes else set())
+
+
+def check_run_hints(bands, opts):
+    """Once per input, over all its bands: a run hint must reach exactly the tracks it means. Stops on a hint
+    that reaches nothing (a renamed or removed switch), on one without track names that reaches two tracks
+    (parallel tracks, two stubs off one switch), and on a listed track it does not reach."""
+    for kind in ("min_cells", "shorten"):
+        for hint in opts.get(kind, ()):
+            n_fixed = 3 if kind == "min_cells" else 2
+            hit, names = {}, hint_tracks(hint, n_fixed)
+            for band in bands:
+                nodes = band["nodes"]
+                for sid, s in band["strands"].items():
+                    if hint_applies(kind, list(hint)[:n_fixed], sid, s, nodes):      # by its switches alone
+                        hit.setdefault(s["edge"], set()).update(strand_names(s) or {f'unnamed {s["cm"]:.0f} cm'})
+            label = f"{kind} {list(hint)}"
+            if not hit:
+                raise SchematicError(f"{label} reaches no track; its switches may have been renamed or removed")
+            found = set().union(*hit.values())
+            if names - found:
+                raise SchematicError(f"{label} lists {', '.join(sorted(names - found))}, which it does not reach")
+            if not names and len(hit) > 1:
+                raise SchematicError(f"{label} reaches {len(hit)} tracks ({', '.join(sorted(min(v) for v in hit.values()))}); "
+                                     "list the tracks it is for after the switches, or name a switch nearer the one you mean")
 
 
 def place(nodes, strands, R, enclosed, opts, extra=()):
@@ -28,16 +85,12 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
         su = abs(srow[sid] - nrow[u]) if u in nrow else 0
         sv = abs(srow[sid] - nrow[v]) if v in nrow else 0
         h = max(name_cells(s["name"], opts), min(4, int(s["cm"] // 120)))   # a long track shows as a level run
-        ends_ = {r for t in (u, v) for r in (nodes[t].get("alias"), nodes[t].get("label")) if r}
-        tight = any(a in ends_ and b in ends_ for a, b in opts.get("shorten", ()))     # owner's hint: draw this run short
+        tight = any(hint_applies("shorten", h_, sid, s, nodes) for h_ in opts.get("shorten", ()))   # owner's hint: draw short
         if tight:
             h = 0
-        refs = lambda n: {nodes[n].get("alias"), nodes[n].get("label")} - {None}
-        for a, b, cells in opts.get("min_cells", ()):       # owner's hint: give this run at least so many cells
-            e0, e1 = s["ends"]
-            if (a in refs(e0) and b in refs(e1)) or (a in refs(e1) and b in refs(e0)):
-                if "." not in sid or b in refs(u) | refs(v):  # of a folded run, the half that reaches b
-                    h = max(h, cells)
+        for hint in opts.get("min_cells", ()):              # owner's hint: give this run at least so many cells
+            if hint_applies("min_cells", hint, sid, s, nodes):
+                h = max(h, hint[2])
         h += opts.get("_room", {}).get(s["edge"], 0)     # R12: cells claimed by labels that found no free position
         if nodes[u]["kind"] == "end" or nodes[v]["kind"] == "end":
             h = max(h, 1) + 1

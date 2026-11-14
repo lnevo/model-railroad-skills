@@ -495,5 +495,33 @@ class BandDirections(unittest.TestCase):
         self.assertEqual(label_check.check(svg)[0], [])
 
 
+class RunHints(unittest.TestCase):
+    def bands(self):
+        sw = lambda label: dict(kind="switch", label=label)
+        nodes = {"p": sw("1"), "q": sw("2"), "r": sw("7*")}
+        st = lambda ends, edge, name, cm: dict(ends=ends, src=(ends[0], "B"), dst=(ends[1], "A"), edge=edge, name=name, cm=cm)
+        one = dict(nodes=nodes, strands={"e0": st(("p", "q"), "e0", "Main", 100.0), "e1": st(("q", "p"), "e1", "Siding", 90.0),
+                                         "e2": st(("p", "q"), "e2", "", 40.0), "e3": st(("q", "r"), "e3", "S-3 / Lead", 60.0)})
+        other = dict(nodes={"z": sw("9")}, strands={})          # a second band that holds none of these switches
+        return [one, other]
+
+    def check(self, **opts):
+        from schematic.columns import check_run_hints
+        check_run_hints(self.bands(), opts)
+
+    def test_hints(self):
+        from schematic.core import SchematicError
+        with self.assertRaisesRegex(SchematicError, "reaches 3 tracks"):
+            self.check(min_cells=[["1", "2", 3]])
+        self.check(min_cells=[["1", "2", 3, "Main", "siding"]])          # the tracks it is for, in any band
+        self.check(shorten=[["2", "7", "S-3"]])                           # a moved switch, one part of a joined name
+        with self.assertRaisesRegex(SchematicError, "lists YARD"):
+            self.check(shorten=[["1", "2", "Yard"]])
+        with self.assertRaisesRegex(SchematicError, "reaches no track"):
+            self.check(min_cells=[["1", "50", 4]])
+        with self.assertRaisesRegex(SchematicError, "lists 5"):                # a number in the list: an error, not a crash
+            self.check(min_cells=[["1", "2", 4, 5]])
+
+
 if __name__ == "__main__":
     unittest.main()
