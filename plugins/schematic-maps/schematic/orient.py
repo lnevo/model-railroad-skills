@@ -39,7 +39,8 @@ def build(g, sig, T):
 
     def add(sid, src, dst, e, name):
         strands[sid] = dict(src=src, dst=dst, edge=e["id"], ends=(e["u"], e["v"]), name=name, cm=e["cm"],
-                            main=e["main"], link=e["link"], hidden=e.get("hidden", False))
+                            main=e["main"], link=e["link"], hidden=e.get("hidden", False),
+                            way=e.get("way"))
         nodes[src[0]]["outs"][src[1]] = sid
         nodes[dst[0]]["ins"][dst[1]] = sid
 

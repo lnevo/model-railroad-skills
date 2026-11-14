@@ -17,9 +17,110 @@ def can_grow(band, k):
         nodes[t].get("sub") == "link" for t in (strands[k]["src"][0], strands[k]["dst"][0]))
 
 
+def band_key(title):
+    """The word that names a band in the preferences: the first word of its title."""
+    return (title or " ").split()[0]
+
+
+LEGENDS = {"normal": {"west": "left"}, "reversed": {"west": "right"}, "none": None}
+
+
+def band_legend(opts, title):
+    """The band's own direction legend as (west side, arrows shown), or None for no band legend.
+
+    `band_legend` in the preferences, by band: "normal" (west to the left), "reversed" (west to the right), "none",
+    or {"west": "left" or "right", "show": "both", "west" or "east"}; "show" names one arrow for a band whose
+    traffic runs one way. Once any band declares one, the page legend is not drawn (`_band_legends`) and a band
+    that declares nothing is "normal"."""
+    spec = opts.get("band_legend", {}).get(band_key(title))
+    if spec is None:
+        spec = "normal" if opts.get("_band_legends") else "none"
+    if isinstance(spec, str):
+        if spec not in LEGENDS:
+            raise SchematicError(f"band_legend for {band_key(title)} must be normal, reversed, none or "
+                                 f"{{\"west\": ..., \"show\": ...}}, not {spec!r}")
+        spec = LEGENDS[spec]
+    if spec is None:
+        return None
+    if not isinstance(spec, dict):
+        raise SchematicError(f"band_legend for {band_key(title)} must be a word or an object, not {spec!r}")
+    west, show = spec.get("west", "left"), spec.get("show", "both")
+    if west not in ("left", "right") or show not in ("both", "west", "east"):
+        raise SchematicError(f"band_legend for {band_key(title)}: west is left or right and show is both, "
+                             f"west or east, not {spec!r}")
+    return west, show
+
+
+def legend_texts(opts, west, show):
+    """[(text, which)] left to right, e.g. [("\u2190 WEST", "west"), ("EAST \u2192", "east")]."""
+    w, e = opts["left"].upper(), opts["right"].upper()
+    pieces = ([(f"\u2190 {w}", "west"), (f"{e} \u2192", "east")] if west == "left"
+              else [(f"\u2190 {e}", "east"), (f"{w} \u2192", "west")])
+    return [pc for pc in pieces if show in ("both", pc[1])]
+
+
+def track_way(s):
+    """Which way trains run on a drawn strand, from its `way` (layer 1 track_directions): True to the right,
+    False to the left, None both ways or not known. A strand's src is its left end; a fold half or a half cut
+    at a level boundary holds only one end of its track, so the end it does hold decides."""
+    way = s.get("way")
+    if not way or way == "both":
+        return None
+    frm, to = way
+    p, q = s["src"][0], s["dst"][0]
+    if to == q or frm == p:
+        return True
+    if to == p or frm == q:
+        return False
+    return None
+
+
+def track_runs(band, drawn, mode):
+    """[(row, x from, x to, way, [strands])] for the track arrows: every strand with a declared way, and with
+    `track_arrows` "main" every main strand too (two ways where none is declared). Level pieces of at least one
+    cell that meet end to end on a row with the same way are one run, so a straight line carries one arrow."""
+    strands = band["strands"]
+    pieces = []
+    for k, pts in drawn.items():
+        s = strands.get(k)
+        if s is None or (s.get("way") is None and not (mode == "main" and s["main"])):
+            continue
+        way = track_way(s)
+        for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
+            if r1 == r2 and abs(c2 - c1) >= 1:
+                pieces.append((r1, min(c1, c2), max(c1, c2), way, k))
+    runs = []
+    for row, a, b, way, k in sorted(pieces, key=lambda pc: pc[:3]):
+        if runs and runs[-1][0] == row and runs[-1][3] == way and abs(runs[-1][2] - a) < 1e-6:
+            runs[-1] = (row, runs[-1][1], b, way, runs[-1][4] + [k])
+        else:
+            runs.append((row, a, b, way, [k]))
+    return runs
+
+
+ARROWS = {True: "\u2192", False: "\u2190", None: "\u2194"}
+
+
+def arrow_mark(svg, P, xy, way, size):
+    """A track arrow in the box a two-character label would take at (x, baseline y): a shaft with a head at the
+    end trains run toward, or at both ends for a track run both ways."""
+    w = labels.text_width(ARROWS[way] * 2, size, "bold", 0.0)
+    x, y = xy[0], xy[1] - 0.33 * size
+    a, b, h = x - w / 2, x + w / 2, 0.3 * size
+    d = f"M{a:.1f},{y:.1f} L{b:.1f},{y:.1f}"
+    if way in (True, None):
+        d += f" M{b - h:.1f},{y - h:.1f} L{b:.1f},{y:.1f} L{b - h:.1f},{y + h:.1f}"
+    if way in (False, None):
+        d += f" M{a + h:.1f},{y - h:.1f} L{a:.1f},{y:.1f} L{a + h:.1f},{y + h:.1f}"
+    svg.append(f'<path d="{d}" stroke-width="1.3"/>')
+    P.box(labels.text_box(xy[0], xy[1], "middle", ARROWS[way] * 2, size, "bold"))
+
+
 def draw_band(band, title, opts, top, left):
     cell, rowh = opts["cell"], opts["rowh"]
-    cell = opts.get("band_cell", {}).get((title or " ").split()[0], cell)      # a band can be stretched along its length
+    cell = opts.get("band_cell", {}).get(band_key(title), cell)      # a band can be stretched along its length
+    legend = band_legend(opts, title)
+    lead = 18 if legend else 0              # the band's own legend sits above its title, inside the band
     nodes, strands, R, x = band["nodes"], band["strands"], band["R"], band["x"]
     srow, nrow, diag = R["srow"], R["nrow"], R["diag"]
     x0, y0 = min(x.values()), min(srow.values())
@@ -29,7 +130,7 @@ def draw_band(band, title, opts, top, left):
         return left + (c - x0) * cell
 
     def Y(r):
-        return top + 30 + (r - y0) * rowh
+        return top + 30 + lead + (r - y0) * rowh
 
     # a band can be turned end for end (180 degrees): the line work is rotated, the lettering stays upright
     turned = (title or " ").split()[0] in opts.get("rotate_bands", ())
@@ -48,8 +149,14 @@ def draw_band(band, title, opts, top, left):
                     f'font-weight="{weight}" fill="#000" stroke="none" {extra}>{escape(str(s))}</text>')
 
     helix = []
+    if legend:
+        xl = left
+        for txt, _ in legend_texts(opts, *legend):
+            label(xl, top + 4, txt, 11, anchor="start", weight="bold", extra='letter-spacing="1.5"', fixed=True)
+            xl += labels.text_width(txt, 11, "bold", 1.5) + 24
     if title:
-        label(left, top + 4, title.upper(), 12, anchor="start", weight="bold", extra='letter-spacing="1.5"', fixed=True)
+        label(left, top + 4 + lead, title.upper(), 12, anchor="start", weight="bold", extra='letter-spacing="1.5"',
+              fixed=True)
 
     drawn = paths(band)
     cars = capacity.counts(band, opts)              # yard and stub tracks: how many cars each holds
@@ -83,6 +190,17 @@ def draw_band(band, title, opts, top, left):
                      for xx in ((a + q, a + 2 * q, (a + b) / 2) if right else (b - q, b - 2 * q, (a + b) / 2))]
             P.ask("track", arrow, 7.5, cands, weight="bold", spacing=0.4, room=[k for k in run if can_grow(band, k)],
                   emit=lambda xy, t=arrow: label(xy[0], xy[1], t, 7.5, anchor=xy[2], weight="bold", extra='letter-spacing="0.4"'))
+    mode = opts.get("track_arrows", {}).get(band_key(title))
+    if mode not in (None, "main", "listed"):
+        raise SchematicError(f"track_arrows for {band_key(title)} must be main or listed, not {mode!r}")
+    for row, xa, xb, way, run in track_runs(band, drawn, mode):     # which way trains run on each track
+        a, b = X(xa), X(xb)
+        q = (b - a) / 4
+        cands = [(xx, Y(row) + dy, "middle") for dy in (-5, 5 + 0.72 * 11 + 1)
+                 for xx in ((a + b) / 2, a + q, b - q, a + 0.6 * q, b - 0.6 * q)]
+        # placed like a label (its box is two arrow characters wide), drawn as line work so a turned band turns it
+        P.ask("track", ARROWS[way] * 2, 11, cands, weight="bold", room=[k for k in run if can_grow(band, k)],
+              emit=lambda xy, w=way: arrow_mark(svg, P, xy, w, 11))
     switch_numbers, switch_strands = {}, {}
     for n, d in nodes.items():
         if d["kind"] == "switch":
@@ -210,6 +328,11 @@ def draw_band(band, title, opts, top, left):
         a["emit"](xy)
     band["short"] = set(P.short)
     band["unplaced"] = list(P.unplaced)
+    if opts.get("band_gap") is not None:   # measured to the lowest label or mark, not just the lowest track row
+        ends = [b[3] for b in P.boxes] + [max(a[1], b[1]) + w / 2 for a, b, w in P.lines]
+        if turned:                          # turned end for end: what was highest is now lowest
+            ends = [2 * cy - b[1] for b in P.boxes] + [2 * cy - min(a[1], b[1]) + w / 2 for a, b, w in P.lines]
+        bottom = max([bottom] + ends)
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
@@ -427,10 +550,15 @@ def title_fields(opts):
 def page_svg(bands, opts):
     """The finished page as SVG text."""
     pw, ph, m = 1056, 816, 48
-    top, foot = 96, 100                       # clear of the direction legend and the title block
+    own_legends = any(band_key(title) in (own[0] if own else opts).get("band_legend", {}) for title, _, *own in bands)
+    top, foot = (56 if own_legends else 96), 100       # clear of the page's direction legend and the title block
     sized = []
     for title, band, *own in bands:           # measure first, so every band can be centred
         o = own[0] if own else opts
+        if own_legends:                       # each band says its own direction; no page legend
+            o = dict(o, _band_legends=True)
+        if opts.get("band_gap") is not None:  # a page setting: every band is measured to its lowest label
+            o = dict(o, band_gap=opts["band_gap"])
         _, w, bottom = draw_band(band, title, o, 0, 0)
         sized.append([title, band, o, w - 110, bottom])
     if opts.get("equal_width"):               # stretch the narrower bands along their length to match the widest
@@ -444,13 +572,13 @@ def page_svg(bands, opts):
             item[2] = dict(o, band_cell=dict(o.get("band_cell", {}), **{key: cell * factor}))
             _, w2, bottom = draw_band(band, title, item[2], 0, 0)
             item[3], item[4] = w2 - 110, bottom
-    gap = 78
+    gap = opts.get("band_gap", 78)            # band_gap also measures each band to its lowest label (draw_band)
     total_h = sum(h for *_, h in sized) + gap * (len(sized) - 1) + 30
     total_w = max(w for *_, w, _ in sized) + 120
     scale = min(1.0, (pw - 2 * m) / total_w, (ph - top - foot) / total_h)
     body, y = [], 30
     for title, band, o, w, h in sized:
-        side = opts.get("band_align", {}).get((title or " ").split()[0], "centre")
+        side = opts.get("band_align", {}).get(band_key(title), "centre")
         room = total_w - 120 - w
         left = 40 + {"left": 0, "right": room}.get(side, room / 2)
         left += opts.get("band_shift", {}).get((title or " ").split()[0], 0)      # owner's nudge, in drawing units
@@ -466,10 +594,11 @@ def page_svg(bands, opts):
            f'<g transform="translate({ox:.1f},{oy:.1f}) scale({scale:.4f})" fill="none" '
            f'stroke="#000" stroke-linecap="round" stroke-linejoin="round">'] + body + ["</g>"]
     cx = pw / 2
-    svg.append(f'<text x="{cx - 20}" y="62" font-size="15" text-anchor="end" font-weight="bold" letter-spacing="2">'
-               f'&#8592; {escape(opts["left"].upper())}</text>')
-    svg.append(f'<text x="{cx + 20}" y="62" font-size="15" text-anchor="start" font-weight="bold" letter-spacing="2">'
-               f'{escape(opts["right"].upper())} &#8594;</text>')
+    if not own_legends:                       # one legend for the page, east to the right (style rule 12)
+        svg.append(f'<text x="{cx - 20}" y="62" font-size="15" text-anchor="end" font-weight="bold" letter-spacing="2">'
+                   f'&#8592; {escape(opts["left"].upper())}</text>')
+        svg.append(f'<text x="{cx + 20}" y="62" font-size="15" text-anchor="start" font-weight="bold" letter-spacing="2">'
+                   f'{escape(opts["right"].upper())} &#8594;</text>')
     bx, by = 24, ph - 24 - 64
     fields = title_fields(opts)
     tw = max([330] + [math.ceil(labels.text_width(line.upper(), 14 if i == 0 else 11, "bold" if i == 0 else "normal", 1)) + 20
