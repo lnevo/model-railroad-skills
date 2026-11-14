@@ -9,6 +9,13 @@ from .layout import paths
 
 
 
+def can_grow(band, k):
+    """A strand R12 can lengthen: not a slope (its length follows the rows) and not a connector stub."""
+    nodes, strands = band["nodes"], band["strands"]
+    return k in strands and k not in band["R"]["diag"] and not any(
+        nodes[t].get("sub") == "link" for t in (strands[k]["src"][0], strands[k]["dst"][0]))
+
+
 def draw_band(band, title, opts, top, left):
     cell, rowh = opts["cell"], opts["rowh"]
     cell = opts.get("band_cell", {}).get((title or " ").split()[0], cell)      # a band can be stretched along its length
@@ -60,10 +67,10 @@ def draw_band(band, title, opts, top, left):
             mid, q = (xa + xb) / 2, (xb - xa) / 4
             cands = [(xx, yr + dy, "middle") for dy in (-5, 5 + 0.72 * opts["name_px"] + 1)
                      for xx in (mid, mid - q, mid + q, xa + 0.6 * q, xb - 0.6 * q)]
-            P.ask("track", s["name"].upper(), opts["name_px"], cands, spacing=0.4,
+            P.ask("track", s["name"].upper(), opts["name_px"], cands, spacing=0.4, room=[k] if can_grow(band, k) else [],
                   emit=lambda xy, t=s["name"].upper(): label(xy[0], xy[1], t, opts["name_px"], anchor=xy[2],
                                                                extra='letter-spacing="0.4"'))
-    switch_numbers = {}
+    switch_numbers, switch_strands = {}, {}
     for n, d in nodes.items():
         if d["kind"] == "switch":
             up, lo = legs(nodes, n)
@@ -75,6 +82,8 @@ def draw_band(band, title, opts, top, left):
             mine = [(xs + ddx * sg_, ys + ddy, "middle") for ddy in (dy, 20 - dy)
                     for ddx in (-7, 0, -13, 7, 13, -19)]
             switch_numbers.setdefault(d["label"], []).append((xs, ys, mine))
+            points = d["ins"].get("A") or d["outs"].get("A")     # the number sits by the points: that track grows
+            switch_strands.setdefault(d["label"], set()).update(q for q in (points,) if can_grow(band, q))
         elif d["kind"] == "dx":
             (iu_, _), (il_, _) = dx_tracks(nodes, n)
             r1, r2 = sorted((srow[iu_], srow[il_]))
@@ -175,10 +184,12 @@ def draw_band(band, title, opts, top, left):
             cands += [(mx + 6, my + 3, "start"), (mx - 6, my + 3, "end")]
         for _, _, mine in spots:
             cands += mine
-        P.ask("switch", num, opts["num_px"], cands, weight="bold",
+        P.ask("switch", num, opts["num_px"], cands, weight="bold", room=sorted(switch_strands.get(num, ())),
               emit=lambda xy, t=num: label(xy[0], xy[1], t, opts["num_px"], anchor=xy[2], weight="bold"))
     for a, xy in P.solve():
         a["emit"](xy)
+    band["short"] = set(P.short)
+    band["unplaced"] = list(P.unplaced)
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
@@ -288,7 +299,7 @@ def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg,
               for h in range(heads)]
     svg.append(f'<g transform="translate({cx:.1f},{cy:.1f}) rotate({deg:.1f})">' + "".join(parts) + "</g>")
     P.box(box)
-    P.ask("mast", sg["mast"], size, name_cands((cx, cy, deg, box)),
+    P.ask("mast", sg["mast"], size, name_cands((cx, cy, deg, box)),        # on a slope: no track to lengthen
           emit=lambda q, t=sg["mast"]: label(q[0], q[1], t, size, anchor=q[2]))
 
 
@@ -369,7 +380,7 @@ def draw_signals(band, drawn, opts, X, Y, svg, label, P):
         out_y = cy + (1 if cy > py else -1) * (r + 1 + 0.72 * opts["num_px"])     # outside the symbol, away from the track
         cands = [(px - tx * 2.5, yb, near_an), (far + tx * 2, yb, far_an),
                  ((px + far) / 2, out_y + (0.72 * opts["num_px"] if cy > py else 0), "middle")]
-        P.ask("mast", sg["mast"], opts["num_px"], cands,
+        P.ask("mast", sg["mast"], opts["num_px"], cands, room=[k] if can_grow(band, k) else [],
               emit=lambda xy, t=sg["mast"]: label(xy[0], xy[1], t, opts["num_px"], anchor=xy[2]))
 
 
