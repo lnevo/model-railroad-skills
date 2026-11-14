@@ -25,12 +25,16 @@ def far(e, n, port):
     return (e["v"], e["vp"]) if (e["u"], e["up"]) == (n, port) else (e["u"], e["up"])
 
 
-def edge_between(g, a, b, port=None):
+def edge_between(g, a, b, port=None, unique=False):
+    """The track between switches a and b (leaving a by `port` when given). With several, the longest, or with
+    `unique` an error asking for the leg."""
     n0, n1 = by_label(g, a), by_label(g, b)
     hits = [e for e in g["edges"] if {e["u"], e["v"]} == {n0, n1}
             and (port is None or (e["u"], e["up"]) == (n0, port) or (e["v"], e["vp"]) == (n0, port))]
     if not hits:
-        raise SchematicError(f"no track between {a} and {b}")
+        raise SchematicError(f"no track between {a} and {b}" + (f" leaving {a} by leg {port}" if port else ""))
+    if unique and len(hits) > 1:
+        raise SchematicError(f"{len(hits)} tracks join {a} and {b}; add the leg of {a} the track leaves by (A to D)")
     return max(hits, key=lambda e: e["cm"]), n0, n1
 
 

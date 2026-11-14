@@ -23,6 +23,9 @@ def band_key(title):
     return words[0] if words else ""
 
 
+BAND_SETTINGS = ("band_legend", "track_arrows", "rotate_bands", "band_cell", "band_align", "band_shift",
+                 "band_width", "band_order")      # settings that name bands by their key
+
 LEGENDS = {"normal": {"west": "left"}, "reversed": {"west": "right"}, "none": None}
 
 
@@ -135,7 +138,7 @@ def draw_band(band, title, opts, top, left):
         return top + 30 + lead + (r - y0) * rowh
 
     # a band can be turned end for end (180 degrees): the line work is rotated, the lettering stays upright
-    turned = (title or " ").split()[0] in opts.get("rotate_bands", ())
+    turned = band_key(title) in opts.get("rotate_bands", ())
     cx = (X(x0) + X(max(x.values()))) / 2
     cy = (Y(y0) + Y(max(srow.values()))) / 2
 
@@ -558,13 +561,19 @@ def page_svg(bands, opts):
     """The finished page as SVG text."""
     pw, ph, m = 1056, 816, 48
     names = {band_key(title) for title, *_ in bands}
+    seen = set()
     for o in [opts] + [own[0] for _, _, *own in bands if own]:   # a band named in these settings must exist
-        for key in ("band_legend", "track_arrows"):
-            unknown = set(o.get(key, {})) - names
+        if id(o) in seen:
+            continue
+        seen.add(id(o))
+        for key in BAND_SETTINGS:
+            unknown = set(o.get(key) or ()) - names
             if unknown:
                 raise SchematicError(f"{key} names {', '.join(sorted(unknown))}, which is not a band "
                                      f"(bands: {', '.join(sorted(names))})")
-    own_legends = any(band_key(title) in (own[0] if own else opts).get("band_legend", {}) for title, _, *own in bands)
+    own_legends = any(band_key(title) in (own[0] if own else opts).get("band_legend", {})
+                      or band_key(title) in (own[0] if own else opts).get("rotate_bands", ())
+                      for title, _, *own in bands)        # a turned band needs its own legend too
     top, foot = (56 if own_legends else 96), 100       # clear of the page's direction legend and the title block
     sized = []
     for title, band, *own in bands:           # measure first, so every band can be centred
@@ -579,7 +588,7 @@ def page_svg(bands, opts):
         widest = max(w for *_, w, _ in sized)
         for item in sized:
             title, band, o, w, _ = item
-            key = (title or " ").split()[0]
+            key = band_key(title)
             cell = o.get("band_cell", {}).get(key, o["cell"])
             share = opts.get("band_width", {}).get(key, 1.0)        # owner's hint: this band a little narrower
             factor = min(2.5, widest * share / max(w, 1))
@@ -595,7 +604,7 @@ def page_svg(bands, opts):
         side = opts.get("band_align", {}).get(band_key(title), "centre")
         room = total_w - 120 - w
         left = 40 + {"left": 0, "right": room}.get(side, room / 2)
-        left += opts.get("band_shift", {}).get((title or " ").split()[0], 0)      # owner's nudge, in drawing units
+        left += opts.get("band_shift", {}).get(band_key(title), 0)      # owner's nudge, in drawing units
         part, _, _ = draw_band(band, title, o, y, left)
         body += part
         y += h + gap

@@ -592,6 +592,8 @@ class BandFixes(unittest.TestCase):
         s = helpers.build()
         with self.assertRaisesRegex(SchematicError, "not a band"):
             draw.page_svg(s.bands, dict(s.opts, title=["x"], band_legend={"upper": "reversed"}))
+        with self.assertRaisesRegex(SchematicError, "rotate_bands names Uper"):
+            draw.page_svg(s.bands, dict(s.opts, title=["x"], rotate_bands=["Uper"]))
 
     def test_parallel_tracks_in_track_directions_stop(self):
         from schematic import sheet
@@ -601,6 +603,10 @@ class BandFixes(unittest.TestCase):
                  edges=[dict(u="p", up="B", v="q", vp="A", cm=50.0, id="e0"), dict(u="p", up="C", v="q", vp="B", cm=60.0, id="e1")])
         with self.assertRaisesRegex(SchematicError, "2 tracks join"):
             sheet.mark_ways(g, [["1", "2"]])
+        sheet.mark_ways(g, [["1", "2", "C"]])                  # the leg picks the track
+        self.assertEqual([e.get("way") for e in g["edges"]], [None, ("p", "q")])
+        sheet.mark_ways(g, [["1", "2", "both", "B"]])
+        self.assertEqual(g["edges"][0]["way"], "both")
 
 
 if __name__ == "__main__":
