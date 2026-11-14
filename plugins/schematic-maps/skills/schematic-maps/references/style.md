@@ -16,7 +16,7 @@ Read this when a reader asks "why is it drawn that way", wants to change the loo
 | Station bars under the track | drawn |
 | Open ends with "To X" | partly: arrow and name; no terminal dot |
 | Direction legend | drawn, once per page |
-| Title block | partly: name lines only, no date, revision or sheet number |
+| Title block | drawn: name lines, and date, revision and sheet number when set; no revision history block |
 | Labels in capitals, black on white | drawn |
 | Signal masts | drawn |
 | Capacity of yard tracks | not yet |
