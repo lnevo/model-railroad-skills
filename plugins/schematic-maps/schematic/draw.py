@@ -313,17 +313,14 @@ def draw_band(band, title, opts, top, left):
             lanes.append([])
         lanes[lane].append((a - 30, b + 30))
         yb = bottom + 34 + lane * lane_h
-        svg.append(f'<path d="M{a:.1f},{yb - 6} L{a:.1f},{yb} L{b:.1f},{yb} L{b:.1f},{yb - 6}" stroke-width="1.4"/>')
-        P.line((a, yb - 6), (a, yb), 1.4)
-        P.line((a, yb), (b, yb), 1.4)
-        P.line((b, yb), (b, yb - 6), 1.4)
+        bracket(svg, P, f"M{a:.1f},{yb - 6} L{a:.1f},{yb} L{b:.1f},{yb} L{b:.1f},{yb - 6}",
+                [(a, yb - 6), (a, yb), (b, yb), (b, yb - 6)])
         label((a + b) / 2, yb + 14, name.upper(), 12, weight="bold", extra='letter-spacing="1"')
         if totals.get(name):
             label((a + b) / 2, yb + 25, f"{totals[name]} CARS", 8, extra='letter-spacing="0.5"')
     bottom += 34 + len(lanes) * lane_h if lanes else 0
     if opts.get("signals"):
         draw_signals(band, drawn, opts, X, Y, svg, label, P)
-    draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow)
     for num, spots in switch_numbers.items():      # a crossover's two halves share one number, printed once
         cands = []
         if len(spots) == 2:
@@ -334,6 +331,7 @@ def draw_band(band, title, opts, top, left):
             cands += mine
         P.ask("switch", num, opts["num_px"], cands, weight="bold", room=sorted(switch_strands.get(num, ())),
               emit=lambda xy, t=num: label(xy[0], xy[1], t, opts["num_px"], anchor=xy[2], weight="bold"))
+    draw_control_points(band, drawn, opts, X, Y, svg, label, P)    # after every other ask, before the solve
     for a, xy in P.solve():
         a["emit"](xy)
     band["short"] = set(P.short)
@@ -349,80 +347,124 @@ def draw_band(band, title, opts, top, left):
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
 
 
-def _harm(P, a, b):
-    """How many pending labels a line a-b would leave with no free position (and had one before)."""
-    n = 0
-    for ask in P.asks:
-        boxes = [labels.text_box(x, y, an, ask["s"], ask["size"], ask["weight"], ask["spacing"])
-                 for x, y, an in ask["cands"]]
-        free = [bx for bx in boxes if P.clear(bx)]
-        if free and all(labels.seg_box_gap(a, b, bx) < 1.4 / 2 + labels.PAD for bx in free):
-            n += 1
-    return n
+def bracket(svg, P, d, pts, w=1.4):
+    """A square bracket (a station bar or an interlocking limit): its path, and its segments as obstacles."""
+    svg.append(f'<path d="{d}" stroke-width="{w}"/>')
+    for a, b in zip(pts, pts[1:]):
+        P.line(a, b, w)
+
+
+def cp_ref(ref):
+    """A switch as a control point lists it: text, without the star of a moved switch."""
+    return str(ref).rstrip("*")
+
+
+def cp_nodes(nodes, refs):
+    """{ref: [node ids]} of the switches and double crossovers a control point lists (a crossover's two halves
+    share one number, so one ref can name two nodes)."""
+    want = {cp_ref(r) for r in refs}
+    found = {r: [] for r in want}
+    for n, d in nodes.items():
+        if d["kind"] in ("switch", "dx") and cp_ref(d.get("label") or "") in want:
+            found[cp_ref(d["label"])].append(n)
+    return found
+
+
+def check_control_points(opts, bands, name):
+    """Every switch of every control point must be on a track of this input, and all on one band: a bracket
+    pair cannot be drawn across two sheets. `bands`: [(title, band, options)]. Raises SchematicError."""
+    for cp_name, cp in opts.get("control_points", {}).items():
+        where = {}
+        for title, band, _ in bands:
+            for ref, ids in cp_nodes(band["nodes"], cp["switches"]).items():
+                if ids:
+                    where.setdefault(ref, set()).add(title)
+        missing = sorted({cp_ref(r) for r in cp["switches"]} - set(where))
+        if missing:
+            raise SchematicError(f"control point {cp_name} ({name}): switch {', '.join(missing)} is not on the plan")
+        titles = sorted(set().union(*where.values()))
+        if len(titles) > 1:
+            raise SchematicError(f"control point {cp_name} ({name}) has switches on more than one band "
+                                 f"({', '.join(titles)}); a limit bracket needs one band")
 
 
 OFFSETS = (14, 20, 26, 32, 40, 50)      # how far outside the outermost switch a limit bracket may stand
+SERIF = 5
 
 
-def draw_control_points(band, drawn, opts, X, Y, svg, label, P, can_grow):
+def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
     """Interlocking limits (layer 1 `control_points`: {name: {"code": optional, "switches": [labels]}}).
 
     A square bracket stands across the tracks just outside the outermost switch at each end, from the top
-    track to the bottom track found at that spot, with its serifs turned toward the interlocking. The quoted
-    name (and the short code in brackets) is asked of the label placer like any other label, above the
-    brackets first, then below. Nothing is drawn when `control_points` is not set."""
-    nodes, x = band["nodes"], band["x"]
+    to the bottom of the tracks that run through the interlocking's switches, serifs turned inward. It stops
+    short of the next switch that is not the interlocking's and of a neighbour's bracket, and stands clear of
+    marks already placed (masts, helix box). The quoted name, with the short code in brackets, is asked of the
+    label placer like any other label, above the brackets first, then below. Nothing is drawn when
+    `control_points` is not set or the band holds none of the switches."""
+    nodes, x, srow, nrow = band["nodes"], band["x"], band["R"]["srow"], band["R"]["nrow"]
+    strands = band["strands"]
+    taken = []                                    # x of every bracket drawn on this band so far
     for name, cp in opts.get("control_points", {}).items():
-        members = set(cp["switches"])
-        xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in members]
-        if not xs:
+        mine = [n for ids in cp_nodes(nodes, cp["switches"]).values() for n in ids]
+        if not mine:
             continue
-        ys, room = [], set()
+        xs = [X(x[n]) for n in mine]
+        others = [X(x[n]) for n, d in nodes.items() if d["kind"] in ("switch", "dx") and n not in mine]
+        through = {k for k in drawn if k in mine or (k in strands and (strands[k]["src"][0] in mine
+                                                                         or strands[k]["dst"][0] in mine))}
 
         def span(ex):
-            """The heights at which drawn track crosses x = ex, and the strands that do."""
+            """Heights at which the interlocking's tracks cross x = ex, and those strands."""
             found = []
-            for k, pts in drawn.items():
-                for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
+            for k in through:
+                for (c1, r1), (c2, r2) in zip(drawn[k], drawn[k][1:]):
                     a, b = (X(c1), Y(r1)), (X(c2), Y(r2))
                     if min(a[0], b[0]) <= ex <= max(a[0], b[0]):
                         t = (ex - a[0]) / (b[0] - a[0]) if b[0] != a[0] else 0.0
                         found.append((a[1] + t * (b[1] - a[1]), k))
             return found
 
-        ends = []
+        free = []                                 # each pending label's free boxes, counted once per control point
+        for ask in P.asks:
+            boxes = [labels.text_box(px, py, an, ask["s"], ask["size"], ask["weight"], ask["spacing"])
+                     for px, py, an in ask["cands"]]
+            ok = [bx for bx in boxes if P.clear(bx)]
+            if ok:
+                free.append(ok)
+
+        ends, ys, room = [], [], set()
         for sign, edge in ((-1, min(xs)), (1, max(xs))):
+            stops = [abs(o - edge) for o in others + taken if sign * (o - edge) > 0]
+            cap = min(stops, default=OFFSETS[-1] + 1) - 6      # stop before a neighbouring switch or bracket
+            offs = [o for o in OFFSETS if o <= cap] or [max(cap, 3)]
             best = None
-            for off in OFFSETS:          # outward until the bracket takes no label's last free position
+            for off in offs:
                 ex = edge + sign * off
                 found = span(ex)
-                if not found:
-                    continue
-                top, bot = min(y for y, _ in found) - 9, max(y for y, _ in found) + 9
-                harm = _harm(P, (ex, top), (ex, bot))
-                if best is None or harm < best[0]:
-                    best = (harm, ex, found)
-                if not harm:
+                if found:
+                    top, bot = min(y for y, _ in found) - 9, max(y for y, _ in found) + 9
+                else:                              # no track leaves the interlocking this far: span its own rows
+                    rows = [Y(nrow[n]) for n in mine]
+                    top, bot = min(rows) - 9, max(rows) + 9
+                blocked = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in P.boxes)
+                harm = sum(all(labels.seg_box_gap((ex, top), (ex, bot), bx) < 1.4 / 2 + labels.PAD for bx in ok)
+                           for ok in free)
+                if best is None or (blocked, harm) < best[0]:
+                    best = ((blocked, harm), ex, top, bot, found)
+                if not blocked and not harm:
                     break
-            if best is None:
-                continue
-            ends.append(best[1])
-            ys += [y for y, _ in best[2]]
-            room.update(k for _, k in best[2])
-        if len(ends) < 2:
-            continue
-        if not ys:
-            continue
-        y1, y2 = min(ys) - 9, max(ys) + 9
-        for ex, dx in ((ends[0], 5), (ends[1], -5)):
-            svg.append(f'<path d="M{ex + dx:.1f},{y1:.1f} L{ex:.1f},{y1:.1f} L{ex:.1f},{y2:.1f} L{ex + dx:.1f},{y2:.1f}" '
-                       f'stroke-width="1.4"/>')
-            P.line((ex + dx, y1), (ex, y1), 1.4)
-            P.line((ex, y1), (ex, y2), 1.4)
-            P.line((ex, y2), (ex + dx, y2), 1.4)
+            _, ex, top, bot, found = best
+            ends.append((ex, top, bot, -SERIF * sign))
+            ys += [top, bot]
+            room.update(k for _, k in found)
+        for ex, top, bot, dx in ends:
+            bracket(svg, P, f"M{ex + dx:.1f},{top:.1f} L{ex:.1f},{top:.1f} L{ex:.1f},{bot:.1f} L{ex + dx:.1f},{bot:.1f}",
+                    [(ex + dx, top), (ex, top), (ex, bot), (ex + dx, bot)])
+            taken.append(ex)
+        y1, y2 = min(ys), max(ys)
         text = f'"{name.upper()}"' + (f" [{cp['code']}]" if cp.get("code") else "")
-        mid, size = (ends[0] + ends[1]) / 2, opts["name_px"]
-        quarter = (ends[1] - ends[0]) / 4
+        lo, hi = ends[0][0], ends[1][0]
+        mid, size, quarter = (lo + hi) / 2, opts["name_px"], (hi - lo) / 4
         cands = [(mx, yy, "middle") for yy in (y1 - 3, y1 - 3 - size - 2, y2 + size + 2, y2 + 2 * size + 4)
                  for mx in (mid, mid - quarter, mid + quarter)]
         P.ask("control point", text, size, cands, weight="bold", spacing=0.4,

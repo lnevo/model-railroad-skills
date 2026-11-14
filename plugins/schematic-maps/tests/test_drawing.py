@@ -609,16 +609,12 @@ class BandFixes(unittest.TestCase):
         self.assertEqual(g["edges"][0]["way"], "both")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class ControlPoints(unittest.TestCase):
     """Interlocking limits: layer 1 `control_points`, brackets across the tracks and a quoted name."""
 
     CP = {"control_points": {"Hollow": {"code": "HL", "switches": ["2", "6", "3"]},
-                             "Summit": {"switches": ["21", "22"]},
-                             "Ghost": {"switches": ["99"]}}}
+                             "Summit": {"switches": ["21", "22"]}}}
 
     def test_nothing_set_draws_the_same_sheet(self):
         self.assertNotIn('"HOLLOW"', helpers.build().svg())
@@ -629,9 +625,37 @@ class ControlPoints(unittest.TestCase):
         svg = sheet.svg()
         self.assertIn('"HOLLOW" [HL]', svg)
         self.assertIn('>"SUMMIT"<', svg)
-        self.assertNotIn("GHOST", svg)                       # a control point with no switch on the sheet is skipped
         self.assertEqual(label_check.check(svg)[0], [])
         plain = helpers.build().svg()
         self.assertEqual(svg.count("<path") - plain.count("<path"), 4)    # two brackets, two ends each
         for _, band, _ in sheet.bands:
             self.assertEqual(band["unplaced"], [])
+
+    def test_crossovers_integers_and_stars_match(self):
+        for sw in (["6"], [6], ["6*"], [2, "6", 3]):
+            svg = build_with(overrides={"control_points": {"X": {"switches": sw}}}).svg()
+            self.assertIn('>"X"<', svg, sw)
+
+    def test_a_switch_not_on_the_plan_is_an_error(self):
+        from schematic.core import SchematicError
+        with self.assertRaisesRegex(SchematicError, "control point Ghost.*switch 99"):
+            build_with(overrides={"control_points": {"Ghost": {"switches": ["2", "99"]}}})
+
+    def test_a_control_point_across_two_bands_is_refused(self):
+        from schematic.core import SchematicError
+        with self.assertRaisesRegex(SchematicError, "more than one band"):
+            build_with(overrides={"control_points": {"Both": {"switches": ["2", "21"]}}})
+
+    def test_brackets_stop_at_a_neighbouring_switch(self):
+        from schematic import draw
+        svg = build_with(overrides={"control_points": {"A": {"switches": ["2"]}, "B": {"switches": ["6"]}}}).svg()
+        self.assertIn('>"A"<', svg)
+        self.assertIn('>"B"<', svg)
+        self.assertEqual(label_check.check(svg)[0], [])
+        self.assertTrue(draw.OFFSETS)
+
+
+
+if __name__ == "__main__":
+    unittest.main()
+
