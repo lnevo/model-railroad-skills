@@ -159,6 +159,14 @@ def check(svg):
     return faults, len(T)
 
 
+def outside_frame(svg, frame=(24, 24, 1032, 792)):
+    """[(text, box)] of lettering that is not wholly inside the page border (the SVG text or a file name)."""
+    out = {"lines": [], "shapes": [], "texts": []}
+    root = ET.fromstring(svg) if str(svg).lstrip().startswith("<") else ET.parse(svg).getroot()
+    walk(root, (1.0, 0.0, 0.0, 1.0, 0.0, 0.0), out)
+    return [(t, b) for t, b in out["texts"] if b[0] < frame[0] or b[1] < frame[1] or b[2] > frame[2] or b[3] > frame[3]]
+
+
 def report(svg, listing=False):
     faults, n = check(svg)
     kinds = {}

@@ -357,6 +357,16 @@ def draw_band(band, title, opts, top, left):
             ends = [b[3] if i in unturned else 2 * cy - b[1] for i, b in enumerate(P.boxes)]
             ends += [2 * cy - min(a[1], b[1]) + w / 2 for a, b, w in P.lines]
         bottom = max([bottom] + ends)
+    pts = []                                # every box and line end as finally drawn: the band's real extent
+    for i, b in enumerate(P.boxes):
+        if turned and i not in unturned:
+            b = (2 * cx - b[2], 2 * cy - b[3], 2 * cx - b[0], 2 * cy - b[1])
+        pts += [(b[0], b[1]), (b[2], b[3])]
+    for a, b, w in P.lines:
+        if turned:
+            a, b = (2 * cx - a[0], 2 * cy - a[1]), (2 * cx - b[0], 2 * cy - b[1])
+        pts += [(min(a[0], b[0]) - w / 2, min(a[1], b[1]) - w / 2), (max(a[0], b[0]) + w / 2, max(a[1], b[1]) + w / 2)]
+    band["extent"] = (min(p_[0] for p_ in pts), min(p_[1] for p_ in pts), max(p_[0] for p_ in pts), max(p_[1] for p_ in pts))
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
     allrows = list(srow.values()) + list(nrow.values())
@@ -637,9 +647,17 @@ def page_svg(bands, opts):
             "; ".join(f"{t} cut at {', '.join(f'{c:.0f}' for c in cl)}" + ("" if ok else " (through something)")
                       for t, cl, ok in chosen["notes"]) +
             (f"; band_align ignored for {', '.join(sorted(shifted))}" if shifted else ""))
+    centred = None
+    if opts.get("centre") and len(sized) == 1 and not chosen:     # one band centred by what is really drawn (detail sheets)
+        title_, band_, o_ = sized[0][:3]
+        draw_band(band_, title_, o_, 0, 0)
+        x0, y0, x1, y1 = band_["extent"]
+        w_, h_ = x1 - x0 + 20, y1 - y0 + 20
+        scale = scale_of(w_, h_)
+        centred = ((pw - w_ * scale) / 2 - (x0 - 10) * scale, top + ((ph - top - foot) - h_ * scale) / 2 - (y0 - 10) * scale)
     infos = {i: sized[i][1].get("fold") for i, *_ in rows}     # as drawn at the origin, before any later draw
     once = {}                                  # a folded band is drawn once; each row is a window onto that drawing
-    body, y = [], 30
+    body, y = [], 0 if centred else 30
     for i, seg, number, count in rows:
         title, band, o, w, h = sized[i]
         if seg is None:
@@ -647,6 +665,8 @@ def page_svg(bands, opts):
             room = total_w - 120 - w
             left = 40 + {"left": 0, "right": room}.get(side, room / 2)
             left += opts.get("band_shift", {}).get(band_key(title), 0)      # owner's nudge, in drawing units
+            if centred:
+                left = 0
             part, _, _ = draw_band(band, title, o, y, left)
             body += part
         else:
@@ -670,6 +690,8 @@ def page_svg(bands, opts):
         y += h + gap
     ox = (pw - total_w * scale) / 2
     oy = top + ((ph - top - foot) - total_h * scale) / 2
+    if centred:
+        ox, oy = centred
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {pw} {ph}" width="{pw}" height="{ph}" '
            f'font-family="\'Helvetica Neue\',Helvetica,Arial,sans-serif">',
            f'<rect width="{pw}" height="{ph}" fill="#fff"/>',

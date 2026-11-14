@@ -165,6 +165,26 @@ class Cut(unittest.TestCase):
             want = capacity.station_totals(band, opts, band["x"], True).get(name)
             self.assertEqual(f"{want} CARS" in svg, bool(want), name)
 
+    def test_every_text_is_inside_the_frame_and_the_drawing_is_centred(self):
+        s = staged()
+        allo = [o for _, _, o in s.bands]
+        owner = detail.owners(allo)
+        for name, members in [("Yard", ["11", "12", "13"]), ("Junction", ["2", "6", "3"]), ("Loop", ["4", "5"]),
+                              ("West end", ["1", "2"]), ("Both", ["11", "12", "13", "2", "6", "3"])]:
+            svg, sub = detail.sheet_svg(s.bands, members, name, owner)
+            self.assertEqual(label_check.outside_frame(svg), [], name)
+            ox, oy, k = (float(v) for v in re.search(r"translate\(([-\d.]+),([-\d.]+)\) scale\(([\d.]+)\)", svg).groups())
+            x0, y0, x1, y1 = sub["extent"]
+            self.assertAlmostEqual(ox + k * (x0 + x1) / 2, 528, delta=1.5, msg=name)
+            self.assertAlmostEqual(oy + k * (y0 + y1) / 2, (96 + 716) / 2, delta=1.5, msg=name)
+
+    def test_arrow_text_past_the_left_edge_is_counted(self):
+        s = staged()
+        wide = [(t, b, dict(o, cell=70, rowh=40)) for t, b, o in s.bands]      # a coarse grid makes the sheet wide
+        svg, _ = detail.sheet_svg(wide, ["2", "6", "3"], "Junction", detail.owners([o for _, _, o in wide]))
+        self.assertEqual(label_check.outside_frame(svg), [])
+        self.assertTrue(label_check.outside_frame(svg.replace("translate(", "translate(-300+", 1).replace("translate(-300+", "translate(-300,0) translate(", 1)))
+
     def test_the_overall_sheet_is_untouched(self):
         before = helpers.build().svg()
         sheet_of("Yard")

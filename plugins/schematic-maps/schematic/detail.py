@@ -193,7 +193,7 @@ def detail_options(opts, title, name, inside, sub, pre):
         elif isinstance(v, (list, tuple)):
             out[k] = [b for b in v if b == key] if k in KEEP_SETTINGS else []
     out.pop("system_title", None)
-    out.update(stations=inside, equal_width=False, sheet=None, fold=False, _folds=[],
+    out.update(stations=inside, equal_width=False, sheet=None, fold=False, _folds=[], centre=True,
                title=[name, "Station detail sheet", title],
                max_scale=opts.get("detail_max_scale", DETAIL_SCALE), precomputed=pre,
                signals=cut_signals(opts, sub))
