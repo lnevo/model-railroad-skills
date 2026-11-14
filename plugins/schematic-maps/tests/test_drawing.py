@@ -651,6 +651,21 @@ class BandFixes(unittest.TestCase):
         level = draw.track_runs({"strands": strands}, {"s": [(0, 0), (1, 1), (3, 1)]}, None)
         self.assertEqual([(r[0], r[1], r[2]) for r in level], [(1, 1, 3)])               # a level piece wins
 
+    def test_a_band_split_by_a_stub_gets_one_arrow_per_run(self):
+        from schematic import direction, draw
+        strands = {k: dict(src=(k, "A"), dst=(k + "x", "B"), main=True, way=("a", "b")) for k in "pqs"}
+        drawn = {"p": [(0, 1), (3, 1)], "s": [(1, 1), (2, 1)], "q": [(3, 1), (6, 1)]}   # a stub drawn under the cells of p
+        runs = draw.track_runs({"strands": strands}, drawn, None)
+        self.assertEqual([(r[0], r[1], r[2]) for r in runs], [(1, 0, 6)])
+        self.assertEqual(sorted(runs[0][4]), ["p", "q", "s"])
+        nodes = {n: dict(sig=1, kind="switch") for n in ("p", "q", "s", "px", "qx", "sx")}
+        band = dict(nodes=nodes, strands={k: dict(strands[k], src=(k, "A"), dst=(k + "x", "A")) for k in "pqs"},
+                    rail={n: 1 for n in nodes})
+        west = direction.main_runs(band, drawn)
+        east = direction.main_runs(dict(band, rail={n: -1 for n in nodes}), drawn)
+        self.assertEqual(east, [])                                       # east to the right all along: no arrows
+        self.assertEqual([(r[0], r[1], r[2]) for r in west], [(1, 0, 6)])
+
 
 if __name__ == "__main__":
     unittest.main()

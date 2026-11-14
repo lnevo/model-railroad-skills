@@ -127,8 +127,8 @@ def main_runs(band, drawn):
         way = east_right(k)
         if way is None:
             continue
-        if runs and runs[-1][0] == row and runs[-1][3] == way and abs(runs[-1][2] - a) < 1e-6:
-            runs[-1] = (row, runs[-1][1], b, way, runs[-1][4] + [k])    # pieces that meet end to end are one run
+        if runs and runs[-1][0] == row and runs[-1][3] == way and a <= runs[-1][2] + 1e-6:
+            runs[-1] = (row, runs[-1][1], max(b, runs[-1][2]), way, runs[-1][4] + [k])    # pieces that meet or overlap are one run
         else:
             runs.append((row, a, b, way, [k]))
     return runs if any(not r[3] for r in runs) else []
