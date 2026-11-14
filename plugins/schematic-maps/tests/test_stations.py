@@ -50,12 +50,63 @@ class Entries(unittest.TestCase):
                          ({"stations": {"Y": {"switches": YARD, "colour": 1}}}, "colour"),
                          ({"stations": {"Y": {"tracks": []}}}, "needs `switches`"),
                          ({"stations": {"Y": 5}}, "list of switches or an object"),
-                         ({"stations": {"Y": YARD}, "station_side": {"Z": "top"}}, "Z, which is not a station")):
+                         ({"stations": {"Y": {"switches": "11"}}}, "switches must be a list")):
             with self.assertRaisesRegex(SchematicError, msg):
                 stations.entries(bad)
 
+    def test_a_scope_name_that_matches_no_input_stops_but_one_in_another_input_is_ignored(self):
+        a, b = {"stations": {"A": ["1"]}, "station_side": {"B": "top"}}, {"stations": {"B": ["2"]}}
+        stations.check([a, b])                                         # B is B's, so A just ignores it
+        self.assertEqual(stations.entries(a)["A"]["side"], "bottom")
+        with self.assertRaisesRegex(SchematicError, "station_side names Z, which is not a station"):
+            stations.check([dict(a, station_side={"Z": "top"}), b])
+        with self.assertRaisesRegex(SchematicError, "station_tracks names Z"):
+            stations.check([dict(a, station_tracks={"Z": []}), b])
+
+    def test_station_tracks_is_its_own_layer_1_key_and_wins_over_the_object(self):
+        e = stations.entries({"stations": {"Y": YARD}, "station_tracks": {"Y": ["y-1"]}})
+        self.assertEqual(e["Y"]["tracks"], {"Y-1"})
+        e = stations.entries({"stations": {"Y": {"switches": YARD, "tracks": ["Y-2"]}}, "station_tracks": {"Y": []}})
+        self.assertEqual(e["Y"]["tracks"], set())
+        self.assertEqual(stations.entries({"stations": {"Y": {"switches": YARD, "tracks": ["Y-2"]}}})["Y"]["tracks"], {"Y-2"})
+
+    def test_a_station_defined_differently_in_two_inputs_stops(self):
+        one, two = {"stations": {"Y": YARD}}, {"stations": {"Y": YARD}, "station_tracks": {"Y": ["Y-1"]}}
+        with self.assertRaisesRegex(SchematicError, "defined differently"):
+            stations.check([one, two])
+        with self.assertRaisesRegex(SchematicError, "defined differently"):
+            detail.owners([one, two])
+        with self.assertRaisesRegex(SchematicError, "defined differently"):
+            detail.selections([one, two])
+        stations.check([one, dict(one, station_side={"Y": "top"})])      # the look may differ
+
+    def test_a_joined_track_name_matches_whole_or_in_parts(self):
+        names = stations.track_names("Main / Passing")
+        self.assertEqual(names, {"MAIN / PASSING", "MAIN", "PASSING"})
+        self.assertTrue(stations.track_names("main / passing") & {"MAIN / PASSING"})
+
     def test_the_object_form_with_nothing_extra_draws_the_same_sheet(self):
         self.assertEqual(drawn({"Yard": YARD})[0], drawn({"Yard": {"switches": YARD}})[0])
+
+
+class Scope(unittest.TestCase):
+    def totals(self, st, **extra):
+        _, s = drawn(st, **extra)
+        _, band, opts = lower(s)
+        return capacity.station_totals(band, opts, band["x"])
+
+    def test_a_track_whose_west_switch_is_in_stations_that_do_not_list_it_counts_for_the_other_end(self):
+        gate = {"switches": ["1"], "tracks": ["Nope"]}
+        both = self.totals({"Gate": gate, "Plain": ["11"]})
+        alone = self.totals({"Plain": ["11"]})
+        self.assertTrue(alone["Plain"])
+        self.assertEqual(both["Plain"], alone["Plain"])        # Yard Lead runs from switch 1 to 11: 11's station counts it
+        self.assertNotIn("Gate", both)
+
+    def test_station_tracks_and_the_object_form_count_alike(self):
+        a = self.totals({"Few": {"switches": YARD, "tracks": ["Y-1"]}})
+        self.assertEqual(self.totals({"Few": YARD}, station_tracks={"Few": ["Y-1"]}), a)
+        self.assertTrue(a["Few"])
 
 
 class Totals(unittest.TestCase):
@@ -86,6 +137,24 @@ class Totals(unittest.TestCase):
 
 
 class Bars(unittest.TestCase):
+    def test_side_means_the_drawn_side_on_a_band_turned_end_for_end(self):
+        for side, above in (("top", True), ("bottom", False)):
+            svg, _ = drawn({"Yard": YARD}, station_side={"Yard": side}, rotate_bands=["Lower"])
+            self.assertEqual(text_y(svg, "YARD") < text_y(svg, "Y-1"), above, side)
+            self.assertEqual(label_check.check(svg)[0], [], side)
+            self.assertEqual(label_check.outside_frame(svg), [], side)
+
+    def test_a_detail_sheet_of_a_turned_band_keeps_the_side(self):
+        _, s = drawn({"Yard": YARD}, station_side={"Yard": "top"}, rotate_bands=["Lower"])
+        svg, _ = detail.sheet_svg(s.bands, YARD, "Yard", detail.owners([o for _, _, o in s.bands]))
+        self.assertLess(text_y(svg, "YARD"), text_y(svg, "Y-1"))
+        self.assertEqual(label_check.check(svg)[0], [])
+
+    def test_a_listed_track_that_does_not_touch_the_station_does_not_widen_the_bar(self):
+        plain, _ = drawn({"W": ["13"]})
+        far, _ = drawn({"W": {"switches": ["13"], "tracks": ["Y-1"]}})          # Y-1 runs off switch 11, not 13
+        self.assertEqual(BAR.findall(plain), BAR.findall(far))
+
     def test_a_bar_on_top_stands_above_the_band_and_nothing_collides(self):
         bottom, _ = drawn({"Yard": YARD})
         top, s = drawn({"Yard": YARD}, station_side={"Yard": "top"})

@@ -173,9 +173,11 @@ def draw_band(band, title, opts, top, left):
     turned = band_key(title) in opts.get("rotate_bands", ())
     pre = opts.get("precomputed", {})              # a detail sheet is handed the whole band's counts
     totals = pre["totals"] if "totals" in pre else capacity.station_totals(band, opts, x, turned)
-    bars = plan_bars(band, opts, X, totals)
+    bars = plan_bars(band, opts, X, totals, turned)
     lane_h = 40 if totals else 30
     n_top = 1 + max((b[4] for b in bars if b[1] == "top"), default=-1)
+    if turned:       # the turn brings the bars below the tracks to the top, where the title is: keep room on that side too
+        n_top = max(n_top, 1 + max((b[4] for b in bars if b[1] == "bottom"), default=-1))
     shift = 42 + (n_top - 1) * lane_h if n_top else 0       # room above the first track for the bars on top
 
     def Y(r):
@@ -418,9 +420,11 @@ def draw_band(band, title, opts, top, left):
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
 
 
-def plan_bars(band, opts, X, totals):
+def plan_bars(band, opts, X, totals, turned=False):
     """[(station, side, left x, right x, lane)] for each station bar. A bar spans its switches, and the whole of
-    the tracks it lists; bars that overlap along the band stack in lanes, on each side separately."""
+    the tracks it lists that touch its switches; bars that overlap along the band stack in lanes, on each side
+    separately. `side` is the side as drawn, so on a band turned end for end the bar is laid out on the opposite side
+    and the turn brings it to the side asked for."""
     nodes, strands, x = band["nodes"], band["strands"], band["x"]
     lanes = {"top": [], "bottom": []}
     out = []
@@ -428,16 +432,16 @@ def plan_bars(band, opts, X, totals):
         xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in e["switches"]]
         if not xs:
             continue
-        if e["tracks"]:
-            xs += [X(x[n]) for s in strands.values() if stations.track_names(s["name"]) & e["tracks"]
-                   for n in (s["src"][0], s["dst"][0]) if n in x]
+        xs += [X(x[n]) for sid in stations.listed_strands(band, e)
+               for n in (strands[sid]["src"][0], strands[sid]["dst"][0]) if n in x]
         a, b = min(xs) - 10, max(xs) + 10
-        taken = lanes[e["side"]]
+        side = e["side"] if not turned else {"top": "bottom", "bottom": "top"}[e["side"]]
+        taken = lanes[side]
         lane = next((i for i, used in enumerate(taken) if all(b < p or a > q for p, q in used)), len(taken))
         if lane == len(taken):
             taken.append([])
         taken[lane].append((a - 30, b + 30))
-        out.append((name, e["side"], a, b, lane))
+        out.append((name, side, a, b, lane))
     return out
 
 

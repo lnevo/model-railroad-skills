@@ -125,12 +125,15 @@ def station_totals(band, opts, x, turned=False):
                 if nodes[e].get("kind") == "switch" and nodes[e].get("label") in by_switch}
         if not ends:
             continue
-        west = (max if turned else min)(ends, key=lambda e: x.get(e, 0))
-        credited = [name for name in by_switch[nodes[west]["label"]] if st[name]["tracks"] is None]
+        legacy = []                         # stations without `tracks`: the west end switch's, else the next one along
+        for e in sorted(ends, key=lambda e: x.get(e, 0), reverse=turned):
+            legacy = [name for name in by_switch[nodes[e]["label"]] if st[name]["tracks"] is None]
+            if legacy:
+                break
         named = set().union(*(stations.track_names(strands[m]["name"]) for m in members))
         touching = {nodes[e]["label"] for e in ends}
-        credited += [name for name, e in st.items() if e["tracks"] is not None and named & e["tracks"]
-                     and touching & set(e["switches"])]
+        credited = legacy + [name for name, e in st.items() if e["tracks"] is not None and named & e["tracks"]
+                             and touching & set(e["switches"])]
         for name in dict.fromkeys(credited):
             out[name] = out.get(name, 0) + n
     return out

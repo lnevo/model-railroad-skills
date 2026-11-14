@@ -40,6 +40,7 @@ def find_band(bands, members):
 def owners(all_opts):
     """{switch label: [(station, tracks)]} over every station of every input, in listed order; `tracks` is the station's
     own track list or None. Stations may overlap, so a switch can have several."""
+    stn.check(all_opts)
     out = {}
     for o in all_opts:
         for name, e in stn.entries(o).items():
@@ -168,7 +169,7 @@ def precomputed(band, opts, take, inside, turned):
     everyone = {st: stn.plain(e) for st, e in stn.entries(opts).items()}
     for st, entry in inside.items():
         everyone.setdefault(st, entry)
-    totals = capacity.station_totals(band, dict(opts, stations=everyone, station_side={}), band["x"], turned)
+    totals = capacity.station_totals(band, dict(opts, stations=everyone, station_side={}, station_tracks={}), band["x"], turned)
     return {"cars": cars, "totals": {st: totals[st] for st in inside if totals.get(st)}}
 
 
@@ -200,7 +201,7 @@ def detail_options(opts, title, name, inside, sub, pre):
         elif isinstance(v, (list, tuple)):
             out[k] = [b for b in v if b == key] if k in KEEP_SETTINGS else []
     out.pop("system_title", None)
-    out.update(stations=inside, station_side={}, equal_width=False, show_limits=True, sheet=None, fold=False, _folds=[], centre=True,
+    out.update(stations=inside, station_side={}, station_tracks={}, equal_width=False, show_limits=True, sheet=None, fold=False, _folds=[], centre=True,
                title=[name, "Station detail sheet", title],
                max_scale=opts.get("detail_max_scale", DETAIL_SCALE), precomputed=pre,
                signals=cut_signals(opts, sub))
@@ -232,6 +233,7 @@ def selections(opts_list, stations=None, switches=None, name=None):
     one, else the `stations` preference."""
     if switches and stations:
         raise SchematicError("--station and --switches are two ways to choose; use one")
+    stn.check(opts_list)
     key = "detail_sheets" if any(o.get("detail_sheets") for o in opts_list) else "stations"
     known = {}
     for o in opts_list:
