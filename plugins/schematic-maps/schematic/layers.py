@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 
 # Lists that collect entries across layers; any other list (a title, a band order) is one value and is replaced.
-APPEND = {"edits", "min_cells", "keep_close", "shorten", "main_route", "signals_planned"}
+APPEND = {"edits", "min_cells", "keep_close", "shorten", "main_route", "signals_planned", "track_directions"}
 
 
 def merge(a, b):

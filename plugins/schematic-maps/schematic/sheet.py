@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 
 from . import columns, direction, draw, edits, layers, layout
+from .core import SchematicError
 from .draw import DEFAULTS
 
 ROOM_ROUNDS = 3     # how many times labels may claim more room before the sheet is drawn as it stands
@@ -59,6 +60,16 @@ def mark_helix(g, opts):
                 d["side"] = opts["helix_side"]
 
 
+def mark_ways(g, specs):
+    """Layer 1 `track_directions`: [from, to] is a track trains run one way on, from switch `from` toward `to`;
+    [a, b, "both"] runs both ways. The way rides on the track through the cut into levels and folds."""
+    for spec in specs:
+        if not isinstance(spec, list) or len(spec) not in (2, 3) or spec[2:] not in ([], ["both"]):
+            raise SchematicError(f'track_directions entry must be [from, to] or [a, b, "both"], not {spec!r}')
+        e, n0, n1 = edits.edge_between(g, str(spec[0]), str(spec[1]))
+        e["way"] = "both" if spec[2:] else (n0, n1)
+
+
 def level_bands(g, opts, level_name):
     """[(title, subgraph)] for one input: cut into levels when layer 1 says how, else one band."""
     if opts.get("levels") and opts["levels"].get("bands"):
@@ -77,6 +88,7 @@ def build_input(graph, name, opts, tracks, log):
         edits.mark_main(g, opts["main_route"])
         for e in g["edges"]:
             e["main"] = e["main"] or e["id"] in keep
+    mark_ways(g, opts.get("track_directions", ()))
     rail = {}
     if opts.get("main_route") and (opts.get("facing_letters") or opts.get("direction_arrows")):
         rail, conflicts = direction.east(g, opts["main_route"], lambda r: edits.by_label(g, r))
