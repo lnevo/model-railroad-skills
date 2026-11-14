@@ -73,7 +73,7 @@ class DetailSheets(unittest.TestCase):
         s = staged()
         allo = [o for _, _, o in s.bands]
         svg, sub = detail.sheet_svg(s.bands, self.SHEETS["Whole"], "Whole", detail.owners(allo))
-        self.assertEqual(sorted(sub["precomputed"]["totals"]), ["Yard"])      # Junction has no cars; Throat is not inside
+        self.assertEqual(sorted(sub["precomputed"]["totals"]), ["Junction", "Yard"])      # Throat is not wholly inside
         for st in ("YARD", "JUNCTION"):
             self.assertIn(st, svg)
         self.assertIn("CARS", svg)
