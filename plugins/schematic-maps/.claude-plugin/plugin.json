@@ -1,6 +1,6 @@
 {
   "name": "schematic-maps",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Draw a model railroad's track as a clean schematic diagram from a track plan and a JMRI Layout Editor panel: levels, yard ladders, loops, helixes and signal masts, checked for crossings and overlapping labels.",
   "author": {
     "name": "lnevo"
