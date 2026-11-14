@@ -116,3 +116,33 @@ class MastAtPoints(unittest.TestCase):
         from schematic.draw import slope_at_points
         self.assertIsNone(slope_at_points([(100, 50), (60, 50), (10, 0)], 0.0, 14))
         self.assertIsNone(slope_at_points([(100, 0), (50, 50), (0, 50)], 30.0, 14))
+
+
+class SlopedMastStrict(unittest.TestCase):
+    """On a long slope at the points the mast is drawn along the slope, on the right-hand side of the move; when
+    the slope has no room the caller is told, so it can fall back to the level stretch."""
+
+    def draw(self, P):
+        from schematic.draw import draw_sloped_signal
+        svg = []
+        sg = dict(mast="34R", kind="field", heads=2)
+        ok = draw_sloped_signal(sg, [(100, 0), (30, 70)], 1.5, 2, 3.6, 4.0, 8.0, 2.0, "", dict(num_px=8), svg,
+                                lambda *a, **k: "", P, strict=True)
+        return ok, svg
+
+    def test_drawn_along_the_slope_on_the_right_hand_side(self):
+        from schematic import labels
+        ok, svg = self.draw(labels.Placer())
+        self.assertTrue(ok)
+        self.assertIn("rotate(-45.0)", svg[0])           # pointing back up the slope, toward the switch
+        x, y = (float(v) for v in svg[0].split("translate(")[1].split(")")[0].split(","))
+        self.assertGreater(x + y, 100)                   # below and right of the line x + y = 100
+
+    def test_no_room_draws_nothing(self):
+        from schematic import labels
+        P = labels.Placer()
+        for d in range(-20, 21, 2):                      # lines laid over both sides of the slope
+            P.lines.append(((100 + d, 0 + d), (30 + d, 70 + d), 1.0))
+        ok, svg = self.draw(P)
+        self.assertFalse(ok)
+        self.assertEqual(svg, [])
