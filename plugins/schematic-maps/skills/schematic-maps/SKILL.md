@@ -45,6 +45,10 @@ Declared ends are layer 1 facts that outrank the fault count: `left_end` is the 
 
 Settings that are tuning, not per-switch hints: `ladder_link_max_cm` (40) and `long_track_cm` (100), in the overrides.
 
+## References
+
+`references/style.md` has the drafting style, one rule at a time, with the examples it comes from and which rules the command draws and which it does not yet (capacity, mileposts, interlocking limits, date and revision, folding a long band). Read it when asked why the sheet looks as it does or for something it does not show. `references/cats-grid.md` is the CATS Designer's cell rules, for a later step that seeds a CATS panel from the grid; the command does not do that.
+
 ## Pitfalls
 
 - A hop in `main_route` written `[from, to, "direct"]` marks every track between the two; one written `[from, to]` takes the shortest. Through a double crossover use the shortest form unless both tracks are main.
