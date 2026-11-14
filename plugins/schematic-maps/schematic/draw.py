@@ -1,6 +1,7 @@
 """Drawing: bands, masts and the page, as SVG in the NYAMR Physical Characteristics Book style."""
 import collections  # noqa: F401
 import math
+from xml.sax.saxutils import escape
 
 from . import labels
 from .core import dedupe, dx_tracks, legs, other_end  # noqa: F401
@@ -36,7 +37,7 @@ def draw_band(band, title, opts, top, left):
             xp, yp = 2 * cx - xp, 2 * cy - yp + size * 0.7
             anchor = {"start": "end", "end": "start"}.get(anchor, anchor)
         text.append(f'<text x="{xp:.1f}" y="{yp:.1f}" font-size="{size}" text-anchor="{anchor}" '
-                    f'font-weight="{weight}" fill="#000" stroke="none" {extra}>{s}</text>')
+                    f'font-weight="{weight}" fill="#000" stroke="none" {extra}>{escape(str(s))}</text>')
 
     helix = []
     if title:
@@ -93,7 +94,7 @@ def draw_band(band, title, opts, top, left):
                 mine = next(strands[q]["name"] for q in strands if n in (strands[q]["src"][0], strands[q]["dst"][0]))
                 tag = "H" + str(1 + tracks.index(mine))
             if d.get("sub") == "helix" and style == "box":
-                helix.append((xe, ye, d.get("to", "")))
+                helix.append((xe, ye, d.get("to", ""), dirx))
             elif d.get("sub") == "helix" and style == "coil":       # three turns of a coil on the track, then its letter
                 for k in range(3):
                     svg.append(f'<ellipse cx="{xe + (7 + 7 * k) * dirx:.1f}" cy="{ye:.1f}" rx="6" ry="9" stroke-width="1.6"/>')
@@ -114,7 +115,14 @@ def draw_band(band, title, opts, top, left):
                 svg.append(f'<circle cx="{xe + 9 * dirx:.1f}" cy="{ye:.1f}" r="8" stroke-width="1.4" fill="#fff"/>')
                 P.box((xe + 9 * dirx - 9, ye - 9, xe + 9 * dirx + 9, ye + 9))
                 label(xe + 9 * dirx, ye + 3.5, d["label"], 10, weight="bold")
-                label(xe + 9 * dirx, ye + 19, "TO " + d["to"].upper(), 6)      # under the circle, clear of the track
+                cx_, txt = xe + 9 * dirx, "TO " + d["to"].upper()      # under the circle, or above it, or beside it
+                P.ask("connector", txt, 6, [(cx_, ye + 19, "middle"), (cx_, ye - 12, "middle"),
+                                            (cx_ + 11 * dirx, ye + 19, "start" if dirx == 1 else "end"),
+                                            (cx_ - 11 * dirx, ye + 19, "end" if dirx == 1 else "start"),
+                                            (cx_, ye + 29, "middle"), (cx_, ye - 21, "middle"),
+                                            (cx_ + 11 * dirx, ye - 12, "start" if dirx == 1 else "end"),
+                                            (cx_ - 11 * dirx, ye - 12, "end" if dirx == 1 else "start")],
+                      emit=lambda xy, t=txt: label(xy[0], xy[1], t, 6, anchor=xy[2]))
             elif d.get("sub") == "open":
                 svg.append(f'<path d="M{xe:.1f},{ye:.1f} m{-6 * dirx},-5 l{6 * dirx},5 l{-6 * dirx},5" stroke-width="1.6"/>')
                 if d.get("label"):
@@ -123,6 +131,38 @@ def draw_band(band, title, opts, top, left):
             else:
                 svg.append(f'<path d="M{xe:.1f},{ye - 5:.1f} L{xe:.1f},{ye + 5:.1f}" stroke-width="2.4"/>')
                 P.line((xe, ye - 5), (xe, ye + 5), 2.4)
+    # the helix box and the station brackets are drawn before the labels are placed, so labels keep clear of them
+    if helix:          # one box where this band's helix tracks end
+        east = helix[0][3] == 1         # the box sits beyond the end, on the side the track ends toward
+        bx = max(h[0] for h in helix) + 6 if east else min(h[0] for h in helix) - 6 - 58
+        mid_x = bx + 29
+        y1, y2 = min(h[1] for h in helix) - 12, max(h[1] for h in helix) + 12
+        for xe, ye, *_ in helix:
+            far = bx if east else bx + 58
+            svg.append(f'<path d="M{xe:.1f},{ye:.1f} L{far:.1f},{ye:.1f}" stroke-width="{opts["main_w"]}"/>')
+            P.line((xe, ye), (far, ye), opts["main_w"])
+        svg.append(f'<rect x="{bx:.1f}" y="{y1:.1f}" width="58" height="{y2 - y1:.1f}" rx="5" fill="#fff" stroke-width="1.8"/>')
+        P.box((bx - 1, y1 - 1, bx + 59, y2 + 1))
+        label(mid_x, (y1 + y2) / 2 + 1, "HELIX", 10, weight="bold", extra='letter-spacing="1.5"')
+        label(mid_x, (y1 + y2) / 2 + 11, "TO " + helix[0][2].upper(), 5.5)
+    bottom = Y(max(srow.values()))
+    lanes = []
+    for name, members in opts.get("stations", {}).items():
+        xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in members]
+        if not xs:
+            continue
+        a, b = min(xs) - 10, max(xs) + 10
+        lane = next((i for i, taken in enumerate(lanes) if all(b < p or a > q for p, q in taken)), len(lanes))
+        if lane == len(lanes):
+            lanes.append([])
+        lanes[lane].append((a - 30, b + 30))
+        yb = bottom + 34 + lane * 30
+        svg.append(f'<path d="M{a:.1f},{yb - 6} L{a:.1f},{yb} L{b:.1f},{yb} L{b:.1f},{yb - 6}" stroke-width="1.4"/>')
+        P.line((a, yb - 6), (a, yb), 1.4)
+        P.line((a, yb), (b, yb), 1.4)
+        P.line((b, yb), (b, yb - 6), 1.4)
+        label((a + b) / 2, yb + 14, name.upper(), 12, weight="bold", extra='letter-spacing="1"')
+    bottom += 34 + len(lanes) * 30 if lanes else 0
     if opts.get("signals"):
         draw_signals(band, drawn, opts, X, Y, svg, label, P)
     for num, spots in switch_numbers.items():      # a crossover's two halves share one number, printed once
@@ -138,29 +178,6 @@ def draw_band(band, title, opts, top, left):
     for a, xy in P.solve():
         a["emit"](xy)
     band.setdefault("label_faults", []).extend(P.unplaced)
-    if helix:          # one box where this band's helix tracks end
-        bx = max(h[0] for h in helix) + 6
-        y1, y2 = min(h[1] for h in helix) - 12, max(h[1] for h in helix) + 12
-        for xe, ye, _ in helix:
-            svg.append(f'<path d="M{xe:.1f},{ye:.1f} L{bx:.1f},{ye:.1f}" stroke-width="{opts["main_w"]}"/>')
-        svg.append(f'<rect x="{bx:.1f}" y="{y1:.1f}" width="58" height="{y2 - y1:.1f}" rx="5" fill="#fff" stroke-width="1.8"/>')
-        label(bx + 29, (y1 + y2) / 2 + 1, "HELIX", 10, weight="bold", extra='letter-spacing="1.5"')
-        label(bx + 29, (y1 + y2) / 2 + 11, "TO " + helix[0][2].upper(), 5.5)
-    bottom = Y(max(srow.values()))
-    lanes = []
-    for name, members in opts.get("stations", {}).items():
-        xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in members]
-        if not xs:
-            continue
-        a, b = min(xs) - 10, max(xs) + 10
-        lane = next((i for i, taken in enumerate(lanes) if all(b < p or a > q for p, q in taken)), len(lanes))
-        if lane == len(lanes):
-            lanes.append([])
-        lanes[lane].append((a - 30, b + 30))
-        yb = bottom + 34 + lane * 30
-        svg.append(f'<path d="M{a:.1f},{yb - 6} L{a:.1f},{yb} L{b:.1f},{yb} L{b:.1f},{yb - 6}" stroke-width="1.4"/>')
-        label((a + b) / 2, yb + 14, name.upper(), 12, weight="bold", extra='letter-spacing="1"')
-    bottom += 34 + len(lanes) * 30 if lanes else 0
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
@@ -371,14 +388,14 @@ def page_svg(bands, opts):
            f'stroke="#000" stroke-linecap="round" stroke-linejoin="round">'] + body + ["</g>"]
     cx = pw / 2
     svg.append(f'<text x="{cx - 20}" y="62" font-size="15" text-anchor="end" font-weight="bold" letter-spacing="2">'
-               f'&#8592; {opts["left"].upper()}</text>')
+               f'&#8592; {escape(opts["left"].upper())}</text>')
     svg.append(f'<text x="{cx + 20}" y="62" font-size="15" text-anchor="start" font-weight="bold" letter-spacing="2">'
-               f'{opts["right"].upper()} &#8594;</text>')
+               f'{escape(opts["right"].upper())} &#8594;</text>')
     bx, by = 24, ph - 24 - 64
     svg.append(f'<rect x="{bx}" y="{by}" width="330" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>')
     for i, line in enumerate(opts["title"]):
         svg.append(f'<text x="{bx + 10}" y="{by + 20 + i * 18}" font-size="{14 if i == 0 else 11}" '
-                   f'font-weight="{"bold" if i == 0 else "normal"}" letter-spacing="1">{line.upper()}</text>')
+                   f'font-weight="{"bold" if i == 0 else "normal"}" letter-spacing="1">{escape(line.upper())}</text>')
     svg.append("</svg>")
     return "\n".join(svg)
 

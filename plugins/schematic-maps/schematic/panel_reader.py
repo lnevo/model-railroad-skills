@@ -12,6 +12,7 @@ segment on v's side]), so masts on block boundaries can be found on it. A double
 (ident + "a", ident + "b") joined by a link edge.
 """
 import csv
+from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
@@ -20,12 +21,12 @@ from .plan_reader import PlanError, cross, unit
 
 def load_numbers(path):
     """Switch numbers by Layout Editor ident, from a CSV with the columns le_ident and switch."""
-    return {r["le_ident"]: r["switch"] for r in csv.DictReader(open(path, newline=""))}
+    return {r["le_ident"]: r["switch"] for r in csv.DictReader(Path(path).read_text().splitlines())}
 
 
 def load_lengths(path):
     """Block lengths in inches by block user name, from a CSV with the columns user_name and inches."""
-    return {r["user_name"]: float(r["inches"]) for r in csv.DictReader(open(path, newline="")) if r["inches"]}
+    return {r["user_name"]: float(r["inches"]) for r in csv.DictReader(Path(path).read_text().splitlines()) if r["inches"]}
 
 
 def find_panel(root, name=None):

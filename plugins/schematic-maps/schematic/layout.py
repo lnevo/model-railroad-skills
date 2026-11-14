@@ -86,11 +86,17 @@ def layout_one(g, sig, T, opts, warnings):
     if opts.get("rule_rows", True):         # R7: second pass, keeping rows apart only for runs that overlap
         sp = spans(nodes, strands, band["R"], band["x"], band["need"])
         again, rows2 = settle(sp)
-        if len(faults(again)) <= len(faults(band)) and rows2.dropped <= rows.dropped:
+        if extent(again, rows2) < extent(band, rows):      # kept only when it draws no worse and uses less room
             band, rows = again, rows2
     if rows.dropped:
         warnings.append(f"{rows.dropped} above/below rules dropped where the layout is not flat")
     return band
+
+
+def extent(band, rows):
+    """How good a drawing is, smaller being better: faults, dropped rules, rows used, then columns."""
+    srow, x = band["R"]["srow"], band["x"]
+    return (len(faults(band)), rows.dropped, max(srow.values()) - min(srow.values()), max(x.values()) - min(x.values()))
 
 
 def slope_rules(band, ev):

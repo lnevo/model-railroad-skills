@@ -39,8 +39,8 @@ def load(name, data, preferences=True, hints=False):
     for kind, on in (("plan_overrides", True), ("hints", hints), ("preferences", preferences)):
         path = Path(data) / f"{name}.{kind}.json"
         if on and path.exists():
-            opts = merge(opts, json.load(open(path)))
+            opts = merge(opts, json.loads(path.read_text()))
     sig = Path(data) / f"{name}.signals.json"      # layer 1 too, generated from the panel by signal_reader.py
     if sig.exists():
-        opts["signals"] = json.load(open(sig))["signals"]
+        opts["signals"] = json.loads(sig.read_text())["signals"]
     return opts
