@@ -130,6 +130,35 @@ class Labels(unittest.TestCase):
         self.assertEqual(p.unplaced, [])
 
 
+class EndRules(unittest.TestCase):
+    """Layer 1 facts about a level's ends decide the orientation before the fault count does."""
+
+    def bands(self, **over):
+        from schematic import sheet
+        o = sheet.options("example", helpers.data_with_signals(), False)
+        o.update(over)
+        o["helix_style"] = "box"
+        return {t: b for t, b, _ in sheet.build_bands([(helpers.graph(), "example")], [o], [])}
+
+    def end_x(self, band, pred):
+        xs = [x for n, x in band["x"].items() if band["nodes"][n]["kind"] == "end" and pred(band["nodes"][n], n, band)]
+        mid = (min(band["x"].values()) + max(band["x"].values())) / 2
+        return [x - mid for x in xs]
+
+    def test_an_east_helix_comes_out_on_the_right_and_a_west_helix_on_the_left(self):
+        for side, sign in (("east", 1), ("west", -1)):
+            for title, b in self.bands(helix_side=side).items():
+                xs = self.end_x(b, lambda d, n, band: d.get("sub") == "helix")
+                self.assertTrue(xs and all(sign * x > 0 for x in xs), (side, title, xs))
+
+    def test_a_declared_west_end_comes_out_on_the_left(self):
+        for name in ("Siding", "Spur"):
+            b = self.bands(left_end=name, helix={}, helix_side=None, main_route=[["21", "22", "direct"]])["Upper level"]
+            node = next(n for e in b["strands"].values() for n in (e["src"][0], e["dst"][0])
+                        if b["nodes"][n]["kind"] == "end" and name in e["name"])
+            self.assertLess(b["x"][node], (min(b["x"].values()) + max(b["x"].values())) / 2, name)
+
+
 class Golden(unittest.TestCase):
     """Fingerprints compared switch by switch. Set UPDATE_GOLDEN=1 to rewrite them after a change you meant."""
 

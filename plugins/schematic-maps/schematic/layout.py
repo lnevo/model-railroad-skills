@@ -17,28 +17,57 @@ def layout(g, opts, warnings):
     for sig, T in orient(g):
         w = []
         band = layout_one(g, sig, T, opts, w)
-        score = (len(faults(band)) + 3 * len(w), len(T))
+        pos = band["x"]
+        score = (end_violations(band["nodes"], pos, g, opts), len(faults(band)) + 3 * len(w), len(T))
         if best is None or score < best[0]:
             best = (score, band, w)
-        if score[0] == 0:
+        if score[0] == 0 and score[1] == 0:
             break
     warnings.extend(best[2])
     return best[1]
 
 
+def west_end_node(g, opts):
+    """The track end named by the level's declared west end (`left_end`), or None."""
+    name = opts.get("left_end")
+    if not name:
+        return None
+    for e in g["edges"]:
+        if name in e["names"]:
+            for n in (e["u"], e["v"]):
+                if g["nodes"][n]["kind"] == "end":
+                    return n
+    return None
+
+
+def end_violations(nodes, pos, g, opts):
+    """Layer 1 facts about the ends of a band that a drawing must keep: the declared west end is left of centre
+    and a helix end marked east is right of centre, one marked west left of it. `pos` is the column (or x) of
+    every node. Returns how many are broken; the orientation is chosen so that none is, before faults decide."""
+    mid = (min(pos.values()) + max(pos.values())) / 2
+    bad = 0
+    west = west_end_node(g, opts)
+    if west is not None and west in pos and pos[west] > mid:
+        bad += 1
+    for n, d in nodes.items():
+        if d["kind"] == "end" and d.get("side") and n in pos:
+            if (d["side"] == "east") != (pos[n] > mid) and pos[n] != mid:
+                bad += 1
+    return bad
+
+
+def mirrored(g, sig, T, opts):
+    """The violations of the same fold drawn end for end: (nodes, columns, graph, options) for end_violations."""
+    flipped = {n: -s_ for n, s_ in sig.items()}
+    nodes, strands = build(g, flipped, T)
+    return nodes, columns(nodes, strands), g, opts
+
+
 def layout_one(g, sig, T, opts, warnings):
     nodes, strands = build(g, sig, T)
     col = columns(nodes, strands)
-    if opts["left_end"]:
-        hit = [e for e in g["edges"] if opts["left_end"] in e["names"]]
-        if hit and col[hit[0]["v"]] > max(col.values()) / 2:
-            sig = {n: -s for n, s in sig.items()}
-            nodes, strands = build(g, sig, T)
-            col = columns(nodes, strands)
-    sided = [(d["side"], bool(d["outs"])) for d in nodes.values() if d["kind"] == "end" and d.get("side")]
-    wrong = sum((side == "west") != starts for side, starts in sided)     # an end marked west should be a left-hand start
-    if sided and wrong * 2 > len(sided):
-        sig = {n: -s for n, s in sig.items()}
+    if end_violations(nodes, col, g, opts) and end_violations(*mirrored(g, sig, T, opts)) < end_violations(nodes, col, g, opts):
+        sig = {n: -s_ for n, s_ in sig.items()}
         nodes, strands = build(g, sig, T)
         col = columns(nodes, strands)
     order, snaps, enclosed, free, ev = sweep(nodes, strands, col, warnings.append)

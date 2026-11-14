@@ -48,6 +48,10 @@ def mark_helix(g, opts):
         e, end = max(ends, key=lambda t: t[0]["cm"])
         e["names"], e["main"] = [name], True
         N[end].update(sub="helix", to=opts.get("helix_to", ""), side=opts.get("helix_side", "west"))
+    if opts.get("helix_side"):         # helix ends made by an `end` edit take the level's helix side too
+        for d in N.values():
+            if d["kind"] == "end" and d.get("sub") == "helix" and not d.get("side"):
+                d["side"] = opts["helix_side"]
 
 
 def level_bands(g, opts, level_name):
