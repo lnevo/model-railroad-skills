@@ -4,7 +4,7 @@ import datetime
 import math
 from xml.sax.saxutils import escape
 
-from . import capacity, direction, labels
+from . import capacity, direction, fold, labels
 from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
 from .layout import paths
 
@@ -345,6 +345,11 @@ def draw_band(band, title, opts, top, left):
         bottom = max([bottom] + ends)
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
+    allrows = list(srow.values()) + list(nrow.values())
+    band["fold"] = dict(      # what page folding needs to choose a cut; coordinates as drawn here
+        boxes=list(P.boxes), lines=list(P.lines), track_y=(Y(min(allrows)), Y(max(allrows))),
+        zones=[(X(x[n]) - rowh * 0.6, X(x[n]) + rowh * 0.6) for n, d in nodes.items() if d["kind"].startswith("turn")] +
+              [(X(x[n]) - rowh * 1.2, X(x[n]) + rowh * 1.2) for n, d in nodes.items() if d["kind"] == "dx"])
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
 
 
@@ -598,15 +603,54 @@ def page_svg(bands, opts):
     gap = opts.get("band_gap", 78)            # band_gap also measures each band to its lowest label (draw_band)
     total_h = sum(h for *_, h in sized) + gap * (len(sized) - 1) + 30
     total_w = max(w for *_, w, _ in sized) + 120
-    scale = min(1.0, (pw - 2 * m) / total_w, (ph - top - foot) / total_h)
+
+    def scale_of(tw, th):
+        return min(1.0, (pw - 2 * m) / tw, (ph - top - foot) / th)
+
+    scale = scale_of(total_w, total_h)
+    rows = [(i, None, 0, 1) for i in range(len(sized))]      # (band, its part of the row, which row of it, rows)
+    folding = fold.setting(opts) is not None and scale < fold.setting(opts)
+    if folding:                               # style rule 24: bands too long for the page fold into rows
+        chosen = fold.plan(sized, opts, scale_of)
+        if chosen:
+            rows, notes, before, after = chosen
+            opts.setdefault("_folds", []).append(
+                f"page folding: scale {before:.2f} -> {after:.2f}; " +
+                "; ".join(f"{t} cut at {', '.join(f'{c:.0f}' for c in cl)}" + ("" if ok else " (through something)")
+                          for t, cl, ok in notes))
+            total_w = max(sized[i][3] + 120 if seg is None else fold.row_extent(sized[i][3], seg) + 10
+                          for i, seg, _, _ in rows)
+            total_h = sum(sized[i][4] for i, *_ in rows) + gap * (len(rows) - 1) + 30
+            scale = scale_of(total_w, total_h)
+    infos = {i: sized[i][1].get("fold") for i, *_ in rows}     # as drawn at the origin, before any later draw
     body, y = [], 30
-    for title, band, o, w, h in sized:
-        side = opts.get("band_align", {}).get(band_key(title), "centre")
-        room = total_w - 120 - w
-        left = 40 + {"left": 0, "right": room}.get(side, room / 2)
-        left += opts.get("band_shift", {}).get(band_key(title), 0)      # owner's nudge, in drawing units
-        part, _, _ = draw_band(band, title, o, y, left)
-        body += part
+    for i, seg, number, count in rows:
+        title, band, o, w, h = sized[i]
+        if seg is None:
+            side = opts.get("band_align", {}).get(band_key(title), "centre")
+            room = total_w - 120 - w
+            left = 40 + {"left": 0, "right": room}.get(side, room / 2)
+            left += opts.get("band_shift", {}).get(band_key(title), 0)      # owner's nudge, in drawing units
+            part, _, _ = draw_band(band, title, o, y, left)
+            body += part
+        else:                                  # one row of a folded band: a window onto the whole drawing
+            part, _, _ = draw_band(band, title, o, y, 0)
+            s, e = seg
+            first, last = s is None, e is None
+            s0 = 0.0 if first else s
+            start = 40 + fold.ROW_LEFT - 40     # where this row's first column sits
+            shift = start - s0
+            xa = -5000 if first else start
+            xb = 100000 if last else start + (e - s0)
+            body.append(f'<clipPath id="fold{i}_{number}"><rect x="{xa:.1f}" y="-5000" width="{xb - xa:.1f}" height="100000"/></clipPath>')
+            body.append(f'<g clip-path="url(#fold{i}_{number})"><g transform="translate({shift:.1f},0)">')
+            body += part
+            body.append("</g></g>")
+            if number:                         # the title again at the head of a continued row
+                lead = 18 if band_legend(o, title) else 0
+                body.append(f'<text x="{start:.1f}" y="{y + 4 + lead:.1f}" font-size="12" font-weight="bold" '
+                            f'letter-spacing="1.5" fill="#000" stroke="none">{escape(title.upper())} (CONTINUED)</text>')
+            fold.arrows(body, infos[i], o, y, seg, number, count, start)
         y += h + gap
     ox = (pw - total_w * scale) / 2
     oy = top + ((ph - top - foot) - total_h * scale) / 2
