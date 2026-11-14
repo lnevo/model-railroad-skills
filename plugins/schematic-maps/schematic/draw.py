@@ -83,24 +83,32 @@ def track_way(s):
 def track_runs(band, drawn, mode):
     """[(row, x from, x to, way, [strands])] for the track arrows: every strand with a declared way, and with
     `track_arrows` "main" every main strand too (two ways where none is declared). Level pieces of at least one
-    cell that meet end to end on a row with the same way are one run, so a straight line carries one arrow."""
+    cell that meet end to end on a row with the same way are one run, so a straight line carries one arrow. A
+    strand drawn only on a slope has no level piece: its arrow sits on the middle of its longest sloped piece,
+    pointing the way the slope runs across the page."""
     strands = band["strands"]
-    pieces = []
+    pieces, sloped = [], []
     for k, pts in drawn.items():
         s = strands.get(k)
         if s is None or (s.get("way") is None and not (mode == "main" and s["main"])):
             continue
         way = track_way(s)
-        for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
-            if r1 == r2 and abs(c2 - c1) >= 1:
-                pieces.append((r1, min(c1, c2), max(c1, c2), way, k))
+        level = [(r1, min(c1, c2), max(c1, c2), way, k) for (c1, r1), (c2, r2) in zip(pts, pts[1:])
+                 if r1 == r2 and abs(c2 - c1) >= 1]
+        pieces += level
+        slopes = [((c1, r1), (c2, r2)) for (c1, r1), (c2, r2) in zip(pts, pts[1:])
+                  if r1 != r2 and abs(c2 - c1) >= 1e-6]
+        if not level and slopes:
+            (c1, r1), (c2, r2) = max(slopes, key=lambda sl: abs(sl[1][0] - sl[0][0]))
+            lo, hi = min(c1, c2), max(c1, c2)
+            sloped.append(((r1 + r2) / 2, lo + (hi - lo) / 4, hi - (hi - lo) / 4, way, [k]))
     runs = []
     for row, a, b, way, k in sorted(pieces, key=lambda pc: pc[:3]):
         if runs and runs[-1][0] == row and runs[-1][3] == way and abs(runs[-1][2] - a) < 1e-6:
             runs[-1] = (row, runs[-1][1], b, way, runs[-1][4] + [k])
         else:
             runs.append((row, a, b, way, [k]))
-    return runs
+    return runs + sloped
 
 
 ARROWS = {True: "\u2192", False: "\u2190", None: "\u2194"}

@@ -640,6 +640,17 @@ class BandFixes(unittest.TestCase):
             edits.apply_edits(g, [dict(op="move", switch="3", through=["A", "B"], onto=["1", "2"],
                                        cm_from_first=20, hand="R", source="owner")])
 
+    def test_a_track_drawn_only_on_a_slope_gets_an_arrow(self):
+        from schematic import draw
+        strands = {"s": dict(src=("a", "A"), dst=("b", "B"), main=False, way=("a", "b")),
+                   "t": dict(src=("c", "A"), dst=("d", "B"), main=False, way=("d", "c"))}
+        drawn = {"s": [(0, 0), (4, 2)], "u": [(3, 3), (5, 4)], "t": [(2, 0), (6, 3)]}
+        runs = draw.track_runs({"strands": strands}, drawn, None)
+        self.assertEqual(sorted((r[3], r[4][0]) for r in runs), [(False, "t"), (True, "s")])
+        self.assertEqual(next(r for r in runs if r[4] == ["s"])[:3], (1.0, 1.0, 3.0))   # middle half of the slope
+        level = draw.track_runs({"strands": strands}, {"s": [(0, 0), (1, 1), (3, 1)]}, None)
+        self.assertEqual([(r[0], r[1], r[2]) for r in level], [(1, 1, 3)])               # a level piece wins
+
 
 if __name__ == "__main__":
     unittest.main()
