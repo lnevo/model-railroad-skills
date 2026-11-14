@@ -13,7 +13,7 @@ import copy
 import json
 from pathlib import Path
 
-from . import direction, draw, edits, layers, layout
+from . import columns, direction, draw, edits, layers, layout
 from .draw import DEFAULTS
 
 ROOM_ROUNDS = 3     # how many times labels may claim more room before the sheet is drawn as it stands
@@ -96,6 +96,7 @@ def build_input(graph, name, opts, tracks, log):
                 band["nodes"][n]["facing"] = letter
         out.append((title, band, opts))
         log.append(f"{title}: {len(layout.faults(band))} drawing faults {w}")
+    columns.check_run_hints([b for _, b, _ in out], opts)
     return out
 
 
