@@ -151,6 +151,26 @@ class EndRules(unittest.TestCase):
                 xs = self.end_x(b, lambda d, n, band: d.get("sub") == "helix")
                 self.assertTrue(xs and all(sign * x > 0 for x in xs), (side, title, xs))
 
+    def test_a_stub_declared_west_ends_leftmost_and_points_left(self):
+        """The two yard stubs Y-3 and Y-4 hang off switch 13 and run east on the plan. Declared west, Y-3 must
+        be the leftmost end of its band with its track running leftward from its switch."""
+        b = self.bands(left_end="Y-3", helix={}, helix_side=None, main_route=[["21", "22", "direct"]])["Lower level"]
+        node = next(n for e in b["strands"].values() for n in (e["src"][0], e["dst"][0])
+                    if b["nodes"][n]["kind"] == "end" and e["name"] == "Y-3")
+        ends = [b["x"][n] for n, d in b["nodes"].items() if d["kind"] == "end"]
+        self.assertEqual(b["x"][node], min(ends))
+        self.assertTrue(b["nodes"][node]["outs"], "the stub must run leftward from its switch")
+
+    def test_a_level_leg_preference_pins_the_owners_choice_over_the_rule(self):
+        """Layer 3 `level_leg` names the leg a switch keeps level, where the rules chose the other valid one."""
+        from schematic import sheet
+        o = sheet.options("example", helpers.data_with_signals(), False)
+        o["helix_style"] = "box"
+        o["level_leg"] = {"11": "C"}                  # R6 would keep the yard track (B) level
+        bands = {t: b for t, b, _ in sheet.build_bands([(helpers.graph(), "example")], [o], [])}
+        fp = fingerprint.band("Lower level", bands["Lower level"])
+        self.assertEqual(fp["switches"]["11"]["level_leg"], "C")
+
     def test_a_declared_west_end_comes_out_on_the_left(self):
         for name in ("Siding", "Spur"):
             b = self.bands(left_end=name, helix={}, helix_side=None, main_route=[["21", "22", "direct"]])["Upper level"]

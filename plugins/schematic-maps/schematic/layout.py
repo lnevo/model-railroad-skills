@@ -41,14 +41,18 @@ def west_end_node(g, opts):
 
 
 def end_violations(nodes, pos, g, opts):
-    """Layer 1 facts about the ends of a band that a drawing must keep: the declared west end is left of centre
-    and a helix end marked east is right of centre, one marked west left of it. `pos` is the column (or x) of
+    """Layer 1 facts about the ends of a band that a drawing must keep: the declared west end is the leftmost track
+    end and its track runs leftward from its switch, and a helix end marked east is right of centre, one marked west left of it. `pos` is the column (or x) of
     every node. Returns how many are broken; the orientation is chosen so that none is, before faults decide."""
     mid = (min(pos.values()) + max(pos.values())) / 2
     bad = 0
     west = west_end_node(g, opts)
-    if west is not None and west in pos and pos[west] > mid:
-        bad += 1
+    if west is not None and west in pos:
+        ends = [pos[n] for n, d in nodes.items() if d["kind"] == "end" and n in pos]
+        if pos[west] > mid or pos[west] > min(ends):        # the declared west end is the leftmost track end
+            bad += 1
+        if nodes[west]["ins"]:                              # and its track runs leftward from its switch
+            bad += 1
     for n, d in nodes.items():
         if d["kind"] == "end" and d.get("side") and n in pos:
             if (d["side"] == "east") != (pos[n] > mid) and pos[n] != mid:

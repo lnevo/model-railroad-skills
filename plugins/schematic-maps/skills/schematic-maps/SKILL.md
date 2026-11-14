@@ -39,6 +39,10 @@ Put the layer files in one folder (`--data`). `<plugin>` is the folder two above
 - **Labels.** Each label has a measured box and a list of allowed positions; the hardest are placed first. Helix boxes and station brackets are drawn before labels are placed.
 - **Masts.** Drawn on the right-hand side of the track for the way they govern, east to the right on every band; virtual masts (Dispatcher only) are not drawn; masts named in `signals_planned` are dashed.
 
+Preferences that pin a choice (layer 3, never needed for a correct sheet): `level_leg` names the leg a switch keeps level, as `{"31": "B"}`, where the rules chose the other valid one. It overrides R5 and R6, so use it only for the reader's own look, such as a loop entry or a ladder the reader wants drawn the other way. A preference may only move, stretch or mirror what the rules placed; if it causes a fault, the report shows it.
+
+Declared ends are layer 1 facts that outrank the fault count: `left_end` is the track whose end must be the leftmost on its band and run leftward from its switch, and `helix_side` is the side a level's helix ends on.
+
 Settings that are tuning, not per-switch hints: `ladder_link_max_cm` (40) and `long_track_cm` (100), in the overrides.
 
 ## Pitfalls
