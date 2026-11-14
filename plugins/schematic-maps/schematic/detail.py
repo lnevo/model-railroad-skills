@@ -37,12 +37,14 @@ def find_band(bands, members):
 
 
 def owners(all_opts):
-    """{switch label: station name} over every station of every input."""
+    """{switch label: station name} over every station of every input. A switch in two stations has no one
+    owner, so it stops the run."""
     out = {}
     for o in all_opts:
         for name, members in o.get("stations", {}).items():
-            for m in members:
-                out.setdefault(str(m), name)
+            for m in map(str, members):
+                if out.setdefault(m, name) != name:
+                    raise SchematicError(f"switch {m} is in both {out[m]} and {name}; a station owns its switches alone")
     return out
 
 
@@ -90,21 +92,22 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
             cid = f"CUT:{sid}"
             kept_is_src = u not in end_ids
             dest = destination(nodes, far, owner, name)
-            if sid in R["diag"]:             # a slope into an outside switch: the arrow stands where the slope ends
-                cx, cr = x[far], R["nrow"][far]
+            room = max(reach, columns.name_cells((s["name"] + " (00)").upper(), opts) + 1) if s["name"] else reach
+            if sid in R["diag"]:             # a slope is cut like a level track: along its columns, the row following
+                (xa, xb), (ra, rb) = (x[u], x[v]), (R["nrow"][u], R["nrow"][v])
+                frac = min(1.0, room / (xb - xa)) if xb > xa else 1.0
+                cx, cr = (xa + (xb - xa) * frac, ra + (rb - ra) * frac) if kept_is_src else \
+                         (xb - (xb - xa) * frac, rb - (rb - ra) * frac)
                 diag.add(sid)
             else:
-                r = R["srow"][sid]
                 lo, hi = x[u] + su, x[v] - sv
-                room = max(reach, columns.name_cells((s["name"] + " (00)").upper(), opts) + 1) if s["name"] else reach
                 cx = min(lo + room, max(hi, lo)) if kept_is_src else max(hi - room, min(lo, hi))
-                cr = r
-                run = max(hi - lo, 1e-9)
-                got = abs(cx - (lo if kept_is_src else hi))
-                s["cut_cm"] = s["cm"] * min(1.0, got / run) if hi > lo else s["cm"]
+                cr = R["srow"][sid]
+                frac = min(1.0, abs(cx - (lo if kept_is_src else hi)) / (hi - lo)) if hi > lo else 1.0
+            whole = s["cm"] / 2 if sid.endswith((".0", ".1")) else s["cm"]    # a fold half's cm is its whole run's
+            s["cut_cm"] = whole * frac
             sub_nodes[cid] = dict(kind="end", sub="open", label=dest, to=None, sig=0,
-                                  ins={} if kept_is_src is False else {"E": sid},
-                                  outs={"E": sid} if kept_is_src is False else {})
+                                  ins={"E": sid} if kept_is_src else {}, outs={} if kept_is_src else {"E": sid})
             sub_x[cid], nrow[cid] = cx, cr
             if kept_is_src:
                 s["dst"] = (cid, "E")
@@ -134,41 +137,42 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
             sub_nodes[n][side] = {p: sid for p, sid in sub_nodes[n][side].items() if sid in sub_strands}
     if "rail" in band:
         sub["rail"] = {n: v for n, v in band["rail"].items() if n in sub_nodes}
-    sub["cars"], sub["station_totals"] = cars_and_totals(band, opts, take, name, want)
+    sub["take"] = take
     return sub
 
 
-def cars_and_totals(band, opts, take, name, want):
-    """The whole band's capacity counts (by strand) and the group's total, so the detail agrees with the overall sheet
-    even where a track runs off the cut."""
+def precomputed(band, opts, take, name, members, turned):
+    """The capacity counts and the group's total, counted on the whole band exactly as the overall sheet draws them
+    (including a band turned end for end), so the detail agrees with it even where a track runs off the cut."""
     cars = {}
-    for show, n, members in capacity.tracks(band, opts):
-        here = [m for m in members if m in take]
+    for show, n, tracks in capacity.tracks(band, opts):
+        here = [m for m in tracks if m in take]
         if here:
             cars[show if show in take else max(here, key=lambda m: (band["strands"][m]["cm"], m))] = n
     stations = dict(opts.get("stations", {}))
-    stations.setdefault(name, sorted(want))
-    totals = capacity.station_totals(band, dict(opts, stations=stations), band["x"])
-    return cars, {name: totals[name]} if totals.get(name) else {}
+    stations.setdefault(name, [str(m) for m in members])
+    totals = capacity.station_totals(band, dict(opts, stations=stations), band["x"], turned)
+    return {"cars": cars, "totals": {name: totals[name]} if totals.get(name) else {}}
 
 
 def cut_signals(opts, sub):
-    """The masts that stand on the cut band: a mast on a track that is cut short is kept only if it stands on the
-    part that is drawn and faces a station switch."""
+    """The masts that stand on the cut band. A mast on a track that was cut stays only if it faces a station switch;
+    how far along the drawn part it stands is then `mast_piece`'s to judge, from the track's `cut_cm`."""
+    edges = {}
+    for s in sub["strands"].values():
+        edges.setdefault(s["edge"], []).append(s)
     out = []
-    cut_edges = {s["edge"]: s for s in sub["strands"].values() if "cut_cm" in s}
-    on = {s["edge"] for s in sub["strands"].values()}
     for sg in opts.get("signals", ()):
-        if not on & {sg["_edge"], sg["_edge"] + "x", sg["_edge"] + "y"}:
+        pieces = [s for e in (sg["_edge"], sg["_edge"] + "x", sg["_edge"] + "y") for s in edges.get(e, ())]
+        if not pieces:
             continue
-        s = cut_edges.get(sg["_edge"])
-        if s is not None and (sg["_toward_node"] not in sub["nodes"] or sg["cm_from_toward"] > s["cut_cm"] + 0.5):
+        if any("cut_cm" in s for s in pieces) and sg["_toward_node"] not in sub["nodes"]:
             continue
         out.append(sg)
     return out
 
 
-def detail_options(opts, title, name, members, sub, scale=None):
+def detail_options(opts, title, name, members, sub, pre):
     """The options of one detail sheet: the band's own look, its title block, and only this band's settings."""
     key = draw.band_key(title)
     out = dict(opts)
@@ -181,26 +185,40 @@ def detail_options(opts, title, name, members, sub, scale=None):
     out.pop("system_title", None)
     out.update(stations={name: [str(m) for m in members]}, equal_width=False, sheet=None,
                title=[name, "Station detail sheet", title],
-               max_scale=scale or opts.get("detail_max_scale", DETAIL_SCALE),
+               max_scale=opts.get("detail_max_scale", DETAIL_SCALE), precomputed=pre,
                signals=cut_signals(opts, sub))
     return out
 
 
-def sheet_svg(bands, members, name, all_opts):
-    """The SVG of one detail sheet, cut from the solved `bands` ([(title, band, options)])."""
+def sheet_svg(bands, members, name, owner):
+    """(SVG, cut band) of one detail sheet, cut from the solved `bands` ([(title, band, options)]). `owner` is
+    `owners(...)` of every input's options."""
     title, band, opts = find_band(bands, members)
-    sub = cut(band, members, opts, name, owners(all_opts))
-    o = detail_options(opts, title, name, members, sub)
+    sub = cut(band, members, opts, name, owner)
+    turned = draw.band_key(title) in opts.get("rotate_bands", ())
+    pre = precomputed(band, opts, sub.pop("take"), name, members, turned)
+    sub["precomputed"] = pre
+    o = detail_options(opts, title, name, members, sub, pre)
     return draw.page_svg([(title, sub, o)], o), sub
+
+
+def sheets(bands, picks):
+    """[(name, members, SVG)] for each pick; the station owners are worked out once."""
+    owner = owners([o for _, _, o in bands])
+    return [(name, members, sheet_svg(bands, members, name, owner)[0]) for name, members in picks]
 
 
 def selections(opts_list, stations=None, switches=None, name=None):
     """[(name, members)] to draw: a named group from `switches`, else the chosen stations (all when none chosen)
     from the `stations` preference."""
+    if switches and stations:
+        raise SchematicError("--station and --switches are two ways to choose; use one")
     known = {}
     for o in opts_list:
         for st, members in o.get("stations", {}).items():
-            known.setdefault(st, [str(m) for m in members])
+            members = [str(m) for m in members]
+            if known.setdefault(st, members) != members:
+                raise SchematicError(f"station {st} is defined differently in two inputs")
     if switches:
         if not name:
             raise SchematicError("a group of switches needs a name (--name)")

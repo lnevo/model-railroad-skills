@@ -125,10 +125,14 @@ def run(argv=None):
             s = build(a)
             picks = detail.selections([o for _, _, o in s.bands], a.station, a.switches, a.name)
             out = Path(a.out)
-            many = len(picks) > 1 or out.is_dir()
-            for name, members in picks:
-                svg, _ = detail.sheet_svg(s.bands, members, name, [o for _, _, o in s.bands])
-                target = out / (re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") + ".svg") if many else out
+            folder = a.out.endswith("/") or out.is_dir() or out.suffix.lower() != ".svg"
+            if not folder and len(picks) > 1:
+                raise SchematicError(f"{len(picks)} sheets cannot go in one file; give a folder (a path without .svg, or ending in /)")
+            slugs = [re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") for name, _ in picks]
+            if folder and (not all(slugs) or len(set(slugs)) < len(slugs)):
+                raise SchematicError("station names " + ", ".join(n for n, _ in picks) + " do not make distinct file names")
+            for (name, members, svg), slug in zip(detail.sheets(s.bands, picks), slugs):
+                target = out / f"{slug}.svg" if folder else out
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(svg)
                 faults, text = label_check.report(str(target))

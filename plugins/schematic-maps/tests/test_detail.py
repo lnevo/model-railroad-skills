@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 import helpers
-from schematic import capacity, detail, label_check, layout
+from schematic import capacity, detail, draw, label_check, layout
 from schematic.core import SchematicError
 
 STATIONS = {"Throat": ["1"], "Yard": ["11", "12", "13"], "Junction": ["2", "6", "3"]}
@@ -28,7 +28,7 @@ def sheet_of(name):
     s = staged()
     allo = [o for _, _, o in s.bands]
     picks = dict(detail.selections(allo))
-    svg, sub = detail.sheet_svg(s.bands, picks[name], name, allo)
+    svg, sub = detail.sheet_svg(s.bands, picks[name], name, detail.owners(allo))
     return svg, sub, s
 
 
@@ -100,10 +100,10 @@ class Cut(unittest.TestCase):
         whole = capacity.counts(band, opts)
         want = {band["strands"][k]["name"]: n for k, n in whole.items() if band["strands"][k]["name"].startswith("Y-")}
         self.assertEqual(len(want), 4)
-        got = {sub["strands"][k]["name"]: n for k, n in capacity.counts(sub, opts).items()}
+        got = {sub["strands"][k]["name"]: n for k, n in sub["precomputed"]["cars"].items()}
         self.assertEqual({k: v for k, v in got.items() if k.startswith("Y-")}, want)
-        self.assertTrue(sub["station_totals"]["Yard"])
-        self.assertEqual(sub["station_totals"], {"Yard": capacity.station_totals(band, opts, band["x"])["Yard"]})
+        self.assertTrue(sub["precomputed"]["totals"]["Yard"])
+        self.assertEqual(sub["precomputed"]["totals"], {"Yard": capacity.station_totals(band, opts, band["x"])["Yard"]})
 
     def test_drawn_larger_with_a_station_bar_and_its_own_title_block(self):
         svg, _, _ = sheet_of("Yard")
@@ -126,6 +126,18 @@ class Cut(unittest.TestCase):
         self.assertEqual(detail.cut_signals(opts, sub), [near])      # near stands on the part that is drawn
         self.assertEqual(detail.cut_signals({"signals": [dict(far, _edge="e99")]}, sub), [])
 
+    def test_totals_on_a_band_turned_end_for_end_are_the_overall_sheets(self):
+        s = staged()
+        turned = [(t, b, dict(o, rotate_bands=["Lower"])) for t, b, o in s.bands]
+        title, band, opts = next(b for b in turned if b[0] == "Lower level")
+        owner = detail.owners([o for _, _, o in turned])
+        self.assertNotEqual(capacity.station_totals(band, opts, band["x"], True),
+                            capacity.station_totals(band, opts, band["x"], False))
+        for name, members in detail.selections([opts]):
+            svg, sub = detail.sheet_svg(turned, members, name, owner)
+            want = capacity.station_totals(band, opts, band["x"], True).get(name)
+            self.assertEqual(f"{want} CARS" in svg, bool(want), name)
+
     def test_the_overall_sheet_is_untouched(self):
         before = helpers.build().svg()
         sheet_of("Yard")
@@ -135,9 +147,72 @@ class Cut(unittest.TestCase):
         s = staged()
         allo = [o for _, _, o in s.bands]
         for members in (["4", "5"], ["2", "6", "3"]):
-            svg, sub = detail.sheet_svg(s.bands, members, "Group", allo)
+            svg, sub = detail.sheet_svg(s.bands, members, "Group", detail.owners(allo))
             self.assertEqual(layout.faults(sub), [])
             self.assertTrue(svg.startswith("<svg"))
+
+
+def renamed(band, old, new):
+    """A copy of the band with strand `old` called `new` (and its edge, so it reads as a level-joining or fold piece)."""
+    b = copy.deepcopy(band)
+    b["strands"][new] = b["strands"].pop(old)
+    b["strands"][new]["edge"] = new
+    b["need"][new] = b["need"].pop(old)
+    b["R"]["srow"][new] = b["R"]["srow"].pop(old)
+    for d in b["nodes"].values():
+        for side in ("ins", "outs"):
+            d[side] = {p: (new if sid == old else sid) for p, sid in d[side].items()}
+    return b
+
+
+class CutDetails(unittest.TestCase):
+    def band(self):
+        return next(b for t, b, _ in staged().bands if t == "Lower level"), staged().bands[1][2]
+
+    def cut(self, band, members, reach=detail.DETAIL_REACH):
+        _, _, opts = staged().bands[1]
+        return detail.cut(band, members, opts, "G", detail.owners([opts]), reach)
+
+    def test_a_fold_half_counts_half_its_runs_length(self):
+        band, _ = self.band()
+        whole = self.cut(band, ["4"])["strands"]["e11"]
+        half = self.cut(renamed(band, "e11", "e11.0"), ["4"])["strands"]["e11.0"]
+        self.assertAlmostEqual(half["cut_cm"], whole["cut_cm"] / 2)
+
+    def test_masts_on_a_level_joining_piece_follow_the_cut(self):
+        band, _ = self.band()
+        short = renamed(band, "e2", "e2x")
+        short["strands"]["e2x"]["name"] = ""            # no name to leave room for: only the reach counts
+        sub = self.cut(short, ["11", "12", "13"], reach=0.5)
+        mast = dict(staged().bands[1][2]["signals"][0], _edge="e2", cm_from_toward=1.0)
+        facing = dict(mast, _toward_node="L11")
+        away = dict(mast, _toward_node="S1")                     # S1 is off the cut
+        self.assertEqual(detail.cut_signals({"signals": [facing, away]}, sub), [facing])
+        far = dict(facing, cm_from_toward=band["strands"]["e2"]["cm"] - 1)
+        self.assertIsNone(draw.mast_piece(far, sub["strands"]))    # beyond the part that is drawn
+        self.assertIsNotNone(draw.mast_piece(facing, sub["strands"]))
+
+    def test_a_slope_is_cut_like_a_level_track(self):
+        band, _ = self.band()
+        sloped = copy.deepcopy(band)
+        sloped["R"]["diag"].add("e2")
+        sub = self.cut(sloped, ["11", "12", "13"])
+        cid = "CUT:e2"
+        self.assertTrue(sloped["x"]["S1"] < sub["x"][cid] < sloped["x"]["L11"])
+        self.assertTrue(sloped["R"]["nrow"]["S1"] < sub["R"]["nrow"][cid] < sloped["R"]["nrow"]["L11"])
+        self.assertLess(sub["strands"]["e2"]["cut_cm"], band["strands"]["e2"]["cm"])
+        self.assertIn("e2", sub["R"]["diag"])
+
+    def test_a_switch_in_two_stations_stops(self):
+        with self.assertRaisesRegex(SchematicError, "switch 2 is in both A and B"):
+            detail.owners([{"stations": {"A": ["1", "2"], "B": ["2"]}}])
+
+    def test_stations_and_switches_together_or_defined_twice_stop(self):
+        with self.assertRaisesRegex(SchematicError, "use one"):
+            detail.selections([{"stations": STATIONS}], ["Yard"], ["2"], "X")
+        with self.assertRaisesRegex(SchematicError, "defined differently"):
+            detail.selections([{"stations": {"Yard": ["1"]}}, {"stations": {"Yard": ["2"]}}])
+        self.assertEqual(len(detail.selections([{"stations": {"Yard": ["1"]}}, {"stations": {"Yard": [1]}}])), 1)
 
 
 class Command(unittest.TestCase):
@@ -168,6 +243,33 @@ class Command(unittest.TestCase):
             r = self.run_cli(Path(tmp) / "all", "--data", tmp, inp)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(sorted(p.name for p in (Path(tmp) / "all").iterdir()), ["junction.svg", "throat.svg", "yard.svg"])
+
+    def test_folder_or_file_is_decided_by_the_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            inp = self.files(tmp)
+            tmp = Path(tmp)
+            r = self.run_cli(tmp / "one/", "--data", tmp, inp, "--station", "Yard")       # trailing slash: a folder
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertTrue((tmp / "one" / "yard.svg").is_file())
+            r = self.run_cli(tmp / "two", "--data", tmp, inp, "--station", "Yard")        # no .svg: a folder
+            self.assertTrue((tmp / "two" / "yard.svg").is_file())
+            r = self.run_cli(tmp / "both.svg", "--data", tmp, inp, "--station", "Yard", "--station", "Throat")
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("cannot go in one file", r.stderr)
+            self.assertFalse((tmp / "both.svg").exists())
+
+    def test_names_that_make_the_same_file_name_stop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            inp = self.files(tmp)
+            tmp = Path(tmp)
+            prefs = tmp / "example.preferences.json"
+            d = json.loads(prefs.read_text())
+            d["stations"] = {"A B": ["11"], "A-B": ["12"]}
+            prefs.write_text(json.dumps(d))
+            r = self.run_cli(tmp / "out", "--data", tmp, inp)
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("distinct file names", r.stderr)
+            self.assertFalse((tmp / "out").exists())
 
     def test_a_group_with_a_name_and_a_bad_station_message(self):
         with tempfile.TemporaryDirectory() as tmp:
