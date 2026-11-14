@@ -232,8 +232,6 @@ class Golden(unittest.TestCase):
         self.assertEqual(fp["switches"]["11"]["level_leg"], "B")
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class GridRoom(unittest.TestCase):
@@ -251,7 +249,26 @@ class GridRoom(unittest.TestCase):
         from schematic import columns
         band = next(b for t, b, _ in helpers.build(False).bands if t == "Lower level")
         sid = next(k for k, s in band["strands"].items() if k not in band["R"]["diag"] and s["name"])
-        opts = dict(helpers.build(False).bands[0][2])
+        opts = {k: v for k, v in helpers.build(False).bands[0][2].items() if k != "_room"}
+        edge = band["strands"][sid]["edge"]
         _, need = columns.place(band["nodes"], band["strands"], band["R"], {}, opts)
-        _, wider = columns.place(band["nodes"], band["strands"], band["R"], {}, dict(opts, _room={sid: 2}))
+        _, wider = columns.place(band["nodes"], band["strands"], band["R"], {}, dict(opts, _room={edge: 2}))
         self.assertEqual(wider[sid][2], need[sid][2] + 2)
+
+    def test_sheet_lays_out_again_until_labels_fit(self):
+        """With names reserving no width, labels only fit if the sheet's room rounds lengthen their tracks."""
+        from unittest import mock
+        from schematic import columns, sheet
+        build = lambda: sheet.build([(helpers.graph(), "example")], helpers.data_with_signals(), preferences=False)
+        with mock.patch.object(columns, "name_cells", lambda name, opts: 0):
+            with mock.patch.object(sheet, "ROOM_ROUNDS", 0):
+                before = len(label_check.check(build().svg())[0])
+            grown = build()
+            after = len(label_check.check(grown.svg())[0])
+        self.assertGreater(before, 2)
+        self.assertLess(after, before / 2)
+        self.assertTrue(any(line.startswith("R12 round 1") for line in grown.log), grown.log)
+
+
+if __name__ == "__main__":
+    unittest.main()

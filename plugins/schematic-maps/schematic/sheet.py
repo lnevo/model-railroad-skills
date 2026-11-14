@@ -66,28 +66,36 @@ def level_bands(g, opts, level_name):
     return [(opts.get("level_title", level_name.replace("_", " ").capitalize() + " level"), g)]
 
 
+def build_input(graph, name, opts, tracks, log):
+    """The bands of one input: [(title, band, options)]."""
+    opts["helix_tracks"] = tracks
+    g = copy.deepcopy(graph if isinstance(graph, dict) else json.load(open(graph)))
+    edits.apply_edits(g, opts["edits"])
+    mark_helix(g, opts)
+    if opts.get("main_route"):
+        keep = {e["id"] for e in g["edges"] if e["names"] and e["main"]}
+        edits.mark_main(g, opts["main_route"])
+        for e in g["edges"]:
+            e["main"] = e["main"] or e["id"] in keep
+    out = []
+    for title, sub in level_bands(g, opts, name):
+        w = []
+        band = layout.layout(sub, opts, w)
+        out.append((title, band, opts))
+        log.append(f"{title}: {len(layout.faults(band))} drawing faults {w}")
+    return out
+
+
+def in_order(per_input, optlist):
+    """Every input's bands, top to bottom by the last input's `band_order`."""
+    rank = {w: i for i, w in enumerate(optlist[-1].get("band_order", []))}
+    return sorted((b for bands in per_input for b in bands), key=lambda b: rank.get(b[0].split()[0], 9))
+
+
 def build_bands(inputs, optlist, log):
     """The drawn bands, top to bottom: [(title, band, options)]."""
-    bands = []
     tracks = sorted({v for o in optlist for v in o.get("helix", {}).values()})
-    for (graph, name), opts in zip(inputs, optlist):
-        opts["helix_tracks"] = tracks
-        g = copy.deepcopy(graph if isinstance(graph, dict) else json.load(open(graph)))
-        edits.apply_edits(g, opts["edits"])
-        mark_helix(g, opts)
-        if opts.get("main_route"):
-            keep = {e["id"] for e in g["edges"] if e["names"] and e["main"]}
-            edits.mark_main(g, opts["main_route"])
-            for e in g["edges"]:
-                e["main"] = e["main"] or e["id"] in keep
-        for title, sub in level_bands(g, opts, name):
-            w = []
-            band = layout.layout(sub, opts, w)
-            bands.append((title, band, opts))
-            log.append(f"{title}: {len(layout.faults(band))} drawing faults {w}")
-    rank = {w: i for i, w in enumerate(optlist[-1].get("band_order", []))}      # top to bottom
-    bands.sort(key=lambda b: rank.get(b[0].split()[0], 9))
-    return bands
+    return in_order([build_input(g, name, o, tracks, log) for (g, name), o in zip(inputs, optlist)], optlist)
 
 
 def build(inputs, data, preferences=True, hints=False):
@@ -100,19 +108,33 @@ def build(inputs, data, preferences=True, hints=False):
     for o in optlist[:-1]:
         o["helix_style"] = optlist[-1].get("helix_style", "box")
     optlist[-1].setdefault("helix_style", "box")
-    log = []
-    bands = build_bands(inputs, optlist, log)
-    sheet = Sheet(bands, optlist[-1], log)
-    for _ in range(ROOM_ROUNDS):        # R12: a label with no free position claims a cell on its track; lay out again
+    tracks = sorted({v for o in optlist for v in o.get("helix", {}).values()})
+    logs = [[] for _ in inputs]
+    per = [build_input(g, name, o, tracks, logs[i]) for i, ((g, name), o) in enumerate(zip(inputs, optlist))]
+    grown = []
+    best = None
+    for rnd in range(ROOM_ROUNDS + 1):
+        # R12: a label with no free position claims a cell on its track, and that input is laid out again.
+        sheet = Sheet(in_order(per, optlist), optlist[-1], [line for lg in logs for line in lg] + grown)
         sheet.svg()
-        short = [(band, opts) for _, band, opts in bands if band.get("short")]
-        if not short:
-            return sheet
-        for band, opts in short:
-            room = opts.setdefault("_room", {})
-            for sid in band["short"]:
-                room[sid] = room.get(sid, 0) + 1
-        log = []
-        bands = build_bands(inputs, optlist, log)
-        sheet = Sheet(bands, optlist[-1], log)
+        left = sum(len(band.get("unplaced", ())) for bands in per for _, band, _ in bands)
+        if best is not None and left >= best[0]:
+            break                       # more room did not help: keep the earlier drawing
+        best = (left, sheet)
+        claims = [{band["strands"][sid]["edge"] for _, band, _ in bands for sid in band.get("short", ())}
+                  for bands in per]
+        if not left or not any(claims) or rnd == ROOM_ROUNDS:
+            break
+        for i, edges_ in enumerate(claims):
+            if not edges_:
+                continue
+            room = optlist[i].setdefault("_room", {})
+            for e in sorted(edges_):
+                room[e] = room.get(e, 0) + 1
+            grown.append(f"R12 round {rnd + 1}: {inputs[i][1]} runs lengthened for labels: {', '.join(sorted(edges_))}")
+            logs[i] = []
+            per[i] = build_input(inputs[i][0], inputs[i][1], optlist[i], tracks, logs[i])
+    left, sheet = best
+    if left:
+        sheet.log.append(f"R12: {left} labels still have no free position")
     return sheet

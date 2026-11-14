@@ -38,7 +38,7 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
             if (a in refs(e0) and b in refs(e1)) or (a in refs(e1) and b in refs(e0)):
                 if "." not in sid or b in refs(u) | refs(v):  # of a folded run, the half that reaches b
                     h = max(h, cells)
-        h += opts.get("_room", {}).get(sid, 0)       # R12: cells claimed by labels that found no free position
+        h += opts.get("_room", {}).get(s["edge"], 0)     # R12: cells claimed by labels that found no free position
         if nodes[u]["kind"] == "end" or nodes[v]["kind"] == "end":
             h = max(h, 1) + 1
         if nodes[u].get("sub") == "link" or nodes[v].get("sub") == "link":
