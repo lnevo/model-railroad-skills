@@ -270,5 +270,46 @@ class GridRoom(unittest.TestCase):
         self.assertTrue(any(line.startswith("R12 round 1") for line in grown.log), grown.log)
 
 
+class TitleBlock(unittest.TestCase):
+    def test_fields(self):
+        from schematic import draw
+        self.assertEqual(draw.title_fields({"date": "2026-11-14", "revision": 1, "sheet": "1 of 1"}),
+                         ["NOV 14, 2026", "REV 1", "SHEET 1 OF 1"])
+        self.assertEqual(draw.title_fields({"revision": 0}), ["REV 0"])
+        self.assertEqual(draw.title_fields({}), [])
+
+    def test_column_only_when_set(self):
+        import re
+        from schematic import draw
+        s = helpers.build()
+        opts = dict(s.opts, title=s.opts.get("system_title", s.opts["title"]))     # as sheet.py passes it
+        plain = draw.page_svg(s.bands, opts)
+        self.assertEqual(len(re.findall(r'<rect x="[\d.]+" y="728" ', plain)), 1)    # title box only: no empty column
+        svg = draw.page_svg(s.bands, dict(opts, date="2026-01-05", revision=3))
+        self.assertIn(">JAN 5, 2026<", svg)
+        self.assertIn(">REV 3<", svg)
+        self.assertNotIn("SHEET", svg)
+        self.assertEqual(len(re.findall(r'<rect x="[\d.]+" y="728" ', svg)), 2)
+
+    def test_bad_date_is_named(self):
+        from schematic import draw
+        from schematic.core import SchematicError
+        for bad in ("2026-13-01", "2026-00-01", "2026-02-31", "14 Nov 2026"):
+            with self.assertRaisesRegex(SchematicError, "YYYY-MM-DD"):
+                draw.title_fields({"date": bad})
+
+    def test_long_values_widen_the_box(self):
+        from schematic import draw
+        import re
+        s = helpers.build()
+        svg = draw.page_svg(s.bands, dict(s.opts, title=["A very long railroad name for testing overflow of the box"],
+                                          sheet="Detail 3 of 12"))
+        rects = re.findall(r'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="64"', svg)
+        (tx, tw), (cx, cw) = [(float(a), float(b)) for a, b in rects]
+        self.assertGreater(tw, 330)
+        self.assertEqual(cx, tx + tw)
+        self.assertGreater(cw, 104)
+
+
 if __name__ == "__main__":
     unittest.main()
