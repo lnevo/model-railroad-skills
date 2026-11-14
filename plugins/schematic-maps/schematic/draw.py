@@ -102,12 +102,7 @@ def track_runs(band, drawn, mode):
             (c1, r1), (c2, r2) = max(slopes, key=lambda sl: abs(sl[1][0] - sl[0][0]))
             lo, hi = min(c1, c2), max(c1, c2)
             sloped.append(((r1 + r2) / 2, lo + (hi - lo) / 4, hi - (hi - lo) / 4, way, [k]))
-    runs = []
-    for row, a, b, way, k in sorted(pieces, key=lambda pc: pc[:3]):
-        if runs and runs[-1][0] == row and runs[-1][3] == way and a <= runs[-1][2] + 1e-6:
-            runs[-1] = (row, runs[-1][1], max(b, runs[-1][2]), way, runs[-1][4] + [k])     # meeting or overlapping
-        else:
-            runs.append((row, a, b, way, [k]))
+    runs = direction.merge_runs(pieces)
     return runs + sloped
 
 
