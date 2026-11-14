@@ -28,6 +28,8 @@ schematic check sheet.svg --list
 
 Layer files in `DIR`: `NAME.plan_overrides.json` (facts about the railroad), `NAME.signals.json` (generated), `NAME.preferences.json` (the look, optional). Page folding is a preference (`fold: true` or `fold_min_scale` in the preferences file): a band too long to read at Letter size is cut into rows with CONTINUES arrows. The skill, [`skills/schematic-maps/SKILL.md`](skills/schematic-maps/SKILL.md), walks through the overrides and the checks.
 
+Mileposts are a preference (`mileposts: true`, or `{"step": 0.25}` in miles) and need layer 1 facts: `milepost_origin` (`{"switch": "1", "milepost": 0.0}`), `scale_ratio` (87.1 for HO), `helix_length_in` to carry the count through a helix, and optionally `milepost_route`. The count runs in scale miles along the main route from the origin using the same lengths as capacity; ticks sit where it crosses a multiple of the step. With the preference off the drawing is unchanged. See rule 19 in `skills/schematic-maps/references/style.md`.
+
 ## Detail sheets
 
 `schematic detail` draws one station, or a named group of switches, as its own larger sheet, cut from the same solved drawing as the overall sheet so the two agree: same order of tracks, same lengths, same capacity counts and masts. Tracks that leave the cut end in an arrow reading `TO <station>` or `TO SW <number>`. Sheets come from the `detail_sheets` preference (name to switch numbers, which may overlap stations) when present, else the `stations` preference, all of them by default. A sheet shows a bar and car total for each station that lies wholly inside it; `detail_max_scale` (default 2) sets how far a sheet is enlarged. One selection writes a file, several write a folder of `<station>.svg`.
