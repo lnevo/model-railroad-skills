@@ -771,6 +771,23 @@ class ControlPoints(unittest.TestCase):
                     if float(y1) <= ay <= float(y2):
                         self.assertFalse(min(ax, ax + dx) - 4 <= float(x1) <= max(ax, ax + dx) + 4, (name, x1, ax, dx))
 
+    def test_every_bracket_crosses_a_drawn_track(self):
+        """A limit never floats in empty space: at its x, some drawn track passes between its top and bottom."""
+        import re
+        _, svgs = self.details(self.CP)
+        for name, svg in svgs.items():
+            brackets = [tuple(map(float, m)) for m in re.findall(
+                r'<path d="M[\d.]+,([\d.]+) L([\d.]+),[\d.]+ L[\d.]+,([\d.]+) L[\d.]+,[\d.]+" stroke-width="1.4"', svg)]
+            segs = []
+            for d in re.findall(r'<path d="(M[^"]*)" stroke-width="(?:3.2|1.4)"', svg):
+                pts = [tuple(map(float, q.split(","))) for q in re.findall(r"[\d.]+,[\d.]+", d)]
+                if len(pts) == 4 and pts[0][1] == pts[1][1] and pts[1][0] == pts[2][0]:
+                    continue                                   # a bracket, not a track
+                segs += list(zip(pts, pts[1:]))
+            for top, bx, bot in brackets:
+                self.assertTrue(any(min(a[0], b[0]) <= bx <= max(a[0], b[0]) and top <= max(a[1], b[1]) and bot >= min(a[1], b[1])
+                                    for a, b in segs), (name, bx))
+
     def test_brackets_stop_at_a_neighbouring_switch(self):
         _, svgs = self.details({"control_points": {"A": {"switches": ["2"]}, "B": {"switches": ["6"]}}})
         self.assertIn('>"A"<', svgs["Hollow"])

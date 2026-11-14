@@ -527,13 +527,9 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
             for off in offs:
                 ex = edge + sign * off
                 found = span(ex)
-                if found:
-                    top, bot = min(y for y, _ in found) - 9, max(y for y, _ in found) + 9
-                else:                              # no track leaves the interlocking this far: span its own rows
-                    rows = [Y(nrow[n]) if n in nrow else Y(srow[t]) for n in mine
-                            for t in ([nodes[n]['ins'].get('A') or nodes[n]['outs'].get('A')]
-                                      if n in nrow else [i for i, _ in dx_tracks(nodes, n)])]
-                    top, bot = min(rows) - 9, max(rows) + 9
+                if not found:                      # a limit stands across a drawn track of its interlocking, or not at all
+                    continue
+                top, bot = min(y for y, _ in found) - 9, max(y for y, _ in found) + 9
                 blocked = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in P.boxes) or any(
                     abs(a[0] - ex) < 4 and abs(b[0] - a[0]) < 0.5 and min(a[1], b[1]) < bot and max(a[1], b[1]) > top
                     for a, b, _ in P.lines)            # not on a bumper or another upright line
@@ -545,6 +541,11 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
                     best = (key, ex, top, bot, found)
                 if not key[0] and key[1] is False and not harm[1]:
                     break
+            if best is None:                   # no track of the interlocking reaches out: stand at its own switches
+                rows = [Y(nrow[n]) if n in nrow else Y(srow[t]) for n in mine
+                        for t in ([nodes[n]['ins'].get('A') or nodes[n]['outs'].get('A')]
+                                  if n in nrow else [i for i, _ in dx_tracks(nodes, n)])]
+                best = (None, edge + sign * 3, min(rows) - 9, max(rows) + 9, [])
             ex, top, bot, found = best[1:]
             free = [[bx for bx in ok if labels.seg_box_gap((ex, top), (ex, bot), bx) >= 1.4 / 2 + labels.PAD]
                     for ok in free]
