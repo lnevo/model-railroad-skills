@@ -83,24 +83,34 @@ def track_way(s):
 def track_runs(band, drawn, mode):
     """[(row, x from, x to, way, [strands])] for the track arrows: every strand with a declared way, and with
     `track_arrows` "main" every main strand too (two ways where none is declared). Level pieces of at least one
-    cell that meet end to end on a row with the same way are one run, so a straight line carries one arrow."""
+    cell that meet end to end on a row with the same way are one run, so a straight line carries one arrow. A
+    strand drawn only on a slope (of at least one cell across) has no level piece: its arrow sits on the middle of
+    its longest sloped piece, pointing the way the slope runs across the page, and strands on the same slope share
+    it. Such a run carries a sixth item, the rows at its two ends, for placing the arrow along the slope."""
     strands = band["strands"]
-    pieces = []
+    pieces, sloped = [], {}
     for k, pts in drawn.items():
         s = strands.get(k)
         if s is None or (s.get("way") is None and not (mode == "main" and s["main"])):
             continue
         way = track_way(s)
-        for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
-            if r1 == r2 and abs(c2 - c1) >= 1:
-                pieces.append((r1, min(c1, c2), max(c1, c2), way, k))
-    runs = []
-    for row, a, b, way, k in sorted(pieces, key=lambda pc: pc[:3]):
-        if runs and runs[-1][0] == row and runs[-1][3] == way and abs(runs[-1][2] - a) < 1e-6:
-            runs[-1] = (row, runs[-1][1], b, way, runs[-1][4] + [k])
-        else:
-            runs.append((row, a, b, way, [k]))
-    return runs
+        segs = list(zip(pts, pts[1:]))
+        level = [(r1, min(c1, c2), max(c1, c2), way, k) for (c1, r1), (c2, r2) in segs
+                 if r1 == r2 and abs(c2 - c1) >= 1]
+        pieces += level
+        slopes = [] if level else [sg for sg in segs if sg[0][1] != sg[1][1] and abs(sg[1][0] - sg[0][0]) >= 1]
+        if slopes:
+            (c1, r1), (c2, r2) = max(slopes, key=lambda sg: abs(sg[1][0] - sg[0][0]))
+            lo, hi = min(c1, c2), max(c1, c2)
+            xa, xb = lo + (hi - lo) / 4, hi - (hi - lo) / 4
+            row_at = lambda x: r1 + (r2 - r1) * (x - c1) / (c2 - c1)
+            ra, rb = row_at(xa), row_at(xb)
+            key = tuple(round(v, 6) for v in (xa, xb, ra, rb)) + (way,)
+            if key in sloped:
+                sloped[key][4].append(k)
+            else:
+                sloped[key] = ((ra + rb) / 2, xa, xb, way, [k], (ra, rb))
+    return direction.merge_runs(pieces) + list(sloped.values())
 
 
 ARROWS = {True: "\u2192", False: "\u2190", None: "\u2194"}
@@ -202,10 +212,11 @@ def draw_band(band, title, opts, top, left):
     mode = opts.get("track_arrows", {}).get(band_key(title))
     if mode not in (None, "main", "listed"):
         raise SchematicError(f"track_arrows for {band_key(title)} must be main or listed, not {mode!r}")
-    for row, xa, xb, way, run in track_runs(band, drawn, mode):     # which way trains run on each track
+    for row, xa, xb, way, run, *slope in track_runs(band, drawn, mode):     # which way trains run on each track
         a, b = X(xa), X(xb)
         q = (b - a) / 4
-        cands = [(xx, Y(row) + dy, "middle") for dy in (-5, 5 + 0.72 * 11 + 1)
+        line = (lambda xx: Y(row)) if not slope else (lambda xx: Y(slope[0][0]) + (Y(slope[0][1]) - Y(slope[0][0])) * (xx - a) / (b - a))
+        cands = [(xx, line(xx) + dy, "middle") for dy in (-5, 5 + 0.72 * 11 + 1)
                  for xx in ((a + b) / 2, a + q, b - q, a + 0.6 * q, b - 0.6 * q)]
         # placed like a label (its box is two arrow characters wide), drawn as line work so a turned band turns it
         P.ask("track", ARROWS[way] * 2, 11, cands, weight="bold", room=[k for k in run if can_grow(band, k)],
