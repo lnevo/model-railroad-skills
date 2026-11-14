@@ -4,15 +4,18 @@
     python3 -m schematic panel TABLES.xml OUT.json [--numbers numbers.csv] [--lengths lengths.csv]
     python3 -m schematic signals TABLES.xml GRAPH.json NAME OUT.json --data DIR [--numbers ..] [--lengths ..]
     python3 -m schematic draw OUT.svg --data DIR GRAPH.json:NAME [GRAPH.json:NAME ...] [--no-preferences]
+    python3 -m schematic detail OUT --data DIR GRAPH.json:NAME ... [--station NAME ...] [--switches N ... --name TITLE]
     python3 -m schematic report --data DIR GRAPH.json:NAME ...          rule checks and drawing faults
     python3 -m schematic fingerprint OUT.json --data DIR GRAPH.json:NAME ...
     python3 -m schematic check DRAWING.svg [--list]                     label faults in a finished SVG
 """
 import argparse
 import json
+import re
 import sys
+from pathlib import Path
 
-from . import fingerprint, label_check, layers, panel_reader, plan_reader, report, sheet, signal_reader
+from . import detail, fingerprint, label_check, layers, panel_reader, plan_reader, report, sheet, signal_reader
 from .core import SchematicError
 from .plan_reader import PlanError
 
@@ -75,6 +78,16 @@ def run(argv=None):
         p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
         p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
 
+    p = sub.add_parser("detail", help="station detail sheets, cut from the solved overall sheet")
+    p.add_argument("out", help="an SVG file for one sheet, or a folder for several")
+    p.add_argument("--data", required=True)
+    p.add_argument("inputs", nargs="+", metavar="GRAPH.json:NAME")
+    p.add_argument("--station", action="append", help="a station of the `stations` preference (repeat for several; default all)")
+    p.add_argument("--switches", nargs="+", help="a group of switch numbers to draw as one sheet, with --name")
+    p.add_argument("--name", help="the title of a --switches group")
+    p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
+    p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
+
     p = sub.add_parser("check", help="label faults in a finished SVG")
     p.add_argument("svg")
     p.add_argument("--list", action="store_true")
@@ -108,6 +121,22 @@ def run(argv=None):
             print("\n".join(s.log))
             faults, text = label_check.report(a.out)
             print(text)
+        elif a.cmd == "detail":
+            s = build(a)
+            picks = detail.selections([o for _, _, o in s.bands], a.station, a.switches, a.name)
+            out = Path(a.out)
+            folder = a.out.endswith("/") or out.is_dir() or out.suffix.lower() != ".svg"
+            if not folder and len(picks) > 1:
+                raise SchematicError(f"{len(picks)} sheets cannot go in one file; give a folder (a path without .svg, or ending in /)")
+            slugs = [re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") for name, _ in picks]
+            if folder and (not all(slugs) or len(set(slugs)) < len(slugs)):
+                raise SchematicError("station names " + ", ".join(n for n, _ in picks) + " do not make distinct file names")
+            for (name, members, svg), slug in zip(detail.sheets(s.bands, picks), slugs):
+                target = out / f"{slug}.svg" if folder else out
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(svg)
+                faults, text = label_check.report(str(target))
+                print(f"{name}: switches {', '.join(members)} -> {target}\n{text}")
         elif a.cmd == "report":
             print(report.text(report.run(build(a))))
         elif a.cmd == "fingerprint":
