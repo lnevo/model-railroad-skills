@@ -389,5 +389,22 @@ class Direction(unittest.TestCase):
                     self.assertIn(d.get("facing", "R"), ("R", "L"))
 
 
+class RunHints(unittest.TestCase):
+    def test_a_hint_that_reaches_two_tracks_stops(self):
+        from schematic.columns import check_run_hints
+        from schematic.core import SchematicError
+        nodes = {"p": dict(kind="switch", label="1"), "q": dict(kind="switch", label="2")}
+        strands = {"e0": dict(ends=("p", "q"), edge="e0", name="Main", cm=100.0),
+                   "e1": dict(ends=("q", "p"), edge="e1", name="Siding", cm=90.0),
+                   "e2.0": dict(ends=("p", "q"), edge="e2", name="", cm=40.0)}
+        with self.assertRaisesRegex(SchematicError, r"min_cells \[1, 2\] matches 3 tracks"):
+            check_run_hints(nodes, strands, {"min_cells": [["1", "2", 3]]})
+        check_run_hints(nodes, {"e0": strands["e0"]}, {"shorten": [["1", "2"]]})       # one track: fine
+        check_run_hints(nodes, strands, {"min_cells": [["1", "2", 3, "Main", "siding"]]})   # the tracks it is for
+        with self.assertRaisesRegex(SchematicError, "lists YARD"):
+            check_run_hints(nodes, strands, {"shorten": [["1", "2", "Yard"]]})
+        check_run_hints(nodes, {"e2.0": strands["e2.0"], "e2.1": dict(strands["e2.0"])}, {"shorten": [["2", "1"]]})    # a folded run is one track
+
+
 if __name__ == "__main__":
     unittest.main()

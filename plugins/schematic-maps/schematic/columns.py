@@ -3,7 +3,7 @@ import collections
 import itertools
 import math
 
-from .core import JUNCTION, descend, dx_tracks  # noqa: F401
+from .core import JUNCTION, SchematicError, descend, dx_tracks  # noqa: F401
 
 
 
@@ -15,7 +15,38 @@ class Unsettled(Exception):
     pass
 
 
+def hint_tracks(hint, n_fixed):
+    """The track names a run hint lists after its fixed fields (none: any track between the two switches)."""
+    return {t.upper() for t in hint[n_fixed:]}
+
+
+def on_hint(s, names):
+    return not names or (s["name"] or "").upper() in names
+
+
+def check_run_hints(nodes, strands, opts):
+    """A `min_cells` or `shorten` hint names a run by its two end switches, and may list the tracks it means
+    after that. Stop if a hint without track names reaches two different tracks (parallel tracks, or two stubs
+    off one switch), or if a listed track is not between the two switches."""
+    refs = lambda n: {nodes[n].get("alias"), nodes[n].get("label"), (nodes[n].get("label") or "").rstrip("*")} - {None, ""}
+    hints = [("min_cells", h[0], h[1], hint_tracks(h, 3)) for h in opts.get("min_cells", ())]
+    hints += [("shorten", h[0], h[1], hint_tracks(h, 2)) for h in opts.get("shorten", ())]
+    for key, a, b, names in hints:
+        tracks = {}
+        for s in strands.values():
+            e0, e1 = s["ends"]
+            if (a in refs(e0) and b in refs(e1)) or (a in refs(e1) and b in refs(e0)):
+                tracks.setdefault(s["edge"], (s["name"] or "").upper() or f'{s["cm"]:.0f} cm')
+        if names - set(tracks.values()):
+            raise SchematicError(f"{key} [{a}, {b}] lists {', '.join(sorted(names - set(tracks.values())))}, "
+                                 "which does not run between those switches")
+        if not names and len(tracks) > 1:
+            raise SchematicError(f"{key} [{a}, {b}] matches {len(tracks)} tracks ({', '.join(sorted(tracks.values()))}); "
+                                 "list the tracks it is for after the switches, or name a switch nearer the one you mean")
+
+
 def place(nodes, strands, R, enclosed, opts, extra=()):
+    check_run_hints(nodes, strands, opts)
     srow, nrow, diag = R["srow"], R["nrow"], R["diag"]
     cons, need, weight = [], {}, []
     for sid, s in strands.items():
@@ -29,13 +60,15 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
         sv = abs(srow[sid] - nrow[v]) if v in nrow else 0
         h = max(name_cells(s["name"], opts), min(4, int(s["cm"] // 120)))   # a long track shows as a level run
         ends_ = {r for t in (u, v) for r in (nodes[t].get("alias"), nodes[t].get("label")) if r}
-        tight = any(a in ends_ and b in ends_ for a, b in opts.get("shorten", ()))     # owner's hint: draw this run short
+        tight = any(h[0] in ends_ and h[1] in ends_ and on_hint(s, hint_tracks(h, 2))
+                    for h in opts.get("shorten", ()))                       # owner's hint: draw this run short
         if tight:
             h = 0
         refs = lambda n: {nodes[n].get("alias"), nodes[n].get("label")} - {None}
-        for a, b, cells in opts.get("min_cells", ()):       # owner's hint: give this run at least so many cells
+        for hint in opts.get("min_cells", ()):              # owner's hint: give this run at least so many cells
+            a, b, cells = hint[:3]
             e0, e1 = s["ends"]
-            if (a in refs(e0) and b in refs(e1)) or (a in refs(e1) and b in refs(e0)):
+            if ((a in refs(e0) and b in refs(e1)) or (a in refs(e1) and b in refs(e0))) and on_hint(s, hint_tracks(hint, 3)):
                 if "." not in sid or b in refs(u) | refs(v):  # of a folded run, the half that reaches b
                     h = max(h, cells)
         h += opts.get("_room", {}).get(s["edge"], 0)     # R12: cells claimed by labels that found no free position
