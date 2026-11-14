@@ -619,11 +619,11 @@ def signal_spot(pts, cm, edge_cm, cell, slide=0.0):
     run goes at its share of the run's real length, moved onto the nearest level stretch. Returns the point and
     the direction of the governed move (back toward the start of the polyline)."""
     segs, d0 = [], 0.0
-    if not any(abs(b[1] - a[1]) < 0.01 and b != a for a, b in zip(pts, pts[1:])):
+    if not any(_level(a, b) and b != a for a, b in zip(pts, pts[1:])):
         return None                 # no level stretch on this run: the caller draws the mast along the slope
     for a, b in zip(pts, pts[1:]):
         L = math.hypot(b[0] - a[0], b[1] - a[1])
-        if L and abs(b[1] - a[1]) < 0.01:
+        if L and _level(a, b):
             segs.append((d0, d0 + L))
         d0 += L
     total = d0
@@ -640,11 +640,43 @@ def signal_spot(pts, cm, edge_cm, cell, slide=0.0):
     return p, (-u[0], -u[1])
 
 
-def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg, label, P):
+LONG_SLOPE_CELLS = 2.5      # a mast at the points stays on its run's first level stretch unless the slope before
+                            # it is longer than this: then the level stretch is too far from the switch it guards
+
+
+def _level(a, b):
+    return abs(b[1] - a[1]) < 0.01
+
+
+def _length(pts):
+    return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+
+
+def leading_slope(pts):
+    """The sloped stretch a run leaves its start on, as a polyline, or None when the run starts level."""
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        if a == b:
+            continue
+        if _level(a, b):
+            break
+        out.append(b)
+    return out if len(out) > 1 else None
+
+
+def slope_at_points(pts, cm, cell):
+    """The slope a mast at the points (cm about 0) is drawn on: the run's leading slope when it is longer than
+    LONG_SLOPE_CELLS cells, else None (the mast goes on the first level stretch as usual)."""
+    lead = leading_slope(pts) if cm <= 0.5 else None
+    return lead if lead and _length(lead) > LONG_SLOPE_CELLS * cell else None
+
+
+def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg, label, P, strict=False):
     """A mast on a run that is all slope (a ladder link): the symbol is drawn along the slope, on the right-hand
     side of the move; its name stays level, in line behind the stem (as the Book has it) or beside the symbol.
-    The other side of the track is used only when the right-hand side has no room at all."""
-    L = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+    The other side of the track is used only when the right-hand side has no room at all. With `strict`, a
+    mast that fits nowhere on the slope is not drawn and False is returned, so the caller can place it elsewhere."""
+    L = _length(pts)
     length = arm + 2 * r * heads
     size = opts["num_px"]
     w = labels.text_width(sg["mast"], size, "normal", 0.0)
@@ -697,6 +729,8 @@ def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg,
         else:
             continue
         break
+    if strict and not fits(tries[-1]):
+        return False
     cx, cy, deg, box = tries[-1] if fits(tries[-1]) else tries[0]
     parts = [f'<path d="M0,{-stem / 2} L0,{stem / 2} M0,0 L{arm},0" stroke-width="0.9"/>']
     parts += [f'<circle cx="{arm + r + 2 * r * h:.1f}" cy="0" r="{r}" stroke-width="0.9" fill="#fff"{dash}/>'
@@ -705,6 +739,7 @@ def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg,
     P.box(box)
     P.ask("mast", sg["mast"], size, name_cands((cx, cy, deg, box)),        # on a slope: no track to lengthen
           emit=lambda q, t=sg["mast"]: label(q[0], q[1], t, size, anchor=q[2]))
+    return True
 
 
 def mast_piece(sg, strands):
@@ -749,6 +784,7 @@ def draw_signals(band, drawn, opts, X, Y, svg, label, P):
         if spot is None:                    # its run, or the part of it the mast stands on, is on another band
             continue
         k, at, piece_cm, start = spot
+        at_points = sg["cm_from_toward"] <= 0.5     # the mast's own distance, before a cut or fold shifts it
         sg = dict(sg, cm_from_toward=at, edge_cm=piece_cm)
         pts = [(X(c), Y(rw)) for c, rw in drawn[k]]
         if strands[k]["dst"][0] == start:
@@ -759,6 +795,10 @@ def draw_signals(band, drawn, opts, X, Y, svg, label, P):
         if signal_spot(pts, sg["cm_from_toward"], sg["edge_cm"], opts["cell"]) is None:
             draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg, label, P)
             continue
+        at_points = at_points and start == sg["_toward_node"]       # not a cut end on another band's side
+        lead = slope_at_points(pts, sg["cm_from_toward"], opts["cell"]) if at_points else None
+        if lead and draw_sloped_signal(sg, lead, half, heads, r, arm, stem, gap, dash, opts, svg, label, P, strict=True):
+            continue        # at the points, on a long slope: stand on it, not on a level stretch far from the switch
         best = None
         for slide in (0.0, 0.5, 1.0, -0.4, 1.5, 2.0):      # slide along the level stretch until the symbol is clear
             cm = sg["cm_from_toward"]
