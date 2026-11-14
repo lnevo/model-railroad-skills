@@ -18,7 +18,7 @@ Length of a track is the measured one when layer 1 lists it (`track_lengths_in`,
 plan's. Ticks sit where the count crosses a multiple of the step, along the drawn track in proportion to the
 length counted on it, moved to the nearest level stretch, so on a stretched schematic they are not evenly spaced
 on paper. Without a `step`, the smallest of 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5 or 10 miles that gives no band
-more than 8 ticks (fewer on a short band: one per 10 grid columns) is used for the whole sheet.
+more than 8 ticks (fewer on a short band: one per 4 grid columns) is used for the whole sheet.
 """
 import heapq
 import math
@@ -30,7 +30,7 @@ from .core import SchematicError
 MILE_IN = 63360.0
 STEPS = (0.05, 0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
 MAX_TICKS = 8
-CELLS_PER_TICK = 10     # a band holds about one tick per this many grid columns, up to MAX_TICKS
+CELLS_PER_TICK = 4     # a band holds about one tick per this many grid columns, up to MAX_TICKS
 EPS = 1e-9
 
 

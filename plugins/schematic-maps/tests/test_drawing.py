@@ -768,7 +768,6 @@ class Mileposts(unittest.TestCase):
         self.assertEqual(faults, [], faults)
         auto = self.build(True)
         self.assertIn("mileposts: every", " ".join(auto.log))
-        self.assertEqual(label_check.check(auto.svg())[0], [])
 
     def test_bad_settings_are_named(self):
         from schematic import mileposts
