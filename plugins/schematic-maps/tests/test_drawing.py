@@ -608,6 +608,38 @@ class BandFixes(unittest.TestCase):
         sheet.mark_ways(g, [["1", "2", "both", "B"]])
         self.assertEqual(g["edges"][0]["way"], "both")
 
+    def test_parallel_tracks_in_edits_stop(self):
+        from schematic import edits
+        from schematic.core import SchematicError
+
+        def graph():
+            sw = lambda label: dict(kind="switch", label=label, alias=label, hand=1, dirs={})
+            return dict(nodes={"p": sw("1"), "q": sw("2")},
+                        edges=[dict(u="p", up="B", v="q", vp="A", cm=50.0, id="e0", names=[], main=False),
+                               dict(u="p", up="C", v="q", vp="B", cm=60.0, id="e1", names=[], main=False)])
+        new = dict(op="switch", label="9", hand="R", source="owner", cm_from_first=20, points_toward="1",
+                   c={"end": "Spur"})
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(graph(), [dict(new, on=["1", "2"])])
+        g = graph()
+        edits.apply_edits(g, [dict(new, on=["1", "2"], port="C")])      # the leg picks the longer one
+        self.assertIn("e1a", {e["id"] for e in g["edges"]})
+        g = graph()
+        edits.apply_edits(g, [dict(new, on=["1", "2"], port="B")])      # or the shorter one
+        self.assertIn("e0a", {e["id"] for e in g["edges"]})
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(graph(), [dict(op="crossover", label="9", hand="R", source="owner",
+                                             sides=[dict(on=["1", "2"], cm_from_first=20, points_toward="1"),
+                                                    dict(on=["1", "2"], port="C", cm_from_first=20, points_toward="1")])])
+        g = graph()                                                     # switch 3 is moved onto the parallel pair
+        g["nodes"].update(r=dict(kind="switch", label="3", alias="3", hand=1, dirs={}),
+                          **{k: dict(kind="end", label="") for k in ("t1", "t2", "t3")})
+        g["edges"] += [dict(u="r", up=leg, v=t, vp="E", cm=30.0, id=f"x{t}", names=[], main=False)
+                       for leg, t in zip("ABC", ("t1", "t2", "t3"))]
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(g, [dict(op="move", switch="3", through=["A", "B"], onto=["1", "2"],
+                                       cm_from_first=20, hand="R", source="owner")])
+
 
 if __name__ == "__main__":
     unittest.main()

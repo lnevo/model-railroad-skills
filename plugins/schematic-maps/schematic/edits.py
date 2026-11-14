@@ -27,14 +27,15 @@ def far(e, n, port):
 
 def edge_between(g, a, b, port=None, unique=False):
     """The track between switches a and b (leaving a by `port` when given). With several, the longest, or with
-    `unique` an error asking for the leg."""
+    `unique` an error naming both and asking for the leg."""
     n0, n1 = by_label(g, a), by_label(g, b)
     hits = [e for e in g["edges"] if {e["u"], e["v"]} == {n0, n1}
             and (port is None or (e["u"], e["up"]) == (n0, port) or (e["v"], e["vp"]) == (n0, port))]
     if not hits:
         raise SchematicError(f"no track between {a} and {b}" + (f" leaving {a} by leg {port}" if port else ""))
     if unique and len(hits) > 1:
-        raise SchematicError(f"{len(hits)} tracks join {a} and {b}; add the leg of {a} the track leaves by (A to D)")
+        raise SchematicError(f"{len(hits)} tracks join {a} and {b}; say which leg of {a} the track leaves by (A to D): "
+                             "as 'port' on a switch or crossover side, as a third item of `onto`")
     return max(hits, key=lambda e: e["cm"]), n0, n1
 
 
@@ -128,7 +129,7 @@ def apply_edits(g, edits):
                 e3["up"] = "C"
             else:
                 e3["vp"] = "C"
-            t, n0, _ = edge_between(g, *ed["onto"])
+            t, n0, _ = edge_between(g, *ed["onto"], unique=True)
             set_in(g, x, t, n0, ed["cm_from_first"], False)
             d = N[x]
             d["hand"] = {"R": 1, "L": -1}.get(ed.get("hand"), d["hand"])
@@ -138,7 +139,7 @@ def apply_edits(g, edits):
         elif op == "switch":        # a switch that is not in the plan, with whatever hangs off its diverging leg
             need_hand_and_source(ed, ed["label"])
             x = new_switch(g, ed["label"], ed.get("alias", ed["label"]), ed["hand"])
-            t, n0, _ = edge_between(g, *ed["on"], ed.get("port"))
+            t, n0, _ = edge_between(g, *ed["on"], ed.get("port"), unique=True)
             set_in(g, x, t, n0, ed["cm_from_first"], ed["points_toward"] == ed["on"][0], ed.get("names", (None, None)))
             grow(g, x, "C", ed["c"], t, counter)
         elif op == "crossover":     # two new switches joined by their diverging legs
@@ -146,7 +147,7 @@ def apply_edits(g, edits):
             ids = []
             for k, side in enumerate(ed["sides"]):
                 x = new_switch(g, ed["label"], ed["label"] + "ab"[k], ed["hand"])
-                t, n0, _ = edge_between(g, *side["on"], side.get("port"))
+                t, n0, _ = edge_between(g, *side["on"], side.get("port"), unique=True)
                 set_in(g, x, t, n0, side["cm_from_first"], side["points_toward"] == side["on"][0],
                        side.get("names", (None, None)))
                 ids.append(x)
