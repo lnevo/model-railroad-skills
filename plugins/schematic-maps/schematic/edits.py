@@ -10,7 +10,7 @@ def by_label(g, ref):
     """A junction by its plan part number (kept as alias) or its label."""
     hits = [n for n, d in g["nodes"].items() if d.get("alias") == ref]
     hits = hits or [n for n, d in g["nodes"].items() if d.get("label") == ref and d["kind"] != "end"]
-    # a moved switch is labelled with a star (T300*); its plain number still finds it
+    # a moved switch is labelled with a star (7*); its plain number still finds it
     hits = hits or [n for n, d in g["nodes"].items() if (d.get("label") or "").rstrip("*") == ref and d["kind"] != "end"]
     if len(hits) != 1:
         raise SchematicError(f"{len(hits)} junctions answer to {ref}")

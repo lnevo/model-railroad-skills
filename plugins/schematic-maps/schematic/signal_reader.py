@@ -143,7 +143,7 @@ def read(tables, graph, overrides, numbers=None, lengths=None, panel_name=None):
     g = json.loads(json.dumps(graph))
     edits.apply_edits(g, ov.get("edits", []))
     SN = g["nodes"]
-    # a switch the overrides moved is labelled with a star (T300*) on the schematic but not on the panel
+    # a switch the overrides moved is labelled with a star (7*) on the schematic but not on the panel
     lab = lambda N, n: (N[n].get("label") or "").rstrip("*") if N[n]["kind"] != "end" else ""
     clean = lambda names: {re.sub(r"^Track ", "", x) for x in names}
 
