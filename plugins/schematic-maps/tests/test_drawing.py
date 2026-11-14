@@ -47,6 +47,27 @@ class Rules(unittest.TestCase):
             self.assertFalse(self.legs(lower, sw)[leg], f"switch {sw} leg {leg}")
         self.assertFalse(self.legs(self.band("Upper level"), "21")["B"])
 
+    def test_rules_are_weighted_preferences_and_a_hand_pin_wins(self):
+        from schematic.rows import Rows
+        lower = self.band("Lower level")
+        nodes, strands = lower["nodes"], lower["strands"]
+        soft = rules.level_legs(nodes, strands, {})
+        n, leg = next(iter(soft.items()))
+        other = "C" if leg == "B" else "B"
+        rows = Rows(nodes, strands, [], rule_pins=soft)
+        rows.rule_weight = 2.5
+        self.assertEqual(rows.broken(), 2.5 * sum(rows.flat[k] != v for k, v in soft.items()))
+        rows.flat.update(soft)
+        self.assertEqual(rows.broken(), 0)
+        rows.flat[n] = other
+        self.assertEqual(rows.broken(), 2.5)
+        label = nodes[n].get("alias") or nodes[n]["label"]
+        pinned = Rows(nodes, strands, [], pins={label: other}, rule_pins=soft)
+        pinned.flat.update(soft)
+        pinned.flat[n] = other
+        self.assertEqual(pinned.broken(), 0)      # a hand pin is not a broken rule
+        self.assertEqual(pinned.optimise()["cost"] is not None and pinned.flat[n], other)
+
     def test_r5_pins_come_from_the_track_alone(self):
         lower = self.band("Lower level")
         pins = rules.main_pins(lower["nodes"], lower["strands"])

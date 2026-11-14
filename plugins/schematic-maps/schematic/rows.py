@@ -41,7 +41,11 @@ class Rows:
                                 and ref in (d.get("alias"), d.get("label"))]
         # owner's hints: pairs of switches to keep on neighbouring rows
         self.close = [(a[0], b[0]) for a, b in ((find_ref(p), find_ref(q)) for p, q in close) if a and b]
-        self.pins = dict(rule_pins or {})       # R5 and R6; a hand pin (a comparison run) overrides them
+        # R5 and R6 are strong preferences, not pins: breaking one costs `rule_weight`, so the search keeps them
+        # unless the drawing gets clearly tighter without them. A hand pin (layer 3) is fixed and overrides them.
+        self.soft = dict(rule_pins or {})
+        self.rule_weight = 2.0
+        self.pins = {}
         self.pins.update({n: port for n, d in nodes.items() if d["kind"] == "switch"
                           for ref, port in (pins or {}).items() if ref in (d.get("alias"), d.get("label"))})
         self.extra = set()
@@ -192,24 +196,30 @@ class Rows:
         starts = [dict(self.flat), {n: "B" for n in keys}, {n: "C" for n in keys}]
         starts += [{n: rng.choice("BC") for n in keys} for _ in range(5)]
         for st_ in starts:
+            st_.update(self.soft)
             st_.update(self.pins)
         best = None
         for start in starts:
             self.flat = dict(start)
             r = self.optimise_from_here()
-            sc = (self.dropped, r["cost"])
+            sc = (self.dropped, r["cost"] + self.broken())
             if best is None or sc < best[0]:
                 best = (sc, r, dict(self.flat))
         self.flat = best[2]
         self.dropped = best[0][0]
         return best[1]
 
+    def broken(self):
+        """The price of the R5 and R6 preferences the current choice breaks."""
+        return self.rule_weight * sum(self.flat[n] != leg for n, leg in self.soft.items()
+                                      if n in self.flat and n not in self.pins)
+
     def optimise_from_here(self):
         """Choose each switch's level leg: first so that no above/below rule is broken, then for short slopes."""
         self.tolerant = True
 
         def score(r):
-            return (self.dropped, r["cost"])
+            return (self.dropped, r["cost"] + self.broken())
 
         best = self.solve()
         best_score = score(best)

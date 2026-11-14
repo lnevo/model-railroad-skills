@@ -36,7 +36,7 @@ class Cli(unittest.TestCase):
             self.assertIn("0 label faults", r.stdout)
             self.assertTrue((tmp / "out.svg").read_text().startswith("<svg"))
             r = run("report", "--data", tmp, f"{tmp / 'graph.json'}:example", "--no-preferences")
-            self.assertIn("total: crossings 0, main not level 0, ladder not level 0", r.stdout)
+            self.assertIn("total: crossings 0; rules that gave way: main 0, ladder 0", r.stdout)
             r = run("fingerprint", tmp / "fp.json", "--data", tmp, f"{tmp / 'graph.json'}:example")
             self.assertIn("Lower level", json.loads((tmp / "fp.json").read_text()))
             r = run("check", tmp / "out.svg", "--list")

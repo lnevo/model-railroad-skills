@@ -2,7 +2,8 @@
 
   1. every switch, leg and run of the track graph appears once in the grid (`coverage`)
   2. no two drawn lines cross or lie on top of each other unless they cross on the layout (`faults`)
-  3. R5: the main is level through every switch on it; R6: yard tracks are level in every ladder
+  3. R5: the main is level through every switch on it; R6: yard tracks are level in every ladder. Both are
+     strong preferences, so each switch where one gave way for a tighter drawing is listed, not counted as a fault
   4. every switch the edits add or move has a source (`edits.apply_edits` refuses one without)
   5. no label overlaps a line, a symbol or another label (label_check, on the finished SVG)
 
@@ -93,7 +94,7 @@ def run(sheet, strict=False):
 
 
 def counts(res):
-    """Totals over every band: crossings, main not level, ladder not level, coverage."""
+    """Totals over every band: crossings, rules that gave way (main, ladder), coverage."""
     return {k: sum(len(f[k]) for f in res.values()) for k in ("faults", "main", "ladder", "coverage")}
 
 
@@ -103,13 +104,13 @@ def text(res):
         lines.append(f"== {title}")
         lines.append(f"  drawing faults (crossings, overlaps): {len(f['faults'])}")
         lines += [f"    {x}" for x in f["faults"]]
-        lines.append(f"  R5 main not level: {len(f['main'])}")
+        lines.append(f"  R5 gave way, main sloped: {len(f['main'])}")
         lines += [f"    {a}: {b}" for a, b in f["main"]]
-        lines.append(f"  R6 ladder, yard track not level: {len(f['ladder'])}")
+        lines.append(f"  R6 gave way, yard track sloped: {len(f['ladder'])}")
         lines += [f"    {a}: {b}" for a, b in f["ladder"]]
         if f["coverage"]:
             lines.append(f"  not drawn: {len(f['coverage'])}")
             lines += [f"    {x}" for x in f["coverage"]]
     t = counts(res)
-    lines.append(f"total: crossings {t['faults']}, main not level {t['main']}, ladder not level {t['ladder']}")
+    lines.append(f"total: crossings {t['faults']}; rules that gave way: main {t['main']}, ladder {t['ladder']}")
     return "\n".join(lines)

@@ -13,9 +13,14 @@ R6 Ladder. A ladder is a chain of two or more switches, each joined to the next 
    leg is a yard track: it runs to a track end or is longer than `long_track_cm` (default 100). The yard track leg of each ladder switch is level and the link slopes.
    The lead into the first switch runs straight into its common end, so the lead-side leg is level by
    construction. R5 wins where the two meet (a main link stays level).
+
+Both are strong preferences, not pins. The row search keeps them unless breaking one makes the drawing tighter by
+more than `rule_weight` (default 2.0, the price of two rows of slope): a short loop entered with the main sloped,
+or a ladder whose link runs level, can draw in fewer rows than the rule allows. The report lists every switch where a
+rule gave way. A `level_leg` preference (layer 3) is a hard pin and overrides both.
 """
 
-DEFAULT_SETTINGS = dict(ladder_link_max_cm=40.0, long_track_cm=100.0)
+DEFAULT_SETTINGS = dict(ladder_link_max_cm=40.0, long_track_cm=100.0, rule_weight=2.0)
 
 
 def setting(opts, key):

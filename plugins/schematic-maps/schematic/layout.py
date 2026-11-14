@@ -80,6 +80,7 @@ def layout_one(g, sig, T, opts, warnings):
     def settle(span_filter):
         """Rows and columns, repeated until no two runs clash on a row. Returns (band, rows)."""
         rows = Rows(nodes, strands, snaps, free, opts.get("level_leg"), opts.get("keep_close", ()), rule_pins)
+        rows.rule_weight = rules.setting(opts, "rule_weight")
         rows.spans = span_filter
         xcons, refused = set(), set()
         for _ in range(12):
