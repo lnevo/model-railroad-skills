@@ -141,18 +141,28 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
     return sub
 
 
-def precomputed(band, opts, take, name, members, turned):
-    """The capacity counts and the group's total, counted on the whole band exactly as the overall sheet draws them
-    (including a band turned end for end), so the detail agrees with it even where a track runs off the cut."""
+def inside_stations(opts, members, name):
+    """{station: switches} of the stations that lie wholly inside the group; the group itself when none does."""
+    group = {str(m) for m in members}
+    inside = {st: [str(m) for m in ms] for st, ms in opts.get("stations", {}).items()
+              if ms and {str(m) for m in ms} <= group}
+    return inside or {name: sorted(group)}
+
+
+def precomputed(band, opts, take, inside, turned):
+    """The capacity counts and the totals of the stations inside the group, counted on the whole band exactly as the
+    overall sheet draws them (including a band turned end for end), so the detail agrees with it even where a
+    track runs off the cut."""
     cars = {}
     for show, n, tracks in capacity.tracks(band, opts):
         here = [m for m in tracks if m in take]
         if here:
             cars[show if show in take else max(here, key=lambda m: (band["strands"][m]["cm"], m))] = n
     stations = dict(opts.get("stations", {}))
-    stations.setdefault(name, [str(m) for m in members])
+    for st, ms in inside.items():
+        stations.setdefault(st, ms)
     totals = capacity.station_totals(band, dict(opts, stations=stations), band["x"], turned)
-    return {"cars": cars, "totals": {name: totals[name]} if totals.get(name) else {}}
+    return {"cars": cars, "totals": {st: totals[st] for st in inside if totals.get(st)}}
 
 
 def cut_signals(opts, sub):
@@ -172,7 +182,7 @@ def cut_signals(opts, sub):
     return out
 
 
-def detail_options(opts, title, name, members, sub, pre):
+def detail_options(opts, title, name, inside, sub, pre):
     """The options of one detail sheet: the band's own look, its title block, and only this band's settings."""
     key = draw.band_key(title)
     out = dict(opts)
@@ -183,7 +193,7 @@ def detail_options(opts, title, name, members, sub, pre):
         elif isinstance(v, (list, tuple)):
             out[k] = [b for b in v if b == key] if k in KEEP_SETTINGS else []
     out.pop("system_title", None)
-    out.update(stations={name: [str(m) for m in members]}, equal_width=False, sheet=None,
+    out.update(stations=inside, equal_width=False, sheet=None,
                title=[name, "Station detail sheet", title],
                max_scale=opts.get("detail_max_scale", DETAIL_SCALE), precomputed=pre,
                signals=cut_signals(opts, sub))
@@ -196,9 +206,10 @@ def sheet_svg(bands, members, name, owner):
     title, band, opts = find_band(bands, members)
     sub = cut(band, members, opts, name, owner)
     turned = draw.band_key(title) in opts.get("rotate_bands", ())
-    pre = precomputed(band, opts, sub.pop("take"), name, members, turned)
+    inside = inside_stations(opts, members, name)
+    pre = precomputed(band, opts, sub.pop("take"), inside, turned)
     sub["precomputed"] = pre
-    o = detail_options(opts, title, name, members, sub, pre)
+    o = detail_options(opts, title, name, inside, sub, pre)
     return draw.page_svg([(title, sub, o)], o), sub
 
 
@@ -209,16 +220,18 @@ def sheets(bands, picks):
 
 
 def selections(opts_list, stations=None, switches=None, name=None):
-    """[(name, members)] to draw: a named group from `switches`, else the chosen stations (all when none chosen)
-    from the `stations` preference."""
+    """[(name, members)] to draw: a named group from `switches`, else the chosen sheets (all when none chosen).
+    The sheets are the `detail_sheets` preference (name to switches, which may overlap stations) when any input has
+    one, else the `stations` preference."""
     if switches and stations:
         raise SchematicError("--station and --switches are two ways to choose; use one")
+    key = "detail_sheets" if any(o.get("detail_sheets") for o in opts_list) else "stations"
     known = {}
     for o in opts_list:
-        for st, members in o.get("stations", {}).items():
+        for st, members in o.get(key, {}).items():
             members = [str(m) for m in members]
             if known.setdefault(st, members) != members:
-                raise SchematicError(f"station {st} is defined differently in two inputs")
+                raise SchematicError(f"{key} entry {st} is defined differently in two inputs")
     if switches:
         if not name:
             raise SchematicError("a group of switches needs a name (--name)")
@@ -228,8 +241,8 @@ def selections(opts_list, stations=None, switches=None, name=None):
     out = []
     for st in chosen:
         if st.lower() not in lower:
-            raise SchematicError(f"no station {st!r} in the stations preference (stations: {', '.join(known) or 'none'})")
+            raise SchematicError(f"no station {st!r} in the {key} preference (names: {', '.join(known) or 'none'})")
         out.append((lower[st.lower()], known[lower[st.lower()]]))
     if not out:
-        raise SchematicError("no stations in the preferences: name the switches with --switches and --name")
+        raise SchematicError("no detail_sheets or stations in the preferences: name the switches with --switches and --name")
     return out

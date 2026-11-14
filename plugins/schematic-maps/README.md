@@ -30,7 +30,7 @@ Layer files in `DIR`: `NAME.plan_overrides.json` (facts about the railroad), `NA
 
 ## Detail sheets
 
-`schematic detail` draws one station, or a named group of switches, as its own larger sheet, cut from the same solved drawing as the overall sheet so the two agree: same order of tracks, same lengths, same capacity counts and masts. Tracks that leave the cut end in an arrow reading `TO <station>` or `TO SW <number>`. Stations come from the `stations` preference (all of them by default); `detail_max_scale` (default 2) sets how far a sheet is enlarged. One selection writes a file, several write a folder of `<station>.svg`.
+`schematic detail` draws one station, or a named group of switches, as its own larger sheet, cut from the same solved drawing as the overall sheet so the two agree: same order of tracks, same lengths, same capacity counts and masts. Tracks that leave the cut end in an arrow reading `TO <station>` or `TO SW <number>`. Sheets come from the `detail_sheets` preference (name to switch numbers, which may overlap stations) when present, else the `stations` preference, all of them by default. A sheet shows a bar and car total for each station that lies wholly inside it; `detail_max_scale` (default 2) sets how far a sheet is enlarged. One selection writes a file, several write a folder of `<station>.svg`.
 
 ## The example
 

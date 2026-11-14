@@ -48,7 +48,7 @@ class Selection(unittest.TestCase):
     def test_unknown_station_and_no_stations_stop(self):
         with self.assertRaisesRegex(SchematicError, "no station 'Nowhere'"):
             detail.selections([{"stations": STATIONS}], ["Nowhere"])
-        with self.assertRaisesRegex(SchematicError, "no stations in the preferences"):
+        with self.assertRaisesRegex(SchematicError, "no detail_sheets or stations"):
             detail.selections([{}])
 
     def test_a_switch_that_is_not_drawn_or_a_split_group_stops(self):
@@ -57,6 +57,33 @@ class Selection(unittest.TestCase):
             detail.find_band(s.bands, ["99"])
         with self.assertRaisesRegex(SchematicError, "more than one band"):
             detail.find_band(s.bands, ["1", "21"])
+
+
+class DetailSheets(unittest.TestCase):
+    SHEETS = {"Whole": ["11", "12", "13", "2", "6", "3"], "Yard": ["11", "12", "13"], "Mixed": ["11", "12"]}
+
+    def test_the_preference_wins_over_stations_and_may_overlap_them(self):
+        picks = detail.selections([{"stations": STATIONS, "detail_sheets": self.SHEETS}])
+        self.assertEqual([n for n, _ in picks], ["Whole", "Yard", "Mixed"])
+        self.assertEqual(detail.selections([{"stations": STATIONS, "detail_sheets": self.SHEETS}], ["whole"])[0][0], "Whole")
+        with self.assertRaisesRegex(SchematicError, "detail_sheets entry Whole is defined differently"):
+            detail.selections([{"detail_sheets": {"Whole": ["1"]}}, {"detail_sheets": {"Whole": ["2"]}}])
+
+    def test_a_sheet_shows_each_station_inside_it_with_its_total(self):
+        s = staged()
+        allo = [o for _, _, o in s.bands]
+        svg, sub = detail.sheet_svg(s.bands, self.SHEETS["Whole"], "Whole", detail.owners(allo))
+        self.assertEqual(sorted(sub["precomputed"]["totals"]), ["Yard"])      # Junction has no cars; Throat is not inside
+        for st in ("YARD", "JUNCTION"):
+            self.assertIn(st, svg)
+        self.assertIn("CARS", svg)
+        self.assertEqual(sub["precomputed"]["totals"]["Yard"], detail.sheet_svg(s.bands, STATIONS["Yard"], "Yard",
+                                                                                detail.owners(allo))[1]["precomputed"]["totals"]["Yard"])
+
+    def test_a_group_with_no_station_inside_gets_its_own_bar(self):
+        s = staged()
+        svg, sub = detail.sheet_svg(s.bands, ["11", "12"], "Mixed", detail.owners([o for _, _, o in s.bands]))
+        self.assertIn("MIXED", svg)
 
 
 class Cut(unittest.TestCase):
