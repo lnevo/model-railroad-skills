@@ -4,7 +4,7 @@ import datetime
 import math
 from xml.sax.saxutils import escape
 
-from . import capacity, direction, fold, labels
+from . import capacity, direction, fold, labels, mileposts
 from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
 from .layout import paths
 
@@ -131,6 +131,31 @@ def arrow_mark(svg, P, xy, way, size):
     P.box(labels.text_box(xy[0], xy[1], "middle", ARROWS[way] * 2, size, "bold"))
 
 
+def mileposts_mark(P, svg, label, spot, text, room, lead, size=6.5):
+    """A milepost: a stalk on the track with a small diamond on it and the count beyond, above the track if there
+    is room, else below. The stalk and diamond are kept clear along with the number, from `lead` px off the track
+    line outward. A mark with no room moves a little along its level stretch before the track grows."""
+    x, y, x0, x1 = spot
+    cands, reach = [], []
+    for off in (0, 6, -6, 12, -12, 20, -20):
+        if not x0 <= x + off <= x1:
+            continue
+        for sign in (-1, 1):
+            cands.append((x + off, y + sign * 12.4 + (-2 if sign < 0 else 2 + 0.72 * size), "middle"))
+            reach.append(y + sign * lead)
+    P.ask("milepost", text, size, cands, room=room, reach=reach,
+          emit=lambda xy: _draw_milepost(svg, label, xy[0], y, xy, text, size))
+
+
+def _draw_milepost(svg, label, x, y, xy, text, size):
+    sign = -1 if xy[1] < y else 1
+    cy = y + sign * 9.2
+    svg.append(f'<path d="M{x:.1f},{y:.1f} L{x:.1f},{y + sign * 6:.1f}" stroke-width="1"/>')
+    svg.append(f'<path d="M{x:.1f},{cy - 3.2:.1f} L{x + 3.2:.1f},{cy:.1f} L{x:.1f},{cy + 3.2:.1f} L{x - 3.2:.1f},{cy:.1f} Z" '
+               f'stroke-width="1" fill="#fff"/>')
+    label(xy[0], xy[1], text, size, anchor=xy[2])
+
+
 def draw_band(band, title, opts, top, left):
     cell, rowh = opts["cell"], opts["rowh"]
     cell = opts.get("band_cell", {}).get(band_key(title), cell)      # a band can be stretched along its length
@@ -200,6 +225,18 @@ def draw_band(band, title, opts, top, left):
             P.ask("track", shown, opts["name_px"], cands, spacing=0.4, room=[k] if can_grow(band, k) else [],
                   emit=lambda xy, t=shown: label(xy[0], xy[1], t, opts["name_px"], anchor=xy[2],
                                                                extra='letter-spacing="0.4"'))
+    if opts.get("_mp_step") and band.get("mp"):         # mileposts: a diamond on a stalk, the count above or below it
+        for sid in sorted(strands):
+            if sid in diag:
+                continue
+            marks = mileposts.ticks(band, sid, opts["_mp_step"])
+            pts = [(X(c), Y(r)) for c, r in drawn[sid]]
+            for share, value in marks:
+                at = mileposts.level_spot(pts, share, 8.0)
+                if at is None:
+                    continue
+                mileposts_mark(P, svg, label, at, mileposts.number(value),
+                               [sid] if can_grow(band, sid) else [], opts["main_w"] / 2 + 1.5)
     if opts.get("direction_arrows") and not turned:   # a band that runs east to the left somewhere: an arrow per main run
         for row, xa, xb, right, run in direction.main_runs(band, drawn):
             a, b = X(xa), X(xb)

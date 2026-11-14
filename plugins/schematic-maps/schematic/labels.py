@@ -16,6 +16,7 @@ import math
 from .label_check import BELOW, CAP, _pt_seg, boxes_overlap, seg_box_gap, text_width
 
 PAD = 1.2
+MARK_HALF = 3.5       # half the width of a mark (a milepost diamond) that stands between a label and its track
 
 
 def text_box(x, y, anchor, s, size, weight, spacing=0.0):
@@ -47,11 +48,12 @@ class Placer:
         c = sum(1 for a, b, w in self.lines if seg_box_gap(a, b, box) < w / 2 + PAD)
         return c + sum(1 for o in self.boxes if boxes_overlap(box, o, PAD))
 
-    def ask(self, what, s, size, cands, weight="normal", extra="", spacing=0.0, emit=None, room=()):
+    def ask(self, what, s, size, cands, weight="normal", extra="", spacing=0.0, emit=None, room=(), reach=None):
         """cands: [(x, y, anchor)] in order of preference. `room`: the strands that get longer when the label
-        finds no free position (R12, layout part)."""
+        finds no free position (R12, layout part). `reach`: for each candidate, the y the label's mark extends to
+        (a stalk and diamond between the label and its track), kept clear along with the label."""
         self.asks.append(dict(what=what, s=s, size=size, cands=cands, weight=weight, extra=extra,
-                              spacing=spacing, emit=emit, room=tuple(room)))
+                              spacing=spacing, emit=emit, room=tuple(room), reach=reach))
 
     def solve(self):
         """Place every label asked for; returns [(ask, (x, y, anchor))].
@@ -60,6 +62,9 @@ class Placer:
         todo = []
         for a in self.asks:
             bs = [text_box(x, y, an, a["s"], a["size"], a["weight"], a["spacing"]) for x, y, an in a["cands"]]
+            if a["reach"]:
+                bs = [(min(b[0], c[0] - MARK_HALF), min(b[1], r), max(b[2], c[0] + MARK_HALF), max(b[3], r))
+                      for b, c, r in zip(bs, a["cands"], a["reach"])]
             ok = [self.clear(b) for b in bs]
             todo.append([a, bs, ok])
         out = []

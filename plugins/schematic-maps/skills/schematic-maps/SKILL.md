@@ -43,6 +43,8 @@ Run hints (layer 3): `min_cells` `[a, b, cells]` and `shorten` `[a, b]` name a r
 
 Capacity (layer 3): `capacity: {"car_in": 7.4}` prints how many cars each yard or stub track holds, and totals under the station bars. Measured lengths go in layer 1 as `track_lengths_in` (`{"S-1": 212}`, inches by track name); otherwise the plan's length is used.
 
+Mileposts (layer 3 `mileposts: true` or `{"step": 0.25}`) print scale-mile ticks along the main route. They need layer 1 `milepost_origin` (`{"switch": "1", "milepost": 0.0}`), `scale_ratio` (87.1 for HO) and, to number a second level, `helix_length_in` (inches, one number or one per helix track name). `milepost_route` lists the route pairs like `main_route` when the count must run a different way. Off by default; with it off the drawing is unchanged.
+
 Facing letters (layer 3): `facing_letters: true` prints R or L after each switch number, from the main route's direction (`main_route` is listed west to east, in timetable order); a switch the route does not reach takes the direction it is drawn with. `direction_arrows: true` puts an EAST arrow on each main run of a band whose main runs east to the left anywhere (not on a band turned with `rotate_bands`). Where the main route itself turns back (a reversing loop at its end) the run log names the switches to check.
 
 Direction per band (layer 3): `band_legend` gives a band its own legend, drawn above its title, by the band's first word: `"normal"` (west to the left), `"reversed"` (west to the right, for a level drawn end for end), `"none"`, or `{"west": "left" or "right", "show": "both", "west" or "east"}`, where `show` keeps one arrow for a band whose traffic runs one way. Once any band declares one, or a band is turned with `rotate_bands`, the page legend is not drawn and a band that declares nothing gets `"normal"`, or `"reversed"` when it is turned; with neither the page keeps its one legend. A band setting (`band_legend`, `track_arrows`, `rotate_bands`, `band_cell`, `band_align`, `band_shift`, `band_width`, `band_order`) that names no band stops the run, listing the bands. `track_arrows` `{"Upper": "main"}` puts an arrow on every main track of that band, two-headed where layer 1 gives no direction.
@@ -63,7 +65,7 @@ Settings that are tuning, not per-switch hints: `ladder_link_max_cm` (40) and `l
 
 ## References
 
-`references/style.md` has the drafting style, one rule at a time, with the examples it comes from and which rules the command draws and which it does not yet (capacity, mileposts, interlocking limits, date and revision). Read it when asked why the sheet looks as it does or for something it does not show. `references/cats-grid.md` is the CATS Designer's cell rules, for a later step that seeds a CATS panel from the grid; the command does not do that.
+`references/style.md` has the drafting style, one rule at a time, with the examples it comes from and which rules the command draws and which it does not yet (interlocking limits, date and revision). Read it when asked why the sheet looks as it does or for something it does not show. `references/cats-grid.md` is the CATS Designer's cell rules, for a later step that seeds a CATS panel from the grid; the command does not do that.
 
 ## Pitfalls
 

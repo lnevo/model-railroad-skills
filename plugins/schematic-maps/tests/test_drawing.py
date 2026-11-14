@@ -705,3 +705,74 @@ class BandFixes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Mileposts(unittest.TestCase):
+    """Mileposts: counted in scale miles from the origin switch along the route, drawn as ticks when asked."""
+
+    def build(self, mileposts):
+        import shutil
+        import tempfile
+        from pathlib import Path
+        from schematic import sheet
+        src = helpers.data_with_signals()
+        with tempfile.TemporaryDirectory() as d:
+            for p in Path(src).iterdir():
+                shutil.copy(p, d)
+            pref = Path(d) / "example.preferences.json"
+            prefs = json.loads(pref.read_text())
+            if mileposts is not None:
+                prefs["mileposts"] = mileposts
+            pref.write_text(json.dumps(prefs))
+            return sheet.build([(helpers.graph(), "example")], d)
+
+    def test_off_is_byte_identical_and_draws_nothing_extra(self):
+        self.assertEqual(self.build(None).svg(), helpers.build(True).svg())
+        self.assertEqual(self.build(False).svg(), helpers.build(True).svg())
+        self.assertNotIn("milepost", helpers.build(True).svg())
+
+    def test_counts_start_at_the_origin_and_run_along_the_route(self):
+        s = self.build({"step": 0.1})
+        lower = next(b for t, b, _ in s.bands if t == "Lower level")
+        self.assertEqual(lower["mp_origin"], next(n for n, d in lower["nodes"].items() if d.get("label") == "1"))
+        near, at, miles, _ = lower["mp"]["e1"]
+        self.assertEqual(near, lower["mp_origin"])
+        self.assertAlmostEqual(at, 0.0)
+        self.assertGreater(miles, 0)
+        # the track west of the origin counts backwards
+        self.assertLess(min(v[1] for v in lower["mp"].values()), 0)
+
+    def test_miles_follow_length_and_scale(self):
+        from schematic import mileposts
+        e = dict(names=["S-1"], cm=254.0)
+        self.assertAlmostEqual(mileposts.edge_miles(e, {}, 87.1), 100 * 87.1 / 63360)
+        self.assertAlmostEqual(mileposts.edge_miles(e, {"S-1": 50.0}, 87.1), 50 * 87.1 / 63360)
+
+    def test_ticks_sit_on_multiples_of_the_step(self):
+        from schematic import mileposts
+        band = dict(mp={"e": ("a", 0.05, 0.3, "a")}, mp_origin=None,
+                    strands={"e": dict(src=("a", "B"), dst=("b", "A"), edge="e", ends=("a", "b"), hidden=False)})
+        got = mileposts.ticks(band, "e", 0.1)
+        self.assertEqual([v for _, v in got], [0.1, 0.2, 0.3])
+        self.assertAlmostEqual(got[0][0], 0.05 / 0.3)
+        self.assertEqual(mileposts.number(0.30000000000000004), "0.3")
+
+    def test_helix_length_carries_the_count_to_the_other_end(self):
+        s = self.build({"step": 0.1})
+        counts = [v[1] for _, b, _ in s.bands for v in b["mp"].values()]
+        self.assertTrue(counts)
+
+    def test_drawn_with_no_label_faults_and_an_automatic_step(self):
+        s = self.build({"step": 0.25})
+        faults, n = label_check.check(s.svg())
+        self.assertEqual(faults, [], faults)
+        auto = self.build(True)
+        self.assertIn("mileposts: every", " ".join(auto.log))
+        self.assertEqual(label_check.check(auto.svg())[0], [])
+
+    def test_bad_settings_are_named(self):
+        from schematic import mileposts
+        from schematic.core import SchematicError
+        for bad in ({"step": 0}, {"step": "1"}, {"gap": 1}, "yes"):
+            with self.assertRaises(SchematicError):
+                mileposts.preference({"mileposts": bad})
