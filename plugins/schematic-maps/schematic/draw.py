@@ -4,7 +4,7 @@ import datetime
 import math
 from xml.sax.saxutils import escape
 
-from . import capacity, direction, labels
+from . import capacity, direction, fold, labels
 from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
 from .layout import paths
 
@@ -83,24 +83,34 @@ def track_way(s):
 def track_runs(band, drawn, mode):
     """[(row, x from, x to, way, [strands])] for the track arrows: every strand with a declared way, and with
     `track_arrows` "main" every main strand too (two ways where none is declared). Level pieces of at least one
-    cell that meet end to end on a row with the same way are one run, so a straight line carries one arrow."""
+    cell that meet end to end on a row with the same way are one run, so a straight line carries one arrow. A
+    strand drawn only on a slope (of at least one cell across) has no level piece: its arrow sits on the middle of
+    its longest sloped piece, pointing the way the slope runs across the page, and strands on the same slope share
+    it. Such a run carries a sixth item, the rows at its two ends, for placing the arrow along the slope."""
     strands = band["strands"]
-    pieces = []
+    pieces, sloped = [], {}
     for k, pts in drawn.items():
         s = strands.get(k)
         if s is None or (s.get("way") is None and not (mode == "main" and s["main"])):
             continue
         way = track_way(s)
-        for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
-            if r1 == r2 and abs(c2 - c1) >= 1:
-                pieces.append((r1, min(c1, c2), max(c1, c2), way, k))
-    runs = []
-    for row, a, b, way, k in sorted(pieces, key=lambda pc: pc[:3]):
-        if runs and runs[-1][0] == row and runs[-1][3] == way and abs(runs[-1][2] - a) < 1e-6:
-            runs[-1] = (row, runs[-1][1], b, way, runs[-1][4] + [k])
-        else:
-            runs.append((row, a, b, way, [k]))
-    return runs
+        segs = list(zip(pts, pts[1:]))
+        level = [(r1, min(c1, c2), max(c1, c2), way, k) for (c1, r1), (c2, r2) in segs
+                 if r1 == r2 and abs(c2 - c1) >= 1]
+        pieces += level
+        slopes = [] if level else [sg for sg in segs if sg[0][1] != sg[1][1] and abs(sg[1][0] - sg[0][0]) >= 1]
+        if slopes:
+            (c1, r1), (c2, r2) = max(slopes, key=lambda sg: abs(sg[1][0] - sg[0][0]))
+            lo, hi = min(c1, c2), max(c1, c2)
+            xa, xb = lo + (hi - lo) / 4, hi - (hi - lo) / 4
+            row_at = lambda x: r1 + (r2 - r1) * (x - c1) / (c2 - c1)
+            ra, rb = row_at(xa), row_at(xb)
+            key = tuple(round(v, 6) for v in (xa, xb, ra, rb)) + (way,)
+            if key in sloped:
+                sloped[key][4].append(k)
+            else:
+                sloped[key] = ((ra + rb) / 2, xa, xb, way, [k], (ra, rb))
+    return direction.merge_runs(pieces) + list(sloped.values())
 
 
 ARROWS = {True: "\u2192", False: "\u2190", None: "\u2194"}
@@ -168,7 +178,8 @@ def draw_band(band, title, opts, top, left):
               fixed=True)
 
     drawn = paths(band)
-    cars = capacity.counts(band, opts)              # yard and stub tracks: how many cars each holds
+    pre = opts.get("precomputed", {})              # a detail sheet is handed the whole band's counts
+    cars = pre["cars"] if "cars" in pre else capacity.counts(band, opts)    # yard and stub tracks: cars each holds
     for k, pts in drawn.items():
         s = strands.get(k)
         wd = opts["main_w"] if (s is None or s["main"]) else opts["side_w"]
@@ -202,10 +213,11 @@ def draw_band(band, title, opts, top, left):
     mode = opts.get("track_arrows", {}).get(band_key(title))
     if mode not in (None, "main", "listed"):
         raise SchematicError(f"track_arrows for {band_key(title)} must be main or listed, not {mode!r}")
-    for row, xa, xb, way, run in track_runs(band, drawn, mode):     # which way trains run on each track
+    for row, xa, xb, way, run, *slope in track_runs(band, drawn, mode):     # which way trains run on each track
         a, b = X(xa), X(xb)
         q = (b - a) / 4
-        cands = [(xx, Y(row) + dy, "middle") for dy in (-5, 5 + 0.72 * 11 + 1)
+        line = (lambda xx: Y(row)) if not slope else (lambda xx: Y(slope[0][0]) + (Y(slope[0][1]) - Y(slope[0][0])) * (xx - a) / (b - a))
+        cands = [(xx, line(xx) + dy, "middle") for dy in (-5, 5 + 0.72 * 11 + 1)
                  for xx in ((a + b) / 2, a + q, b - q, a + 0.6 * q, b - 0.6 * q)]
         # placed like a label (its box is two arrow characters wide), drawn as line work so a turned band turns it
         P.ask("track", ARROWS[way] * 2, 11, cands, weight="bold", room=[k for k in run if can_grow(band, k)],
@@ -279,6 +291,8 @@ def draw_band(band, title, opts, top, left):
                       emit=lambda xy, t=txt: label(xy[0], xy[1], t, 6, anchor=xy[2]))
             elif d.get("sub") == "open":
                 svg.append(f'<path d="M{xe:.1f},{ye:.1f} m{-6 * dirx},-5 l{6 * dirx},5 l{-6 * dirx},5" stroke-width="1.6"/>')
+                P.line((xe - 6 * dirx, ye - 5), (xe, ye), 1.6)           # the labels keep clear of the arrowhead
+                P.line((xe, ye), (xe - 6 * dirx, ye + 5), 1.6)
                 if d.get("label"):
                     label(xe + 8 * dirx, ye + 3, d["label"].upper(), opts["name_px"],
                           anchor="start" if dirx == 1 else "end", weight="bold")
@@ -300,7 +314,7 @@ def draw_band(band, title, opts, top, left):
         label(mid_x, (y1 + y2) / 2 + 1, "HELIX", 10, weight="bold", extra='letter-spacing="1.5"')
         label(mid_x, (y1 + y2) / 2 + 11, "TO " + helix[0][2].upper(), 5.5)
     bottom = Y(max(srow.values()))
-    totals = capacity.station_totals(band, opts, x, turned)
+    totals = pre["totals"] if "totals" in pre else capacity.station_totals(band, opts, x, turned)
     lane_h = 40 if totals else 30
     lanes = []
     for name, members in opts.get("stations", {}).items():
@@ -342,8 +356,26 @@ def draw_band(band, title, opts, top, left):
             ends = [b[3] if i in unturned else 2 * cy - b[1] for i, b in enumerate(P.boxes)]
             ends += [2 * cy - min(a[1], b[1]) + w / 2 for a, b, w in P.lines]
         bottom = max([bottom] + ends)
+    pts = []                                # every box and line end as finally drawn: the band's real extent
+    for i, b in enumerate(P.boxes):
+        if turned and i not in unturned:
+            b = (2 * cx - b[2], 2 * cy - b[3], 2 * cx - b[0], 2 * cy - b[1])
+        pts += [(b[0], b[1]), (b[2], b[3])]
+    for a, b, w in P.lines:
+        if turned:
+            a, b = (2 * cx - a[0], 2 * cy - a[1]), (2 * cx - b[0], 2 * cy - b[1])
+        pts += [(min(a[0], b[0]) - w / 2, min(a[1], b[1]) - w / 2), (max(a[0], b[0]) + w / 2, max(a[1], b[1]) + w / 2)]
+    band["extent"] = (min(p_[0] for p_ in pts), min(p_[1] for p_ in pts), max(p_[0] for p_ in pts), max(p_[1] for p_ in pts))
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
+    allrows = list(srow.values()) + list(nrow.values())
+    band["fold"] = dict(      # what page folding needs to choose a cut; coordinates as drawn here
+        boxes=list(P.boxes), lines=list(P.lines), track_y=(Y(min(allrows)), Y(max(allrows))),
+        zones=[(X(x[n]) - rowh * 0.6, X(x[n]) + rowh * 0.6) for n, d in nodes.items() if d["kind"].startswith("turn")] +
+              [(X(x[n]) - rowh * 1.2, X(x[n]) + rowh * 1.2) for n, d in nodes.items() if d["kind"] == "dx"] +
+              [(X(x[n]) - rowh * 0.8, X(x[n]) + rowh * 0.8) for n, d in nodes.items() if d["kind"] == "switch"],
+        head=labels.text_width(f"{(title or '').upper()} (CONTINUED)", 12, "bold", 1.5) if title else 0,
+        head_y=(top + 4 + lead - 10, top + 4 + lead + 4))      # the title a continued row repeats, and its room
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
 
 
@@ -400,14 +432,17 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
     short of the next switch that is not the interlocking's and of a neighbour's bracket, and stands clear of
     marks already placed (masts, helix box). The quoted name, with the short code in brackets, is asked of the
     label placer like any other label, above the brackets first, then below. Nothing is drawn when
-    `control_points` is not set or the band holds none of the switches."""
+    `control_points` is not set, `show_limits` is off (the overall sheet) or the band lacks one of the switches."""
     nodes, x, srow, nrow = band["nodes"], band["x"], band["R"]["srow"], band["R"]["nrow"]
     strands = band["strands"]
     taken = []                                    # x of every bracket drawn on this band so far
+    if not opts.get("show_limits"):               # limits belong on detail sheets: the overall sheet leaves them out
+        return
     for name, cp in opts.get("control_points", {}).items():
-        mine = [n for ids in cp_nodes(nodes, cp["switches"]).values() for n in ids]
-        if not mine:
+        found = cp_nodes(nodes, cp["switches"])
+        if not all(found.values()):               # a limit pair is drawn only where the whole interlocking is
             continue
+        mine = [n for ids in found.values() for n in ids]
         xs = [X(x[n]) for n in mine]
         others = [X(x[n]) for n, d in nodes.items() if d["kind"] in ("switch", "dx") and n not in mine]
         through = {k for k in drawn if k in mine or (k in strands and (strands[k]["src"][0] in mine
@@ -447,8 +482,8 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
                     rows = [Y(nrow[n]) for n in mine]
                     top, bot = min(rows) - 9, max(rows) + 9
                 blocked = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in P.boxes)
-                harm = sum(all(labels.seg_box_gap((ex, top), (ex, bot), bx) < 1.4 / 2 + labels.PAD for bx in ok)
-                           for ok in free)
+                harm = sum(sum(labels.seg_box_gap((ex, top), (ex, bot), bx) >= 1.4 / 2 + labels.PAD for bx in ok) < 2
+                           for ok in free)      # a label left with one place or none
                 if best is None or (blocked, harm) < best[0]:
                     best = ((blocked, harm), ex, top, bot, found)
                 if not blocked and not harm:
@@ -590,7 +625,8 @@ def mast_piece(sg, strands):
     pieces = [k for k, st in strands.items() if st["edge"] in (edge, edge + "x", edge + "y")]
     if not pieces:
         return None
-    length = {k: strands[k]["cm"] / 2 if k.endswith((".0", ".1")) else strands[k]["cm"] for k in pieces}
+    length = {k: strands[k].get("cut_cm", strands[k]["cm"] / 2 if k.endswith((".0", ".1")) else strands[k]["cm"])
+              for k in pieces}      # a track cut short on a detail sheet counts only the part drawn
     ends = {k: (strands[k]["src"][0], strands[k]["dst"][0]) for k in pieces}
     first = next((k for k in pieces if tn in ends[k]), None)
     if first is None:                       # the toward end is on another band: start at this band's cut end
@@ -723,18 +759,67 @@ def page_svg(bands, opts):
     gap = opts.get("band_gap", 78)            # band_gap also measures each band to its lowest label (draw_band)
     total_h = sum(h for *_, h in sized) + gap * (len(sized) - 1) + 30
     total_w = max(w for *_, w, _ in sized) + 120
-    scale = min(1.0, (pw - 2 * m) / total_w, (ph - top - foot) / total_h)
-    body, y = [], 30
-    for title, band, o, w, h in sized:
-        side = opts.get("band_align", {}).get(band_key(title), "centre")
-        room = total_w - 120 - w
-        left = 40 + {"left": 0, "right": room}.get(side, room / 2)
-        left += opts.get("band_shift", {}).get(band_key(title), 0)      # owner's nudge, in drawing units
-        part, _, _ = draw_band(band, title, o, y, left)
-        body += part
+
+    def scale_of(tw, th):
+        return min(opts.get("max_scale", 1.0), (pw - 2 * m) / tw, (ph - top - foot) / th)
+
+    scale = scale_of(total_w, total_h)
+    rows = [(i, None, 0, 1) for i in range(len(sized))]      # (band, its part of the row, which row of it, rows)
+    chosen = fold.plan(sized, opts, scale_of, band_key)      # style rule 24: bands too long for the page fold into rows
+    if chosen:
+        rows, scale, total_w, total_h = chosen["entries"], chosen["scale"], chosen["total_w"], chosen["total_h"]
+        shifted = {sized[i][0] for i, seg, *_ in rows
+                   if seg and opts.get("band_align", {}).get(band_key(sized[i][0]), "centre") != "centre"}
+        opts["_folds"].append(
+            f"page folding: scale {chosen['base']:.2f} -> {chosen['scale']:.2f}; " +
+            "; ".join(f"{t} cut at {', '.join(f'{c:.0f}' for c in cl)}" + ("" if ok else " (through something)")
+                      for t, cl, ok in chosen["notes"]) +
+            (f"; band_align ignored for {', '.join(sorted(shifted))}" if shifted else ""))
+    centred = None
+    if opts.get("centre") and len(sized) == 1 and not chosen:     # one band centred by what is really drawn (detail sheets)
+        title_, band_, o_ = sized[0][:3]
+        draw_band(band_, title_, o_, 0, 0)
+        x0, y0, x1, y1 = band_["extent"]
+        w_, h_ = x1 - x0 + 20, y1 - y0 + 20
+        scale = scale_of(w_, h_)
+        centred = ((pw - w_ * scale) / 2 - (x0 - 10) * scale, top + ((ph - top - foot) - h_ * scale) / 2 - (y0 - 10) * scale)
+    infos = {i: sized[i][1].get("fold") for i, *_ in rows}     # as drawn at the origin, before any later draw
+    once = {}                                  # a folded band is drawn once; each row is a window onto that drawing
+    body, y = [], 0 if centred else 30
+    for i, seg, number, count in rows:
+        title, band, o, w, h = sized[i]
+        if seg is None:
+            side = opts.get("band_align", {}).get(band_key(title), "centre")
+            room = total_w - 120 - w
+            left = 40 + {"left": 0, "right": room}.get(side, room / 2)
+            left += opts.get("band_shift", {}).get(band_key(title), 0)      # owner's nudge, in drawing units
+            if centred:
+                left = 0
+            part, _, _ = draw_band(band, title, o, y, left)
+            body += part
+        else:
+            if i not in once:
+                once[i] = draw_band(band, title, o, 0, 0)[0]
+            s, e = seg
+            first, last = s is None, e is None
+            s0 = 0.0 if first else s
+            start = fold.ROW_LEFT + fold.shift_of(opts, band_key(title))       # where this row's first column sits
+            xa = -5000 if first else start
+            xb = 100000 if last else start + (e - s0)
+            body.append(f'<clipPath id="fold{i}_{number}"><rect x="{xa:.1f}" y="-5000" width="{xb - xa:.1f}" height="100000"/></clipPath>')
+            body.append(f'<g clip-path="url(#fold{i}_{number})"><g transform="translate({start - s0:.1f},{y:.1f})">')
+            body += once[i]
+            body.append("</g></g>")
+            if number:                         # the title again at the head of a continued row
+                lead = 18 if band_legend(o, title) else 0
+                body.append(f'<text x="{start:.1f}" y="{y + 4 + lead:.1f}" font-size="12" font-weight="bold" '
+                            f'letter-spacing="1.5" fill="#000" stroke="none">{escape(title.upper())} (CONTINUED)</text>')
+            fold.arrows(body, infos[i], o, y, seg, number, count, start)
         y += h + gap
     ox = (pw - total_w * scale) / 2
     oy = top + ((ph - top - foot) - total_h * scale) / 2
+    if centred:
+        ox, oy = centred
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {pw} {ph}" width="{pw}" height="{ph}" '
            f'font-family="\'Helvetica Neue\',Helvetica,Arial,sans-serif">',
            f'<rect width="{pw}" height="{ph}" fill="#fff"/>',

@@ -25,17 +25,27 @@ def far(e, n, port):
     return (e["v"], e["vp"]) if (e["u"], e["up"]) == (n, port) else (e["u"], e["up"])
 
 
-def edge_between(g, a, b, port=None, unique=False):
-    """The track between switches a and b (leaving a by `port` when given). With several, the longest, or with
-    `unique` an error asking for the leg."""
+def tracks_between(g, a, b, port=None):
+    """Every track between switches a and b (leaving a by `port` when given), with the two junctions."""
     n0, n1 = by_label(g, a), by_label(g, b)
-    hits = [e for e in g["edges"] if {e["u"], e["v"]} == {n0, n1}
-            and (port is None or (e["u"], e["up"]) == (n0, port) or (e["v"], e["vp"]) == (n0, port))]
+    return [e for e in g["edges"] if {e["u"], e["v"]} == {n0, n1}
+            and (port is None or (e["u"], e["up"]) == (n0, port) or (e["v"], e["vp"]) == (n0, port))], n0, n1
+
+
+def pick_track(hits, a, b, port, unique):
     if not hits:
         raise SchematicError(f"no track between {a} and {b}" + (f" leaving {a} by leg {port}" if port else ""))
     if unique and len(hits) > 1:
-        raise SchematicError(f"{len(hits)} tracks join {a} and {b}; add the leg of {a} the track leaves by (A to D)")
-    return max(hits, key=lambda e: e["cm"]), n0, n1
+        raise SchematicError(f"{len(hits)} tracks join {a} and {b}; say which leg of {a} the track leaves by (A to D): "
+                             "as 'port' on a switch or crossover side, as a third item of `onto` or of a `name` entry")
+    return max(hits, key=lambda e: e["cm"])
+
+
+def edge_between(g, a, b, port=None, unique=True):
+    """The track between switches a and b (leaving a by `port` when given). Several tracks are an error naming
+    both and asking for the leg; `unique=False` takes the longest instead."""
+    hits, n0, n1 = tracks_between(g, a, b, port)
+    return pick_track(hits, a, b, port, unique), n0, n1
 
 
 def lift(g, x, p1, p2):
@@ -123,12 +133,18 @@ def apply_edits(g, edits):
             p1, p2 = ed["through"]
             leg = next(p for p in "ABC" if p not in (p1, p2))
             e3 = edge_at(g, x, leg)
+            before, _, _ = tracks_between(g, *ed["onto"])      # ask for the leg on the plan as given, before the lift
+            first = pick_track(before, *ed["onto"][:2], ed["onto"][2] if len(ed["onto"]) > 2 else None, True) \
+                if before else None
             lift(g, x, p1, p2)
             if (e3["u"], e3["up"]) == (x, leg):
                 e3["up"] = "C"
             else:
                 e3["vp"] = "C"
-            t, n0, _ = edge_between(g, *ed["onto"])
+            if first is not None and first in g["edges"]:      # the track the owner named, if the lift left it be
+                t, n0 = first, by_label(g, ed["onto"][0])
+            else:
+                t, n0, _ = edge_between(g, *ed["onto"])
             set_in(g, x, t, n0, ed["cm_from_first"], False)
             d = N[x]
             d["hand"] = {"R": 1, "L": -1}.get(ed.get("hand"), d["hand"])
@@ -154,7 +170,7 @@ def apply_edits(g, edits):
                                    main=False, link=True))
         elif op == "name":          # track names, and which tracks are main
             for a, b, name, *rest in ed["tracks"]:
-                t, n0, _ = edge_between(g, a, b, rest[0] if rest and rest[0] in "ABC" else None)
+                t, n0, _ = edge_between(g, a, b, rest[0] if rest and rest[0] in ("A", "B", "C", "D") else None)
                 names = name if isinstance(name, list) else ([name] if name else [])
                 t["names"] = names if t["u"] == n0 else names[::-1]
                 t["main"] = "main" in rest

@@ -608,33 +608,143 @@ class BandFixes(unittest.TestCase):
         sheet.mark_ways(g, [["1", "2", "both", "B"]])
         self.assertEqual(g["edges"][0]["way"], "both")
 
+    def test_parallel_tracks_in_edits_stop(self):
+        from schematic import edits
+        from schematic.core import SchematicError
+
+        def graph():
+            sw = lambda label: dict(kind="switch", label=label, alias=label, hand=1, dirs={})
+            return dict(nodes={"p": sw("1"), "q": sw("2")},
+                        edges=[dict(u="p", up="B", v="q", vp="A", cm=50.0, id="e0", names=[], main=False),
+                               dict(u="p", up="C", v="q", vp="B", cm=60.0, id="e1", names=[], main=False)])
+        new = dict(op="switch", label="9", hand="R", source="owner", cm_from_first=20, points_toward="1",
+                   c={"end": "Spur"})
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(graph(), [dict(new, on=["1", "2"])])
+        g = graph()
+        edits.apply_edits(g, [dict(new, on=["1", "2"], port="C")])      # the leg picks the longer one
+        self.assertIn("e1a", {e["id"] for e in g["edges"]})
+        g = graph()
+        edits.apply_edits(g, [dict(new, on=["1", "2"], port="B")])      # or the shorter one
+        self.assertIn("e0a", {e["id"] for e in g["edges"]})
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(graph(), [dict(op="crossover", label="9", hand="R", source="owner",
+                                             sides=[dict(on=["1", "2"], cm_from_first=20, points_toward="1"),
+                                                    dict(on=["1", "2"], port="C", cm_from_first=20, points_toward="1")])])
+        g = graph()                                                     # switch 3 is moved onto the parallel pair
+        g["nodes"].update(r=dict(kind="switch", label="3", alias="3", hand=1, dirs={}),
+                          **{k: dict(kind="end", label="") for k in ("t1", "t2", "t3")})
+        g["edges"] += [dict(u="r", up=leg, v=t, vp="E", cm=30.0, id=f"x{t}", names=[], main=False)
+                       for leg, t in zip("ABC", ("t1", "t2", "t3"))]
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(g, [dict(op="move", switch="3", through=["A", "B"], onto=["1", "2"],
+                                       cm_from_first=20, hand="R", source="owner")])
+
+    def test_a_track_drawn_only_on_a_slope_gets_an_arrow(self):
+        from schematic import draw
+        strands = {"s": dict(src=("a", "A"), dst=("b", "B"), main=False, way=("a", "b")),
+                   "t": dict(src=("c", "A"), dst=("d", "B"), main=False, way=("d", "c"))}
+        drawn = {"s": [(0, 0), (4, 2)], "u": [(3, 3), (5, 4)], "t": [(2, 0), (6, 3)]}
+        runs = draw.track_runs({"strands": strands}, drawn, None)
+        self.assertEqual(sorted((r[3], r[4][0]) for r in runs), [(False, "t"), (True, "s")])
+        self.assertEqual(next(r for r in runs if r[4] == ["s"])[:3], (1.0, 1.0, 3.0))   # middle half of the slope
+        level = draw.track_runs({"strands": strands}, {"s": [(0, 0), (1, 1), (3, 1)]}, None)
+        self.assertEqual([(r[0], r[1], r[2]) for r in level], [(1, 1, 3)])               # a level piece wins
+
+    def test_a_band_split_by_a_stub_gets_one_arrow_per_run(self):
+        from schematic import direction, draw
+        strands = {k: dict(src=(k, "A"), dst=(k + "x", "B"), main=True, way=("a", "b")) for k in "pqs"}
+        drawn = {"p": [(0, 1), (3, 1)], "s": [(1, 1), (2, 1)], "q": [(3, 1), (6, 1)]}   # a stub drawn under the cells of p
+        runs = draw.track_runs({"strands": strands}, drawn, None)
+        self.assertEqual([(r[0], r[1], r[2]) for r in runs], [(1, 0, 6)])
+        self.assertEqual(sorted(runs[0][4]), ["p", "q", "s"])
+        nodes = {n: dict(sig=1, kind="switch") for n in ("p", "q", "s", "px", "qx", "sx")}
+        band = dict(nodes=nodes, strands={k: dict(strands[k], src=(k, "A"), dst=(k + "x", "A")) for k in "pqs"},
+                    rail={n: 1 for n in nodes})
+        west = direction.main_runs(band, drawn)
+        east = direction.main_runs(dict(band, rail={n: -1 for n in nodes}), drawn)
+        self.assertEqual(east, [])                                       # east to the right all along: no arrows
+        self.assertEqual([(r[0], r[1], r[2]) for r in west], [(1, 0, 6)])
+
+    def test_review_fixes_for_runs_and_slopes(self):
+        from schematic import direction, draw
+        way = lambda: dict(src=("a", "A"), dst=("b", "B"), main=False, way=("a", "b"))
+        back = dict(way(), way=("b", "a"))
+        # a stub of the other way between two pieces of one run does not split the run
+        runs = direction.merge_runs([(1, 0, 3, True, "p"), (1, 1, 2, False, "s"), (1, 3, 6, True, "q")])
+        self.assertEqual([(r[1], r[2], r[3]) for r in runs], [(0, 6, True), (1, 2, False)])
+        # a nearly upright slope gets no arrow; two strands on one slope share one
+        strands = {"v": way(), "s": way(), "t": way(), "r": back}
+        drawn = {"v": [(0, 0), (0.0000001, 2)], "s": [(0, 0), (4, 2)], "t": [(0, 0), (4, 2)], "r": [(0, 0), (4, 2)]}
+        runs = draw.track_runs({"strands": strands}, drawn, None)
+        self.assertEqual(sorted((r[3], sorted(r[4])) for r in runs), [(False, ["r"]), (True, ["s", "t"])])
+        # the arrow's spots follow the slope: the rows at its two ends ride on the run
+        self.assertEqual(next(r for r in runs if r[3])[5], (0.5, 1.5))
+
+    def test_name_and_move_ask_for_the_leg_only_when_the_owner_left_it_out(self):
+        from schematic import edits
+        from schematic.core import SchematicError
+        sw = lambda label: dict(kind="switch", label=label, alias=label, hand=1, dirs={})
+        g = dict(nodes={"p": sw("1"), "q": sw("2")},
+                 edges=[dict(u="p", up="B", v="q", vp="A", cm=50.0, id="e0", names=[], main=False),
+                        dict(u="p", up="C", v="q", vp="B", cm=60.0, id="e1", names=[], main=False)])
+        with self.assertRaisesRegex(SchematicError, "2 tracks join 1 and 2"):
+            edits.apply_edits(g, [dict(op="name", tracks=[["1", "2", "Main"]])])
+        edits.apply_edits(g, [dict(op="name", tracks=[["1", "2", "Main", "B"]])])
+        self.assertEqual([e["names"] for e in g["edges"]], [["Main"], []])
+        # a move whose own lift makes a second track between the pair names the track already there
+        h = dict(nodes={"a": sw("1"), "b": sw("2"), "x": sw("3"), "t": dict(kind="end", label="")},
+                 edges=[dict(u="a", up="B", v="x", vp="A", cm=30.0, id="m1", names=[], main=False),
+                        dict(u="x", up="B", v="b", vp="A", cm=30.0, id="m2", names=[], main=False),
+                        dict(u="x", up="C", v="t", vp="E", cm=30.0, id="m3", names=[], main=False),
+                        dict(u="a", up="C", v="b", vp="B", cm=90.0, id="e0", names=[], main=False)])
+        edits.apply_edits(h, [dict(op="move", switch="3", through=["A", "B"], onto=["1", "2"], cm_from_first=20,
+                                   hand="R", source="owner")])
+        self.assertIn("e0a", {e["id"] for e in h["edges"]})
+
 
 
 class ControlPoints(unittest.TestCase):
-    """Interlocking limits: layer 1 `control_points`, brackets across the tracks and a quoted name."""
+    """Interlocking limits: layer 1 `control_points`; detail sheets draw brackets and a quoted name, the overall
+    sheet never does."""
 
     CP = {"control_points": {"Hollow": {"code": "HL", "switches": ["2", "6", "3"]},
-                             "Summit": {"switches": ["21", "22"]}}}
+                             "Yard": {"switches": ["11", "12", "13"]}}}
+    STATIONS = {"Hollow": ["2", "6", "3"], "Summit": ["21", "22"], "Yard": ["11", "12", "13"]}
 
-    def test_nothing_set_draws_the_same_sheet(self):
-        self.assertNotIn('"HOLLOW"', helpers.build().svg())
-        self.assertNotIn("&quot;", helpers.build().svg())
+    def details(self, cps):
+        from schematic import detail
+        sheet = build_with(overrides=cps)
+        bands = [(t, b, dict(o, stations=self.STATIONS)) for t, b, o in sheet.bands]
+        owner = detail.owners([o for _, _, o in bands])
+        return sheet, {n: detail.sheet_svg(bands, m, n, owner)[0] for n, m in self.STATIONS.items()}
 
-    def test_names_codes_and_brackets_are_drawn_without_label_faults(self):
+    def test_the_overall_sheet_ignores_control_points(self):
         sheet = build_with(overrides=self.CP)
-        svg = sheet.svg()
-        self.assertIn('"HOLLOW" [HL]', svg)
-        self.assertIn('>"SUMMIT"<', svg)
-        self.assertEqual(label_check.check(svg)[0], [])
-        plain = helpers.build().svg()
-        self.assertEqual(svg.count("<path") - plain.count("<path"), 4)    # two brackets, two ends each
-        for _, band, _ in sheet.bands:
-            self.assertEqual(band["unplaced"], [])
+        self.assertEqual(sheet.svg(), helpers.build().svg())
+
+    def test_detail_sheets_draw_names_codes_and_brackets_without_faults(self):
+        _, plain = self.details({})
+        _, svgs = self.details(self.CP)
+        self.assertIn('"HOLLOW" [HL]', svgs["Hollow"])
+        self.assertIn('>"YARD"<', svgs["Yard"])
+        for name, svg in svgs.items():
+            self.assertEqual(label_check.check(svg)[0], [], name)
+            self.assertEqual(label_check.outside_frame(svg), [], name)
+        self.assertEqual(svgs["Hollow"].count("<path") - plain["Hollow"].count("<path"), 2)   # a bracket at each end
+        self.assertEqual(svgs["Summit"], plain["Summit"])    # no control point there: nothing changes
+
+    def test_a_limit_is_drawn_only_where_the_whole_interlocking_is_on_the_sheet(self):
+        from schematic import detail
+        sheet = build_with(overrides={"control_points": {"Wide": {"switches": ["2", "6", "3", "1"]}}})
+        bands = [(t, b, dict(o, stations=self.STATIONS)) for t, b, o in sheet.bands]
+        svg = detail.sheet_svg(bands, self.STATIONS["Hollow"], "Hollow", detail.owners([o for _, _, o in bands]))[0]
+        self.assertNotIn("WIDE", svg)
 
     def test_crossovers_integers_and_stars_match(self):
         for sw in (["6"], [6], ["6*"], [2, "6", 3]):
-            svg = build_with(overrides={"control_points": {"X": {"switches": sw}}}).svg()
-            self.assertIn('>"X"<', svg, sw)
+            _, svgs = self.details({"control_points": {"X": {"switches": sw}}})
+            self.assertIn('>"X"<', svgs["Hollow"], sw)
 
     def test_a_switch_not_on_the_plan_is_an_error(self):
         from schematic.core import SchematicError
@@ -647,13 +757,10 @@ class ControlPoints(unittest.TestCase):
             build_with(overrides={"control_points": {"Both": {"switches": ["2", "21"]}}})
 
     def test_brackets_stop_at_a_neighbouring_switch(self):
-        from schematic import draw
-        svg = build_with(overrides={"control_points": {"A": {"switches": ["2"]}, "B": {"switches": ["6"]}}}).svg()
-        self.assertIn('>"A"<', svg)
-        self.assertIn('>"B"<', svg)
-        self.assertEqual(label_check.check(svg)[0], [])
-        self.assertTrue(draw.OFFSETS)
-
+        _, svgs = self.details({"control_points": {"A": {"switches": ["2"]}, "B": {"switches": ["6"]}}})
+        self.assertIn('>"A"<', svgs["Hollow"])
+        self.assertIn('>"B"<', svgs["Hollow"])
+        self.assertEqual(label_check.check(svgs["Hollow"])[0], [])
 
 
 if __name__ == "__main__":
