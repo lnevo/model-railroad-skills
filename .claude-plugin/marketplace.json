@@ -16,6 +16,11 @@
       "name": "car-cards",
       "source": "./plugins/car-cards",
       "description": "Turn phone photos of model railroad cars and locomotives into printed car cards: crop, read the lettering, review on one page, and print nine to a sheet."
+    },
+    {
+      "name": "schematic-maps",
+      "source": "./plugins/schematic-maps",
+      "description": "Draw a layout's track as a clean schematic diagram from a track plan and a JMRI Layout Editor panel: one band per level, yard ladders, loops, helixes and signal masts, checked for crossings and overlapping labels."
     }
   ]
 }

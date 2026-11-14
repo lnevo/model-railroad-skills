@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS = (ROOT, ROOT / "plugins" / "operations-pro", ROOT / "plugins" / "car-cards")
+PLUGINS = (ROOT, ROOT / "plugins" / "operations-pro", ROOT / "plugins" / "car-cards", ROOT / "plugins" / "schematic-maps")
 SCHEMAS = "https://agent-plugins.org/schemas/1.0.0"
 MANIFEST_FIELDS = ("name", "version", "description", "author", "homepage", "repository", "license", "keywords")
 CLAUDE_ROOT = "${CLAUDE_PLUGIN_ROOT}/"
