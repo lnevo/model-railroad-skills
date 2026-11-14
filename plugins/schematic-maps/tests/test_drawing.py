@@ -234,3 +234,24 @@ class Golden(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GridRoom(unittest.TestCase):
+    """R12, layout part: a label with no free position claims grid room on its track."""
+
+    def test_unplaced_label_names_its_strand(self):
+        P = labels.Placer()
+        P.line((0, 0), (100, 0), 2)
+        P.ask("track", "LONG NAME", 9, [(50, 3, "middle")], room=("e7",))
+        P.ask("switch", "4", 9, [(50, -30, "middle")], room=("e8",))
+        P.solve()
+        self.assertEqual(P.short, {"e7"})
+
+    def test_claimed_room_widens_the_run(self):
+        from schematic import columns
+        band = next(b for t, b, _ in helpers.build(False).bands if t == "Lower level")
+        sid = next(k for k, s in band["strands"].items() if k not in band["R"]["diag"] and s["name"])
+        opts = dict(helpers.build(False).bands[0][2])
+        _, need = columns.place(band["nodes"], band["strands"], band["R"], {}, opts)
+        _, wider = columns.place(band["nodes"], band["strands"], band["R"], {}, dict(opts, _room={sid: 2}))
+        self.assertEqual(wider[sid][2], need[sid][2] + 2)

@@ -3,7 +3,8 @@
 Each label is asked for with an ordered list of allowed positions. Obstacles are registered first (every
 drawn line, every symbol, the helix marks, the station brackets); labels are then placed hardest first
 (fewest free positions), each taking its first free position. A label with no free position takes the
-least bad one and is reported.
+least bad one and is reported, and the strands named in its `room` are recorded in `short`: the sheet gives them
+another cell and lays the band out again (sheet.build), which is the layout part of R12.
 
 The count of free positions is kept up to date as obstacles are added: placing a label only re-tests the
 positions of the labels whose candidate boxes it can touch, so a large sheet solves in a moment.
@@ -29,6 +30,7 @@ class Placer:
         self.boxes = []       # symbols and placed labels
         self.asks = []
         self.unplaced = []
+        self.short = set()    # strands whose labels found no free position: they claim more grid room
 
     def line(self, a, b, w):
         self.lines.append((a, b, w))
@@ -45,10 +47,11 @@ class Placer:
         c = sum(1 for a, b, w in self.lines if seg_box_gap(a, b, box) < w / 2 + PAD)
         return c + sum(1 for o in self.boxes if boxes_overlap(box, o, PAD))
 
-    def ask(self, what, s, size, cands, weight="normal", extra="", spacing=0.0, emit=None):
-        """cands: [(x, y, anchor)] in order of preference."""
+    def ask(self, what, s, size, cands, weight="normal", extra="", spacing=0.0, emit=None, room=()):
+        """cands: [(x, y, anchor)] in order of preference. `room`: the strands that get longer when the label
+        finds no free position (R12, layout part)."""
         self.asks.append(dict(what=what, s=s, size=size, cands=cands, weight=weight, extra=extra,
-                              spacing=spacing, emit=emit))
+                              spacing=spacing, emit=emit, room=tuple(room)))
 
     def solve(self):
         """Place every label asked for; returns [(ask, (x, y, anchor))].
@@ -67,6 +70,7 @@ class Placer:
             if k is None:
                 k = min(range(len(bs)), key=lambda j: (self.cost(bs[j]), j))
                 self.unplaced.append(f"{a['what']} {a['s']}")
+                self.short.update(a["room"])
             placed = bs[k]
             self.boxes.append(placed)
             out.append((a, a["cands"][k]))

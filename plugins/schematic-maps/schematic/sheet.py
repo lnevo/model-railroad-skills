@@ -16,13 +16,18 @@ from pathlib import Path
 from . import draw, edits, layers, layout
 from .draw import DEFAULTS
 
+ROOM_ROUNDS = 3     # how many times labels may claim more room before the sheet is drawn as it stands
+
 
 class Sheet:
     def __init__(self, bands, opts, log):
         self.bands, self.opts, self.log = bands, opts, log
+        self._svg = None
 
     def svg(self):
-        return draw.page_svg(self.bands, dict(self.opts, title=self.opts.get("system_title", self.opts["title"])))
+        if self._svg is None:           # drawing is the slow part; the room check and write share one render
+            self._svg = draw.page_svg(self.bands, dict(self.opts, title=self.opts.get("system_title", self.opts["title"])))
+        return self._svg
 
     def write(self, out):
         Path(out).write_text(self.svg())
@@ -97,4 +102,17 @@ def build(inputs, data, preferences=True, hints=False):
     optlist[-1].setdefault("helix_style", "box")
     log = []
     bands = build_bands(inputs, optlist, log)
-    return Sheet(bands, optlist[-1], log)
+    sheet = Sheet(bands, optlist[-1], log)
+    for _ in range(ROOM_ROUNDS):        # R12: a label with no free position claims a cell on its track; lay out again
+        sheet.svg()
+        short = [(band, opts) for _, band, opts in bands if band.get("short")]
+        if not short:
+            return sheet
+        for band, opts in short:
+            room = opts.setdefault("_room", {})
+            for sid in band["short"]:
+                room[sid] = room.get(sid, 0) + 1
+        log = []
+        bands = build_bands(inputs, optlist, log)
+        sheet = Sheet(bands, optlist[-1], log)
+    return sheet
