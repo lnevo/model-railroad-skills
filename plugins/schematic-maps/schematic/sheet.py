@@ -27,7 +27,9 @@ class Sheet:
 
     def svg(self):
         if self._svg is None:           # drawing is the slow part; the room check and write share one render
-            self._svg = draw.page_svg(self.bands, dict(self.opts, title=self.opts.get("system_title", self.opts["title"])))
+            o = dict(self.opts, title=self.opts.get("system_title", self.opts["title"]), _folds=[])
+            self._svg = draw.page_svg(self.bands, o)
+            self.log.extend(o["_folds"])
         return self._svg
 
     def write(self, out):

@@ -49,6 +49,8 @@ Direction per band (layer 3): `band_legend` gives a band its own legend, drawn a
 
 Direction per track (layer 1, a fact): `track_directions` lists `[from, to]` for a track trains run one way, from switch `from` toward `to`, or `[a, b, "both"]` for a track run both ways. Where two tracks join the same two switches, add the leg of the first switch the track leaves by (`[from, to, "C"]`, `[a, b, "both", "C"]`); without it the run stops. Each listed track carries an arrow (one head or two) on every band it is drawn on; straight runs that meet end to end with the same way share one arrow. Ask the reader for each track's direction; never infer it.
 
+Page folding (layer 3, off by default): `fold: true`, or `fold_min_scale` (smallest scale allowed, default 0.65 with `fold`), cuts a band too long for the page into rows stacked down it, at a place between switches, joined by large CONTINUES and CONTINUED arrows on the main line (style rule 24). A sheet already above the floor, or one folding would not enlarge, is drawn as before.
+
 Spacing (layer 3): `band_gap` (drawing units) sets the gap between bands and measures each band to its lowest label or mark, so captions hanging below the track count and the last band clears the title block. Without it the gap is 78 units measured to each band's lowest track row, as before.
 
 Title block fields (layer 3): `date` as YYYY-MM-DD, `revision` and `sheet` ("1 of 1") print in a ruled column beside the title; set them in `sheet.preferences.json`, or in the last input's preferences, which also set the page; the same keys in an earlier input are not read. They are left out when not set, and a date that is not a real YYYY-MM-DD date stops the run with an error naming it. The box and column grow to fit long values.
@@ -61,7 +63,7 @@ Settings that are tuning, not per-switch hints: `ladder_link_max_cm` (40) and `l
 
 ## References
 
-`references/style.md` has the drafting style, one rule at a time, with the examples it comes from and which rules the command draws and which it does not yet (capacity, mileposts, interlocking limits, date and revision, folding a long band). Read it when asked why the sheet looks as it does or for something it does not show. `references/cats-grid.md` is the CATS Designer's cell rules, for a later step that seeds a CATS panel from the grid; the command does not do that.
+`references/style.md` has the drafting style, one rule at a time, with the examples it comes from and which rules the command draws and which it does not yet (capacity, mileposts, interlocking limits, date and revision). Read it when asked why the sheet looks as it does or for something it does not show. `references/cats-grid.md` is the CATS Designer's cell rules, for a later step that seeds a CATS panel from the grid; the command does not do that.
 
 ## Pitfalls
 
