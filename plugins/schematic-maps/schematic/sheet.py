@@ -13,7 +13,7 @@ import copy
 import json
 from pathlib import Path
 
-from . import draw, edits, layers, layout
+from . import direction, draw, edits, layers, layout
 from .draw import DEFAULTS
 
 ROOM_ROUNDS = 3     # how many times labels may claim more room before the sheet is drawn as it stands
@@ -77,10 +77,24 @@ def build_input(graph, name, opts, tracks, log):
         edits.mark_main(g, opts["main_route"])
         for e in g["edges"]:
             e["main"] = e["main"] or e["id"] in keep
+    rail = {}
+    if opts.get("main_route"):
+        rail, conflicts = direction.east(g, opts["main_route"], lambda r: edits.by_label(g, r))
+        if conflicts:
+            log.append(f"{name}: the main route turns back at " +
+                       ", ".join(sorted(g["nodes"][n].get("label") or n for n in conflicts)))
     out = []
     for title, sub in level_bands(g, opts, name):
         w = []
         band = layout.layout(sub, opts, w)
+        band["east_left"] = direction.east_left(band, rail)
+        band["rail"] = {n: v for n, v in rail.items() if n in band["nodes"]}
+        if opts.get("facing_letters"):
+            mine = {n: v for n, v in rail.items() if n in band["nodes"]} or direction.drawn(band, band["east_left"])
+            band["rail"] = mine
+            for n, letter in direction.letters(g["nodes"], mine).items():
+                if n in band["nodes"]:
+                    band["nodes"][n]["facing"] = letter
         out.append((title, band, opts))
         log.append(f"{title}: {len(layout.faults(band))} drawing faults {w}")
     return out

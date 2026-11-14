@@ -311,5 +311,65 @@ class TitleBlock(unittest.TestCase):
         self.assertGreater(cw, 104)
 
 
+class Direction(unittest.TestCase):
+    """East along the main route, and R or L for each switch by which way its points face."""
+
+    def graph(self):
+        # west end - s1 (points west) - s2 (points east, a trailing switch for eastward trains) - east end;
+        # s1's diverging leg is a siding that rejoins at s2; crossover halves x1/x2 share one number
+        sw = lambda label: dict(kind="switch", label=label)
+        N = {"w": dict(kind="end"), "e": dict(kind="end"), "s1": sw("1"), "s2": sw("2"),
+             "x1": sw("9"), "x2": sw("9"), "t": dict(kind="end"), "u": dict(kind="end")}
+        E = [("w", "E", "s1", "A", True), ("s1", "B", "s2", "B", True), ("s1", "C", "s2", "C", False),
+             ("s2", "A", "x1", "A", True), ("x1", "B", "e", "E", True), ("x1", "C", "x2", "C", False),
+             ("x2", "A", "t", "E", False), ("x2", "B", "u", "E", False)]
+        edges = [dict(u=u, up=up, v=v, vp=vp, cm=50.0, main=m, id=f"e{i}") for i, (u, up, v, vp, m) in enumerate(E)]
+        return dict(nodes=N, edges=edges)
+
+    def test_letters_follow_the_route(self):
+        from schematic import direction
+        g = self.graph()
+        rail, conflicts = direction.east(g, [["1", "2"]], lambda r: {"1": "s1", "2": "s2"}[r])
+        self.assertEqual(conflicts, [])
+        self.assertEqual(direction.letters(g["nodes"], rail), {"s1": "R", "s2": "L"})   # crossover 9: no letter
+
+    def test_route_order_sets_east(self):
+        from schematic import direction
+        g = self.graph()
+        rail, _ = direction.east(g, [["2", "1"]], lambda r: {"1": "s1", "2": "s2"}[r])    # listed the other way
+        self.assertEqual(direction.letters(g["nodes"], rail), {"s1": "L", "s2": "R"})
+
+    def test_no_arrows_when_east_is_right_throughout(self):
+        from schematic import direction
+        for title, band, _ in helpers.build().bands:
+            rail = direction.drawn(band, False)
+            self.assertEqual(direction.main_runs(dict(band, rail=rail), {}), [], title)
+
+    def test_sheet_letters_every_single_switch(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from schematic import sheet
+        f = helpers.folder()
+        with tempfile.TemporaryDirectory() as tmp:
+            for p in f.iterdir():
+                if p.name.startswith("example."):
+                    (Path(tmp) / p.name).write_text(p.read_text())
+            prefs = Path(tmp) / "example.preferences.json"
+            o = json.loads(prefs.read_text())
+            o["facing_letters"] = True
+            prefs.write_text(json.dumps(o))
+            built = sheet.build([(helpers.graph(), "example")], tmp)
+        for title, band, _ in built.bands:
+            counts = {}
+            for d in band["nodes"].values():
+                if d.get("kind") == "switch":
+                    counts[d["label"]] = counts.get(d["label"], 0) + 1
+            for d in band["nodes"].values():
+                if d.get("kind") == "switch":
+                    self.assertEqual("facing" in d, counts[d["label"]] == 1, (title, d["label"]))
+                    self.assertIn(d.get("facing", "R"), ("R", "L"))
+
+
 if __name__ == "__main__":
     unittest.main()

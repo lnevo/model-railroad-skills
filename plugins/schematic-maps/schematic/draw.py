@@ -4,7 +4,7 @@ import datetime
 import math
 from xml.sax.saxutils import escape
 
-from . import labels
+from . import direction, labels
 from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
 from .layout import paths
 
@@ -50,6 +50,7 @@ def draw_band(band, title, opts, top, left):
     helix = []
     if title:
         label(left, top + 4, title.upper(), 12, anchor="start", weight="bold", extra='letter-spacing="1.5"', fixed=True)
+
     drawn = paths(band)
     for k, pts in drawn.items():
         s = strands.get(k)
@@ -71,6 +72,15 @@ def draw_band(band, title, opts, top, left):
             P.ask("track", s["name"].upper(), opts["name_px"], cands, spacing=0.4, room=[k] if can_grow(band, k) else [],
                   emit=lambda xy, t=s["name"].upper(): label(xy[0], xy[1], t, opts["name_px"], anchor=xy[2],
                                                                extra='letter-spacing="0.4"'))
+    if not turned:                            # a band that runs east to the left somewhere: an arrow on each main run
+        for row, xa, xb, right in direction.main_runs(band, drawn):
+            a, b = X(xa), X(xb)
+            arrow = f"{opts['right'].upper()} \u2192" if right else f"\u2190 {opts['right'].upper()}"
+            q = (b - a) / 6
+            cands = [(xx, Y(row) + dy, "middle") for dy in (-5, 5 + 0.72 * 7.5 + 1)
+                     for xx in ((a + q, a + 2 * q, (a + b) / 2) if right else (b - q, b - 2 * q, (a + b) / 2))]
+            P.ask("track", arrow, 7.5, cands, weight="bold", spacing=0.4,
+                  emit=lambda xy, t=arrow: label(xy[0], xy[1], t, 7.5, anchor=xy[2], weight="bold", extra='letter-spacing="0.4"'))
     switch_numbers, switch_strands = {}, {}
     for n, d in nodes.items():
         if d["kind"] == "switch":
@@ -82,9 +92,11 @@ def draw_band(band, title, opts, top, left):
             xs, ys, sg_ = X(x[n]), Y(a_row), d["sig"] or 1
             mine = [(xs + ddx * sg_, ys + ddy, "middle") for ddy in (dy, 20 - dy)
                     for ddx in (-7, 0, -13, 7, 13, -19)]
-            switch_numbers.setdefault(d["label"], []).append((xs, ys, mine))
+            base, star = (d["label"][:-1], "*") if d["label"].endswith("*") else (d["label"], "")
+            shown = base + d.get("facing", "") + star             # R or L: which way the points face, when asked for
+            switch_numbers.setdefault(shown, []).append((xs, ys, mine))
             points = d["ins"].get("A") or d["outs"].get("A")     # the number sits by the points: that track grows
-            switch_strands.setdefault(d["label"], set()).update(q for q in (points,) if can_grow(band, q))
+            switch_strands.setdefault(shown, set()).update(q for q in (points,) if can_grow(band, q))
         elif d["kind"] == "dx":
             (iu_, _), (il_, _) = dx_tracks(nodes, n)
             r1, r2 = sorted((srow[iu_], srow[il_]))
