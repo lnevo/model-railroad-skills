@@ -4,7 +4,7 @@ import datetime
 import math
 from xml.sax.saxutils import escape
 
-from . import direction, labels
+from . import capacity, direction, labels
 from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
 from .layout import paths
 
@@ -52,6 +52,7 @@ def draw_band(band, title, opts, top, left):
         label(left, top + 4, title.upper(), 12, anchor="start", weight="bold", extra='letter-spacing="1.5"', fixed=True)
 
     drawn = paths(band)
+    cars = capacity.counts(band, opts)              # yard and stub tracks: how many cars each holds
     for k, pts in drawn.items():
         s = strands.get(k)
         wd = opts["main_w"] if (s is None or s["main"]) else opts["side_w"]
@@ -63,14 +64,15 @@ def draw_band(band, title, opts, top, left):
         svg.append(f'<path d="{d}" stroke-width="{wd}"{dash}/>')
         for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
             P.line((X(c1), Y(r1)), (X(c2), Y(r2)), wd)
-        if s and s["name"] and k not in diag:
+        if s and (s["name"] or k in cars) and k not in diag:
+            shown = " ".join(t for t in (s["name"].upper(), f"({cars[k]})" if k in cars else "") if t)
             su, sv, _ = band["need"][k]
             xa, xb, yr = X(x[s["src"][0]] + su), X(x[s["dst"][0]] - sv), Y(srow[k])
             mid, q = (xa + xb) / 2, (xb - xa) / 4
             cands = [(xx, yr + dy, "middle") for dy in (-5, 5 + 0.72 * opts["name_px"] + 1)
                      for xx in (mid, mid - q, mid + q, xa + 0.6 * q, xb - 0.6 * q)]
-            P.ask("track", s["name"].upper(), opts["name_px"], cands, spacing=0.4, room=[k] if can_grow(band, k) else [],
-                  emit=lambda xy, t=s["name"].upper(): label(xy[0], xy[1], t, opts["name_px"], anchor=xy[2],
+            P.ask("track", shown, opts["name_px"], cands, spacing=0.4, room=[k] if can_grow(band, k) else [],
+                  emit=lambda xy, t=shown: label(xy[0], xy[1], t, opts["name_px"], anchor=xy[2],
                                                                extra='letter-spacing="0.4"'))
     if opts.get("direction_arrows") and not turned:   # a band that runs east to the left somewhere: an arrow per main run
         for row, xa, xb, right, run in direction.main_runs(band, drawn):
@@ -171,6 +173,8 @@ def draw_band(band, title, opts, top, left):
         label(mid_x, (y1 + y2) / 2 + 1, "HELIX", 10, weight="bold", extra='letter-spacing="1.5"')
         label(mid_x, (y1 + y2) / 2 + 11, "TO " + helix[0][2].upper(), 5.5)
     bottom = Y(max(srow.values()))
+    totals = capacity.station_totals(band, opts, cars, x)
+    lane_h = 40 if totals else 30
     lanes = []
     for name, members in opts.get("stations", {}).items():
         xs = [X(x[n]) for n, d in nodes.items() if d["kind"] == "switch" and d["label"] in members]
@@ -181,13 +185,15 @@ def draw_band(band, title, opts, top, left):
         if lane == len(lanes):
             lanes.append([])
         lanes[lane].append((a - 30, b + 30))
-        yb = bottom + 34 + lane * 30
+        yb = bottom + 34 + lane * lane_h
         svg.append(f'<path d="M{a:.1f},{yb - 6} L{a:.1f},{yb} L{b:.1f},{yb} L{b:.1f},{yb - 6}" stroke-width="1.4"/>')
         P.line((a, yb - 6), (a, yb), 1.4)
         P.line((a, yb), (b, yb), 1.4)
         P.line((b, yb), (b, yb - 6), 1.4)
         label((a + b) / 2, yb + 14, name.upper(), 12, weight="bold", extra='letter-spacing="1"')
-    bottom += 34 + len(lanes) * 30 if lanes else 0
+        if totals.get(name):
+            label((a + b) / 2, yb + 25, f"{totals[name]} CARS", 8, extra='letter-spacing="0.5"')
+    bottom += 34 + len(lanes) * lane_h if lanes else 0
     if opts.get("signals"):
         draw_signals(band, drawn, opts, X, Y, svg, label, P)
     for num, spots in switch_numbers.items():      # a crossover's two halves share one number, printed once

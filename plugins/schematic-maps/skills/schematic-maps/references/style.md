@@ -19,7 +19,7 @@ Read this when a reader asks "why is it drawn that way", wants to change the loo
 | Title block | drawn: name lines, and date, revision and sheet number when set; no revision history block |
 | Labels in capitals, black on white | drawn |
 | Signal masts | drawn |
-| Capacity of yard tracks | not yet |
+| Capacity of yard tracks | drawn with `capacity`: cars after each yard or stub track name, totals under the station bars |
 | Interlocking limits, yard limits, mileposts, dimension lines | not yet |
 | Road crossings, bridges, industries | not yet |
 | Long band folded into rows across the page | not yet |
@@ -64,7 +64,7 @@ Example names used below are listed at the end, with links.
 
 ## Capacity, mileage and what to leave out
 
-18. **Capacity belongs next to the track name.** A yard track is labelled with how many cars it holds, in 50-foot cars, and a ladder carries a total. Not yet. From: Conemaugh yard map (boxed bracket with a total), the NYAMR book, employee timetables (capacity columns). The model railroad examples left it out, so test whether the reader wants it on the map or in a table beside it.
+18. **Capacity belongs next to the track name.** A yard track is labelled with how many cars it holds, in 50-foot cars, and a ladder carries a total. Drawn with the preference `capacity` (`car_in`, default 7.4 in for a 50 ft HO car): every track that is not main, not a ladder link and not a connector shows its count after its name, or alone where it has none. The length is layer 1's `track_lengths_in` for a named track when given, else the plan's; an unnamed track that switches cut into pieces along one row counts once from the pieces' sum. Each station bar adds the total of the tracks whose west end is one of its switches. From: Conemaugh yard map (boxed bracket with a total), the NYAMR book, employee timetables (capacity columns). The model railroad examples left it out, so test whether the reader wants it on the map or in a table beside it.
 19. **Mileposts and distances are ticks, not a scale.** A diamond on a stalk or a circled number, evenly spaced, with the feet between interlockings on a dimension line along the top. Not yet. From: the 1958 diagram, the Floreffe plan, the PRR track chart legend, the 1951 plan.
 20. **Leave out what does not operate.** NEK's author says it shows the passing sidings and the main yards, not every track. The tool follows what the plan and the overrides hold; a track the reader removes in the overrides is gone from the sheet.
 21. **Road crossings, bridges and industries.** Paired verticals for a street with its name, a dashed vertical with its number for a bridge, outlined boxes touching the track an industry serves. Not yet. From: the 1951 plan, Floreffe plan, Santa Rosalia.
