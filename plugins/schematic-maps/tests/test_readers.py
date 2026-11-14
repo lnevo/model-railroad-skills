@@ -147,3 +147,23 @@ class Edits(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EditLookups(unittest.TestCase):
+    def test_moved_switch_found_by_plain_number_and_end_keeps_main(self):
+        from schematic import edits
+        g = dict(nodes={"a": dict(kind="switch", label="7*"), "b": dict(kind="end", label="")},
+                 edges=[dict(id="e1", u="a", up="B", v="b", vp="E", names=[], cm=50.0, main=True, link=False)])
+        self.assertEqual(edits.by_label(g, "7"), "a")
+        edits.apply_edits(g, [dict(op="end", ends=[["7", "B", "Bumper", "stub", ""]])])
+        self.assertTrue(g["edges"][0]["main"])
+
+    def test_section_filter_that_keeps_nothing_is_a_plan_error(self):
+        from schematic import plan_reader
+        import helpers, tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "plan.xml")
+            import example
+            open(path, "w").write(example.plan_xml())
+            with self.assertRaises(plan_reader.PlanError):
+                plan_reader.read(path, skip="+NoSuchSection")

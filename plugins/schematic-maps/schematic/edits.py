@@ -10,6 +10,8 @@ def by_label(g, ref):
     """A junction by its plan part number (kept as alias) or its label."""
     hits = [n for n, d in g["nodes"].items() if d.get("alias") == ref]
     hits = hits or [n for n, d in g["nodes"].items() if d.get("label") == ref and d["kind"] != "end"]
+    # a moved switch is labelled with a star (T300*); its plain number still finds it
+    hits = hits or [n for n, d in g["nodes"].items() if (d.get("label") or "").rstrip("*") == ref and d["kind"] != "end"]
     if len(hits) != 1:
         raise SchematicError(f"{len(hits)} junctions answer to {ref}")
     return hits[0]
@@ -161,7 +163,7 @@ def apply_edits(g, edits):
                 n = by_label(g, ref)
                 t = edge_at(g, n, port)
                 e = far(t, n, port)[0]
-                t["names"], t["main"] = [name], sub == "helix"
+                t["names"], t["main"] = [name], t.get("main", False) or sub == "helix"
                 N[e].update(sub=sub, to=to)
         else:
             raise SchematicError(f"unknown edit {op}")

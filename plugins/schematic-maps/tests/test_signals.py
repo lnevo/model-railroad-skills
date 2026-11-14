@@ -74,3 +74,26 @@ class Signals(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MastPiece(unittest.TestCase):
+    """A mast's run may be drawn as fold halves or cut between two bands; its spot is walked along the pieces."""
+
+    def strands(self, pieces):
+        return {k: dict(edge=e, cm=cm, src=(a, "A"), dst=(b, "A")) for k, e, cm, a, b in pieces}
+
+    def test_fold_keeps_to_the_toward_half(self):
+        from schematic.draw import mast_piece
+        st = self.strands([("e5.0", "e5", 600, "S1", "turn:e5"), ("e5.1", "e5", 600, "S2", "turn:e5")])
+        sg = dict(_edge="e5", _toward_node="S1", cm_from_toward=450, edge_cm=600)
+        self.assertEqual(mast_piece(sg, st), ("e5.0", 300, 300, "S1"))     # at the turnback end of its own half
+        self.assertEqual(mast_piece(dict(sg, cm_from_toward=100), st), ("e5.0", 100, 300, "S1"))
+
+    def test_run_cut_between_levels(self):
+        from schematic.draw import mast_piece
+        here = self.strands([("e7x", "e7x", 200, "S4", "LINK:A0")])
+        far = self.strands([("e7y", "e7y", 200, "LINK:A1", "S21")])
+        sg = dict(_edge="e7", _toward_node="S4", cm_from_toward=50, edge_cm=400)
+        self.assertEqual(mast_piece(sg, here), ("e7x", 50, 200, "S4"))
+        self.assertIsNone(mast_piece(sg, far))                 # it stands on the other band's half
+        self.assertEqual(mast_piece(dict(sg, cm_from_toward=300), far), ("e7y", 100, 200, "LINK:A1"))

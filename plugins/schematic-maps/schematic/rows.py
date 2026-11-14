@@ -38,7 +38,7 @@ class Rows:
         self.nodes, self.strands, self.snaps, self.free = nodes, strands, snaps, set(free)
         # owner's hints: which leg of a switch runs level, by switch label or plan part number
         find_ref = lambda ref: [n for n, d in nodes.items() if d["kind"] == "switch"
-                                and ref in (d.get("alias"), d.get("label"))]
+                                and ref in (d.get("alias"), d.get("label"), (d.get("label") or "").rstrip("*"))]
         # owner's hints: pairs of switches to keep on neighbouring rows
         self.close = [(a[0], b[0]) for a, b in ((find_ref(p), find_ref(q)) for p, q in close) if a and b]
         # R5 and R6 are strong preferences, not pins: breaking one costs `rule_weight`, so the search keeps them
@@ -47,7 +47,8 @@ class Rows:
         self.rule_weight = 2.0
         self.pins = {}
         self.pins.update({n: port for n, d in nodes.items() if d["kind"] == "switch"
-                          for ref, port in (pins or {}).items() if ref in (d.get("alias"), d.get("label"))})
+                          for ref, port in (pins or {}).items()
+                          if ref in (d.get("alias"), d.get("label"), (d.get("label") or "").rstrip("*"))})
         self.extra = set()
         self.flat = {n: "B" for n, d in nodes.items() if d["kind"] == "switch"}
         self.tolerant = bool(free)

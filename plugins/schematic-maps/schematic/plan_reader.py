@@ -144,6 +144,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
         text = skip.lstrip("+")
         drop = {n for n, d in nodes.items() if d["kind"] != "end" and (text in d.get("district", "")) != only}
         edges = [e for e in edges if e["u"] not in drop and e["v"] not in drop and (text in e["district"]) == only]
+        nodes = {n: d for n, d in nodes.items() if n not in drop}
     parent = {n: n for n in nodes}
 
     def find(x):
@@ -155,6 +156,8 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     for e in edges:
         parent[find(e["u"])] = find(e["v"])
     size = collections.Counter(find(n) for n, d in nodes.items() if d["kind"] != "end")
+    if not size:
+        raise PlanError(f"no switches left after the section filter {skip!r}" if skip else "the export has no switches")
     keep = size.most_common(1)[0][0]
     nodes = {n: d for n, d in nodes.items() if find(n) == keep}
     edges = [e for e in edges if e["u"] in nodes]
@@ -168,6 +171,8 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
             e = [q for q in p["eps"] if abs(q["x"]) < 5000]
             if len(e) >= 3 and (z_range is None or z_range[0] <= max(q["z"] for q in e) <= z_range[1]):
                 plan.append((i, sum(q["x"] for q in e) / len(e), sum(q["y"] for q in e) / len(e), max(q["z"] for q in e)))
+        if not plan:
+            raise PlanError("no switch parts in parts.json" + (f" within heights {z_range}" if z_range else ""))
         mine = [(n, nodes[n]["xy"][0] / PX_PER_CM, nodes[n]["xy"][1] / PX_PER_CM) for n in order]
         best = (-1, 0, 0)
         for _, x, y in mine[:6]:
@@ -195,6 +200,8 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
 
         for tol in (4, 6, 6, 4):        # the export is not exactly to the plan's scale: refit and rematch
             got = pairs(tol)
+            if len(got) < 2 or len({g[5] for g in got}) < 2 or len({g[6] for g in got}) < 2:
+                raise PlanError("too few switches line up with parts.json to fit its scale; is it the same plan?")
             sx, ox = fit([g[5] for g in got], [g[3] for g in got])
             sy, oy = fit([g[6] for g in got], [g[4] for g in got])
         cand = sorted((math.hypot(x - (sx * u + ox), y - (sy * v + oy)), n, i, z)

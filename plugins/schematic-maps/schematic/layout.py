@@ -137,11 +137,12 @@ def slope_rules(band, ev):
     """Where a sloped leg cuts through another track, keep that track clear of the slope's columns."""
     strands = band["strands"]
     found = set()
+    drawn = paths(band)
     for _, k1, s1, k2, s2 in faults(band):
         for (ka, (a, b)), kb in (((k1, s1), k2), ((k2, s2), k1)):
             if ka not in strands or kb not in strands or a[0] == b[0] or a[1] == b[1]:
                 continue
-            pts = paths(band)[ka]
+            pts = drawn[ka]
             src, dst = strands[ka]["src"][0], strands[ka]["dst"][0]
             k = int(round(abs(b[1] - a[1])))
             bs, bd = strands[kb]["src"][0], strands[kb]["dst"][0]

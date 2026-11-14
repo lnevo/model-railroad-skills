@@ -92,6 +92,8 @@ def draw_band(band, title, opts, top, left):
                     {strands[q]["name"] for q in strands for e_ in (strands[q]["src"][0], strands[q]["dst"][0])
                      if nodes[e_].get("sub") == "helix"})
                 mine = next(strands[q]["name"] for q in strands if n in (strands[q]["src"][0], strands[q]["dst"][0]))
+                if mine not in tracks:          # a helix end added by an `end` edit, after the declared ones
+                    tracks = list(tracks) + [mine]
                 tag = "H" + str(1 + tracks.index(mine))
             if d.get("sub") == "helix" and style == "box":
                 helix.append((xe, ye, d.get("to", ""), dirx))
@@ -177,7 +179,6 @@ def draw_band(band, title, opts, top, left):
               emit=lambda xy, t=num: label(xy[0], xy[1], t, opts["num_px"], anchor=xy[2], weight="bold"))
     for a, xy in P.solve():
         a["emit"](xy)
-    band.setdefault("label_faults", []).extend(P.unplaced)
     if turned:
         svg = [f'<g transform="rotate(180 {cx:.1f} {cy:.1f})">'] + svg + ["</g>"]
     return svg + text, X(max(x.values())) + 110, bottom - top + 14
@@ -291,6 +292,33 @@ def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg,
           emit=lambda q, t=sg["mast"]: label(q[0], q[1], t, size, anchor=q[2]))
 
 
+def mast_piece(sg, strands):
+    """The drawn piece a mast stands on: (strand, cm from the piece's start, piece cm, start node), or None when
+    the mast is on a part of its run that this band does not draw. A run that joins two levels is cut into halves
+    `x` and `y`, one on each band, and the mast goes on the half its distance falls in. A run that doubles back is
+    drawn as two fold halves joined at a turnback; the mast stays on the half its toward end is on."""
+    edge, tn, cm = sg["_edge"], sg["_toward_node"], sg["cm_from_toward"]
+    pieces = [k for k, st in strands.items() if st["edge"] in (edge, edge + "x", edge + "y")]
+    if not pieces:
+        return None
+    length = {k: strands[k]["cm"] / 2 if k.endswith((".0", ".1")) else strands[k]["cm"] for k in pieces}
+    ends = {k: (strands[k]["src"][0], strands[k]["dst"][0]) for k in pieces}
+    first = next((k for k in pieces if tn in ends[k]), None)
+    if first is None:                       # the toward end is on another band: start at this band's cut end
+        first = pieces[0]
+        start = next((n for n in ends[first] if n.startswith("LINK:")), ends[first][0])
+        cm -= sg["edge_cm"] - sum(length.values())
+    else:
+        start = tn
+    if cm < -0.5:
+        return None
+    if first.endswith((".0", ".1")):        # fold halves are drawn equal, which the real halves rarely are, so a
+        return first, min(max(cm, 0.0), length[first]), length[first], start   # mast keeps to its toward end's half
+    if cm > length[first] + 0.5:            # past this band's cut end: drawn on the other band
+        return None
+    return first, max(cm, 0.0), length[first], start
+
+
 def draw_signals(band, drawn, opts, X, Y, svg, label, P):
     """Masts in the style of the NYAMR Physical Characteristics Book: a stem across the mast's foot, a short arm,
     one open circle per head pointing the way the mast governs, the name beyond the stem. Each sits on the
@@ -301,13 +329,13 @@ def draw_signals(band, drawn, opts, X, Y, svg, label, P):
     for sg in opts["signals"]:
         if sg["kind"] == "virtual":
             continue
-        tn = sg["_toward_node"]
-        pieces = [k for k, st in strands.items() if st["edge"] == sg["_edge"]]
-        if not pieces:
+        spot = mast_piece(sg, strands)
+        if spot is None:                    # its run, or the part of it the mast stands on, is on another band
             continue
-        k = next((k for k in pieces if tn in (strands[k]["src"][0], strands[k]["dst"][0])), pieces[0])
+        k, at, piece_cm, start = spot
+        sg = dict(sg, cm_from_toward=at, edge_cm=piece_cm)
         pts = [(X(c), Y(rw)) for c, rw in drawn[k]]
-        if strands[k]["dst"][0] == tn:
+        if strands[k]["dst"][0] == start:
             pts = pts[::-1]
         half = (opts["main_w"] if strands[k]["main"] else opts["side_w"]) / 2
         heads = sg.get("heads", 1)

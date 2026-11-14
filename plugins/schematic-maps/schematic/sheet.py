@@ -88,12 +88,13 @@ def build_bands(inputs, optlist, log):
 def build(inputs, data, preferences=True, hints=False):
     """Read and lay out every input. `inputs` is a list of (graph or path to its JSON, layer-file name)."""
     optlist = [options(name, data, preferences, hints) for _, name in inputs]
+    sheet_file = Path(data) / "sheet.preferences.json"
+    if preferences and sheet_file.exists():        # the sheet's own look reaches every band, not just the last input
+        sheet_prefs = json.load(open(sheet_file))
+        optlist = [layers.merge(o, sheet_prefs) for o in optlist]
     for o in optlist[:-1]:
         o["helix_style"] = optlist[-1].get("helix_style", "box")
     optlist[-1].setdefault("helix_style", "box")
-    sheet_file = Path(data) / "sheet.preferences.json"
-    if preferences and sheet_file.exists():
-        optlist[-1] = layers.merge(optlist[-1], json.load(open(sheet_file)))
     log = []
     bands = build_bands(inputs, optlist, log)
     return Sheet(bands, optlist[-1], log)
