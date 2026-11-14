@@ -36,6 +36,8 @@ Layer files in `DIR`: `NAME.plan_overrides.json` (facts about the railroad), `NA
 
 `tests/example.py` writes a made-up railroad, the Pine Hollow & Eastern, as every file the tool reads: a plan export, plan parts, a Layout Editor panel, switch numbers, block lengths and layer files. It has a yard ladder, a double crossover, a loop, two levels joined by a rise and a helix track, a switch added by the overrides, a switch in the plan that was never built, and masts on a turnout leg, an anchor and a ladder link. It is track only and invented for the tests. `tests/golden/` holds the fingerprints of its drawings.
 
+Where two tracks join the same two switches, an override edit that names the pair stops and asks for the leg instead of taking the longer track: `"port": "C"` beside `on`, a third item in `onto` (`["3", "4", "C"]`), a fourth in a `name` entry, and the leg in `track_directions`.
+
 ## Tests
 
 ```
