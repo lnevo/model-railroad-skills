@@ -59,6 +59,7 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
     """A band holding only the station: nodes, strands, rows and columns copied from the solved band, plus an
     open end at each place a track leaves. Capacity counts and masts are cut with it, from the whole band's."""
     want = {str(m) for m in members}
+    pad = 2 if opts.get("control_points") else 0      # a limit bracket stands in the first stretch of a leaving track
     nodes, strands, R, x, need = (band[k] for k in ("nodes", "strands", "R", "x", "need"))
     keep = {n for n, d in nodes.items() if d["kind"] in JUNCTION and d.get("label") in want}
     take = {sid for sid, s in strands.items() if s["src"][0] in keep or s["dst"][0] in keep}
@@ -92,7 +93,7 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
             cid = f"CUT:{sid}"
             kept_is_src = u not in end_ids
             dest = destination(nodes, far, owner, name)
-            room = max(reach, columns.name_cells((s["name"] + " (00)").upper(), opts) + 1) if s["name"] else reach
+            room = (max(reach, columns.name_cells((s["name"] + " (00)").upper(), opts) + 1) if s["name"] else reach) + pad
             if sid in R["diag"]:             # a slope is cut like a level track: along its columns, the row following
                 (xa, xb), (ra, rb) = (x[u], x[v]), (R["nrow"][u], R["nrow"][v])
                 frac = min(1.0, room / (xb - xa)) if xb > xa else 1.0
@@ -195,7 +196,7 @@ def detail_options(opts, title, name, inside, sub, pre):
         elif isinstance(v, (list, tuple)):
             out[k] = [b for b in v if b == key] if k in KEEP_SETTINGS else []
     out.pop("system_title", None)
-    out.update(stations=inside, equal_width=False, sheet=None, fold=False, _folds=[], centre=True,
+    out.update(stations=inside, equal_width=False, show_limits=True, sheet=None, fold=False, _folds=[], centre=True,
                title=[name, "Station detail sheet", title],
                max_scale=opts.get("detail_max_scale", DETAIL_SCALE), precomputed=pre,
                signals=cut_signals(opts, sub))

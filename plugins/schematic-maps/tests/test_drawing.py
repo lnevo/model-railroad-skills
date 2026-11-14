@@ -704,6 +704,80 @@ class BandFixes(unittest.TestCase):
         self.assertIn("e0a", {e["id"] for e in h["edges"]})
 
 
+
+class ControlPoints(unittest.TestCase):
+    """Interlocking limits: layer 1 `control_points`; detail sheets draw brackets and a quoted name, the overall
+    sheet never does."""
+
+    CP = {"control_points": {"Hollow": {"code": "HL", "switches": ["2", "6", "3"]},
+                             "Yard": {"switches": ["11", "12", "13"]}}}
+    STATIONS = {"Hollow": ["2", "6", "3"], "Summit": ["21", "22"], "Yard": ["11", "12", "13"]}
+
+    def details(self, cps):
+        from schematic import detail
+        sheet = build_with(overrides=cps)
+        bands = [(t, b, dict(o, stations=self.STATIONS)) for t, b, o in sheet.bands]
+        owner = detail.owners([o for _, _, o in bands])
+        return sheet, {n: detail.sheet_svg(bands, m, n, owner)[0] for n, m in self.STATIONS.items()}
+
+    def test_the_overall_sheet_ignores_control_points(self):
+        sheet = build_with(overrides=self.CP)
+        self.assertEqual(sheet.svg(), helpers.build().svg())
+
+    def test_detail_sheets_draw_names_codes_and_brackets_without_faults(self):
+        _, plain = self.details({})
+        _, svgs = self.details(self.CP)
+        self.assertIn('"HOLLOW" [HL]', svgs["Hollow"])
+        self.assertIn('>"YARD"<', svgs["Yard"])
+        for name, svg in svgs.items():
+            self.assertEqual(label_check.check(svg)[0], [], name)
+            self.assertEqual(label_check.outside_frame(svg), [], name)
+        self.assertEqual(svgs["Hollow"].count("<path") - plain["Hollow"].count("<path"), 2)   # a bracket at each end
+        self.assertEqual(svgs["Summit"], plain["Summit"])    # no control point there: nothing changes
+
+    def test_a_limit_is_drawn_only_where_the_whole_interlocking_is_on_the_sheet(self):
+        from schematic import detail
+        sheet = build_with(overrides={"control_points": {"Wide": {"switches": ["2", "6", "3", "1"]}}})
+        bands = [(t, b, dict(o, stations=self.STATIONS)) for t, b, o in sheet.bands]
+        svg = detail.sheet_svg(bands, self.STATIONS["Hollow"], "Hollow", detail.owners([o for _, _, o in bands]))[0]
+        self.assertNotIn("WIDE", svg)
+
+    def test_crossovers_integers_and_stars_match(self):
+        for sw in (["6"], [6], ["6*"], [2, "6", 3]):
+            _, svgs = self.details({"control_points": {"X": {"switches": sw}}})
+            self.assertIn('>"X"<', svgs["Hollow"], sw)
+
+    def test_a_switch_not_on_the_plan_is_an_error(self):
+        from schematic.core import SchematicError
+        with self.assertRaisesRegex(SchematicError, "control point Ghost.*switch 99"):
+            build_with(overrides={"control_points": {"Ghost": {"switches": ["2", "99"]}}})
+
+    def test_a_control_point_across_two_bands_is_refused(self):
+        from schematic.core import SchematicError
+        with self.assertRaisesRegex(SchematicError, "more than one band"):
+            build_with(overrides={"control_points": {"Both": {"switches": ["2", "21"]}}})
+
+    def test_brackets_stay_clear_of_cut_arrows(self):
+        import re
+        _, svgs = self.details(self.CP)
+        for name in ("Hollow", "Yard"):
+            svg = svgs[name]
+            arrows = [tuple(map(float, m)) for m in re.findall(
+                r'<path d="M([\d.]+),([\d.]+) m(-?[\d.]+),-5 l-?[\d.]+,5 l-?[\d.]+,5"', svg)]
+            brackets = re.findall(r'<path d="M[\d.]+,[\d.]+ L([\d.]+),([\d.]+) L([\d.]+),([\d.]+) L[\d.]+,[\d.]+" stroke-width="1.4"', svg)
+            self.assertTrue(arrows and brackets, name)
+            for x1, y1, x2, y2 in brackets:
+                for ax, ay, dx in arrows:
+                    if float(y1) <= ay <= float(y2):
+                        self.assertFalse(min(ax, ax + dx) - 4 <= float(x1) <= max(ax, ax + dx) + 4, (name, x1, ax, dx))
+
+    def test_brackets_stop_at_a_neighbouring_switch(self):
+        _, svgs = self.details({"control_points": {"A": {"switches": ["2"]}, "B": {"switches": ["6"]}}})
+        self.assertIn('>"A"<', svgs["Hollow"])
+        self.assertIn('>"B"<', svgs["Hollow"])
+        self.assertEqual(label_check.check(svgs["Hollow"])[0], [])
+
+
 class Mileposts(unittest.TestCase):
     """Mileposts: counted in scale miles from the origin switch along the route, drawn as ticks when asked."""
 
@@ -883,3 +957,4 @@ class Mileposts(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

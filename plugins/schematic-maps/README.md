@@ -26,6 +26,8 @@ schematic detail pair.svg --data DIR graph.json:NAME --switches 11 12 --name "Pa
 schematic check sheet.svg --list
 ```
 
+Interlocking limits are optional: `control_points` in the plan overrides names each control point, an optional short code and the switches it covers. Detail sheets (not the overall sheet) draw square brackets across the tracks at its outer ends and the quoted name (see style rule 10), for each control point whose switches are all on the sheet.
+
 Layer files in `DIR`: `NAME.plan_overrides.json` (facts about the railroad), `NAME.signals.json` (generated), `NAME.preferences.json` (the look, optional). Page folding is a preference (`fold: true` or `fold_min_scale` in the preferences file): a band too long to read at Letter size is cut into rows with CONTINUES arrows. The skill, [`skills/schematic-maps/SKILL.md`](skills/schematic-maps/SKILL.md), walks through the overrides and the checks.
 
 Mileposts are a preference (`mileposts: true`, or `{"step": 0.25}` in miles) and need layer 1 facts: `milepost_origin` (`{"switch": "1", "milepost": 0.0}`), `scale_ratio` (87.1 for HO), `helix_length_in` to carry the count through a helix, and optionally `milepost_route`. The count runs in scale miles along the main route from the origin using the same lengths as capacity; ticks sit where it crosses a multiple of the step. With the preference off the drawing is unchanged. See rule 19 in `skills/schematic-maps/references/style.md`.

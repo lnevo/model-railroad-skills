@@ -59,6 +59,8 @@ Title block fields (layer 3): `date` as YYYY-MM-DD, `revision` and `sheet` ("1 o
 
 Preferences that pin a choice (layer 3, never needed for a correct sheet): `level_leg` names the leg a switch keeps level, as `{"31": "B"}`, where the rules chose the other valid one. It overrides R5 and R6, so use it only for the reader's own look, such as a ladder the reader wants drawn the other way. R5 and R6 are strong preferences, not pins: where breaking one draws the sheet in clearly fewer rows (a short loop, a ladder with a level link), the search breaks it and the report lists it; `rule_weight` (default 2.0) sets how much tighter the sheet must get. A preference may only move, stretch or mirror what the rules placed; if it causes a fault, the report shows it.
 
+Interlocking limits are a layer 1 fact too: `control_points` in the plan overrides, `{"Brick": {"code": "BK", "switches": ["1", "3"]}}` (`code` optional; a switch is text or a number, a moved switch's star and a double crossover's number both match). Detail sheets (never the overall sheet) draw a square bracket across the tracks through those switches at each outer end and the quoted name, `"BRICK" [BK]`, through the label placer. All a control point's switches must be on one band and on the plan, or the command stops and names the control point. Leave the key out and nothing changes.
+
 Declared ends are layer 1 facts that outrank the fault count: `left_end` is the track whose end must be the leftmost on its band and run leftward from its switch, and `helix_side` is the side a level's helix ends on.
 
 Settings that are tuning, not per-switch hints: `ladder_link_max_cm` (40) and `long_track_cm` (100), in the overrides.
