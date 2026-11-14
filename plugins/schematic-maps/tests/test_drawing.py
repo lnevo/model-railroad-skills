@@ -1,6 +1,7 @@
 """Rules R5 to R7, the checks, labels and the golden fingerprints, on the made-up example."""
 import json
 import os
+import math
 import unittest
 
 import helpers
@@ -521,6 +522,57 @@ class RunHints(unittest.TestCase):
             self.check(min_cells=[["1", "50", 4]])
         with self.assertRaisesRegex(SchematicError, "lists 5"):                # a number in the list: an error, not a crash
             self.check(min_cells=[["1", "2", 4, 5]])
+
+
+class Capacity(unittest.TestCase):
+    def band(self):
+        sw = lambda label: dict(kind="switch", label=label)
+        nodes = {"p": sw("1"), "q": sw("2"), "r": sw("3"), "a": dict(kind="end"), "b": dict(kind="end"), "c": dict(kind="end"),
+                 "t": dict(kind="turnR")}
+        st = lambda src, dst, edge, name, cm, main=False: dict(src=(src, "B"), dst=(dst, "A"), edge=edge, name=name, cm=cm,
+                                                              main=main, link=False)
+        strands = {"m": st("p", "q", "m", "Main", 500.0, True),
+                   "y1": st("a", "q", "y1", "", 100.0), "y2": st("q", "r", "y2", "", 60.0),    # one unnamed track, two pieces
+                   "s": st("p", "b", "s", "S-1", 300.0),                                        # named, measured
+                   "l": st("r", "c", "l", "", 30.0),                                             # a short link
+                   "k.0": st("p", "t", "k", "K-1", 600.0), "k.1": st("t", "r", "k", "K-2", 600.0)}   # a loop drawn as two
+        srow = {"m": 0, "y1": 1, "y2": 1, "s": 2, "l": 3, "k.0": 4, "k.1": 5}
+        return dict(nodes=nodes, strands=strands, R=dict(srow=srow, diag=set()))
+
+    def test_counts(self):
+        from schematic import capacity
+        opts = {"capacity": {"car_in": 7.4}, "track_lengths_in": {"S-1": 74.0}}
+        c = capacity.counts(self.band(), opts)
+        self.assertEqual(c, {"y1": math.floor(160 / 2.54 / 7.4), "s": 10,
+                             "k.0": math.floor(300 / 2.54 / 7.4), "k.1": math.floor(300 / 2.54 / 7.4)})
+        self.assertEqual(capacity.counts(self.band(), {}), {})
+
+    def test_station_totals_go_to_the_west_end(self):
+        from schematic import capacity
+        band = self.band()
+        x = {"p": 0, "q": 5, "r": 9, "a": 1, "b": 12}
+        opts = {"capacity": {}, "track_lengths_in": {"S-1": 74.0}, "stations": {"West": ["1", "2"], "East": ["3"]}}
+        loop, yard = math.floor(300 / 2.54 / 7.4), math.floor(160 / 2.54 / 7.4)
+        # S-1 and K-1 end at switch 1; the unnamed track spans switches 2 and 3; K-2 ends at switch 3
+        self.assertEqual(capacity.station_totals(band, opts, x), {"West": 10 + loop + yard, "East": loop})
+        turned = capacity.station_totals(band, opts, x, turned=True)          # turned end for end: west is right
+        self.assertEqual(turned, {"West": 10 + loop, "East": loop + yard})
+
+    def test_pieces_of_a_named_track_count_once(self):
+        from schematic import capacity
+        band = self.band()
+        band["strands"]["s2"] = dict(band["strands"]["s"], src=("b", "B"), dst=("r", "A"), edge="s2")
+        band["R"]["srow"]["s2"] = 2
+        c = capacity.counts(band, {"capacity": True, "track_lengths_in": {"S-1": 74.0}})
+        self.assertEqual(sorted(v for k, v in c.items() if k in ("s", "s2")), [10])
+
+    def test_bad_car_length_is_named(self):
+        from schematic import capacity
+        from schematic.core import SchematicError
+        for bad in (0, -3, "7", True):
+            with self.assertRaisesRegex(SchematicError, "car_in"):
+                capacity.counts(self.band(), {"capacity": {"car_in": bad}})
+        self.assertEqual(capacity.measured_length({"S-4": 120.0}, "S-4 / S-5"), 120.0)
 
 
 if __name__ == "__main__":
