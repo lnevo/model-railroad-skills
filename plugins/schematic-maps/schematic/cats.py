@@ -27,7 +27,8 @@ layout's devices; every name in them must exist in the panel, or it is an error:
      "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2"}}}
 
 IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "command": "close" or "throw"} (also
-JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them);
+JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
+is not a whole label splits at its last /, and labels and aliases compare as text);
 switches of one number given different `block`s keep apart. BLOCK is the panel's block name after the switches'
 `block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
 (field or planned; virtual masts are not drawn). It goes on the block boundary nearest where it stands on its run:
@@ -274,7 +275,8 @@ def panel(bands, scale=SCALE, bindings=None):
             mid = (y1 + y2) // 2
             if split:           # two named tracks: a boundary in the middle of the run
                 hi, lo = keys[top_first[0]], keys[top_first[1]]
-                turn_bounds[(bi, t)] = {sids[top_first[0]]: ((col, mid), "BOTTOM"), sids[top_first[1]]: ((col, mid + 1), "TOP")}
+                turn_bounds[(bi, t)] = {sids[top_first[0]]: (((col, mid), "BOTTOM"), hi, lo),
+                                        sids[top_first[1]]: (((col, mid + 1), "TOP"), lo, hi)}
             else:
                 for k in keys[1:]:
                     P.union(keys[0], k)
@@ -394,7 +396,15 @@ def panel(bands, scale=SCALE, bindings=None):
         cands = [(beyond, "LEFTCENT"), (below, "UPLEFT")] if edge == "RIGHT" else [(below, "UPLEFT"), ((cell[0], cell[1] - 1), "LOWLEFT")]
         P.label(cands, text)
 
-    # block names: unique; an OS block after its switch numbers (several when tracks too short to part them merge it)
+    # block names: unique; an OS block after its switch numbers (several when tracks too short to part them merge it).
+    # A block name bound to switches is one block wherever they are, and is never suffixed.
+    by_bound = defaultdict(list)
+    for key in P.blocks:
+        if key[0] == "os" and sw_bind.get(node_of(key), {}).get("block"):
+            by_bound[sw_bind[node_of(key)]["block"]].append(key)
+    for keys in by_bound.values():
+        for k in keys[1:]:
+            P.union(keys[0], k)
     groups = defaultdict(list)
     for key in sorted(P.blocks):
         groups[P.find(key)].append(key)
@@ -407,15 +417,21 @@ def panel(bands, scale=SCALE, bindings=None):
             raise SchematicError(f"switches {', '.join(labels)} share one OS block (the track between them is too "
                                  f"short to part them), but are bound to blocks {', '.join(bound)}")
         if bound:
-            P.names[root] = unique(bound[0])
-        elif any(k[0] == "os" for k in keys):
-            P.names[root] = unique("OS " + "-".join(labels) if labels else "OS")
+            P.names[root] = bound[0]
+            continue
+        base = ("OS " + "-".join(labels) if labels else "OS") if any(k[0] == "os" for k in keys) else \
+            (next(P.blocks[k] for k in keys) or "Track")
+        if base in by_bound:
+            raise SchematicError(f"switches are bound to block {base}, which is also the name of another block "
+                                 "of the panel; bind them to a name of their own")
+        if any(k[0] == "os" for k in keys):
+            P.names[root] = unique(base)
             if len(labels) > 1:
                 P.log.append(f"switches {', '.join(labels)} share one OS block: the tracks between them are too short "
                              "to hold a block of their own")
         else:
-            P.names[root] = unique(next(P.blocks[k] for k in keys) or "Track")
-    bind_blocks(P, bindings["blocks"])
+            P.names[root] = unique(base)
+    bind_blocks(P, bindings["blocks"], set(by_bound))
     bind_routes(P, sw_bind)
     bind_masts(P, bands, bindings["masts"], chains, turn_bounds)
     return P
@@ -435,7 +451,7 @@ def check_io(io, where):
     if unknown:
         raise SchematicError(f"{where}: unknown IOSPEC field {', '.join(sorted(unknown))} "
                              f"(fields: {', '.join(sorted(IOSPEC_KEYS))}, command)")
-    if not io.get("DECADDR"):
+    if io.get("DECADDR") in (None, ""):
         raise SchematicError(f"{where}: an IOSPEC needs a DECADDR")
     if io.get("command") not in ("close", "throw"):
         raise SchematicError(f"{where}: an IOSPEC command is close or throw, not {io.get('command')!r}")
@@ -484,36 +500,51 @@ def switch_bindings(bands, switches):
     """{(band index, node): binding} for the switch keys, LABEL or LABEL/ALIAS. A key that names no switch is an
     error, and so is a switch named by two keys."""
     out, owner = {}, {}
+    switch_nodes = [(bi, n, str(d.get("label") or ""), str(d.get("alias") or ""), d["kind"])
+                    for bi, (_, band, _) in enumerate(bands) for n, d in band["nodes"].items()
+                    if d["kind"] in ("switch", "dx")]
     for key, e in switches.items():
-        label, _, alias = key.partition("/")
-        hits = [(bi, n) for bi, (_, band, _) in enumerate(bands) for n, d in band["nodes"].items()
-                if d["kind"] in ("switch", "dx") and d.get("label") == label and (not alias or d.get("alias") == alias)]
+        hits = [(bi, n) for bi, n, lb, _, _ in switch_nodes if lb == key]       # the whole key is a label
+        if not hits and "/" in key:                                            # else LABEL/ALIAS, at the last /
+            label, _, alias = key.rpartition("/")
+            hits = [(bi, n) for bi, n, lb, al, _ in switch_nodes if lb == label and al == alias]
         if not hits:
             raise SchematicError(f"bindings name switch {key}, which no drawn band has")
         for h in hits:
-            if bands[h[0]][1]["nodes"][h[1]]["kind"] == "dx" and e.get("routes"):
-                raise SchematicError(f"switch {key}: binding the routes of a double crossover is not supported")
+            if bands[h[0]][1]["nodes"][h[1]]["kind"] == "dx" and (e.get("routes") or "normal" in e):
+                raise SchematicError(f"switch {key}: a double crossover takes a block binding only (no routes or normal)")
             if h in owner:
-                raise SchematicError(f"switch {label}{'/' + (bands[h[0]][1]['nodes'][h[1]].get('alias') or h[1])} "
-                                     f"is bound by both {owner[h]} and {key}")
+                d = bands[h[0]][1]["nodes"][h[1]]
+                raise SchematicError(f"switch {d.get('label')}/{d.get('alias') or h[1]} is bound by both "
+                                     f"{owner[h]} and {key}")
             owner[h] = key
             out[h] = e
     return out
 
 
-def bind_blocks(P, blocks):
-    """Rename, merge and bind blocks. Two blocks given one name are one block."""
+def bind_blocks(P, blocks, switch_named=()):
+    """Rename, merge and bind blocks. Blocks the bindings give one name (a block keyed in the bindings, or named by
+    switch bindings, keeps its own name) become one block, logged; a rename onto the name of a block the bindings do
+    not mention is an error."""
     root_of = {name: root for root, name in P.names.items()}       # block names are unique
     unknown = set(blocks) - set(root_of)
     if unknown:
         raise SchematicError(f"bindings name block {', '.join(sorted(unknown))}, which the panel does not have "
                              f"(blocks: {', '.join(sorted(root_of))})")
+    explicit = set(blocks) | set(switch_named)
     groups = defaultdict(list)
     for name, root in sorted(root_of.items()):
-        groups[blocks.get(name, {}).get("name") or name].append(root)
-    for roots in groups.values():
-        for r in roots[1:]:
-            P.union(roots[0], r)
+        groups[blocks.get(name, {}).get("name") or name].append(name)
+    for final, members in sorted(groups.items()):
+        if len(members) < 2:
+            continue
+        loose = [m for m in members if m not in explicit]
+        if loose:
+            raise SchematicError(f"bindings rename block {', '.join(m for m in members if m in blocks and m != final)} "
+                                 f"to {final}, the name of block {', '.join(loose)}, which the bindings do not name")
+        for m in members[1:]:
+            P.union(root_of[members[0]], root_of[m])
+        P.log.append(f"blocks {', '.join(members)} are one block, {final}")
     names, info = {}, {}
     for name, root in sorted(root_of.items()):
         r = P.find(root)
@@ -558,16 +589,22 @@ def bind_masts(P, bands, masts, chains, turn_bounds):
         strand = bands[bi][1]["strands"][k]
         c = chains[(bi, k)]
         steps, owner = c["steps"], [P.find(o) for o in c["owner"]]
-        if strand["src"][0] != start:            # orient the run from the end its move is heading for
+        if strand["src"][0] == start:            # orient the run from the end its move is heading for
+            near, far = strand["src"][0], strand["dst"][0]
+        elif strand["dst"][0] == start:
             steps, owner = [(b, a) for a, b in reversed(steps)], owner[::-1]
-            far = strand["src"][0]
+            near, far = strand["dst"][0], strand["src"][0]
         else:
-            far = strand["dst"][0]
+            raise SchematicError(f"mast {name}: cannot tell which end of track {strand['name'] or k} it faces")
         n = len(steps)
         cands = [(i, touching(steps[i][0], steps[i - 1][0])) for i in range(1, n) if owner[i] != owner[i - 1]]
+        live = lambda b: b is not None and P.find(b[1]) != P.find(b[2])     # halves later merged: no boundary
         tb = turn_bounds.get((bi, far), {}).get(k)
-        if tb:
-            cands.append((n + 0.5, tb))
+        if live(tb):                             # past the far end: this half's side of the cut
+            cands.append((n + 0.5, tb[0]))
+        other = next((v for s_, v in turn_bounds.get((bi, near), {}).items() if s_ != k), None)
+        if live(other):                          # behind the near end: the other half's side, the block it enters
+            cands.append((-0.5, other[0]))
         if not cands:
             raise SchematicError(f"mast {name}: no block boundary on its track {strand['name'] or k}")
         pos = n * at / piece_cm if piece_cm else 0.0

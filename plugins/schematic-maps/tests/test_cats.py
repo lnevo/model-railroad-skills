@@ -276,6 +276,26 @@ def edges_of(root, name):
 
 
 class Bindings(unittest.TestCase):
+    def test_one_bound_block_name_is_one_block_and_never_suffixed(self):
+        P = cats.panel(helpers.build().bands, bindings={"switches": {"1": {"block": "OS West"}, "4": {"block": "OS West"}}})
+        self.assertEqual(list(P.names.values()).count("OS West"), 1)
+        self.assertFalse([n for n in P.names.values() if n.startswith("OS West ")])
+        with self.assertRaisesRegex(cats.SchematicError, "also the name of another block"):
+            cats.panel(helpers.build().bands, bindings={"switches": {"1": {"block": "Main West"}}})
+
+    def test_a_decoder_address_of_zero_is_an_address(self):
+        P = cats.panel(helpers.build().bands, bindings={"blocks": {"Main": {"occupied": io("close", DECADDR=0)}}})
+        root = cats.to_xml(P)
+        self.assertEqual(next(b.find("OCCUPIEDSPEC/IOSPEC").get("DECADDR") for b in root.iter("BLOCK")
+                              if b.get("NAME") == "Main"), "0")
+
+    def test_a_whole_label_with_a_slash_is_a_label(self):
+        bands = relabelled({"S1": ("label", "1/2")})
+        P = cats.panel(bands, bindings={"switches": {"1/2": {"block": "OS Slash"}}})
+        self.assertIn("OS Slash", P.names.values())
+        P = cats.panel(bands, bindings={"switches": {"1/2/T10": {"block": "OS Slash"}}})    # alias after the last /
+        self.assertIn("OS Slash", P.names.values())
+
     def test_switch_routes_are_bound_by_leg(self):
         b = {"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": io("close"), "SELECTEDREPORT": io("close")},
                                            "C": {"ROUTECOMMAND": io("throw")}}}}}
@@ -315,7 +335,11 @@ class Bindings(unittest.TestCase):
         self.assertIsNone(other.find("OCCUPIEDSPEC"))
 
     def test_two_blocks_given_one_name_are_one_block(self):
-        P = cats.panel(helpers.build().bands, bindings={"blocks": {"Link 11-12": {"name": "OS 11"}}})
+        bands = helpers.build().bands
+        with self.assertRaisesRegex(cats.SchematicError, "the name of block OS 11, which the bindings do not name"):
+            cats.panel(bands, bindings={"blocks": {"Link 11-12": {"name": "OS 11"}}})
+        P = cats.panel(bands, bindings={"blocks": {"Link 11-12": {"name": "OS 11"}, "OS 11": {}}})
+        self.assertIn("blocks Link 11-12, OS 11 are one block, OS 11", P.log)
         self.assertNotIn("Link 11-12", P.names.values())
         self.assertEqual(list(P.names.values()).count("OS 11"), 1)
         root = cats.to_xml(P)
@@ -384,12 +408,44 @@ class Bindings(unittest.TestCase):
         root = cats.to_xml(P)
         self.assertIn((cell[0], cell[1], edge), edges_of(root, "Loop"))
 
+    def fold_mast(self, bands, start=None):
+        for _, _, o in bands:
+            o["signals"] = [dict(mast="X5", toward="5", run=["5", "5"], names=["Loop"], edge_cm=523.6,
+                                 cm_from_toward=255.0, dir="east", kind="planned", heads=1, _edge="e12",
+                                 _toward_node="S5")]
+        if start is None:
+            return cats.panel(bands, bindings={"masts": {"X5": {}}})
+        piece = lambda sg, strands: ("e12.0", 5.0, 261.8, start) if "e12.0" in strands else None
+        with mock.patch.object(cats, "mast_piece", piece):
+            return cats.panel(bands, bindings={"masts": {"X5": {}}})
+
+    def test_a_turnback_merged_by_the_bindings_is_no_boundary_for_a_mast(self):
+        bands = relabelled({"e12.1": ("name", "Loop East")})
+        P = self.fold_mast(bands)                         # split: the mast is on the cut
+        self.assertIn(next(iter(P.signals))[1], ("TOP", "BOTTOM"))
+        P = cats.panel(bands, bindings={"blocks": {"Loop East": {"name": "Loop"}, "Loop": {}}, "masts": {"X5": {}}})
+        (cell, edge), = P.signals                         # merged: the cut is gone, the mast takes another boundary
+        self.assertNotIn(edge, ("TOP", "BOTTOM"))
+        self.assertIn((cell, edge), cats.boundaries(P))
+
+    def test_a_turnback_behind_the_mast_is_a_boundary_too(self):
+        P = self.fold_mast(relabelled({"e12.1": ("name", "Loop East")}), start="turn:e12")
+        (cell, edge), = P.signals
+        self.assertIn(edge, ("TOP", "BOTTOM"))
+        root = cats.to_xml(P)
+        self.assertIn((cell[0], cell[1], edge), edges_of(root, "Loop East"))    # the block it enters
+
+    def test_a_mast_whose_run_has_no_such_end_is_an_error(self):
+        with self.assertRaisesRegex(cats.SchematicError, "cannot tell which end"):
+            self.fold_mast(relabelled({"e12.1": ("name", "Loop East")}), start="LINK:A0")
+
     def test_unknown_names_and_bad_fields_are_errors(self):
         bands = helpers.build().bands
         for bad, msg in (({"switches": {"99": {}}}, "switch 99, which no drawn band has"),
                          ({"switches": {"1/T99": {}}}, "switch 1/T99"),
                          ({"switches": {"6": {"routes": {"B": {"ROUTECOMMAND": io("close")}}}}}, "double crossover"),
                          ({"switches": {"1": {"normal": "A"}}}, "normal is leg B or C"),
+                         ({"switches": {"6": {"normal": "B"}}}, "double crossover takes a block binding only"),
                          ({"switches": {"1": {"routes": {"B": {"COMMAND": io("close")}}}}}, "unknown field COMMAND"),
                          ({"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": io("open")}}}}}, "close or throw"),
                          ({"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": {"command": "close"}}}}}}, "DECADDR"),
@@ -433,7 +489,7 @@ class Bindings(unittest.TestCase):
             r = run("--bindings", str(bad))
             self.assertEqual(r.returncode, 2)
             self.assertIn("block Nowhere", r.stderr)
-            r = run("--templates-from", str(Path(tmp) / "missing.xml"))
+            r = run("--bindings", str(bad), "--templates-from", str(Path(tmp) / "missing.xml"))   # read first
             self.assertEqual(r.returncode, 2)
             self.assertIn("cannot read it as a CATS panel", r.stderr)
 

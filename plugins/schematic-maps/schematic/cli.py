@@ -158,11 +158,12 @@ def run(argv=None):
             bindings = None
             if a.bindings:
                 try:
-                    bindings = json.load(open(a.bindings, encoding="utf-8"))
+                    with open(a.bindings, encoding="utf-8") as f:
+                        bindings = json.load(f)
                 except (OSError, ValueError) as e:
                     raise SchematicError(f"{a.bindings}: cannot read the bindings ({e})") from None
-            pnl = cats.panel(bands, bindings=bindings)
             header = cats.header_from(a.templates_from) if a.templates_from else ()
+            pnl = cats.panel(bands, bindings=bindings)
             cats.write(pnl, a.out, a.discipline, header)
             print(", ".join(t for t, _, _ in bands) + ": " + cats.summary(pnl))
             print("\n".join(pnl.log))
