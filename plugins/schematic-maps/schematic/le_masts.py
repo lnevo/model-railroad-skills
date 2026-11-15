@@ -37,7 +37,7 @@ from collections import defaultdict
 from . import slots
 from .core import SchematicError
 from .label_check import _pt_seg as pt_seg, seg_box_gap
-from .le import dot, mid, sub, to_xml
+from .le import dot, mid, sub, text_width, to_xml
 
 GANTRY_SHIFT = 3        # columns an anchor may slide along its track to line masts up (as cats.GANTRY_SHIFT)
 GANTRY_SPAN = 3         # columns from a gantry's first mast to its last, at most: as far as an anchor may move
@@ -87,7 +87,7 @@ class Rect:
 
 
 def label_rect(lb, x=None):
-    w = 0.6 * lb["size"] * len(lb["text"])
+    w = text_width(lb["text"], lb["size"])
     x = lb["xy"][0] if x is None else x
     return Rect((x + w / 2, lb["xy"][1] + lb["size"] / 2), (1.0, 0.0), w / 2, lb["size"] / 2)
 
@@ -326,7 +326,6 @@ class Masts:
     def least(self, sid, cell):
         """The shortest a track an anchor ends may become: a column, or as long as it was if shorter."""
         return min(cell, self.first_len[sid])
-
 
     def slide(self, ident, cell):
         """(a, unit, s, lo, hi) for an anchor that may slide along the straight line through it, from where every
@@ -695,7 +694,7 @@ def names_yield(P, world):
         if not any(label_rect(lb).overlaps(i) for i in icons_):
             continue
         (ax, ay), (bx, _by) = lb["run"]
-        w = 0.6 * lb["size"] * len(lb["text"])
+        w = text_width(lb["text"], lb["size"])
         lo, hi = min(ax, bx) + 2, max(ax, bx) - w - 2
         x0 = lb["xy"][0]
         track, bodies, _labels, _shapes = world.near((x0 + w / 2, ay), NEAR + w)

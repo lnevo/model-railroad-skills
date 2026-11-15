@@ -23,6 +23,17 @@ def tidy(names):
 
 
 
+def node_ref(d):
+    """How a track's end reads in a made-up block name: the switch number, "link X", "helix" or "end"."""
+    if d["kind"] in ("switch", "dx") and d.get("label"):
+        return d["label"]
+    if d.get("sub") == "link" and d.get("label"):
+        return "link " + d["label"]
+    if d.get("sub") == "helix":
+        return "helix"
+    return "end"
+
+
 def legs(nodes, n):
     """(upper strand, lower strand) of the frog side of switch n, in screen terms."""
     d = nodes[n]

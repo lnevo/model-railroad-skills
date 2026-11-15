@@ -36,9 +36,11 @@ a strand's block is its track name (or the two switch numbers it joins, made uni
 or connector track share the block of the track they continue, an OS block is "OS <switch number>", and no turnout
 is named. Sensors are not placed. `leg_b` names the band leg that is Layout Editor leg B (default: the drawn
 straight one); a drawn diverging leg B puts the centre midway between legs A and B, where Layout Editor finds point
-A. `idents` gives drawn objects an older panel's idents once everything is placed (apply_idents): a switch's
+A. `idents` gives drawn objects an older panel's idents once the track is drawn (give_idents): a switch's
 turnout, the one anchor between two blocks, the one end bumper of a block, the one segment of a block; the rest keep
-generated idents, whose form (G after the prefix) no given ident may take.
+generated idents, whose form (G after the prefix) no given ident may take. The given idents are an alias layer:
+the Panel's own lookups keep the generated idents (P.name maps one), and the XML and every message (the log,
+P.unplaced and P.moved reasons, errors) name objects by the idents written (Panel.text).
 
 Masts. Each mast in `masts` goes in the slot of that band whose facing block and protected blocks, as JMRI resolves
 them (slots.py), are the ones given: an anchor's east or west slot, a turnout leg, or (with `protects` empty) an end
@@ -66,7 +68,7 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 from . import stations
-from .core import SchematicError, tidy
+from .core import SchematicError, node_ref, tidy
 from .draw import band_key
 from .layout import paths
 
@@ -192,6 +194,13 @@ def r1(v):
 # ---------------------------------------------------------------- the panel
 
 class Panel:
+    """The panel being drawn. Its lookups hold generated idents, given idents or not: the idents of turnouts,
+    segments (and their ends), points (the keys), shapes, masts[*].ident, turnout_of, strand_segments, turnbacks,
+    joins, join_ends, gantries, anchors_moved and anchors_from. idents_given maps a generated ident to the one the
+    names give it (the alias layer) and name(ident) gives the ident an object is written under. to_xml writes the
+    given idents, and text() puts them into every message: P.log, the reasons in P.unplaced and P.moved, and each
+    SchematicError that le.panel() or to_xml raises."""
+
     def __init__(self):
         self.turnouts = []          # dicts: ident, type, cen, pts {leg: xy}, conn {leg: seg}, blocks {leg}, ...
         self.segments = []          # dicts: ident, ends [(ident, type)], block, main, dashed, hidden, arc
@@ -215,7 +224,7 @@ class Panel:
         self.anchors_from = {}      # anchor ident -> where it stood before it slid
         self.names_moved = []       # (track name, px) track names slid along their track clear of mast icons
         self.cellx = {}             # band index -> px per grid column as drawn
-        self.idents_given = {}      # generated ident -> the ident the names gave it (apply_idents)
+        self.idents_given = {}      # generated ident -> the ident the names give it (give_idents): the alias layer
         self.log = []
         self.size = (0, 0)
         self.scale = (1.0, 1.0)     # the grid's scale across and down when `fit` shrank it
@@ -225,6 +234,22 @@ class Panel:
     def ident(self, kind):
         self._n[kind] += 1
         return f"{kind}{PREFIX}{self._n[kind]}"
+
+    def name(self, ident):
+        """The ident an object is written under: the one the names give it, else its generated one."""
+        return self.idents_given.get(ident, ident)
+
+    def text(self, s):
+        """A message with every generated ident that has a given one replaced by it (whole idents only)."""
+        if not self.idents_given:
+            return s
+        return GENERATED_WORD.sub(lambda m: self.idents_given.get(m.group(0), m.group(0)), s)
+
+    def final_text(self):
+        """Every message the panel keeps, in written idents: run once, when the panel is drawn."""
+        self.log = [self.text(line) for line in self.log]
+        self.unplaced = [(t, m, self.text(why)) for t, m, why in self.unplaced]
+        self.moved = [(t, m, self.text(why)) for t, m, why in self.moved]
 
     def point(self, kind, xy):
         ident = self.ident("A" if kind == "ANCHOR" else "EB")
@@ -256,16 +281,6 @@ class Panel:
 
 def text_width(text, size):
     return 0.6 * size * len(text)
-
-
-def node_ref(d):
-    if d["kind"] in ("switch", "dx") and d.get("label"):
-        return d["label"]
-    if d.get("sub") == "link" and d.get("label"):
-        return "link " + d["label"]
-    if d.get("sub") == "helix":
-        return "helix"
-    return "end"
 
 
 def partners(bands):
@@ -347,6 +362,7 @@ IDENT_KEYS = ("turnouts", "boundaries", "ends", "segments")
 # the kind of object each section's idents must be found as by JMRI (jmri_kind)
 IDENT_KIND = {"turnouts": "turnout", "boundaries": "point", "ends": "point", "segments": "segment"}
 GENERATED = re.compile(r"(TO|T|A|EB|SH)" + PREFIX + r"\d+")
+GENERATED_WORD = re.compile(r"(?<![A-Za-z0-9_-])" + GENERATED.pattern + r"(?![A-Za-z0-9_-])")   # as in a message
 
 
 def jmri_kind(name):
@@ -453,7 +469,7 @@ def check_idents(key, idents, band, switches, named, seen):
     up as its kind of object (jmri_kind), never one the panel generates itself (so a given and a generated ident
     never meet), used once across every band (`seen`) but by the two switches of one single crossover; each block
     one the names give (`named`: the band's `blocks` and `os`). Whether a boundary or end is drawn as exactly one
-    anchor or bumper can only be checked once drawn (apply_idents)."""
+    anchor or bumper can only be checked once drawn (give_idents)."""
     if idents is None:
         return
     what = f"names for {key}: idents"
@@ -603,6 +619,18 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None):
 
 
 def draw_panel(bands, names, cell, row, page, masts=True):
+    """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
+    idents (Panel.text)."""
+    P = Panel()
+    try:
+        _draw(P, bands, names, cell, row, page, masts)
+    except SchematicError as e:
+        raise SchematicError(P.text(str(e))) from None
+    P.final_text()
+    return P
+
+
+def _draw(P, bands, names, cell, row, page, masts):
     if not bands:
         raise SchematicError("no band to draw")
     page = page if page is not None else bands[-1][2]
@@ -615,7 +643,6 @@ def draw_panel(bands, names, cell, row, page, masts=True):
     os_defaults = {f"OS {d.get('label') or n}" for _, band, _ in bands for n, d in band["nodes"].items()
                    if d["kind"] in ("switch", "dx")}
     defaults = default_names(bands, joined, given | os_defaults)
-    P = Panel()
     drawn = [paths(band) for _, band, _ in bands]
     widths = []
     for d in drawn:
@@ -657,26 +684,27 @@ def draw_panel(bands, names, cell, row, page, masts=True):
         P.joins.append(P.segment(a[0], b[0], block, a[4] and b[4], hidden=True))
         P.join_ends[(bi, a[0])] = a[3]
         P.join_ends[(bj, b[0])] = b[3]
+    if any(g.get("idents") for g in names.values()):
+        give_idents(P, bands, names)        # before the masts, so the alias is known for all they say
     if masts and any(g.get("masts") for g in names.values()):
         place_masts(P, bands, names)
-    if any(g.get("idents") for g in names.values()):
-        apply_idents(P, bands, names)
     box = extent(P)
     P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
-    return P
 
 
-def apply_idents(P, bands, names):
-    """Give the drawn objects the idents the names ask for (an older panel's, say), once everything is placed:
-    a switch's turnout; the anchor between two blocks (the pair must be drawn as exactly one anchor); the end bumper
-    of a block (the block must end at exactly one bumper); a block's one track segment (used only when the block is
-    drawn as one segment, else logged). The rest keep their generated idents, which no given ident can take
-    (check_idents). Sets P.idents_given {old: new}."""
-    rename = {}
+def give_idents(P, bands, names):
+    """The idents the names ask for (an older panel's, say), as an alias layer over the generated ones, once the
+    track is drawn and joined (masts move no track, so they cannot change what these find): a switch's turnout; the
+    anchor between two blocks (the pair must be drawn as exactly one anchor); the end bumper of a block (the block must
+    end at exactly one bumper); a block's one track segment (used only when the block is drawn as one segment, else
+    logged). The rest keep their generated idents, which no given ident can take (check_idents). Sets
+    P.idents_given {generated: given}, filled as it goes (so a message raised part way names what is given so far);
+    nothing is renamed: to_xml writes P.name(ident) and every message goes through P.text."""
+    rename = P.idents_given = {}
 
     def take(old, new, what):
         if old in rename and rename[old] != new:
-            raise SchematicError(f"{what}: {old} is already named {rename[old]}")
+            raise SchematicError(f"{what}: its object is already named {rename[old]}")
         if new in rename.values() and rename.get(old) != new:
             raise SchematicError(f"{what}: ident {new} given to two separate objects")
         rename[old] = new
@@ -727,37 +755,37 @@ def apply_idents(P, bands, names):
                              f"ident {new} is not used (they keep generated idents)")
                 continue
             take(got[0], new, f"{title}: idents: segment of {block}")
-    if not rename:
-        return
-    r = lambda i: rename.get(i, i)      # noqa: E731
-    for t in P.turnouts:
-        t["ident"] = r(t["ident"])
-        t["conn"] = {k: r(v) for k, v in t["conn"].items()}
-    for s in P.segments:
-        s["ident"] = r(s["ident"])
-        s["ends"] = [(r(i), typ) for i, typ in s["ends"]]
-    P.points = {r(k): {**p, "conn": [r(c) for c in p["conn"]]} for k, p in P.points.items()}
-    for m in P.masts:
-        m["ident"] = r(m["ident"])
-    P.strand_segments = defaultdict(list, {k: [r(i) for i in v] for k, v in P.strand_segments.items()})
-    P.turnout_of = {k: (r(v[0]), v[1]) for k, v in P.turnout_of.items()}
-    P.turnbacks = {k: [r(i) for i in v] for k, v in P.turnbacks.items()}
-    P.joins = [r(i) for i in P.joins]
-    P.join_ends = {(b, r(i)): v for (b, i), v in P.join_ends.items()}
-    P.anchors_moved = [(m, r(i), px) for m, i, px in P.anchors_moved]
-    P.anchors_from = {r(k): v for k, v in P.anchors_from.items()}
-    # invariant: every ident once, every connection names an object that is there
-    idents = [t["ident"] for t in P.turnouts] + [s["ident"] for s in P.segments] + list(P.points)
-    if len(idents) != len(set(idents)):
-        dup = sorted({i for i in idents if idents.count(i) > 1})
-        raise SchematicError(f"idents: {', '.join(dup)} named twice after renaming")
-    check_connections(P)
-    P.idents_given = dict(rename)
+    written_idents(P)                   # every object written under one ident, each given ident used once
+
+
+def written_idents(P):
+    """{generated ident: written ident} for every object to_xml writes (turnouts, track segments, points, shapes),
+    checked: no generated ident is two objects, every given ident names one drawn object, and no two objects are
+    written under one ident."""
+    out, kind = {}, {}
+    for what, idents in (("turnout", [t["ident"] for t in P.turnouts]),
+                         ("track segment", [s["ident"] for s in P.segments]),
+                         ("point", list(P.points)), ("shape", [sh["ident"] for sh in P.shapes])):
+        for i in idents:
+            if i in out:
+                raise SchematicError(f"idents: a {kind[i]} and a {what} are drawn under one generated ident")
+            out[i], kind[i] = P.name(i), what
+    lost = sorted(v for k, v in P.idents_given.items() if k not in out)
+    if lost:
+        raise SchematicError(f"idents: given to nothing drawn: {', '.join(lost)}")
+    seen = defaultdict(list)
+    for i, n in out.items():
+        seen[n].append(kind[i])
+    dup = sorted(n for n, v in seen.items() if len(v) > 1)
+    if dup:
+        raise SchematicError("idents: " + "; ".join(f"{n} would name {len(seen[n])} objects ({', '.join(seen[n])})"
+                                                   for n in dup))
+    return out
 
 
 def check_connections(P):
-    """Stop unless every ident a part of the panel names is an object of it, of the right kind, after renaming:
-    segment ends, turnout legs, points' tracks, masts' slots, and the Panel's own lookups."""
+    """Stop unless every ident a part of the panel names is an object of it, of the right kind: segment ends,
+    turnout legs, points' tracks, masts' slots, and the Panel's own lookups (all generated idents)."""
     turnouts = {t["ident"] for t in P.turnouts}
     segs = {s["ident"] for s in P.segments}
     bad = []
@@ -778,7 +806,7 @@ def check_connections(P):
     bad += [f"join {i}" for i in P.joins if i not in segs]
     bad += [f"join end {i}" for (_b, i) in P.join_ends if i not in P.points]
     if bad:
-        raise SchematicError("idents: after renaming these name nothing on the panel: " + "; ".join(bad[:8]))
+        raise SchematicError("idents: these name nothing on the panel: " + "; ".join(bad[:8]))
 
 
 def extent(P, bi=None):
@@ -1446,7 +1474,16 @@ def split(pieces, k, what, shares=None, least=None, room=None, log=None):
 def to_xml(P, name, attrs=None, options=None, probe=False):
     """The panel as a <LayoutEditor> element. `attrs` replace the editor attributes (a template panel's, say);
     `options` is a layoutTrackDrawingOptions element to copy (its name is set to the panel's). `probe`: for reading
-    the slots while the masts are being placed, without their icons; otherwise a mast with no icon stops."""
+    the slots while the masts are being placed, without their icons and under the generated idents (the Panel's
+    own); otherwise a mast with no icon stops, and every ident is written as P.name gives it, each object's checked
+    to be one only it has (written_idents)."""
+    try:
+        return _xml(P, name, attrs, options, probe)
+    except SchematicError as e:
+        raise SchematicError(P.text(str(e))) from None
+
+
+def _xml(P, name, attrs, options, probe):
     a = dict(EDITOR) if attrs is None else dict(attrs)
     a.pop("class", None)
     if P.fit:           # the panel was fitted inside this window less CHROME, so the window fits
@@ -1456,6 +1493,12 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
     a.update(name=name, x="0", y="0", panelwidth=str(P.size[0]), panelheight=str(P.size[1]),
              windowwidth=str(window[0]), windowheight=str(window[1]))
     le = ET.Element("LayoutEditor", {"class": CLASS["editor"], **a})
+    if probe:
+        n = str
+    else:
+        check_connections(P)
+        written = written_idents(P)
+        n = written.__getitem__         # every ident written resolves through the one mapping
     on_turnout, on_point = defaultdict(dict), defaultdict(dict)
     for m in P.masts:
         (on_turnout if m["kind"] == "turnout" else on_point)[m["ident"]][m["slot"]] = m["mast"]
@@ -1468,7 +1511,7 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
             ET.SubElement(opts, tag).text = text
     le.append(opts)
     for t in P.turnouts:
-        at = {"ident": t["ident"], "type": t["type"], "hidden": "no", "disabled": "no", "disableWhenOccupied": "yes",
+        at = {"ident": n(t["ident"]), "type": t["type"], "hidden": "no", "disabled": "no", "disableWhenOccupied": "yes",
               "continuing": t["continuing"], "xcen": r1(t["cen"][0]), "ycen": r1(t["cen"][1])}
         pts = dict(t["pts"])
         pts.setdefault("D", pts["A"])
@@ -1484,15 +1527,16 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
                 at[f"block{leg.lower()}name"] = t["blocks"][leg]
         for leg in "ABCD":
             if leg in t["conn"]:
-                at[f"connect{leg.lower()}name"] = t["conn"][leg]
+                at[f"connect{leg.lower()}name"] = n(t["conn"][leg])
         el = ET.SubElement(le, "layoutturnout", at)
         for leg in "ABCD":
             if leg in on_turnout.get(t["ident"], {}):
                 ET.SubElement(el, f"signal{leg}Mast").text = on_turnout[t["ident"]][leg]
     for s in P.segments:
         (c1, t1), (c2, t2) = s["ends"]
-        at = {"ident": s["ident"], "blockname": s["block"], "connect1name": c1, "type1": t1, "connect2name": c2,
-              "type2": t2, "dashed": "yes" if s["dashed"] else "no", "mainline": "yes" if s["main"] else "no",
+        at = {"ident": n(s["ident"]), "blockname": s["block"], "connect1name": n(c1), "type1": t1,
+              "connect2name": n(c2), "type2": t2, "dashed": "yes" if s["dashed"] else "no",
+              "mainline": "yes" if s["main"] else "no",
               "hidden": "yes" if s["hidden"] else "no"}
         if s["arc"]:
             at.update(arc="yes", flip="yes" if s["arc"]["flip"] else "no", circle="yes",
@@ -1500,15 +1544,15 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
         at["class"] = CLASS["segment"]
         le.append(ET.Element("tracksegment", at))
     for ident, p in P.points.items():
-        at = {"ident": ident, "type": p["type"], "x": r1(p["xy"][0]), "y": r1(p["xy"][1])}
+        at = {"ident": n(ident), "type": p["type"], "x": r1(p["xy"][0]), "y": r1(p["xy"][1])}
         for i, seg in enumerate(p["conn"], 1):
-            at[f"connect{i}name"] = seg
+            at[f"connect{i}name"] = n(seg)
         for slot, mast in sorted(on_point.get(ident, {}).items()):
             at[f"{slot}boundsignalmast"] = mast
         at["class"] = CLASS["point"]
         le.append(ET.Element("positionablepoint", at))
     for sh in P.shapes:
-        el = ET.Element("layoutShape", {"ident": sh["ident"], "type": "Closed", "level": "3", "linewidth": "2",
+        el = ET.Element("layoutShape", {"ident": n(sh["ident"]), "type": "Closed", "level": "3", "linewidth": "2",
                                         "lineColor": "#000000", "fillColor": "#FFFFFF", "class": CLASS["shape"]})
         pts = ET.SubElement(el, "points")
         R = sh["r"] / math.cos(math.pi / 8)        # quadratic curves through the mid points draw the circle
