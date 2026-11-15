@@ -23,11 +23,31 @@ circle, and joined or not, each connector or helix end is labelled where it goes
 
 Names (optional, by band key, the first word of the band title):
     {"Main": {"turnouts": {node: turnout name}, "os": {node: OS block}, "normal": {node: "B" or "C"},
-              "blocks": {strand id: [block, ...]}}}
+              "blocks": {strand id: [block, ...]},
+              "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
+                         "icon": [w, h], "or_join": ...}],
+              "joins": "own" or "other"}}
 A strand with several blocks is cut into equal lengths for them, from its first end to its second. Without names
 a strand's block is its track name (or the two switch numbers it joins, made unique), a turnback and a joined helix
 or connector track share the block of the track they continue, an OS block is "OS <switch number>", and no turnout
-is named. Masts and sensors are not placed.
+is named. Sensors are not placed.
+
+Masts. Each mast in `masts` goes in the slot of that band whose facing block and protected blocks, as JMRI resolves
+them (slots.py), are the ones given: an anchor's east or west slot, a turnout leg, or (with `protects` empty) an end
+bumper. `kind` ("anchor", "end bumper" or "turnout"), when given, must match too. A buffer-stop mast (`protects`
+empty) with `"or_join": true`, whose track has no bumper slot because the panel joins it to another band, goes on
+that join's anchor instead, facing the same block and protecting the hidden join's block (an anchor, not an end
+bumper: listed in P.moved). That anchor is a block boundary only when the join carries the other band's block:
+`"joins": "other"` on a band gives its hidden joins the other band's block (on one band of a pair, not both). A
+mast with no slot is not placed and is listed in P.unplaced with the reason. Each placed mast gets a signal mast icon on the right-hand side
+of the train it governs, just before the boundary, turned to the direction of travel; `icon` is its upright size in
+pixels (default 12 x 17, a dwarf), `hidden` hides it as Layout Editor does.
+
+Fit. `fit` (width, height) is the window the panel opens in at 100% zoom. The panel must fit inside it less Layout
+Editor's own allowance for the frame (CHROME), so the grid is scaled down until the whole panel, margins, labels
+and mast icons included, fits that: the row height only as far as the height needs, then the column width as far as
+the width needs (so rows keep their room for the labels between tracks), each the largest that fits. Label fonts
+keep their size so they stay readable. The panel's window is the panel plus CHROME, within `fit`.
 """
 import math
 import xml.etree.ElementTree as ET
@@ -49,6 +69,8 @@ TITLE_GAP = 40      # px from a band's title to its highest track
 STRETCH_MAX = 2.5   # as the sheet: a band is never stretched more than this
 LABEL_SIZE, NUMBER_SIZE, TITLE_SIZE = 10, 9, 13
 EPS = 1e-6
+CHROME = (18, 60)   # px Layout Editor allows for its frame around the panel (LayoutEditorXml: panel = window - this)
+FIT_MIN = 0.25      # `fit` never scales the grid below this
 
 PREFIX = "G"        # in every ident: TOG, TG, AG, EBG; so a generated panel's names never meet another's
 LEX = "jmri.jmrit.display.layoutEditor.configurexml."
@@ -65,6 +87,7 @@ CLASS = {
     "options": LEX + "LayoutTrackDrawingOptionsXml",
     "editor": LEX + "LayoutEditorXml",
     "label": "jmri.jmrit.display.configurexml.PositionableLabelXml",
+    "mast_icon": "jmri.jmrit.display.configurexml.SignalMastIconXml",
 }
 # Layout Editor's own defaults for a new panel; main track drawn twice as wide as the rest
 EDITOR = dict(sliders="no", scrollable="both", editable="no", positionable="yes", controlling="yes",
@@ -169,8 +192,14 @@ class Panel:
         self.turnout_of = {}        # (band index, node) -> (turnout ident, {band port: Layout Editor leg})
         self.turnbacks = {}         # (band index, turn node) -> [segment ident]
         self.joins = []             # hidden segment idents between two drawn bands
+        self.masts = []             # dicts: mast, kind, ident, slot, icon (x, y, degrees), hidden, size
+        self.unplaced = []          # (band title, mast, reason)
+        self.moved = []             # (band title, mast, reason): buffer-stop masts placed at a join instead
+        self.join_ends = {}         # (band index, anchor ident) -> block of the track that ends there
         self.log = []
         self.size = (0, 0)
+        self.scale = (1.0, 1.0)     # the grid's scale across and down when `fit` shrank it
+        self.fit = None
         self._n = defaultdict(int)
 
     def ident(self, kind):
@@ -291,12 +320,15 @@ def default_names(bands, joined, taken=()):
     return out
 
 
-NAME_KEYS = ("turnouts", "os", "normal", "blocks")
+NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins")
+MAST_KINDS = ("anchor", "end bumper", "turnout")
+MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join")
 
 
 def check_names(bands, names):
     """Stop on a names file that names a band, a section, a switch or a track that is not there."""
     keys = {band_key(t): band for t, band, _ in bands}
+    seen_masts = {}
     unknown = set(names) - set(keys)
     if unknown:
         raise SchematicError(f"names given for {', '.join(sorted(unknown))}, which is not a band "
@@ -309,7 +341,10 @@ def check_names(bands, names):
             raise SchematicError(f"names for {key}: {', '.join(sorted(bad))} is not one of {', '.join(NAME_KEYS)}")
         band = keys[key]
         switches = {n for n, d in band["nodes"].items() if d["kind"] in ("switch", "dx")}
-        for section in NAME_KEYS:
+        check_masts(key, given.get("masts") or [], seen_masts)
+        if given.get("joins", "own") not in ("own", "other"):
+            raise SchematicError(f"names for {key}: joins must be \"own\" or \"other\", not {given['joins']!r}")
+        for section in NAME_KEYS[:4]:
             ids = set(given.get(section) or {})
             have = set(band["strands"]) if section == "blocks" else switches
             missing = sorted(ids - have)
@@ -319,9 +354,90 @@ def check_names(bands, names):
                                      "of the band")
 
 
-def panel(bands, names=None, cell=CELL, row=ROW, page=None):
+def check_masts(key, masts, seen):
+    """Stop on a mast entry that is not well formed, or a mast named twice (in this band or another: `seen`)."""
+    if not isinstance(masts, list):
+        raise SchematicError(f"names for {key}: masts must be a list")
+    text = lambda v: isinstance(v, str) and v.strip()      # noqa: E731
+    for m in masts:
+        if not isinstance(m, dict) or not text(m.get("mast")) or not text(m.get("facing")):
+            raise SchematicError(f"names for {key}: each mast needs a mast name and a facing block, as text ({m!r})")
+        what = f"names for {key}: mast {m['mast']}"
+        bad = set(m) - set(MAST_FIELDS)
+        if bad:
+            raise SchematicError(f"{what}: {', '.join(sorted(bad))} is not one of {', '.join(MAST_FIELDS)}")
+        if m["mast"] in seen:
+            raise SchematicError(f"{what} given twice (also in {seen[m['mast']]})")
+        seen[m["mast"]] = key
+        protects = m.get("protects", [])
+        if not isinstance(protects, list) or not all(text(b) for b in protects):
+            raise SchematicError(f"{what}: protects must be a list of block names")
+        if m.get("kind") not in (None, *MAST_KINDS):
+            raise SchematicError(f"{what}: kind {m['kind']!r} is not one of {', '.join(MAST_KINDS)}")
+        for flag in ("hidden", "or_join"):
+            if not isinstance(m.get(flag, False), bool):
+                raise SchematicError(f"{what}: {flag} must be true or false")
+        if m.get("or_join") and (protects or m.get("kind") not in (None, "end bumper")):
+            raise SchematicError(f"{what}: or_join is for a buffer-stop mast (no protects, kind end bumper)")
+        icon = m.get("icon", [1, 1])
+        if not (isinstance(icon, (list, tuple)) and len(icon) == 2 and
+                all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 for v in icon)):
+            raise SchematicError(f"{what}: icon must be [width, height] in pixels, both above zero")
+
+
+def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
-    (equal_width, band_width, rotate_bands); the last band's by default, as the sheet."""
+    (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
+    window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
+    text)."""
+    if fit is None:
+        return draw_panel(bands, names, cell, row, page)
+    W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
+    if W <= 0 or H <= 0:
+        raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
+    fits = lambda Q: Q.size[0] <= W and Q.size[1] <= H      # noqa: E731
+
+    def search(masts):
+        draw = lambda kx, ky: draw_panel(bands, names, cell * kx, row * ky, page, masts)      # noqa: E731
+        lo = draw(FIT_MIN, FIT_MIN)
+        if not fits(lo):
+            raise SchematicError(f"the panel does not fit a {fit[0]}x{fit[1]} px window even with the grid at "
+                                 f"{FIT_MIN:g} of its size ({lo.size[0]}x{lo.size[1]} px)")
+
+        def largest(ok):
+            """The largest k in [FIT_MIN, 1] with ok(k) (ok holds at FIT_MIN and, once false, stays false above)."""
+            if ok(1.0):
+                return 1.0
+            a, b = FIT_MIN, 1.0
+            while b - a > 1e-3:
+                k = (a + b) / 2
+                a, b = (k, b) if ok(k) else (a, k)
+            return a
+
+        # each axis shrinks only as much as it must: rows keep their room for the labels between tracks
+        kx = ky = 1.0
+        for _ in range(3):          # a turnback's width follows the row height, so settle the two in turn
+            ky = largest(lambda k: draw(kx, k).size[1] <= H)
+            kx = largest(lambda k: draw(k, ky).size[0] <= W)
+            if fits(draw(kx, ky)):
+                return kx, ky
+        k = min(kx, ky)
+        if fits(draw(k, k)):
+            return k, k
+        raise SchematicError(f"no grid scale settles to fit a {fit[0]}x{fit[1]} px window")
+
+    # search on the track and labels alone (masts are placed once at the end); masts sit beside the track, but if
+    # their icons push the panel past the window, search again with them
+    kx, ky = search(False)
+    P = draw_panel(bands, names, cell * kx, row * ky, page)
+    if not fits(P):
+        kx, ky = search(True)
+        P = draw_panel(bands, names, cell * kx, row * ky, page)
+    P.scale, P.fit = (kx, ky), tuple(fit)
+    return P
+
+
+def draw_panel(bands, names, cell, row, page, masts=True):
     if not bands:
         raise SchematicError("no band to draw")
     page = page if page is not None else bands[-1][2]
@@ -367,7 +483,16 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None):
         if (bi, n) > (bj, m):
             continue
         a, b = ends[(bi, n)], ends[(bj, m)]
-        P.joins.append(P.segment(a[0], b[0], a[3], a[4] and b[4], hidden=True))
+        mine, theirs = (names.get(band_key(bands[k][0]), {}).get("joins") == "other" for k in (bi, bj))
+        if mine and theirs:
+            raise SchematicError(f"{bands[bi][0]} and {bands[bj][0]} both give their joins the other band's block: "
+                                 "set \"joins\": \"other\" on one of them")
+        block = b[3] if mine else a[3]
+        P.joins.append(P.segment(a[0], b[0], block, a[4] and b[4], hidden=True))
+        P.join_ends[(bi, a[0])] = a[3]
+        P.join_ends[(bj, b[0])] = b[3]
+    if masts and any(g.get("masts") for g in names.values()):
+        place_masts(P, bands, names)
     box = extent(P)
     P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
     return P
@@ -400,7 +525,87 @@ def extent(P, bi=None):
         if mine(lb):
             xs += [lb["xy"][0], lb["xy"][0] + text_width(lb["text"], lb["size"])]
             ys += [lb["xy"][1], lb["xy"][1] + lb["size"]]
+    for m in P.masts:
+        if mine(m):
+            x, y, w, h = m["box"]
+            xs += [x, x + w]
+            ys += [y, y + h]
     return min(xs), min(ys), max(xs), max(ys)
+
+
+def place_masts(P, bands, names):
+    """Each named mast into the slot of its band that JMRI resolves to its facing and protected blocks."""
+    from . import slots
+    ix = slots.Index(to_xml(P, "probe"))
+    taken = set()
+    for bi, (title, _, _) in enumerate(bands):
+        want = names.get(band_key(title), {}).get("masts") or []
+        if not want:
+            continue
+        mine = {t["ident"] for t in P.turnouts if t["band"] == bi} | \
+            {k for k, p in P.points.items() if p["band"] == bi}
+        found = defaultdict(list)
+        facing = defaultdict(set)
+        for c in ix.candidates():
+            if c[1] not in mine:
+                continue
+            f, pr = ix.blocks(*c)
+            if f:
+                found[(f, tuple(pr))].append(c)
+                facing[f].add(tuple(pr))
+        for m in want:
+            protects = tuple(m.get("protects") or ())
+            cands = [c for c in found.get((m["facing"], protects), []) if c not in taken]
+            if m.get("kind"):
+                other = [c for c in cands if c[0] != m["kind"]]
+                cands = [c for c in cands if c[0] == m["kind"]]
+            else:
+                other = []
+            moved = join_why = None
+            if not cands and not other and m.get("or_join"):
+                # a buffer stop asked for, with no bumper slot on its track: the track runs on through a join, so
+                # the mast may stand on the join's anchor, facing its block and protecting the join's own block
+                at = sorted(ident for (b, ident), blk in P.join_ends.items() if b == bi and blk == m["facing"])
+                joins = [c for c in ix.candidates() if c[0] == "anchor" and c[1] in at and c not in taken
+                         and ix.blocks(*c)[0] == m["facing"]]
+                beyond = [c for c in joins if ix.blocks(*c)[1] and ix.blocks(*c)[1] != [m["facing"]]]
+                if len(beyond) == 1:
+                    cands = beyond
+                    moved = (f"{m['facing']} has no buffer stop: it runs on through the join at {beyond[0][1]}, so "
+                             f"the mast stands there (an anchor, not an end bumper), protecting "
+                             f"{ix.blocks(*beyond[0])[1]}")
+                elif beyond:
+                    join_why = f"{m['facing']} runs through {len(beyond)} joins: {', '.join(c[1] for c in beyond)}"
+                elif at:
+                    join_why = (f"the join at {', '.join(at)} carries {m['facing']} on both sides, so it is no block "
+                                "boundary (give one band \"joins\": \"other\")")
+            if not cands:
+                if join_why:
+                    why = f"no buffer stop for {m['facing']}, and {join_why}"
+                elif other:
+                    why = f"only {other[0][0]} slots face {m['facing']} and protect {list(protects)}"
+                elif facing.get(m["facing"]):
+                    why = (f"no slot facing {m['facing']} protects {list(protects) or 'nothing (a buffer stop)'}; "
+                           f"slots facing it protect {sorted(list(p) for p in facing[m['facing']])}")
+                else:
+                    why = f"no slot faces {m['facing']}"
+                P.unplaced.append((title, m["mast"], why))
+                P.log.append(f"{title}: mast {m['mast']} not placed: {why}")
+                continue
+            if len(cands) > 1:
+                P.log.append(f"{title}: mast {m['mast']}: {len(cands)} slots fit, took {cands[0][0]} {cands[0][1]} "
+                             f"{cands[0][2]}")
+            kind, ident, slot = cands[0]
+            taken.add((kind, ident, slot))
+            if moved:
+                P.moved.append((title, m["mast"], moved))
+                P.log.append(f"{title}: mast {m['mast']}: {moved}")
+            p, d = ix.travel(kind, ident, slot)
+            size = tuple(m.get("icon") or slots.ICON)
+            x, y, deg = slots.icon_place(p, d, size)
+            bw, bh = slots.icon_box(size, deg)
+            P.masts.append(dict(mast=m["mast"], kind=kind, ident=ident, slot=slot, icon=(x, y, deg),
+                                hidden=bool(m.get("hidden")), box=(x, y, bw, bh), band=bi))
 
 
 def shift(P, bi, dx, dy):
@@ -838,9 +1043,16 @@ def to_xml(P, name, attrs=None, options=None):
     `options` is a layoutTrackDrawingOptions element to copy (its name is set to the panel's)."""
     a = dict(EDITOR) if attrs is None else dict(attrs)
     a.pop("class", None)
+    if P.fit:           # the panel was fitted inside this window less CHROME, so the window fits
+        window = (P.size[0] + CHROME[0], P.size[1] + CHROME[1])
+    else:
+        window = (min(P.size[0], 1900), min(P.size[1], 1000))
     a.update(name=name, x="0", y="0", panelwidth=str(P.size[0]), panelheight=str(P.size[1]),
-             windowwidth=str(min(P.size[0], 1900)), windowheight=str(min(P.size[1], 1000)))
+             windowwidth=str(window[0]), windowheight=str(window[1]))
     le = ET.Element("LayoutEditor", {"class": CLASS["editor"], **a})
+    on_turnout, on_point = defaultdict(dict), defaultdict(dict)
+    for m in P.masts:
+        (on_turnout if m["kind"] == "turnout" else on_point)[m["ident"]][m["slot"]] = m["mast"]
     if options is not None:
         opts = ET.fromstring(ET.tostring(options))
         opts.set("name", name)
@@ -867,7 +1079,10 @@ def to_xml(P, name, attrs=None, options=None):
         for leg in "ABCD":
             if leg in t["conn"]:
                 at[f"connect{leg.lower()}name"] = t["conn"][leg]
-        le.append(ET.Element("layoutturnout", at))
+        el = ET.SubElement(le, "layoutturnout", at)
+        for leg in "ABCD":
+            if leg in on_turnout.get(t["ident"], {}):
+                ET.SubElement(el, f"signal{leg}Mast").text = on_turnout[t["ident"]][leg]
     for s in P.segments:
         (c1, t1), (c2, t2) = s["ends"]
         at = {"ident": s["ident"], "blockname": s["block"], "connect1name": c1, "type1": t1, "connect2name": c2,
@@ -882,6 +1097,8 @@ def to_xml(P, name, attrs=None, options=None):
         at = {"ident": ident, "type": p["type"], "x": r1(p["xy"][0]), "y": r1(p["xy"][1])}
         for i, seg in enumerate(p["conn"], 1):
             at[f"connect{i}name"] = seg
+        for slot, mast in sorted(on_point.get(ident, {}).items()):
+            at[f"{slot}boundsignalmast"] = mast
         at["class"] = CLASS["point"]
         le.append(ET.Element("positionablepoint", at))
     for sh in P.shapes:
@@ -900,6 +1117,13 @@ def to_xml(P, name, attrs=None, options=None):
             "hidden": "no", "positionable": "true", "showtooltip": "false", "editable": "false", "text": lb["text"],
             "size": str(lb["size"]), "style": "1" if lb["bold"] else "0", "red": "0", "green": "0", "blue": "0",
             "hasBackground": "no", "justification": "left", "class": CLASS["label"]}))
+    for m in P.masts:
+        x, y, deg = m["icon"]
+        le.append(ET.Element("signalmasticon", {
+            "signalmast": m["mast"], "x": str(x), "y": str(y), "level": "9", "forcecontroloff": "false",
+            "hidden": "yes" if m["hidden"] else "no", "positionable": "true", "showtooltip": "true",
+            "editable": "false", "degrees": str(deg), "clickmode": "0", "litmode": "false", "scale": "1.0",
+            "imageset": "default", "class": CLASS["mast_icon"]}))
     return le
 
 
@@ -921,4 +1145,8 @@ def summary(P):
             f"{len(P.segments)} track segments ({arcs} arcs, {len(P.joins)} hidden joins), "
             f"{sum(1 for p in P.points.values() if p['type'] == 'ANCHOR')} anchors, "
             f"{sum(1 for p in P.points.values() if p['type'] == 'END_BUMPER')} end bumpers, {len(P.blocks)} blocks, "
-            f"{len(P.labels)} labels; {P.size[0]}x{P.size[1]} px")
+            f"{len(P.labels)} labels"
+            + (f", {len(P.masts)} masts" + (f" ({len(P.unplaced)} not placed)" if P.unplaced else "")
+               if P.masts or P.unplaced else "")
+            + f"; {P.size[0]}x{P.size[1]} px"
+            + (f" (grid at {P.scale[0]:.3f} x {P.scale[1]:.3f} to fit)" if P.scale != (1.0, 1.0) else ""))
