@@ -7,6 +7,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from unittest import mock
 
 import helpers
 from schematic import le, slots
@@ -110,6 +111,12 @@ class Turnouts(unittest.TestCase):
         ix = index(turnout("LH_TURNOUT", ["OS 1"], "ABC"), *leg_tracks(["X", "OS 1", "Z"], "ABC"))
         self.assertEqual(ix.blocks("turnout", "TO1", "B"), ("OS 1", ["X"]))
 
+    def test_a_leg_track_with_no_block_is_left_out(self):
+        ix = index(turnout("LH_TURNOUT", ["OS 1"], "ABC"), *leg_tracks(["OS 1", "", "Z"], "ABC"))
+        self.assertEqual(ix.blocks("turnout", "TO1", "A"), ("OS 1", ["Z"]))   # JMRI: [null, Z]; the null left out
+        ix = index(turnout("LH_TURNOUT", ["OS 1"], "ABC"), *leg_tracks(["", "OS 1", "Z"], "ABC"))
+        self.assertEqual(ix.blocks("turnout", "TO1", "B"), ("OS 1", []))      # not [None]
+
     def test_crossovers_pair_their_leg_blocks(self):
         ix = index(turnout("LH_XOVER", ["OS a", "OS a", "OS b", "OS b"], "ABCD"), *leg_tracks("WXYZ"))
         self.assertEqual([ix.blocks("turnout", "TO1", L) for L in "ABCD"],
@@ -199,20 +206,26 @@ class Masts(unittest.TestCase):
         self.assertFalse(P.masts)
         self.assertIn("2 not placed", le.summary(P))
 
-    def test_a_buffer_stop_mast_on_a_joined_track_stands_at_the_join(self):
+    def joined_names(self):
+        """Names giving the far side of each of this band's joins a block of its own, this band "joins": "other"."""
         names = {self.key: {**self.base[self.key], "joins": "other"}}
-        for (bi, n), (bj, m) in le.partners(bands()).items():     # the far side of each join: a block of its own
+        for (bi, n), (bj, m) in le.partners(bands()).items():
             if bi == self.lower:
                 title, band, _ = bands()[bj]
                 d = band["nodes"][m]
                 sid = next(iter(list(d["ins"].values()) + list(d["outs"].values())))
                 names.setdefault(le.band_key(title), {"blocks": {}})["blocks"][sid] = [f"Beyond {n}"]
         P = le.panel(bands(), names)
-        (bi, anchor), block = next((k, v) for k, v in sorted(P.join_ends.items()) if k[0] == self.lower)
-        names[self.key]["masts"] = [dict(mast="Stop", facing=block, protects=[], kind="end bumper")]
+        (_bi, anchor), block = next((k, v) for k, v in sorted(P.join_ends.items()) if k[0] == self.lower)
+        return names, anchor, block
+
+    def test_a_buffer_stop_mast_on_a_joined_track_stands_at_the_join(self):
+        names, anchor, block = self.joined_names()
+        names[self.key]["masts"] = [dict(mast="Stop", facing=block, protects=[], kind="end bumper", or_join=True)]
         P = le.panel(bands(), names)
         self.assertEqual(P.unplaced, [])
         self.assertEqual([m for _t, m, _w in P.moved], ["Stop"])
+        self.assertIn("an anchor, not an end bumper", P.moved[0][2])
         (m,) = P.masts
         self.assertEqual((m["kind"], m["ident"]), ("anchor", anchor))
         el = le.to_xml(P, "Generated")
@@ -222,57 +235,109 @@ class Masts(unittest.TestCase):
         self.assertEqual(len(got["protects"]), 1)
         self.assertIn(got["protects"][0], hidden)            # the join carries the other band's block
         self.assertNotEqual(got["protects"][0], block)
-        # the other band asking for the other block instead: the join keeps this band's block, no boundary there,
-        # so the mast has nowhere to go
-        del names[self.key]["joins"]
+
+    def test_only_an_or_join_mast_moves_to_a_join(self):
+        names, _anchor, block = self.joined_names()
+        names[self.key]["masts"] = [dict(mast="Stop", facing=block, protects=[], kind="end bumper")]
+        P = le.panel(bands(), names)
+        self.assertEqual([m for _t, m, _w in P.unplaced], ["Stop"])           # a bumper asked for: none there
+        self.assertIn("protects nothing (a buffer stop)", P.unplaced[0][2])
+        self.assertFalse(P.moved)
+        with self.assertRaises(SchematicError):                              # or_join is for buffer stops only
+            names[self.key]["masts"] = [dict(mast="Stop", facing=block, protects=[], kind="anchor", or_join=True)]
+            le.panel(bands(), names)
+
+    def test_a_join_with_one_block_on_both_sides_is_no_boundary(self):
+        names, _anchor, block = self.joined_names()
+        del names[self.key]["joins"]                 # the other band asks instead: the join keeps this band's block
         for key in names:
             if key != self.key:
                 names[key]["joins"] = "other"
-        self.assertEqual([m for _t, m, _w in le.panel(bands(), names).unplaced], ["Stop"])
+        names[self.key]["masts"] = [dict(mast="Stop", facing=block, protects=[], or_join=True)]
+        P = le.panel(bands(), names)
+        self.assertEqual([m for _t, m, _w in P.unplaced], ["Stop"])
+        self.assertIn("no block boundary", P.unplaced[0][2])
+
+    def test_both_bands_of_a_join_asking_for_the_other_block_stop(self):
+        names, _anchor, _block = self.joined_names()
+        for key in names:
+            names[key]["joins"] = "other"
+        with self.assertRaisesRegex(SchematicError, "both give their joins"):
+            le.panel(bands(), names)
 
     def test_bad_joins_value_stops(self):
         with self.assertRaises(SchematicError):
             le.panel(bands(), {self.key: {"joins": "mine"}})
 
     def test_bad_mast_entries_stop(self):
-        for bad in ([{"facing": "X"}], [{"mast": "M"}], [{"mast": "M", "facing": "X", "kind": "slip"}],
-                    [{"mast": "M", "facing": "X"}, {"mast": "M", "facing": "Y"}],
-                    [{"mast": "M", "facing": "X", "protects": "Y"}]):
+        ok = {"mast": "M", "facing": "X"}
+        for bad in ([{"facing": "X"}], [{"mast": "M"}], [{**ok, "kind": "slip"}], [ok, {"mast": "M", "facing": "Y"}],
+                    [{**ok, "protects": "Y"}], [{**ok, "protects": [["Y"]]}], [{**ok, "protects": [None]}],
+                    [{**ok, "icon": [12]}], [{**ok, "icon": "big"}], [{**ok, "icon": [12, -1]}],
+                    [{**ok, "hidden": "yes"}], [{**ok, "colour": "red"}], [{"mast": 7, "facing": "X"}],
+                    [{**ok, "or_join": True, "protects": ["Y"]}], {"mast": "M"}):
             with self.subTest(bad=bad), self.assertRaises(SchematicError):
                 le.panel(bands(), {self.key: {"masts": bad}})
 
+    def test_one_mast_in_two_bands_stops(self):
+        other = next(le.band_key(t) for i, (t, _, _) in enumerate(bands()) if i != self.lower)
+        with self.assertRaisesRegex(SchematicError, "given twice"):
+            le.panel(bands(), {self.key: {"masts": [{"mast": "M", "facing": "X"}]},
+                               other: {"masts": [{"mast": "M", "facing": "Y"}]}})
+
 
 class Fit(unittest.TestCase):
-    def test_fit_shrinks_the_grid_not_the_fonts(self):
+    def test_fit_is_the_window_and_shrinks_the_grid_not_the_fonts(self):
         full = panel()
-        W, H = int(full.size[0] * 0.8), int(full.size[1] * 0.95)
+        W, H = int(full.size[0] * 0.8) + le.CHROME[0], int(full.size[1] * 0.95) + le.CHROME[1]
         P = le.panel(bands(), None, fit=(W, H))
-        self.assertLessEqual(P.size[0], W)
-        self.assertLessEqual(P.size[1], H)
-        self.assertGreater(P.size[0], W - 0.02 * W)                  # the largest that fits
+        self.assertLessEqual(P.size[0], W - le.CHROME[0])               # the panel inside the window's frame
+        self.assertLessEqual(P.size[1], H - le.CHROME[1])
+        self.assertGreater(P.size[0], (W - le.CHROME[0]) * 0.98)        # the largest that fits
         kx, ky = P.scale
         self.assertLess(kx, 1.0)
         self.assertGreaterEqual(ky, kx)
         self.assertEqual(sorted(lb["size"] for lb in P.labels), sorted(lb["size"] for lb in full.labels))
         el = le.to_xml(P, "Fitted")
-        self.assertEqual((int(el.get("windowwidth")), int(el.get("windowheight"))),
-                         (P.size[0] + le.CHROME[0], P.size[1] + le.CHROME[1]))
+        window = (int(el.get("windowwidth")), int(el.get("windowheight")))
+        self.assertEqual(window, (P.size[0] + le.CHROME[0], P.size[1] + le.CHROME[1]))
+        self.assertLessEqual(window[0], W)
+        self.assertLessEqual(window[1], H)
 
     def test_a_panel_that_already_fits_is_unchanged(self):
         full = panel()
-        P = le.panel(bands(), None, fit=(full.size[0] + 10, full.size[1] + 10))
+        P = le.panel(bands(), None, fit=(full.size[0] + le.CHROME[0], full.size[1] + le.CHROME[1]))
         self.assertEqual(P.scale, (1.0, 1.0))
         self.assertEqual(P.size, full.size)
 
     def test_too_small_stops(self):
-        with self.assertRaises(SchematicError):
-            le.panel(bands(), None, fit=(100, 100))
+        for fit in ((100, 100), (10, 10)):
+            with self.subTest(fit=fit), self.assertRaises(SchematicError):
+                le.panel(bands(), None, fit=fit)
 
-    def test_fit_size_option(self):
-        self.assertEqual(le.fit_size("1880x1080"), (1880, 1080))
-        for bad in ("1880", "ax1", "0x10"):
-            with self.subTest(bad=bad), self.assertRaises(ValueError):
-                le.fit_size(bad)
+    def test_unsettled_axes_fall_back_to_one_scale_and_record_it(self):
+        class Fake:
+            def __init__(self, kx, ky):
+                # fits only where the two scales agree, so the axis by axis search never settles
+                self.size = (1000 * kx, 1000 * ky + (0 if abs(kx - ky) < 1e-9 else 10 ** 6))
+
+        def draw(bands_, names, cell, row, page, masts=True):
+            return Fake(cell / le.CELL, row / le.ROW)
+        with mock.patch.object(le, "draw_panel", draw):
+            P = le.panel(bands(), None, fit=(500 + le.CHROME[0], 500 + le.CHROME[1]))
+        self.assertEqual(P.scale, (le.FIT_MIN, le.FIT_MIN))
+        self.assertLessEqual(P.size[1], 500)
+
+    def test_masts_are_placed_once_not_at_every_trial_scale(self):
+        m = Masts()
+        m.setUp()
+        (f, pr), _slot = m.pick("turnout")
+        names = {m.key: {**m.base[m.key], "masts": [dict(mast="M", facing=f, protects=pr)]}}
+        full = le.panel(bands(), names)
+        with mock.patch.object(le, "place_masts", wraps=le.place_masts) as placed:
+            P = le.panel(bands(), names, fit=(int(full.size[0] * 0.8), full.size[1] + le.CHROME[1]))
+        self.assertEqual(placed.call_count, 1)
+        self.assertEqual(len(P.masts), 1)
 
     def test_cli_fit(self):
         f = helpers.data_with_signals()
@@ -281,13 +346,19 @@ class Fit(unittest.TestCase):
             graph.write_text(json.dumps(helpers.graph()))
             out = Path(tmp) / "le.xml"
             run = subprocess.run([sys.executable, "-m", "schematic", "le", str(out), "--data", str(f),
-                                  f"{graph}:example", "--fit", "900x500"],
+                                  f"{graph}:example", "--fit", "918x560"],
                                  capture_output=True, text=True, cwd=helpers.PLUGIN, timeout=120)
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertIn("to fit", run.stdout)
             root = ET.parse(out).getroot()
             self.assertLessEqual(int(root.get("panelwidth")), 900)
             self.assertLessEqual(int(root.get("panelheight")), 500)
+            self.assertLessEqual(int(root.get("windowwidth")), 918)
+            bad = subprocess.run([sys.executable, "-m", "schematic", "le", str(out), "--data", str(f),
+                                  f"{graph}:example", "--fit", "wide"],
+                                 capture_output=True, text=True, cwd=helpers.PLUGIN, timeout=120)
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertIn("--fit is WIDTHxHEIGHT in pixels", bad.stderr)
 
 
 if __name__ == "__main__":

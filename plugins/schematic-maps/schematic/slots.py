@@ -30,6 +30,7 @@ Level crossings, slips, turntables, traversers and edge connectors are not read 
 import math
 
 from .core import SchematicError
+from .le import arc_points     # le imports this module only inside place_masts
 
 LEGS = "ABCD"
 XOVERS = ("DOUBLE_XOVER", "RH_XOVER", "LH_XOVER")
@@ -128,6 +129,11 @@ class Index:
         return self.block(t.get(f"connect{slot.lower()}name")), self.turnout_protects(t, slot)
 
     def turnout_protects(self, t, slot):
+        """The turnout's protected blocks, leaving out a leg track with no block (as an anchor leaves out an empty
+        side): JMRI would list a null block there."""
+        return [b for b in self._turnout_protects(t, slot) if b]
+
+    def _turnout_protects(self, t, slot):
         own = t.get("blockname")
         if not own:
             return []
@@ -280,19 +286,6 @@ class Index:
         return self.coords(s.get("connect1name"), s.get("type1"))
 
 
-def arc_points(p1, p2, angle, flip, n=12):
-    """Layout Editor's circle arc from connect1 at p1 to connect2 at p2 (as le.arc_points)."""
-    a1, a2 = (p2, p1) if flip else (p1, p2)
-    half = math.radians(angle) / 2
-    a, o = a2[0] - a1[0], a2[1] - a1[1]
-    r = math.hypot(a, o) / 2 / math.sin(half)
-    start = math.atan2(a, o) - half
-    c = (a2[0] - math.cos(start) * r, a2[1] + math.sin(start) * r)
-    ext = math.radians(angle)
-    pts = [(c[0] + r * math.cos(start + ext * i / n), c[1] - r * math.sin(start + ext * i / n)) for i in range(n + 1)]
-    return pts[::-1] if not flip else pts
-
-
 ICON = (12, 17)       # px, a dwarf mast icon upright (JMRI's AAR-1946 SL-1-low aspect images); a high one is 12 x 40
 GAP = 4               # px from the rail to the icon's near edge, and from the boundary back to its end
 
@@ -307,7 +300,12 @@ def icon_place(p, d, size=ICON):
     w, h = size                     # upright: w across the track, h along it
     right = (-d[1], d[0])           # the right-hand side of the train (y grows down)
     c = (p[0] - d[0] * (GAP + h / 2) + right[0] * (GAP + w / 2), p[1] - d[1] * (GAP + h / 2) + right[1] * (GAP + w / 2))
-    th = math.radians(deg)
-    bw = w * abs(math.cos(th)) + h * abs(math.sin(th))
-    bh = w * abs(math.sin(th)) + h * abs(math.cos(th))
+    bw, bh = icon_box(size, deg)
     return round(c[0] - bw / 2), round(c[1] - bh / 2), deg
+
+
+def icon_box(size, deg):
+    """(width, height) of an icon of upright `size` turned `deg` degrees: the box JMRI's rotate gives it."""
+    w, h = size
+    th = math.radians(deg)
+    return w * abs(math.cos(th)) + h * abs(math.sin(th)), w * abs(math.sin(th)) + h * abs(math.cos(th))
