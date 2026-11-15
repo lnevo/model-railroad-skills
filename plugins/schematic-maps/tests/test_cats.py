@@ -126,12 +126,13 @@ class Cats(unittest.TestCase):
                 kinds = {c.tag for c in se} - {"SHARED"}
                 self.assertLessEqual(len(kinds), 1, ET.tostring(se))   # never a block on points or a crossing
                 blk = se.find("BLOCK")
-                if blk is not None and blk.get("NAME"):
-                    self.assertNotIn(blk.get("NAME"), names)
+                if blk is not None:
+                    self.assertTrue(blk.get("NAME"), "every boundary edge names its block")
                     names.add(blk.get("NAME"))
             self.assertEqual(len(sec.findall("SEC_NAME")), len(set(x.get("NAME") for x in sec.findall("SEC_NAME"))))
         self.assertEqual(names, set(P.names.values()))
-        self.assertEqual(len(list(root.iter("IOSPEC"))), 0)           # no bindings in a generic panel
+        self.assertEqual(len(list(root.iter("IOSPEC"))), 0)           # no bindings without a bindings file
+        self.assertEqual(len(list(root.iter("SECSIGNAL"))), 0)
         self.assertIn("OS 6", names)
         self.assertIn("Y-1", names)
         labels = {s.get("NAME") for s in root.iter("SEC_NAME")}
@@ -248,6 +249,249 @@ class Review(unittest.TestCase):
                             "--discipline", "APB"], cwd=helpers.PLUGIN, capture_output=True, text=True, timeout=60)
         self.assertEqual(r.returncode, 2)
         self.assertIn("invalid choice", r.stderr)
+
+
+IO = {"DECADDR": "7", "JMRIPREFIX": "IT", "USER_NAME": "Turnout 1"}
+
+
+def io(cmd, **kw):
+    return dict(IO, command=cmd, **kw)
+
+
+def relabelled(changes):
+    """The example's bands with some switch labels or track names changed: {node or strand: (field, value)}."""
+    bands = bands_copy()
+    for _, band, _ in bands:
+        for key, (field, value) in changes.items():
+            for part in (band["nodes"], band["strands"]):
+                if key in part:
+                    part[key][field] = value
+    return bands
+
+
+def edges_of(root, name):
+    """(x, y, edge) of every SEC_EDGE whose BLOCK has this name."""
+    return [(int(sec.get("X")), int(sec.get("Y")), se.get("EDGE")) for sec in root.iter("SECTION")
+            for se in sec.findall("SEC_EDGE") for b in se.findall("BLOCK") if b.get("NAME") == name]
+
+
+class Bindings(unittest.TestCase):
+    def test_one_bound_block_name_is_one_block_and_never_suffixed(self):
+        P = cats.panel(helpers.build().bands, bindings={"switches": {"1": {"block": "OS West"}, "4": {"block": "OS West"}}})
+        self.assertEqual(list(P.names.values()).count("OS West"), 1)
+        self.assertFalse([n for n in P.names.values() if n.startswith("OS West ")])
+        with self.assertRaisesRegex(cats.SchematicError, "also the name of another block"):
+            cats.panel(helpers.build().bands, bindings={"switches": {"1": {"block": "Main West"}}})
+
+    def test_a_decoder_address_of_zero_is_an_address(self):
+        P = cats.panel(helpers.build().bands, bindings={"blocks": {"Main": {"occupied": io("close", DECADDR=0)}}})
+        root = cats.to_xml(P)
+        self.assertEqual(next(b.find("OCCUPIEDSPEC/IOSPEC").get("DECADDR") for b in root.iter("BLOCK")
+                              if b.get("NAME") == "Main"), "0")
+
+    def test_a_whole_label_with_a_slash_is_a_label(self):
+        bands = relabelled({"S1": ("label", "1/2")})
+        P = cats.panel(bands, bindings={"switches": {"1/2": {"block": "OS Slash"}}})
+        self.assertIn("OS Slash", P.names.values())
+        P = cats.panel(bands, bindings={"switches": {"1/2/T10": {"block": "OS Slash"}}})    # alias after the last /
+        self.assertIn("OS Slash", P.names.values())
+
+    def test_switch_routes_are_bound_by_leg(self):
+        b = {"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": io("close"), "SELECTEDREPORT": io("close")},
+                                           "C": {"ROUTECOMMAND": io("throw")}}}}}
+        P = cats.panel(helpers.build().bands, bindings=b)
+        (at, pt), = [(k, v) for k, v in P.points.items() if v["switch"] == "1"]
+        root = cats.to_xml(P)
+        x, y, edge = at[0][0], at[0][1], at[1]
+        sp = root.find(f"TRACKPLAN/SECTION[@X='{x}'][@Y='{y}']/SEC_EDGE[@EDGE='{edge}']/SWITCHPOINTS")
+        got = {ri.get("ROUTEID"): (ri.get("NORMAL"), [(c.tag, c.find("IOSPEC").text, c.find("IOSPEC").get("DECADDR"))
+                                                       for c in ri])
+               for ri in sp.findall("ROUTEINFO")}
+        leg = {p: e for e, p in pt["ports"].items()}
+        self.assertEqual(got[leg["B"]], ("true", [("ROUTECOMMAND", "close", "7"), ("SELECTEDREPORT", "close", "7")]))
+        self.assertEqual(got[leg["C"]], (None, [("ROUTECOMMAND", "throw", "7")]))
+        # normal C: the other route is NORMAL, the IOSPECs stay on their legs
+        b["switches"]["1"]["normal"] = "C"
+        P = cats.panel(helpers.build().bands, bindings=b)
+        pt = next(v for v in P.points.values() if v["switch"] == "1")
+        normal = next(e for e, n in pt["routes"] if n)
+        self.assertEqual(pt["ports"][normal], "C")
+
+    def test_blocks_are_renamed_and_bound_on_every_edge(self):
+        b = {"blocks": {"Main West": {"name": "Track Main West", "station": "Main", "discipline": "ABS",
+                                      "occupied": io("close"), "unoccupied": {"DECADDR": "7", "command": "throw"}}}}
+        root = cats.to_xml(cats.panel(helpers.build().bands, bindings=b))
+        self.assertFalse(edges_of(root, "Main West"))
+        edges = edges_of(root, "Track Main West")
+        self.assertGreaterEqual(len(edges), 2)
+        for blk in (b_ for b_ in root.iter("BLOCK") if b_.get("NAME") == "Track Main West"):
+            self.assertEqual((blk.get("STATION"), blk.get("DISCIPLINE")), ("Main", "ABS"))
+            occ = blk.find("OCCUPIEDSPEC/IOSPEC")
+            self.assertEqual((occ.get("DECADDR"), occ.get("JMRIPREFIX"), occ.get("USER_NAME"), occ.text),
+                             ("7", "IT", "Turnout 1", "close"))
+            self.assertEqual(blk.find("UNOCCUPIEDSPEC/IOSPEC").text, "throw")
+        other = next(b_ for b_ in root.iter("BLOCK") if b_.get("NAME") == "Main")
+        self.assertEqual(other.get("DISCIPLINE"), "CTC")
+        self.assertIsNone(other.find("OCCUPIEDSPEC"))
+
+    def test_two_blocks_given_one_name_are_one_block(self):
+        bands = helpers.build().bands
+        with self.assertRaisesRegex(cats.SchematicError, "the name of block OS 11, which the bindings do not name"):
+            cats.panel(bands, bindings={"blocks": {"Link 11-12": {"name": "OS 11"}}})
+        P = cats.panel(bands, bindings={"blocks": {"Link 11-12": {"name": "OS 11"}, "OS 11": {}}})
+        self.assertIn("blocks Link 11-12, OS 11 are one block, OS 11", P.log)
+        self.assertNotIn("Link 11-12", P.names.values())
+        self.assertEqual(list(P.names.values()).count("OS 11"), 1)
+        root = cats.to_xml(P)
+        for x, y, edge in edges_of(root, "OS 11"):          # no boundary left between the two
+            far, fedge = cats.neighbour((x, y), edge)
+            self.assertNotIn((far[0], far[1], fedge), edges_of(root, "OS 11"))
+
+    def test_switches_of_one_number_bound_to_two_blocks_keep_apart(self):
+        bands = relabelled({"L12": ("label", "11")})        # 11 and 12 joined by Link 11-12 now share a number
+        self.assertIn("OS 11", cats.panel(bands).names.values())
+        self.assertNotIn("OS 12", cats.panel(bands).names.values())
+        P = cats.panel(bands, bindings={"switches": {"11/T40": {"block": "OS 11a"}, "11/T42": {"block": "OS 11b"}}})
+        self.assertTrue({"OS 11a", "OS 11b"} <= set(P.names.values()), P.names.values())
+        self.assertNotIn("OS 11", P.names.values())
+        with self.assertRaisesRegex(cats.SchematicError, "bound by both"):
+            cats.panel(bands, bindings={"switches": {"11": {}, "11/T40": {}}})
+
+    def test_a_turnback_between_two_named_tracks_is_two_blocks(self):
+        P = cats.panel(relabelled({"e12.1": ("name", "Loop East")}))
+        self.assertTrue({"Loop", "Loop East"} <= set(P.names.values()))
+        root = cats.to_xml(P)
+        cut = [e for e in edges_of(root, "Loop") if e[2] in ("TOP", "BOTTOM")]
+        self.assertEqual(len(cut), 1)
+        x, y, edge = cut[0]
+        far, fedge = cats.neighbour((x, y), edge)
+        self.assertIn((far[0], far[1], fedge), edges_of(root, "Loop East"))
+        self.assertNotIn("Loop East", cats.panel(helpers.build().bands).names.values())    # one name: one block
+
+    def test_masts_stand_on_the_boundary_of_the_block_they_protect(self):
+        b = {"masts": {"M12C": {"name": "Mast 12C", "template": "single"}, "M1A": {}, "M2E": {"pantype": "SEM2"}}}
+        P = cats.panel(helpers.build().bands, bindings=b)
+        header = [ET.fromstring('<SIGNALTEMPLATE TEMPLATENAME="single" TEMPLATEHEADS="1" />')]
+        root = cats.to_xml(P, header=header)
+        bounds = cats.boundaries(P)
+        seen = {}
+        for sec in root.iter("SECTION"):
+            for se in sec.findall("SEC_EDGE"):
+                sig = se.find("SECSIGNAL")
+                if sig is None:
+                    continue
+                edge = se.get("EDGE")
+                cell = (int(sec.get("X")), int(sec.get("Y")))
+                self.assertIn((cell, edge), bounds)
+                pan = sig.find("PANELSIGNAL")
+                self.assertEqual(pan.get("SIGORIENT"), cats.OPPOSITE[edge])        # facing out of its block
+                self.assertEqual(pan.get("SIGLOCATION"), cats.SIG_LOCATION[edge])  # right-hand side of the move
+                seen[sig.text] = (se.find("BLOCK").get("NAME"), pan.get("SIGPANTYPE"), sig.findtext("PHYSIGNAL"))
+        self.assertEqual(seen["Mast 12C"], ("OS 12", "LAMP1", "single"))        # toward 12, guards its OS
+        self.assertEqual(seen["M1A"], ("OS 1", "LAMP1", None))
+        self.assertEqual(seen["M2E"][1:], ("SEM2", None))
+        self.assertIn(seen["M2E"][0], ("OS 2", "Main West"))
+        self.assertEqual(cats.SIG_LOCATION, {"RIGHT": "UPRIGHT", "LEFT": "LOWLEFT", "TOP": "LEFTUP",
+                                             "BOTTOM": "RIGHTLOW"})
+        with self.assertRaisesRegex(cats.SchematicError, "no SIGNALTEMPLATE for"):
+            cats.to_xml(P)
+
+    def test_a_mast_on_a_fold_guards_its_half_of_the_turnback(self):
+        bands = relabelled({"e12.1": ("name", "Loop East")})
+        for _, _, o in bands:
+            o["signals"] = [dict(mast="X5", toward="5", run=["5", "5"], names=["Loop"], edge_cm=523.6,
+                                 cm_from_toward=255.0, dir="east", kind="planned", heads=1, _edge="e12",
+                                 _toward_node="S5")]
+        P = cats.panel(bands, bindings={"masts": {"X5": {}}})
+        (cell, edge), = P.signals
+        self.assertIn(edge, ("TOP", "BOTTOM"))
+        root = cats.to_xml(P)
+        self.assertIn((cell[0], cell[1], edge), edges_of(root, "Loop"))
+
+    def fold_mast(self, bands, start=None):
+        for _, _, o in bands:
+            o["signals"] = [dict(mast="X5", toward="5", run=["5", "5"], names=["Loop"], edge_cm=523.6,
+                                 cm_from_toward=255.0, dir="east", kind="planned", heads=1, _edge="e12",
+                                 _toward_node="S5")]
+        if start is None:
+            return cats.panel(bands, bindings={"masts": {"X5": {}}})
+        piece = lambda sg, strands: ("e12.0", 5.0, 261.8, start) if "e12.0" in strands else None
+        with mock.patch.object(cats, "mast_piece", piece):
+            return cats.panel(bands, bindings={"masts": {"X5": {}}})
+
+    def test_a_turnback_merged_by_the_bindings_is_no_boundary_for_a_mast(self):
+        bands = relabelled({"e12.1": ("name", "Loop East")})
+        P = self.fold_mast(bands)                         # split: the mast is on the cut
+        self.assertIn(next(iter(P.signals))[1], ("TOP", "BOTTOM"))
+        P = cats.panel(bands, bindings={"blocks": {"Loop East": {"name": "Loop"}, "Loop": {}}, "masts": {"X5": {}}})
+        (cell, edge), = P.signals                         # merged: the cut is gone, the mast takes another boundary
+        self.assertNotIn(edge, ("TOP", "BOTTOM"))
+        self.assertIn((cell, edge), cats.boundaries(P))
+
+    def test_a_turnback_behind_the_mast_is_a_boundary_too(self):
+        P = self.fold_mast(relabelled({"e12.1": ("name", "Loop East")}), start="turn:e12")
+        (cell, edge), = P.signals
+        self.assertIn(edge, ("TOP", "BOTTOM"))
+        root = cats.to_xml(P)
+        self.assertIn((cell[0], cell[1], edge), edges_of(root, "Loop East"))    # the block it enters
+
+    def test_a_mast_whose_run_has_no_such_end_is_an_error(self):
+        with self.assertRaisesRegex(cats.SchematicError, "cannot tell which end"):
+            self.fold_mast(relabelled({"e12.1": ("name", "Loop East")}), start="LINK:A0")
+
+    def test_unknown_names_and_bad_fields_are_errors(self):
+        bands = helpers.build().bands
+        for bad, msg in (({"switches": {"99": {}}}, "switch 99, which no drawn band has"),
+                         ({"switches": {"1/T99": {}}}, "switch 1/T99"),
+                         ({"switches": {"6": {"routes": {"B": {"ROUTECOMMAND": io("close")}}}}}, "double crossover"),
+                         ({"switches": {"1": {"normal": "A"}}}, "normal is leg B or C"),
+                         ({"switches": {"6": {"normal": "B"}}}, "double crossover takes a block binding only"),
+                         ({"switches": {"1": {"routes": {"B": {"COMMAND": io("close")}}}}}, "unknown field COMMAND"),
+                         ({"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": io("open")}}}}}, "close or throw"),
+                         ({"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": {"command": "close"}}}}}}, "DECADDR"),
+                         ({"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": io("close", PORT="1")}}}}}, "PORT"),
+                         ({"blocks": {"Nowhere": {"name": "X"}}}, "block Nowhere, which the panel does not have"),
+                         ({"blocks": {"Main": {"discipline": "APB"}}}, "not one CATS reads"),
+                         ({"masts": {"M99": {}}}, "mast M99, which no band"),
+                         ({"masts": {"V2": {}}}, "V2 is virtual"),
+                         ({"masts": {"M1A": {"pantype": "LAMP9"}}}, "pantype"),
+                         ({"signals": {}}, "unknown field signals")):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(cats.SchematicError, msg):
+                    cats.panel(bands, bindings=bad)
+
+    def test_command_with_bindings_and_templates(self):
+        f = helpers.data_with_signals()
+        with tempfile.TemporaryDirectory() as tmp:
+            import json
+            graph = Path(tmp) / "graph.json"
+            graph.write_text(json.dumps(helpers.graph()))
+            src = Path(tmp) / "desk.xml"
+            src.write_text('<DOCUMENT><SIGNALTEMPLATE TEMPLATENAME="single" TEMPLATEHEADS="1"><ASPECTMAP R292="red"/>'
+                           '</SIGNALTEMPLATE><JMRINAME JMRIPREFIX="IT" XMLTYPE="Turnout">x</JMRINAME></DOCUMENT>')
+            good = Path(tmp) / "good.json"
+            good.write_text(json.dumps({"_note": "a note", "masts": {"M1A": {"template": "single"}},
+                                        "blocks": {"Summit": {"occupied": io("close")}}}))
+            bad = Path(tmp) / "bad.json"
+            bad.write_text(json.dumps({"blocks": {"Nowhere": {}}}))
+            out = Path(tmp) / "panel.xml"
+            run = lambda *extra: subprocess.run([sys.executable, "-m", "schematic", "cats", str(out), "--data", str(f),
+                                                 f"{graph}:example", *extra], cwd=helpers.PLUGIN,
+                                                capture_output=True, text=True, timeout=120)
+            r = run("--bindings", str(good), "--templates-from", str(src))
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("bound: 1 block sensors, 0 switch points, 1 masts", r.stdout)
+            root = ET.parse(out).getroot()
+            self.assertEqual([e.tag for e in root if e.tag in ("SIGNALTEMPLATE", "JMRINAME", "TRACKPLAN")],
+                             ["SIGNALTEMPLATE", "JMRINAME", "TRACKPLAN"])
+            self.assertEqual(root.find("SIGNALTEMPLATE/ASPECTMAP").get("R292"), "red")
+            self.assertEqual(next(s.findtext("PHYSIGNAL") for s in root.iter("SECSIGNAL")), "single")
+            r = run("--bindings", str(bad))
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("block Nowhere", r.stderr)
+            r = run("--bindings", str(bad), "--templates-from", str(Path(tmp) / "missing.xml"))   # read first
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("cannot read it as a CATS panel", r.stderr)
 
 
 if __name__ == "__main__":
