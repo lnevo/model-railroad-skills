@@ -23,7 +23,8 @@ schematic fingerprint golden.json --data DIR graph.json:NAME
 schematic detail details/ --data DIR graph.json:NAME                      one sheet per station of the `stations` preference
 schematic detail yard.svg --data DIR graph.json:NAME --station "Yard"      one station
 schematic detail pair.svg --data DIR graph.json:NAME --switches 11 12 --name "Pair"   any group of switches
-schematic cats panel.xml --data DIR graph.json:NAME [--band "Main"]       a CATS Designer panel from the same grid
+schematic cats panel.xml --data DIR graph.json:NAME [--band "Main"] [--bindings b.json] [--templates-from desk.xml]
+                                                                         a CATS Designer panel from the same grid
 schematic le panel.xml --data DIR graph.json:NAME [--names names.json] [--panel NAME]   a JMRI Layout Editor panel
 schematic check sheet.svg --list
 ```
@@ -40,7 +41,29 @@ Mileposts are a preference (`mileposts: true`, or `{"step": 0.25}` in miles) and
 
 ## CATS panel
 
-`schematic cats` writes a CATS Designer panel (XML) from the solved bands, so a dispatcher panel starts from the same track as the drawing. Each schematic grid unit is two CATS cells, so every 45 degree leg lands on whole cells and each track has a free row below it for its name. Bands stack top to bottom; `--band` keeps the bands whose title starts with the text. It writes the track, switch points with two routes (normal is leg B), a double crossover as its X with a crossing edge, turnbacks as a vertical run, one block per track and one OS block per switch, switch numbers and track names as labels, and logical joins for connector letters and helix tracks that appear on two drawn bands. It writes no sensor or turnout bindings and no signals: open the file in the Designer to add them. Compress Screen and Automatic Wrapping are turned off in the file. The cell rules are in [`skills/schematic-maps/references/cats-grid.md`](skills/schematic-maps/references/cats-grid.md).
+`schematic cats` writes a CATS Designer panel (XML) from the solved bands, so a dispatcher panel starts from the same track as the drawing. Each schematic grid unit is two CATS cells, so every 45 degree leg lands on whole cells and each track has a free row below it for its name. Bands stack top to bottom; `--band` keeps the bands whose title starts with the text. It writes the track, switch points with two routes (normal is leg B), a double crossover as its X with a crossing edge, turnbacks as a vertical run, one block per track and one OS block per switch, switch numbers and track names as labels, and logical joins for connector letters and helix tracks that appear on two drawn bands. A turnback joining two differently named tracks is two blocks, parted in the middle of its run (before 0.1.13 it was one block under the first name, and the second name was lost). Every block boundary edge names its block in full. Compress Screen and Automatic Wrapping are turned off in the file.
+
+Without `--bindings` the panel has no sensor or turnout bindings and no signals; open it in the Designer to add them. `--bindings FILE.json` ties it to the layout's devices:
+
+```json
+{"switches": {"3":   {"block": "OS Switch 3", "normal": "B",
+                      "routes": {"B": {"ROUTECOMMAND":   {"DECADDR": "12", "JMRIPREFIX": "IT", "USER_NAME": "Switch 3", "command": "close"},
+                                       "SELECTEDREPORT": {"DECADDR": "12", "JMRIPREFIX": "IT", "USER_NAME": "Switch 3", "command": "close"}},
+                                 "C": {"ROUTECOMMAND":   {"DECADDR": "12", "JMRIPREFIX": "IT", "command": "throw"}}}},
+              "7/7b": {"block": "OS Switch 7b"}},
+ "blocks":   {"Main": {"name": "Track Main", "station": "Main", "discipline": "CTC",
+                       "occupied":   {"DECADDR": "40", "JMRIPREFIX": "IS", "USER_NAME": "Main occupied", "command": "close"},
+                       "unoccupied": {"DECADDR": "40", "JMRIPREFIX": "IS", "command": "throw"}},
+              "3-5":  {"name": "OS Switch 3"}},
+ "masts":    {"12C":  {"name": "Mast 12C", "template": "double", "pantype": "LAMP2"}}}
+```
+
+- **switches**, by label, or `label/alias` for one of several switches with that number (a key that is not a whole label splits at its last `/`; labels compare as text): `block` names its OS block (switches of one number given different blocks keep apart; switches given one block name share one block, and that name is never suffixed or shared with another block), `normal` picks the CATS normal leg (default B), and `routes` gives each leg's IOSPECs (`ROUTECOMMAND`, `SELECTEDREPORT`, `NOTSELECTEDREPORT`). Double crossovers take a `block` only.
+- **blocks**, by the panel's block name (after the switches' `block`s): `name` renames it, so a short track between two switches can join one of their OS blocks. Blocks end up as one only when the bindings name them all (a block keyed in `blocks` or named by a switch `block` keeps its own name); renaming onto a block the bindings do not mention stops the run, and each merge is reported; `station`, `discipline`, and the `occupied` and `unoccupied` IOSPECs.
+- **masts**, by the name in the signals layer, field or planned (virtual masts are not drawn): `name` is the SECSIGNAL text (the layout's mast name), `template` the physical signal template, `pantype` the panel lamp (default `LAMP` and the head count). Each mast goes on the block boundary nearest where it stands on its run, on the edge of the block it protects (the side its move is heading for), facing out of that block, on the right-hand side of the move.
+- An IOSPEC holds `DECADDR`, `JMRIPREFIX`, `USER_NAME` (also `JMRIDEVICE`, `EXIT_CMD`, `DELAY`) and its `command`, `close` or `throw`. Keys starting with `_` are notes. A name the panel does not have, or an unknown field, stops the run.
+
+`--templates-from DESK.xml` copies the `SIGNALTEMPLATE` and `JMRINAME` elements of an existing CATS panel, so the masts' templates and the IOSPECs' device prefixes resolve; a mast naming a template the panel has no `SIGNALTEMPLATE` for stops the run. The cell rules are in [`skills/schematic-maps/references/cats-grid.md`](skills/schematic-maps/references/cats-grid.md).
 
 ## Layout Editor panel
 

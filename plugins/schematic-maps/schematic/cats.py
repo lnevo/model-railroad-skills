@@ -15,12 +15,32 @@ switches of the same number joined by a track), reaching one step past the point
 boundary falls on a points or crossing edge. Each switch's points carry two ROUTEINFO, normal being leg B (the
 straight leg as the band records it). No IOSPEC is written: binding sensors and turnouts is left to the Designer
 or a later pass. Link ends with the same letter, and helix ends of the same track, on two drawn bands are joined
-logically (SHARED); other ends get a label saying where they go.
+logically (SHARED); other ends get a label saying where they go. A turnback joining two tracks of different names
+is two blocks, parted in the middle of its vertical run.
+
+Bindings (optional, `panel(bands, bindings=...)`, the command's --bindings FILE.json) tie the panel to the
+layout's devices; every name in them must exist in the panel, or it is an error:
+
+    {"switches": {"LABEL" or "LABEL/ALIAS": {"block": "OS name", "normal": "B" or "C",
+                                              "routes": {"B": {"ROUTECOMMAND": IO, "SELECTEDREPORT": IO}, "C": {..}}}},
+     "blocks":   {"BLOCK": {"name": "layout name", "station": "..", "discipline": "CTC", "occupied": IO, "unoccupied": IO}},
+     "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2"}}}
+
+IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "command": "close" or "throw"} (also
+JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
+is not a whole label splits at its last /, and labels and aliases compare as text);
+switches of one number given different `block`s keep apart. BLOCK is the panel's block name after the switches'
+`block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
+(field or planned; virtual masts are not drawn). It goes on the block boundary nearest where it stands on its run:
+on the edge of the block it protects (the side toward the switch or end its move is heading for), facing out of
+that block, on the right-hand side of the move.
 """
+import copy
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 from .core import SchematicError, dx_tracks
+from .draw import mast_piece
 from .layout import paths
 
 SCALE = 2
@@ -39,6 +59,11 @@ ENDS = {
 OPPOSITE = {"LEFT": "RIGHT", "RIGHT": "LEFT", "TOP": "BOTTOM", "BOTTOM": "TOP"}
 STEP = {"LEFT": (-1, 0), "RIGHT": (1, 0), "TOP": (0, -1), "BOTTOM": (0, 1)}
 EDGE_ORDER = ("LEFT", "RIGHT", "TOP", "BOTTOM")
+# a signal on a boundary edge: where it sits in its cell, on the right-hand side of a move entering by that edge
+SIG_LOCATION = {"RIGHT": "UPRIGHT", "LEFT": "LOWLEFT", "TOP": "LEFTUP", "BOTTOM": "RIGHTLOW"}
+SIG_PANTYPES = ("LAMP1", "LAMP2", "LAMP3", "SEM1", "SEM2", "SEM3")
+IOSPEC_KEYS = {"DECADDR", "JMRIPREFIX", "USER_NAME", "JMRIDEVICE", "EXIT_CMD", "DELAY"}
+ROUTE_TAGS = ("SELECTEDREPORT", "NOTSELECTEDREPORT", "ROUTECOMMAND")
 
 
 def neighbour(cell, edge):
@@ -90,6 +115,10 @@ class Panel:
         self.names = {}                     # block root -> unique block name, set when the panel is complete
         self.log = []
         self._parent = {}
+        # bindings (empty without them)
+        self.block_info = {}                # block root -> {"station", "discipline", "occupied", "unoccupied"}
+        self.route_io = {}                  # (cell, edge) of points -> {route edge: [(tag, IO)]}
+        self.signals = {}                   # (cell, edge) -> {"name", "loc", "orient", "pantype", "template"}
 
     def add(self, cell, track, block, what):
         if track in self.cells[cell]:
@@ -136,11 +165,14 @@ def node_ref(d):
     return "end"
 
 
-def panel(bands, scale=SCALE):
-    """A Panel from [(title, band, options)], bands stacked top to bottom."""
+def panel(bands, scale=SCALE, bindings=None):
+    """A Panel from [(title, band, options)], bands stacked top to bottom, bound to the layout by `bindings`."""
     if scale % 2:
         raise SchematicError("the CATS scale must be even, so a double crossover's X lands on whole cells")
+    bindings = check_bindings(bindings or {})
+    sw_bind = switch_bindings(bands, bindings["switches"])
     P = Panel()
+    chains, turn_bounds = {}, {}     # (band, strand) -> its steps and their blocks; (band, turnback) -> its boundary
     top = MARGIN + 1
     ends = []                  # (band title, node, data, strand name, (cell, edge), block key of the end step)
     used_names = defaultdict(int)
@@ -177,7 +209,9 @@ def panel(bands, scale=SCALE):
             du, dv = nodes[u], nodes[v]
             if du["kind"] in ("switch", "dx") and dv["kind"] in ("switch", "dx") and du.get("label") and \
                     du.get("label") == dv.get("label"):
-                P.union(os_key(u), os_key(v))
+                bu, bv = (sw_bind.get((bi, n), {}).get("block") for n in (u, v))
+                if not (bu and bv and bu != bv):        # bound to two blocks: they stay apart
+                    P.union(os_key(u), os_key(v))
 
         # how far each switch's OS reaches along its tracks, in steps
         reach = {}
@@ -224,6 +258,7 @@ def panel(bands, scale=SCALE):
                 if d["kind"] == "end":
                     ends.append((title, n, d, s["name"], touching(end_pt, nxt), key))
             info[sid] = dict(steps=steps, owner=owner, pts=pts)
+            chains[(bi, sid)] = info[sid]
 
         # turnbacks: a vertical run in one column, part of the tracks they join
         for t, sids in sorted(turn_of.items()):
@@ -232,14 +267,26 @@ def panel(bands, scale=SCALE):
             y1, y2 = sorted((ya, yb))
             col = xa if nodes[t]["kind"] == "turnR" else xa - 1
             keys = [info[k]["owner"][-1 if strands[k]["dst"][0] == t else 0] for k in sids]
-            for k in keys[1:]:
-                P.union(keys[0], k)
+            # the strand whose end is at the top of the run, first
+            top_first = sorted(range(len(sids)), key=lambda i: info[sids[i]]["pts"][-1 if strands[sids[i]]["dst"][0] == t
+                                                                                    else 0][1])
+            names = {strands[k]["name"] for k in sids}
+            split = len(sids) == 2 and "" not in names and None not in names and len(names) == 2 and y2 > y1
+            mid = (y1 + y2) // 2
+            if split:           # two named tracks: a boundary in the middle of the run
+                hi, lo = keys[top_first[0]], keys[top_first[1]]
+                turn_bounds[(bi, t)] = {sids[top_first[0]]: (((col, mid), "BOTTOM"), hi, lo),
+                                        sids[top_first[1]]: (((col, mid + 1), "TOP"), lo, hi)}
+            else:
+                for k in keys[1:]:
+                    P.union(keys[0], k)
+                hi = lo = keys[0]
             first, last = ("LOWERBACKSLASH", "UPPERSLASH") if nodes[t]["kind"] == "turnR" else \
                 ("LOWERSLASH", "UPPERBACKSLASH")
-            P.add((col, y1), first, keys[0], "turnback")
+            P.add((col, y1), first, hi, "turnback")
             for y in range(y1 + 1, y2):
-                P.add((col, y), "VERTICAL", keys[0], "turnback")
-            P.add((col, y2), last, keys[0], "turnback")
+                P.add((col, y), "VERTICAL", hi if y <= mid else lo, "turnback")
+            P.add((col, y2), last, lo, "turnback")
 
         # double crossovers: the X between the two through tracks
         for n, d in sorted(nodes.items()):
@@ -286,13 +333,16 @@ def panel(bands, scale=SCALE):
             if touching(here, legs["C"][1]) != frog or touching(here, legs["A"][1]) == frog:
                 raise SchematicError(f"switch {d.get('label') or n}: legs B and C do not leave the points on one side")
             cell, edge = frog
-            routes = []
+            routes, ports = [], {}
+            normal = sw_bind.get((bi, n), {}).get("normal", "B")
             for port in ("B", "C"):
                 a, b = legs[port]
                 track = next(t for c_, t in step_pieces(a, b) if c_ == cell)
                 e = ENDS[track]
-                routes.append((e[1] if e[0] == edge else e[0], port == "B"))
-            P.points[frog] = dict(switch=d.get("label") or n, routes=sorted(routes))
+                far = e[1] if e[0] == edge else e[0]
+                routes.append((far, port == normal))
+                ports[far] = port
+            P.points[frog] = dict(switch=d.get("label") or n, routes=sorted(routes), node=(bi, n), ports=ports)
             shown = (d.get("label") or "") + (d.get("facing") or "")
             if shown:
                 px, py = cell
@@ -346,21 +396,225 @@ def panel(bands, scale=SCALE):
         cands = [(beyond, "LEFTCENT"), (below, "UPLEFT")] if edge == "RIGHT" else [(below, "UPLEFT"), ((cell[0], cell[1] - 1), "LOWLEFT")]
         P.label(cands, text)
 
-    # block names: unique; an OS block after its switch numbers (several when tracks too short to part them merge it)
+    # block names: unique; an OS block after its switch numbers (several when tracks too short to part them merge it).
+    # A block name bound to switches is one block wherever they are, and is never suffixed.
+    by_bound = defaultdict(list)
+    for key in P.blocks:
+        if key[0] == "os" and sw_bind.get(node_of(key), {}).get("block"):
+            by_bound[sw_bind[node_of(key)]["block"]].append(key)
+    for keys in by_bound.values():
+        for k in keys[1:]:
+            P.union(keys[0], k)
     groups = defaultdict(list)
     for key in sorted(P.blocks):
         groups[P.find(key)].append(key)
     for root in sorted(groups, key=lambda r: (r[0] != "track", r)):
         keys = groups[root]
         labels = sorted({label_of(bands, k) for k in keys if k[0] == "os"} - {""}, key=number_order)
+        bound = sorted({sw_bind[node_of(k)]["block"] for k in keys
+                        if k[0] == "os" and sw_bind.get(node_of(k), {}).get("block")})
+        if len(bound) > 1:
+            raise SchematicError(f"switches {', '.join(labels)} share one OS block (the track between them is too "
+                                 f"short to part them), but are bound to blocks {', '.join(bound)}")
+        if bound:
+            P.names[root] = bound[0]
+            continue
+        base = ("OS " + "-".join(labels) if labels else "OS") if any(k[0] == "os" for k in keys) else \
+            (next(P.blocks[k] for k in keys) or "Track")
+        if base in by_bound:
+            raise SchematicError(f"switches are bound to block {base}, which is also the name of another block "
+                                 "of the panel; bind them to a name of their own")
         if any(k[0] == "os" for k in keys):
-            P.names[root] = unique("OS " + "-".join(labels) if labels else "OS")
+            P.names[root] = unique(base)
             if len(labels) > 1:
                 P.log.append(f"switches {', '.join(labels)} share one OS block: the tracks between them are too short "
                              "to hold a block of their own")
         else:
-            P.names[root] = unique(next(P.blocks[k] for k in keys) or "Track")
+            P.names[root] = unique(base)
+    bind_blocks(P, bindings["blocks"], set(by_bound))
+    bind_routes(P, sw_bind)
+    bind_masts(P, bands, bindings["masts"], chains, turn_bounds)
     return P
+
+
+def node_of(key):
+    """(band index, node) of an OS block key."""
+    tag, n = key[1].split(":", 1)
+    return int(tag[1:]), n
+
+
+def check_io(io, where):
+    """One IOSPEC binding: its attributes and its command."""
+    if not isinstance(io, dict):
+        raise SchematicError(f"{where}: an IOSPEC is an object with DECADDR, JMRIPREFIX, USER_NAME and command")
+    unknown = set(io) - IOSPEC_KEYS - {"command"}
+    if unknown:
+        raise SchematicError(f"{where}: unknown IOSPEC field {', '.join(sorted(unknown))} "
+                             f"(fields: {', '.join(sorted(IOSPEC_KEYS))}, command)")
+    if io.get("DECADDR") in (None, ""):
+        raise SchematicError(f"{where}: an IOSPEC needs a DECADDR")
+    if io.get("command") not in ("close", "throw"):
+        raise SchematicError(f"{where}: an IOSPEC command is close or throw, not {io.get('command')!r}")
+    return {k: str(v) for k, v in io.items()}
+
+
+def check_bindings(b):
+    """The bindings with every field checked; unknown fields are errors (keys starting with _ are notes)."""
+    def fields(obj, allowed, where):
+        if not isinstance(obj, dict):
+            raise SchematicError(f"{where}: expected an object")
+        unknown = {k for k in obj if not k.startswith("_")} - set(allowed)
+        if unknown:
+            raise SchematicError(f"{where}: unknown field {', '.join(sorted(unknown))} (fields: {', '.join(allowed)})")
+        return {k: v for k, v in obj.items() if not k.startswith("_")}
+    b = fields(b, ("switches", "blocks", "masts"), "bindings")
+    out = {"switches": {}, "blocks": {}, "masts": {}}
+    section = lambda name: fields(b.get(name) or {}, [k for k in (b.get(name) or {})], f"bindings {name}")
+    for key, e in section("switches").items():
+        e = fields(e, ("block", "normal", "routes"), f"switch {key}")
+        if e.get("normal", "B") not in ("B", "C"):
+            raise SchematicError(f"switch {key}: normal is leg B or C, not {e['normal']!r}")
+        routes = fields(e.get("routes", {}), ("B", "C"), f"switch {key} routes")
+        e["routes"] = {port: [(tag, check_io(io, f"switch {key} leg {port} {tag}"))
+                              for tag, io in fields(r, ROUTE_TAGS, f"switch {key} leg {port}").items()]
+                       for port, r in routes.items()}
+        out["switches"][key] = e
+    for key, e in section("blocks").items():
+        e = fields(e, ("name", "station", "discipline", "occupied", "unoccupied"), f"block {key}")
+        if e.get("discipline") is not None and e["discipline"] not in DISCIPLINES:
+            raise SchematicError(f"block {key}: discipline {e['discipline']!r} is not one CATS reads: "
+                                 f"{', '.join(DISCIPLINES)}")
+        for f in ("occupied", "unoccupied"):
+            if f in e:
+                e[f] = check_io(e[f], f"block {key} {f}")
+        out["blocks"][key] = e
+    for key, e in section("masts").items():
+        e = fields(e, ("name", "template", "pantype"), f"mast {key}")
+        if e.get("pantype") is not None and e["pantype"] not in SIG_PANTYPES:
+            raise SchematicError(f"mast {key}: pantype is one of {', '.join(SIG_PANTYPES)}")
+        out["masts"][key] = e
+    return out
+
+
+def switch_bindings(bands, switches):
+    """{(band index, node): binding} for the switch keys, LABEL or LABEL/ALIAS. A key that names no switch is an
+    error, and so is a switch named by two keys."""
+    out, owner = {}, {}
+    switch_nodes = [(bi, n, str(d.get("label") or ""), str(d.get("alias") or ""), d["kind"])
+                    for bi, (_, band, _) in enumerate(bands) for n, d in band["nodes"].items()
+                    if d["kind"] in ("switch", "dx")]
+    for key, e in switches.items():
+        hits = [(bi, n) for bi, n, lb, _, _ in switch_nodes if lb == key]       # the whole key is a label
+        if not hits and "/" in key:                                            # else LABEL/ALIAS, at the last /
+            label, _, alias = key.rpartition("/")
+            hits = [(bi, n) for bi, n, lb, al, _ in switch_nodes if lb == label and al == alias]
+        if not hits:
+            raise SchematicError(f"bindings name switch {key}, which no drawn band has")
+        for h in hits:
+            if bands[h[0]][1]["nodes"][h[1]]["kind"] == "dx" and (e.get("routes") or "normal" in e):
+                raise SchematicError(f"switch {key}: a double crossover takes a block binding only (no routes or normal)")
+            if h in owner:
+                d = bands[h[0]][1]["nodes"][h[1]]
+                raise SchematicError(f"switch {d.get('label')}/{d.get('alias') or h[1]} is bound by both "
+                                     f"{owner[h]} and {key}")
+            owner[h] = key
+            out[h] = e
+    return out
+
+
+def bind_blocks(P, blocks, switch_named=()):
+    """Rename, merge and bind blocks. Blocks the bindings give one name (a block keyed in the bindings, or named by
+    switch bindings, keeps its own name) become one block, logged; a rename onto the name of a block the bindings do
+    not mention is an error."""
+    root_of = {name: root for root, name in P.names.items()}       # block names are unique
+    unknown = set(blocks) - set(root_of)
+    if unknown:
+        raise SchematicError(f"bindings name block {', '.join(sorted(unknown))}, which the panel does not have "
+                             f"(blocks: {', '.join(sorted(root_of))})")
+    explicit = set(blocks) | set(switch_named)
+    groups = defaultdict(list)
+    for name, root in sorted(root_of.items()):
+        groups[blocks.get(name, {}).get("name") or name].append(name)
+    for final, members in sorted(groups.items()):
+        if len(members) < 2:
+            continue
+        loose = [m for m in members if m not in explicit]
+        if loose:
+            raise SchematicError(f"bindings rename block {', '.join(m for m in members if m in blocks and m != final)} "
+                                 f"to {final}, the name of block {', '.join(loose)}, which the bindings do not name")
+        for m in members[1:]:
+            P.union(root_of[members[0]], root_of[m])
+        P.log.append(f"blocks {', '.join(members)} are one block, {final}")
+    names, info = {}, {}
+    for name, root in sorted(root_of.items()):
+        r = P.find(root)
+        final = blocks.get(name, {}).get("name") or name
+        names[r] = final
+        e = blocks.get(name)
+        if e:
+            have = info.setdefault(r, {})
+            for f in ("station", "discipline", "occupied", "unoccupied"):
+                if f in e:
+                    if f in have and have[f] != e[f]:
+                        raise SchematicError(f"blocks merged into {final} are bound with two different {f}s")
+                    have[f] = e[f]
+    P.names, P.block_info = names, info
+
+
+def bind_routes(P, sw_bind):
+    """Each bound switch's route IOSPECs on its points, by leg."""
+    for at, pt in P.points.items():
+        e = sw_bind.get(pt.get("node"))
+        if not e or not e.get("routes"):
+            continue
+        P.route_io[at] = {edge: e["routes"].get(port, []) for edge, port in pt["ports"].items()}
+
+
+def bind_masts(P, bands, masts, chains, turn_bounds):
+    """Each bound mast on the block boundary nearest where it stands, on the edge of the block it protects."""
+    known = {sg["mast"]: sg for _, _, o in bands for sg in o.get("signals") or ()}
+    unknown = set(masts) - set(known)
+    if unknown:
+        raise SchematicError(f"bindings name mast {', '.join(sorted(unknown))}, which no band's signals have")
+    for name, e in sorted(masts.items()):
+        if known[name].get("kind") == "virtual":
+            raise SchematicError(f"mast {name} is virtual (Dispatcher only): it is not drawn")
+        hits = [(bi, sg, spot) for bi, (_, band, o) in enumerate(bands) for sg in o.get("signals") or ()
+                if sg["mast"] == name for spot in [mast_piece(sg, band["strands"])]
+                if spot is not None and (bi, spot[0]) in chains]
+        if len(hits) != 1:
+            raise SchematicError(f"mast {name}: " + ("it stands on no drawn track" if not hits else
+                                                     "it stands on tracks of two drawn bands"))
+        bi, sg, (k, at, piece_cm, start) = hits[0]
+        strand = bands[bi][1]["strands"][k]
+        c = chains[(bi, k)]
+        steps, owner = c["steps"], [P.find(o) for o in c["owner"]]
+        if strand["src"][0] == start:            # orient the run from the end its move is heading for
+            near, far = strand["src"][0], strand["dst"][0]
+        elif strand["dst"][0] == start:
+            steps, owner = [(b, a) for a, b in reversed(steps)], owner[::-1]
+            near, far = strand["dst"][0], strand["src"][0]
+        else:
+            raise SchematicError(f"mast {name}: cannot tell which end of track {strand['name'] or k} it faces")
+        n = len(steps)
+        cands = [(i, touching(steps[i][0], steps[i - 1][0])) for i in range(1, n) if owner[i] != owner[i - 1]]
+        live = lambda b: b is not None and P.find(b[1]) != P.find(b[2])     # halves later merged: no boundary
+        tb = turn_bounds.get((bi, far), {}).get(k)
+        if live(tb):                             # past the far end: this half's side of the cut
+            cands.append((n + 0.5, tb[0]))
+        other = next((v for s_, v in turn_bounds.get((bi, near), {}).items() if s_ != k), None)
+        if live(other):                          # behind the near end: the other half's side, the block it enters
+            cands.append((-0.5, other[0]))
+        if not cands:
+            raise SchematicError(f"mast {name}: no block boundary on its track {strand['name'] or k}")
+        pos = n * at / piece_cm if piece_cm else 0.0
+        i, (cell, edge) = min(cands, key=lambda c_: (abs(c_[0] - pos), c_[0]))
+        if (cell, edge) in P.signals:
+            raise SchematicError(f"masts {P.signals[(cell, edge)]['mast']} and {name} fall on one block boundary")
+        heads = max(1, min(3, int(sg.get("heads") or 1)))
+        P.signals[(cell, edge)] = dict(mast=name, name=e.get("name") or name, loc=SIG_LOCATION[edge],
+                                       orient=OPPOSITE[edge], pantype=e.get("pantype") or f"LAMP{heads}",
+                                       template=e.get("template"))
 
 
 def number_order(label):
@@ -430,21 +684,54 @@ HEADER_FONTS = [
 ]
 
 
-def to_xml(P, discipline="CTC"):
-    """The panel as a CATS Designer document (an ElementTree root)."""
+def header_from(path):
+    """The SIGNALTEMPLATE and JMRINAME elements of an existing CATS panel, to copy into a generated one: the
+    physical signal templates its masts name, and the JMRI device prefixes its IOSPECs use."""
+    try:
+        src = ET.parse(path).getroot()
+    except (OSError, ET.ParseError) as e:
+        raise SchematicError(f"{path}: cannot read it as a CATS panel ({e})") from None
+    if src.tag != "DOCUMENT":
+        raise SchematicError(f"{path}: not a CATS panel (its root is {src.tag})")
+    return [el for el in src if el.tag in ("SIGNALTEMPLATE", "JMRINAME")]
+
+
+def set_io(parent, tag, io):
+    io = dict(io)
+    ET.SubElement(ET.SubElement(parent, tag), "IOSPEC", **{k: v for k, v in io.items() if k != "command"}).text = \
+        io["command"]
+
+
+def to_xml(P, discipline="CTC", header=()):
+    """The panel as a CATS Designer document (an ElementTree root). `header`: SIGNALTEMPLATE and JMRINAME
+    elements to copy in (header_from)."""
     cols, rows = P.size()
     root = ET.Element("DOCUMENT", VERSION="3.1")
     for key, name, color, size, style in HEADER_FONTS:
         ET.SubElement(root, "FONTDEFINITION", FONTKEY=key, FONTNAME=name, FONTCOLOR=color, FONTSIZE=size,
                       FONTSTYLE=style)
+    templates = set()
+    for el in header:
+        if el.tag == "SIGNALTEMPLATE":
+            root.append(copy.deepcopy(el))
+            templates.add(el.get("TEMPLATENAME"))
+    missing = sorted({s["template"] for s in P.signals.values() if s["template"]} - templates)
+    if missing:
+        raise SchematicError(f"masts name signal template {', '.join(missing)}, which the panel has no "
+                             "SIGNALTEMPLATE for (copy them in from a panel that has them)")
     ET.SubElement(root, "COMPRESSIONTAG")      # present = Compress Screen off
     ET.SubElement(root, "ROWWRAPTAG")          # present = Automatic Wrapping off
+    for el in header:
+        if el.tag == "JMRINAME":
+            root.append(copy.deepcopy(el))
     plan = ET.SubElement(root, "TRACKPLAN", COLUMNS=str(cols), ROWS=str(rows))
     if discipline not in DISCIPLINES:
         raise SchematicError(f"discipline {discipline!r} is not one CATS reads: {', '.join(DISCIPLINES)}")
     bounds = boundaries(P)
     bounds.update(lone_blocks(P, bounds))
-    named = set()
+    stray = sorted(set(P.signals) - set(bounds))
+    if stray:
+        raise SchematicError("masts " + ", ".join(P.signals[s]["mast"] for s in stray) + " are not on a block boundary")
     for cell in sorted(set(P.cells) | set(P.labels), key=lambda c: (c[1], c[0])):
         sec = ET.SubElement(plan, "SECTION", X=str(cell[0]), Y=str(cell[1]))
         tracks = P.cells.get(cell, {})
@@ -456,21 +743,38 @@ def to_xml(P, discipline="CTC"):
                 if not any(edge in ENDS[t] for t in tracks):
                     continue
                 se = ET.SubElement(sec, "SEC_EDGE", EDGE=edge)
+                if (cell, edge) in P.signals:
+                    sg = P.signals[(cell, edge)]
+                    ss = ET.SubElement(se, "SECSIGNAL")
+                    ss.text = sg["name"]
+                    ET.SubElement(ss, "PANELSIGNAL", SIGLOCATION=sg["loc"], SIGORIENT=sg["orient"],
+                                  SIGPANTYPE=sg["pantype"])
+                    if sg["template"]:
+                        ET.SubElement(ss, "PHYSIGNAL").text = sg["template"]
                 if (cell, edge) in bounds:
                     if (cell, edge) in P.points or (cell, edge) in P.crossings:
                         raise SchematicError(f"cell {cell} edge {edge}: a block on switch points or a crossing")
+                    # every boundary edge names its block in full: CATS keeps one Block per name (Block.findBlock)
                     blk = bounds[(cell, edge)]
-                    if blk in named:
-                        ET.SubElement(se, "BLOCK")
-                    else:
-                        named.add(blk)
-                        ET.SubElement(se, "BLOCK", NAME=P.names[blk], DISCIPLINE=discipline, VISIBLE="true")
+                    bi = P.block_info.get(blk, {})
+                    b = ET.SubElement(se, "BLOCK", NAME=P.names[blk])
+                    if bi.get("station"):
+                        b.set("STATION", bi["station"])
+                    b.set("DISCIPLINE", bi.get("discipline") or discipline)
+                    b.set("VISIBLE", "true")
+                    if bi.get("occupied"):
+                        set_io(b, "OCCUPIEDSPEC", bi["occupied"])
+                    if bi.get("unoccupied"):
+                        set_io(b, "UNOCCUPIEDSPEC", bi["unoccupied"])
                 elif (cell, edge) in P.points:
                     sp = ET.SubElement(se, "SWITCHPOINTS")
+                    io = P.route_io.get((cell, edge), {})
                     for rid, normal in P.points[(cell, edge)]["routes"]:
                         ri = ET.SubElement(sp, "ROUTEINFO", ROUTEID=rid)
                         if normal:
                             ri.set("NORMAL", "true")
+                        for tag, spec in io.get(rid, []):
+                            set_io(ri, tag, spec)
                 elif (cell, edge) in P.crossings:
                     others = sorted(ENDS[t][1] if ENDS[t][0] == edge else ENDS[t][0] for t in tracks if edge in ENDS[t])
                     ET.SubElement(se, "CROSSINGEDGE", **{o: "NO_BLOCK" for o in others})
@@ -484,8 +788,8 @@ def to_xml(P, discipline="CTC"):
     return root
 
 
-def write(P, out, discipline="CTC"):
-    root = to_xml(P, discipline)
+def write(P, out, discipline="CTC", header=()):
+    root = to_xml(P, discipline, header)
     text = "<?xml version='1.0' encoding='UTF-8'?>\n" + ET.tostring(root, encoding="unicode") + "\n"
     with open(out, "w", encoding="utf-8") as f:
         f.write(text)
@@ -494,5 +798,9 @@ def write(P, out, discipline="CTC"):
 
 def summary(P):
     blocks = len(set(P.names.values()))
-    return (f"{len(P.cells)} track cells, {len(P.points)} switch points, {len(P.crossings) // 2} crossings, "
+    text = (f"{len(P.cells)} track cells, {len(P.points)} switch points, {len(P.crossings) // 2} crossings, "
             f"{blocks} blocks, {len(P.shared) // 2} logical joins, {len(P.labels)} labels")
+    if P.block_info or P.route_io or P.signals:
+        occupied = sum(1 for b in P.block_info.values() if b.get("occupied"))
+        text += (f"; bound: {occupied} block sensors, {len(P.route_io)} switch points, {len(P.signals)} masts")
+    return text

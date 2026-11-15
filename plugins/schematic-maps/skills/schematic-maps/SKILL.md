@@ -67,7 +67,7 @@ Settings that are tuning, not per-switch hints: `ladder_link_max_cm` (40) and `l
 
 ## References
 
-`references/style.md` has the drafting style, one rule at a time, with the examples it comes from and which rules the command draws and which it does not yet (interlocking limits, date and revision). Read it when asked why the sheet looks as it does or for something it does not show. `references/cats-grid.md` is the CATS Designer's cell rules and how `schematic cats` seeds a CATS panel from the grid (track, points, blocks, labels; no bindings or signals). `references/le-panel.md` is how `schematic le` draws a JMRI Layout Editor panel from the same grid (turnouts, arcs, joins, names; no masts or sensors).
+`references/style.md` has the drafting style, one rule at a time, with the examples it comes from and which rules the command draws and which it does not yet (interlocking limits, date and revision). Read it when asked why the sheet looks as it does or for something it does not show. `references/cats-grid.md` is the CATS Designer's cell rules and how `schematic cats` seeds a CATS panel from the grid (track, points, blocks, labels, and with a bindings file the switch routes, block sensors and masts). `references/le-panel.md` is how `schematic le` draws a JMRI Layout Editor panel from the same grid (turnouts, arcs, joins, names; no masts or sensors).
 
 ## Pitfalls
 
