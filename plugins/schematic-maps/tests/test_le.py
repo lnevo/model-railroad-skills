@@ -312,7 +312,7 @@ class Names(unittest.TestCase):
 
 class Idents(unittest.TestCase):
     """`idents` gives drawn objects an older panel's names; `leg_b` keeps a turnout's leg letters."""
-    BASE = {"blocks": {"e1": ["Main West 1", "Main West 2"]}}
+    BASE = {"blocks": {"e1": ["Main West 1", "Main West 2"], "e13": ["Y-1"], "e15": ["Y-2"], "e2": ["Yard Lead"]}}
 
     def lower(self):
         return next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
@@ -321,57 +321,106 @@ class Idents(unittest.TestCase):
         return {"Lower": {**self.BASE, "idents": idents}}
 
     def test_given_idents_reach_the_panel_and_its_xml(self):
+        base = panel(self.names())
+        drawn = defaultdict(list)
+        for sg in base.segments:
+            if sg["band"] == self.lower():
+                drawn[sg["block"]].append(sg["ident"])
+        self.assertEqual(len(drawn["Y-1"]), 1)              # Y-1 is one straight segment: its ident is used
+        self.assertEqual(len(drawn["Yard Lead"]), 3)        # Yard Lead is three (line, arc, line): logged, not used
         P = panel(self.names(turnouts={"S1": "TO100"}, boundaries=[{"blocks": ["Main West 2", "Main West 1"],
-                                                                     "ident": "A100"}],
-                             ends={"Y-1": "EB100"}, segments={"Y-1": "T-Y1", "Main West 1": "T-MW1"}))
+                                                                     "ident": "F3-A-1"}],
+                             ends={"Y-1": "EB100"}, segments={"Y-1": "T-Y1", "Yard Lead": "F2-S-7"}))
         lower = self.lower()
         self.assertEqual(P.turnout_of[(lower, "S1")][0], "TO100")
-        self.assertEqual(P.points["A100"]["type"], "ANCHOR")
+        self.assertEqual(P.points["F3-A-1"]["type"], "ANCHOR")
         self.assertEqual(P.points["EB100"]["type"], "END_BUMPER")
-        segs = {s["ident"]: s for s in P.segments}
-        self.assertEqual({segs[c]["block"] for c in P.points["A100"]["conn"]}, {"Main West 1", "Main West 2"})
-        self.assertTrue({"TO100", "A100", "EB100"} <= set(P.idents_given.values()))
-        for block, ident in (("Y-1", "T-Y1"), ("Main West 1", "T-MW1")):
-            drawn = [s for s in P.segments if s["block"] == block]
-            if len(drawn) == 1:
-                self.assertEqual(drawn[0]["ident"], ident)
-            else:
-                self.assertTrue(any(ident in line for line in P.log), block)
+        segs = {sg["ident"]: sg for sg in P.segments}
+        self.assertEqual({segs[c]["block"] for c in P.points["F3-A-1"]["conn"]}, {"Main West 1", "Main West 2"})
+        self.assertEqual(segs["T-Y1"]["block"], "Y-1")
+        self.assertNotIn("F2-S-7", segs)
+        self.assertIn("Lower level: idents: block Yard Lead is drawn as 3 track segments, so segment ident F2-S-7 is not used (they keep "
+                      "generated idents)", P.log)
+        self.assertEqual(set(P.idents_given.values()), {"TO100", "F3-A-1", "EB100", "T-Y1"})
         el = element(P)
         names = {c.get("ident") for c in el if c.get("ident")}
-        self.assertTrue({"TO100", "A100", "EB100"} <= names)
+        self.assertTrue({"TO100", "F3-A-1", "EB100", "T-Y1"} <= names)
         for c in el:                                    # every connection names an object of the panel
-            for a in ("connect1name", "connect2name", "connectaname", "connectbname", "connectcname"):
-                if c.get(a):
-                    self.assertIn(c.get(a), names, (c.get("ident"), a))
+            for attr in ("connect1name", "connect2name", "connectaname", "connectbname", "connectcname"):
+                if c.get(attr):
+                    self.assertIn(c.get(attr), names, (c.get("ident"), attr))
+
+    def test_jmri_kind_follows_find_object_by_name(self):
+        for name, kind in (("TO1", "turnout"), ("TOL3", "turnout"), ("A12", "point"), ("EB7", "point"),
+                           ("EC2", "point"), ("F3-A-1", "point"), ("X1", "xing"), ("SL1", "slip"),
+                           ("TUR1", "turntable"), ("TRV1", "traverser"), ("T5", "segment"), ("T-EL-TOL3", "segment"),
+                           ("F30-S-0", "segment"), ("Q-EB", "point"), ("T5-EB", "segment"), ("Y1", None),
+                           ("F3-B-1", None)):
+            with self.subTest(name=name):
+                self.assertEqual(le.jmri_kind(name), kind)
 
     def test_bad_idents_stop_before_drawing(self):
-        bad = [dict(turnouts={"S1": "X1"}),                                  # not a turnout's prefix
+        bad = [dict(turnouts={"S1": "X1"}),                                  # JMRI reads a level crossing
                dict(turnouts={"S1": "TOG1"}),                                # the generated form
-               dict(turnouts={"S1": "TO100"}, ends={"Y-1": "TO100"}),        # wrong prefix for an end
-               dict(turnouts={"S1": "TO100", "S2": "TO100"}),                # two separate turnouts
-               dict(segments={"Y-1": "TO5"}),                                # a segment named like a turnout
+               dict(turnouts={"S1": "TO100"}, ends={"Y-1": "TO100"}),        # a turnout's name for an end
+               dict(turnouts={"S1": "TO100", "S2": "TO100"}),                # two switches, no crossover
+               dict(segments={"Y-1": "TO5"}), dict(segments={"Y-1": "A77"}), dict(segments={"Y-1": "EB77"}),
+               dict(segments={"Y-1": "SL1"}), dict(segments={"Y-1": "Y1"}),   # not found as a segment
                dict(boundaries=[{"blocks": ["Y-1", "Y-1"], "ident": "A1"}]),
-               dict(boundaries=[{"blocks": ["Y-1", "Y-2"], "ident": "A1"}]),  # not drawn as one anchor
-               dict(ends={"Main West 1": "EB1"}),                            # ends at no bumper
+               dict(boundaries=[{"blocks": ["Y-1", "Nowhere"], "ident": "A1"}]),     # a block not named
+               dict(boundaries=[{"blocks": ["Y-1", "Y-2"], "ident": "T1"}]),         # not a point's name
+               dict(ends={"Nowhere": "EB1"}), dict(ends={"Y-1": "T9"}),
                dict(turnouts={"NOPE": "TO1"}),
                dict(nope={})]
-        for idents in bad:
-            with self.subTest(idents=idents), self.assertRaises(SchematicError):
+        with mock.patch.object(le, "Band", side_effect=AssertionError("drawn")) as band:
+            for idents in bad:
+                with self.subTest(idents=idents), self.assertRaises(SchematicError):
+                    le.panel(bands(), self.names(**idents))
+        band.assert_not_called()
+
+    def test_what_only_the_drawing_shows_stops_after_drawing(self):
+        for idents in (dict(boundaries=[{"blocks": ["Y-1", "Y-2"], "ident": "A1"}]),   # not drawn as one anchor
+                       dict(ends={"Main West 1": "EB1"})):                            # ends at no bumper
+            with self.subTest(idents=idents), self.assertRaisesRegex(SchematicError, "exactly one|an end ident"):
                 le.panel(bands(), self.names(**idents))
+
+    def test_a_crossover_shares_one_ident(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            P = le.panel(crossover_band(), {"Test": {"idents": {"turnouts": {"P": "TO117", "Q": "TO117"}}}})
+            self.assertEqual([t["ident"] for t in P.turnouts], ["TO117"])
+            with self.assertRaisesRegex(SchematicError, "already named"):      # one turnout, two idents
+                le.panel(crossover_band(), {"Test": {"idents": {"turnouts": {"P": "TO1", "Q": "TO2"}}}})
+            with self.assertRaisesRegex(SchematicError, "half of a single crossover"):
+                le.panel(crossover_band(), {"Test": {"leg_b": {"P": "C"}}})
+
+    def test_a_joins_hidden_segment_does_not_count_against_its_block(self):
+        upper = 1 - self.lower()
+        names = {"Upper": {"blocks": {"e10y": ["Rise"]}, "idents": {"segments": {"Rise": "T-RISE"}}},
+                 "Lower": {"blocks": {"e10x": ["Rise"]}}}
+        P = panel(names)
+        mine = [sg for sg in P.segments if sg["block"] == "Rise" and sg["band"] == upper]
+        self.assertTrue(any(sg["hidden"] for sg in P.segments if sg["block"] == "Rise"))   # the join carries it
+        self.assertEqual([sg["ident"] for sg in mine], ["T-RISE"])    # its one drawn segment, not the join
 
     def test_leg_b_keeps_the_letters_and_layout_editors_point_a(self):
         P = panel({"Lower": {"leg_b": {"S4": "C"}}})
-        ident, legs = P.turnout_of[(self.lower(), "S4")]
+        plain = panel()
+        lower = self.lower()
+        ident, legs = P.turnout_of[(lower, "S4")]
         t = next(t for t in P.turnouts if t["ident"] == ident)
+        t0 = next(t for t in plain.turnouts if t["ident"] == plain.turnout_of[(lower, "S4")][0])
         self.assertEqual(legs, {"A": "A", "B": "C", "C": "B"})            # the drawn diverging leg is leg B
         self.assertEqual(t["continuing"], "4")                              # normal stays on the band's leg B
         c, p = t["cen"], t["pts"]
         self.assertLess(math.dist(p["A"], (2 * c[0] - p["B"][0], 2 * c[1] - p["B"][1])), 0.01)
-        plain = next(t for t in panel().turnouts if t["ident"] == panel().turnout_of[(self.lower(), "S4")][0])
         for leg in "ABC":                                                   # every leg still ends where it did
             other = {"A": "A", "B": "C", "C": "B"}[leg]
-            self.assertLess(math.dist(p[leg], plain["pts"][other]), 0.01)
+            self.assertLess(math.dist(p[leg], t0["pts"][other]), 0.01)
+        self.assertGreater(math.dist(t["cen"], t0["cen"]), 1)              # the centre moved...
+        self.assertEqual(t["at"], t0["cen"])                                # ...not where the legs meet
+        label = next(lb for lb in P.labels if lb["text"] == "4")           # its number placed as without leg_b
+        label0 = next(lb for lb in plain.labels if lb["text"] == "4")
+        self.assertEqual(label["xy"], label0["xy"])
         self.assertTrue(any("leg_b" in line for line in P.log))
         for bad in ({"S4": "D"}, {"DX": "B"}, {"nope": "B"}):
             with self.subTest(bad=bad), self.assertRaises(SchematicError):
