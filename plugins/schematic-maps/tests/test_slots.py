@@ -1,6 +1,7 @@
 """Mast slots resolved as JMRI resolves them, masts placed on the generated panel, and the panel fitted to a size."""
 import json
 import math
+import re
 import subprocess
 import sys
 import tempfile
@@ -248,7 +249,8 @@ class Masts(unittest.TestCase):
             P = le.panel(bands(), names)
         self.assertIn("the join at F9-A-1", P.moved[0][2])
         self.assertTrue(any("the join at F9-A-1" in line for line in P.log))
-        self.assertFalse([line for line in P.log + [w for _t, _m, w in P.moved] if anchor in line])
+        whole = re.compile(rf"(?<![A-Za-z0-9_-]){re.escape(anchor)}(?![A-Za-z0-9_-])")   # AG1, not AG12
+        self.assertFalse([line for line in P.log + [w for _t, _m, w in P.moved] if whole.search(line)])
         (m,) = P.masts
         self.assertEqual(m["ident"], anchor)                # the Panel keeps the generated ident
         pt = next(p for p in le.to_xml(P, "Generated").findall("positionablepoint") if p.get("ident") == "F9-A-1")

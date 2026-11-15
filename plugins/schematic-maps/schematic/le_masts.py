@@ -562,8 +562,8 @@ class Masts:
             slide = self.slide(ident, cell)
             who = ", ".join(m["mast"] for m in ms)
             if not slide:
-                self.P.log.append(f"mast {who}: no clean icon spot, and its anchor {self.P.name(ident)} cannot slide "
-                                  "(an arc, a bend or a hidden track beside it)")
+                self.P.log.append(f"mast {who}: no clean icon spot, and its anchor {ident} cannot slide (an arc, a "
+                                  "bend or a hidden track beside it)")
                 continue
             a, u, s0, lo, hi = slide
             steps = sorted((t for k in range(1, int((hi - lo) / ICON_STEP) + 2)
@@ -592,8 +592,7 @@ class Masts:
             else:
                 self.P.points[ident]["xy"] = list(start)
                 self.world.update(self.P.points[ident]["conn"])
-                self.P.log.append(f"mast {who}: no clean icon spot anywhere its anchor {self.P.name(ident)} "
-                                  "may slide; it stays")
+                self.P.log.append(f"mast {who}: no clean icon spot anywhere its anchor {ident} may slide; it stays")
 
     def rescore(self, ident, start, moved, in_gantry):
         """After an anchor slid, place again the icons of the other masts near the tracks it ends (their spots were
@@ -613,8 +612,8 @@ class Masts:
                                 self.mine(m), self.others({m["mast"]}))[1]
                 if not why:
                     continue
-                self.P.log.append(f"mast {m['mast']}: its gantry's spot is no longer clean after anchor "
-                                  f"{self.P.name(ident)} slid; it takes its own")
+                self.P.log.append(f"mast {m['mast']}: its gantry's spot is no longer clean after anchor {ident} "
+                                  "slid; it takes its own")
             self.put(m["mast"], self.best(m, self.others({m["mast"]})))
 
     # ---- checks
@@ -629,23 +628,23 @@ class Masts:
                 raise SchematicError(f"mast {m['mast']}: sliding the boundary anchors changed its blocks from "
                                      f"{self.before[m['mast']]} to {got}")
         for ident, (was, lens) in sorted(self.original.items()):
-            pt, name = self.P.points[ident], self.P.name(ident)
+            pt = self.P.points[ident]
             cell = self.P.cellx[pt["band"]]
             (s1, a), (s2, b) = ((sid, self.xy(self.other_end(sid, (ident, "POS_POINT")))) for sid in pt["conn"])
             L = math.dist(a, b)
             if L < EPS:
-                raise SchematicError(f"anchor {name}: the far ends of its two tracks meet")
+                raise SchematicError(f"anchor {ident}: the far ends of its two tracks meet")
             u = ((b[0] - a[0]) / L, (b[1] - a[1]) / L)
             for q, what in ((tuple(pt["xy"]), "now"), (was, "before")):
                 if abs(u[0] * (q[1] - a[1]) - u[1] * (q[0] - a[0])) > 0.5:
-                    raise SchematicError(f"anchor {name}: {what} off the line between the ends of its tracks")
+                    raise SchematicError(f"anchor {ident}: {what} off the line between the ends of its tracks")
             t, t0 = dot(sub(pt["xy"], a), u), dot(sub(was, a), u)
             if not 0 < t < L or (t0 > 0) != (t > 0) or (t0 < L) != (t < L):
-                raise SchematicError(f"anchor {name}: slid past the end of its track")
+                raise SchematicError(f"anchor {ident}: slid past the end of its track")
             for sid, length in ((s1, t), (s2, L - t)):
                 if length < EPS or length < min(cell, lens[sid]) - 0.01:
-                    raise SchematicError(f"anchor {name}: track {self.P.name(sid)} left {length:.1f} px long, "
-                                         f"under its {min(cell, lens[sid]):.1f} px minimum")
+                    raise SchematicError(f"anchor {ident}: track {sid} left {length:.1f} px long, under its "
+                                         f"{min(cell, lens[sid]):.1f} px minimum")
         return after
 
     def finish(self):

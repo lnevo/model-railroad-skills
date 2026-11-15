@@ -1,6 +1,7 @@
 """The Layout Editor panel drawn from the example's solved bands: turnouts, track, arcs, ends, names, XML."""
 import json
 import math
+import re
 import subprocess
 import sys
 import tempfile
@@ -402,13 +403,43 @@ class Idents(unittest.TestCase):
         self.assertEqual(len(written), len(set(written)))
         self.assertIn("TO100", written)
         self.assertNotIn(next(k for k, v in P.idents_given.items() if v == "TO100"), written)
-        for bad, why in (({"TG999999": "T-NONE"}, "given to nothing drawn"),          # an alias of nothing
-                         ({P.segments[0]["ident"]: "TO100"}, "TO100 would name")):     # two objects, one ident
-            Q = le.Panel()
-            Q.__dict__.update({k: v for k, v in P.__dict__.items()})
-            Q.idents_given = {**P.idents_given, **bad}
-            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, why):
+        for bad, why in ((lambda Q: {"TG999999": "T-NONE"}, "given to nothing drawn: T-NONE"),    # an alias of nothing
+                         (lambda Q: {Q.segments[0]["ident"]: "TO100"},                          # two objects, one
+                          r"TO100 would name 2 objects \(turnout, track segment\)")):           # ident
+            Q = le.panel(bands(), self.names(turnouts={"S1": "TO100"}))          # its own, not the cached panel
+            Q.idents_given.update(bad(Q))
+            with self.subTest(why=why), self.assertRaisesRegex(SchematicError, why):
                 le.to_xml(Q, "Generated")
+
+    def generated_in(self, P, text):
+        """The generated idents that have a given one and still appear in text, as whole idents."""
+        return [g for g in P.idents_given if re.search(rf"(?<![A-Za-z0-9_-]){re.escape(g)}(?![A-Za-z0-9_-])", text)]
+
+    def test_errors_name_objects_by_their_written_idents(self):
+        names = self.names(turnouts={"S1": "TO100"},
+                           boundaries=[{"blocks": ["Main West 2", "Main West 1"], "ident": "F3-A-1"}])
+        names["Lower"]["masts"] = [{"mast": "M", "facing": "Y-1"}]
+        P = le.panel(bands(), names)
+        anchor = next(k for k, v in P.idents_given.items() if v == "F3-A-1")
+        turnout = next(k for k, v in P.idents_given.items() if v == "TO100")
+
+        def slot_error(P_, bands_, ix):             # a placing error that names the anchor, as le_masts.verify does
+            raise SchematicError(f"anchor {anchor}: slid past the end of its track (turnout {turnout} beside it)")
+        with mock.patch("schematic.le_masts.place", slot_error), \
+                self.assertRaises(SchematicError) as got:
+            le.panel(bands(), names)
+        self.assertIn("anchor F3-A-1: slid past", str(got.exception))
+        self.assertIn("turnout TO100 beside", str(got.exception))
+        self.assertFalse(self.generated_in(P, str(got.exception)))
+        Q = le.panel(bands(), names)                # a connection error while writing: a turnout leg to nothing
+        t = next(t for t in Q.turnouts if t["ident"] == turnout)
+        leg = sorted(t["conn"])[0]
+        t["conn"][leg] = "TGNONE"
+        with self.assertRaises(SchematicError) as got:
+            le.to_xml(Q, "Generated")
+        self.assertIn(f"turnout TO100 leg {leg}: TGNONE", str(got.exception))
+        self.assertFalse(self.generated_in(Q, str(got.exception)))
+        self.assertFalse([line for line in Q.log if self.generated_in(Q, line)])
 
     def test_a_joins_hidden_segment_does_not_count_against_its_block(self):
         upper = 1 - self.lower()
