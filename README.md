@@ -96,6 +96,8 @@ python3 -m unittest discover -s tests
 
 The broker test runs only if `mosquitto` is installed.
 
+Before a pull request, check the change against the code quality checklist in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 MIT
