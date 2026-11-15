@@ -1,0 +1,371 @@
+"""The Layout Editor panel drawn from the example's solved bands: turnouts, track, arcs, ends, names, XML."""
+import json
+import math
+import subprocess
+import sys
+import tempfile
+import unittest
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+from pathlib import Path
+from unittest import mock
+
+import helpers
+from schematic import le
+from schematic.core import SchematicError
+
+
+def bands():
+    return helpers.build().bands
+
+
+def panel(names=None):
+    key = ("le", repr(names))
+    if key not in helpers._cache:
+        helpers._cache[key] = le.panel(bands(), names)
+    return helpers._cache[key]
+
+
+def element(P=None):
+    return le.to_xml(P or panel(), "Generated")
+
+
+def items(el):
+    return {c.get("ident"): c for c in el if c.get("ident")}
+
+
+def strand_at(band, n, port):
+    d = band["nodes"][n]
+    return d["ins"].get(port) or d["outs"].get(port)
+
+
+class Track(unittest.TestCase):
+    def test_every_strand_is_drawn_and_the_panel_is_one_railroad(self):
+        P = panel()
+        for bi, (_, band, _) in enumerate(bands()):
+            for sid in band["strands"]:
+                self.assertTrue(P.strand_segments[(bi, sid)], sid)
+        # every piece of track reaches every other through the segments (the levels by their hidden joins)
+        graph = defaultdict(set)
+        for s in P.segments:
+            a, b = s["ends"][0][0], s["ends"][1][0]
+            graph[a].add(b)
+            graph[b].add(a)
+        start = next(iter(graph))
+        seen, todo = {start}, [start]
+        while todo:
+            for nxt in graph[todo.pop()]:
+                if nxt not in seen:
+                    seen.add(nxt)
+                    todo.append(nxt)
+        self.assertEqual(seen, set(P.points) | {t["ident"] for t in P.turnouts})
+
+    def test_no_dangling_connection_names(self):
+        el = element()
+        it = items(el)
+        for s in el.findall("tracksegment"):
+            for i in (1, 2):
+                name, typ = s.get(f"connect{i}name"), s.get(f"type{i}")
+                far = it[name]
+                if typ == "POS_POINT":
+                    self.assertEqual(far.tag, "positionablepoint")
+                    self.assertIn(s.get("ident"), (far.get("connect1name"), far.get("connect2name")))
+                else:
+                    self.assertEqual(far.tag, "layoutturnout")
+                    self.assertEqual(far.get(f"connect{typ[-1].lower()}name"), s.get("ident"))
+        for p in el.findall("positionablepoint"):
+            if p.get("type") == "ANCHOR":
+                self.assertTrue(p.get("connect1name") and p.get("connect2name"), p.get("ident"))
+            else:
+                self.assertEqual(p.get("type"), "END_BUMPER")
+                self.assertIsNone(p.get("connect2name"))
+        for t in el.findall("layoutturnout"):
+            for leg in ("abcd" if "XOVER" in t.get("type") else "abc"):
+                self.assertEqual(it[t.get(f"connect{leg}name")].tag, "tracksegment")
+
+    def test_track_attributes_and_idents(self):
+        el = element()
+        idents = [c.get("ident") for c in el if c.get("ident")]
+        self.assertEqual(len(idents), len(set(idents)))
+        for c in el:
+            self.assertTrue(c.get("class"), c.tag)
+        for s in el.findall("tracksegment"):
+            self.assertFalse(s.get("ident").startswith(("TO", "TUR", "TRV")))
+            for a in ("dashed", "mainline", "hidden"):
+                self.assertIn(s.get(a), ("yes", "no"))
+        for t in el.findall("layoutturnout"):
+            self.assertTrue(t.get("ident").startswith("TO"))
+        for p in el.findall("positionablepoint"):
+            self.assertTrue(p.get("ident").startswith("EB" if p.get("type") == "END_BUMPER" else "A"))
+
+    def test_main_track_is_mainline(self):
+        P = panel()
+        by = {s["ident"]: s for s in P.segments}
+        for bi, (_, band, _) in enumerate(bands()):
+            for sid, s in band["strands"].items():
+                for seg in P.strand_segments[(bi, sid)]:
+                    self.assertEqual(by[seg]["main"], s["main"], sid)
+        el = element()
+        self.assertEqual(el.get("mainlinetrackwidth"), "4")
+        self.assertEqual(el.get("sidetrackwidth"), "2")
+        opts = el.find("layoutTrackDrawingOptions")
+        self.assertEqual(opts.findtext("mainBlockLineWidth"), "4")
+        self.assertEqual(opts.findtext("sideBlockLineWidth"), "2")
+
+    def test_corners_are_arcs_that_meet_their_ends(self):
+        P = panel()
+        el = element()
+        it = items(el)
+
+        def where(name, typ):
+            e = it[name]
+            if typ == "POS_POINT":
+                return (float(e.get("x")), float(e.get("y")))
+            leg = typ[-1].lower()
+            return (float(e.get(f"x{leg}")), float(e.get(f"y{leg}")))
+
+        arcs = 0
+        for s in el.findall("tracksegment"):
+            if s.get("arc") != "yes":
+                continue
+            arcs += 1
+            self.assertEqual(s.get("circle"), "yes")
+            a, b = where(s.get("connect1name"), s.get("type1")), where(s.get("connect2name"), s.get("type2"))
+            pts = le.arc_points(a, b, float(s.get("angle")), s.get("flip") == "yes")
+            self.assertLess(math.dist(pts[0], a), 0.2)
+            self.assertLess(math.dist(pts[-1], b), 0.2)
+        self.assertGreater(arcs, 10)
+        # Yard Lead (e2) slopes down from switch 1 and runs level to 11: its corner is one 45 degree arc
+        segs = {s["ident"]: s for s in P.segments}
+        lower = next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
+        corner = [segs[k] for k in P.strand_segments[(lower, "e2")] if segs[k]["arc"]]
+        self.assertEqual(len(corner), 1)
+        self.assertAlmostEqual(corner[0]["arc"]["angle"], 45.0, places=3)
+
+    def test_turnback_is_a_half_circle_bowing_out(self):
+        P = panel()
+        lower = next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
+        segs = {s["ident"]: s for s in P.segments}
+        pair = [segs[k] for k in P.turnbacks[(lower, "turn:e12")]]
+        self.assertEqual([s["arc"]["angle"] for s in pair], [90.0, 90.0])
+        ends = [P.points[s["ends"][0][0]]["xy"] for s in pair] + [P.points[pair[1]["ends"][1][0]]["xy"]]
+        top, apex, bottom = ends
+        self.assertAlmostEqual(top[0], bottom[0], places=3)
+        self.assertGreater(apex[0], top[0])           # turnR: the loop bows to the right
+        r = (bottom[1] - top[1]) / 2
+        self.assertAlmostEqual(apex[0] - top[0], r, places=3)
+        for s in pair:
+            for q in s["arc"]["drawn"]:
+                self.assertGreaterEqual(q[0], top[0] - 0.01)
+                self.assertAlmostEqual(math.dist(q, (top[0], top[1] + r)), r, places=2)
+
+    def test_jmri_arc_direction(self):
+        pts = le.arc_points((0, 0), (0, 100), 180, False)
+        self.assertLess(math.dist(pts[0], (0, 0)), 1e-6)
+        self.assertLess(math.dist(pts[-1], (0, 100)), 1e-6)
+        self.assertAlmostEqual(pts[len(pts) // 2][0], 50.0)     # not flipped: bows right of 1 -> 2 going down
+        self.assertAlmostEqual(le.arc_points((0, 0), (0, 100), 180, True)[6][0], -50.0)
+
+
+class Switches(unittest.TestCase):
+    def test_turnout_legs_match_band_legs(self):
+        P = panel()
+        segs = {s["ident"]: s for s in P.segments}
+        turnouts = {t["ident"]: t for t in P.turnouts}
+        count = 0
+        for bi, (_, band, _) in enumerate(bands()):
+            for n, d in band["nodes"].items():
+                if d["kind"] not in ("switch", "dx"):
+                    continue
+                count += 1
+                ident, legs = P.turnout_of[(bi, n)]
+                t = turnouts[ident]
+                self.assertEqual(sorted(legs), sorted(set(d["ins"]) | set(d["outs"])))
+                for port, leg in legs.items():
+                    seg = t["conn"][leg]
+                    sid = strand_at(band, n, port)
+                    self.assertIn(seg, P.strand_segments[(bi, sid)], (d.get("label"), port))
+                    self.assertIn((ident, f"TURNOUT_{leg}"), segs[seg]["ends"])
+                if d["kind"] == "switch":
+                    self.assertEqual(legs["A"], "A")
+                    self.assertEqual(t["continuing"], "2" if legs["B"] == "B" else "4", d.get("label"))
+        self.assertEqual(count, len(P.turnouts))
+
+    def test_drawn_straight_leg_is_layout_editor_leg_b(self):
+        P = panel()
+        lower = next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
+        by = {t["ident"]: t for t in P.turnouts}
+        # 13: the drawing slopes B (Y-3) up and runs C (Y-4) level, so the legs swap and closed stays on Y-3
+        ident, legs = P.turnout_of[(lower, "L13")]
+        self.assertEqual(legs, {"A": "A", "B": "C", "C": "B"})
+        self.assertEqual(by[ident]["continuing"], "4")
+        # 4: B (the rise) level, C slopes down
+        ident, legs = P.turnout_of[(lower, "S4")]
+        self.assertEqual(legs, {"A": "A", "B": "B", "C": "C"})
+        self.assertEqual(by[ident]["continuing"], "2")
+        self.assertEqual(by[ident]["type"], "RH_TURNOUT")          # C drawn below, to the right of A to B
+
+    def test_turnout_geometry_is_what_layout_editor_computes(self):
+        for t in panel().turnouts:
+            c, p = t["cen"], t["pts"]
+            if t["type"] in ("RH_TURNOUT", "LH_TURNOUT"):           # A = centre - (B - centre)
+                self.assertLess(math.dist(p["A"], (2 * c[0] - p["B"][0], 2 * c[1] - p["B"][1])), 0.01)
+            elif t["type"] == "WYE_TURNOUT":
+                m = ((p["B"][0] + p["C"][0]) / 2 - c[0], (p["B"][1] + p["C"][1]) / 2 - c[1])
+                self.assertLess(math.dist(p["A"], (c[0] - m[0], c[1] - m[1])), 0.01)
+            else:
+                self.assertEqual(t["ver"], "2")
+
+    def test_double_crossover(self):
+        P = panel()
+        dx = [t for t in P.turnouts if t["type"] == "DOUBLE_XOVER"]
+        self.assertEqual(len(dx), 1)
+        p = dx[0]["pts"]
+        self.assertAlmostEqual(p["A"][1], p["B"][1])           # A-B one through track, D-C the other
+        self.assertAlmostEqual(p["C"][1], p["D"][1])
+        self.assertLess(p["A"][0], p["B"][0])
+        self.assertLess(p["A"][1], p["D"][1])
+        self.assertEqual(set(dx[0]["blocks"].values()), {"OS 6"})
+
+
+def crossover_band():
+    """Two switches numbered 7, joined C to C: a single crossover between two level tracks."""
+    end = lambda s, io: dict(kind="end", sub="bumper", label="", ins={"E": s} if io else {}, outs={} if io else {"E": s})  # noqa: E731
+    nodes = {
+        "W1": end("s1", False), "W2": end("s3", False), "E1": end("s2", True), "E2": end("s4", True),
+        "P": dict(kind="switch", label="7", hand=1, ins={"A": "s1"}, outs={"B": "s2", "C": "x"}),
+        "Q": dict(kind="switch", label="7", hand=1, ins={"B": "s3", "C": "x"}, outs={"A": "s4"}),
+    }
+    st = lambda a, b, name, main: dict(src=a, dst=b, name=name, main=main, hidden=False, link=False, edge="", cm=1.0)  # noqa: E731
+    strands = {"s1": st(("W1", "E"), ("P", "A"), "North", True), "s2": st(("P", "B"), ("E1", "E"), "North", True),
+               "s3": st(("W2", "E"), ("Q", "B"), "South", False), "s4": st(("Q", "A"), ("E2", "E"), "South", False),
+               "x": st(("P", "C"), ("Q", "C"), "", False)}
+    drawn = {"s1": [(0, 0), (2, 0)], "s2": [(2, 0), (6, 0)], "x": [(2, 0), (3, 1)], "s3": [(0, 1), (3, 1)],
+             "s4": [(3, 1), (6, 1)]}
+    return [("Test level", dict(nodes=nodes, strands=strands, _drawn=drawn), {})]
+
+
+class Crossover(unittest.TestCase):
+    def test_two_switches_of_one_number_are_one_single_crossover(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            P = le.panel(crossover_band(), {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 7"},
+                                                     "os": {"P": "OS 7a", "Q": "OS 7b"}}})
+        self.assertEqual(len(P.turnouts), 1)
+        t = P.turnouts[0]
+        self.assertEqual(t["type"], "RH_XOVER")           # the joining track slopes down to the right
+        self.assertEqual(t["name"], "Switch 7")
+        self.assertEqual(t["blocks"], {"A": "OS 7a", "B": "OS 7a", "C": "OS 7b", "D": "OS 7b"})
+        self.assertEqual(P.turnout_of[(0, "P")][1], {"A": "A", "B": "B"})
+        self.assertEqual(P.turnout_of[(0, "Q")][1], {"B": "D", "A": "C"})
+        self.assertFalse(P.strand_segments[(0, "x")])      # the joining track is inside the crossover
+        mid_ab = ((t["pts"]["A"][0] + t["pts"]["B"][0]) / 2, t["pts"]["A"][1])
+        west = min(p["xy"][0] for p in P.points.values())
+        self.assertAlmostEqual(mid_ab[0] - west, 2 * le.CELL)     # the diagonal leaves where switch P stands
+
+    def test_two_names_for_one_crossover_stop(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            with self.assertRaises(SchematicError):
+                le.panel(crossover_band(), {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 8"}}})
+
+
+class Names(unittest.TestCase):
+    NAMES = {"Lower": {"turnouts": {"S1": "Turnout One"}, "os": {"S1": "OS One"}, "normal": {"S4": "C"},
+                       "blocks": {"e1": ["Main West 1", "Main West 2"]}}}
+
+    def test_names_reach_the_panel(self):
+        P = panel(self.NAMES)
+        lower = next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
+        by = {t["ident"]: t for t in P.turnouts}
+        t = by[P.turnout_of[(lower, "S1")][0]]
+        self.assertEqual(t["name"], "Turnout One")
+        self.assertEqual(t["blocks"]["A"], "OS One")
+        self.assertEqual(by[P.turnout_of[(lower, "S4")][0]]["continuing"], "4")      # normal on leg C
+        segs = {s["ident"]: s for s in P.segments}
+        blocks = [segs[k]["block"] for k in P.strand_segments[(lower, "e1")]]
+        self.assertEqual(blocks[0], "Main West 1")                  # from switch 1 (src) to switch 2
+        self.assertEqual(blocks[-1], "Main West 2")
+        self.assertEqual(blocks, sorted(blocks))
+        el = element(P)
+        self.assertIn("Turnout One", {x.get("turnoutname") for x in el.findall("layoutturnout")})
+
+    def test_default_names(self):
+        P = panel()
+        lower = next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
+        segs = {s["ident"]: s for s in P.segments}
+        block = lambda bi, sid: {segs[k]["block"] for k in P.strand_segments[(bi, sid)]}      # noqa: E731
+        self.assertEqual(block(lower, "e1"), {"Main West"})
+        self.assertEqual(block(lower, "e3"), {"Main"})
+        self.assertEqual(block(lower, "e7"), {"Main 2"})             # Main on both sides of the crossover: unique
+        self.assertEqual(block(lower, "e12.1"), {"Loop"})            # a turnback shares its track's block
+        upper = 1 - lower
+        self.assertEqual(block(upper, "e10y"), block(lower, "e10x"))  # one track across connector A
+        self.assertFalse(any(t["name"] for t in P.turnouts))
+
+    def test_names_for_a_band_that_is_not_there_stop(self):
+        with self.assertRaises(SchematicError):
+            le.panel(bands(), {"Nowhere": {}})
+
+    def test_bad_normal_leg_stops(self):
+        with self.assertRaises(SchematicError):
+            le.panel(bands(), {"Lower": {"normal": {"S4": "D"}}})
+
+
+class Ends(unittest.TestCase):
+    def test_connector_and_helix_are_joined_hidden(self):
+        P = panel()
+        self.assertEqual(len(P.joins), 2)                 # connector A and the helix track Summit
+        by = {s["ident"]: s for s in P.segments}
+        for j in P.joins:
+            self.assertTrue(by[j]["hidden"])
+            for name, typ in by[j]["ends"]:
+                self.assertEqual(P.points[name]["type"], "ANCHOR")
+        bumpers = sum(1 for p in P.points.values() if p["type"] == "END_BUMPER")
+        ends = sum(1 for _, b, _ in bands() for d in b["nodes"].values() if d["kind"] == "end")
+        self.assertEqual(bumpers, ends - 4)
+        self.assertEqual(len(P.shapes), 4)                # two helix circles and two connector circles
+        texts = {lb["text"] for lb in P.labels}
+        self.assertIn("A", texts)
+        self.assertIn("HELIX TO THE OTHER LEVEL", texts)
+        self.assertIn("UPPER LEVEL", texts)
+
+    def test_bands_stack_top_to_bottom(self):
+        P = panel()
+        ys = defaultdict(list)
+        for (bi, sid), segs in P.strand_segments.items():
+            for k in segs:
+                for name, typ in next(s for s in P.segments if s["ident"] == k)["ends"]:
+                    if name in P.points:
+                        ys[bi].append(P.points[name]["xy"][1])
+        self.assertLess(max(ys[0]), min(ys[1]))
+
+
+class Xml(unittest.TestCase):
+    def test_deterministic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp) / "a.xml", Path(tmp) / "b.xml"
+            le.write(panel(), a, "Generated")
+            le.write(le.panel(bands()), b, "Generated")
+            self.assertEqual(a.read_text(), b.read_text())
+            root = ET.parse(a).getroot()
+        self.assertEqual(root.tag, "LayoutEditor")
+        self.assertEqual(root.get("name"), "Generated")
+        self.assertEqual(root.find("layoutTrackDrawingOptions").get("name"), "Generated")
+        shape = root.find("layoutShape")
+        self.assertEqual(len(shape.findall("points/point")), 8)
+
+    def test_cli(self):
+        f = helpers.data_with_signals()
+        with tempfile.TemporaryDirectory() as tmp:
+            graph = Path(tmp) / "graph.json"
+            graph.write_text(json.dumps(helpers.graph()))
+            out = Path(tmp) / "le.xml"
+            run = subprocess.run([sys.executable, "-m", "schematic", "le", str(out), "--data", str(f),
+                                  f"{graph}:example", "--panel", "Example", "--band", "Lower"],
+                                 capture_output=True, text=True, cwd=helpers.PLUGIN, timeout=120)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertIn("Lower level", run.stdout)
+            self.assertNotIn("Upper level", run.stdout)
+            self.assertEqual(ET.parse(out).getroot().get("name"), "Example")
+
+if __name__ == "__main__":
+    unittest.main()
