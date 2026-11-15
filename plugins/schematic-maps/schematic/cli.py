@@ -5,7 +5,8 @@
     python3 -m schematic signals TABLES.xml GRAPH.json NAME OUT.json --data DIR [--numbers ..] [--lengths ..]
     python3 -m schematic draw OUT.svg --data DIR GRAPH.json:NAME [GRAPH.json:NAME ...] [--no-preferences]
     python3 -m schematic detail OUT --data DIR GRAPH.json:NAME ... [--station NAME ...] [--switches N ... --name TITLE]
-    python3 -m schematic cats OUT.xml --data DIR GRAPH.json:NAME ... [--band TITLE ...]  a CATS Designer panel
+    python3 -m schematic cats OUT.xml --data DIR GRAPH.json:NAME ... [--band TITLE ...] [--bindings FILE.json]
+                              [--templates-from PANEL.xml]               a CATS Designer panel
     python3 -m schematic report --data DIR GRAPH.json:NAME ...          rule checks and drawing faults
     python3 -m schematic fingerprint OUT.json --data DIR GRAPH.json:NAME ...
     python3 -m schematic check DRAWING.svg [--list]                     label faults in a finished SVG
@@ -89,12 +90,14 @@ def run(argv=None):
     p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
     p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
 
-    p = sub.add_parser("cats", help="a CATS Designer panel (XML) from the solved bands, without IO bindings")
+    p = sub.add_parser("cats", help="a CATS Designer panel (XML) from the solved bands")
     p.add_argument("out")
     p.add_argument("--data", required=True)
     p.add_argument("inputs", nargs="+", metavar="GRAPH.json:NAME")
     p.add_argument("--band", action="append", help="draw only bands whose title starts with this (repeat; default all)")
     p.add_argument("--discipline", default="CTC", choices=cats.DISCIPLINES, help="the blocks' CATS discipline (default CTC)")
+    p.add_argument("--bindings", help="JSON: switch routes, block sensors and names, masts (see the README)")
+    p.add_argument("--templates-from", help="a CATS panel whose SIGNALTEMPLATE and JMRINAME elements are copied in")
     p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
     p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
 
@@ -152,8 +155,15 @@ def run(argv=None):
             bands = [b for b in s.bands if not a.band or any(b[0].startswith(w) for w in a.band)]
             if not bands:
                 raise SchematicError("no band title starts with " + ", ".join(a.band))
-            pnl = cats.panel(bands)
-            cats.write(pnl, a.out, a.discipline)
+            bindings = None
+            if a.bindings:
+                try:
+                    bindings = json.load(open(a.bindings, encoding="utf-8"))
+                except (OSError, ValueError) as e:
+                    raise SchematicError(f"{a.bindings}: cannot read the bindings ({e})") from None
+            pnl = cats.panel(bands, bindings=bindings)
+            header = cats.header_from(a.templates_from) if a.templates_from else ()
+            cats.write(pnl, a.out, a.discipline, header)
             print(", ".join(t for t, _, _ in bands) + ": " + cats.summary(pnl))
             print("\n".join(pnl.log))
         elif a.cmd == "report":
