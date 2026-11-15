@@ -494,5 +494,114 @@ class Bindings(unittest.TestCase):
             self.assertIn("cannot read it as a CATS panel", r.stderr)
 
 
+MASTS = {"masts": {"M12C": {}, "M1A": {}, "M2E": {}}}
+
+
+def compact():
+    if "cats1" not in helpers._cache:
+        helpers._cache["cats1"] = cats.panel(helpers.build().bands, scale=1, bindings=MASTS)
+    return helpers._cache["cats1"]
+
+
+class Compact(unittest.TestCase):
+    """One cell per grid unit (--cells-per-unit 1), to fit a screen at CATS's fixed 30 pixel grid."""
+
+    def test_half_the_size_and_the_same_track_switches_and_blocks(self):
+        P, wide = compact(), cats.panel(helpers.build().bands, bindings=MASTS)
+        cols, rows = cats.shown(P)
+        self.assertLessEqual(cols, cats.shown(wide)[0] * 0.6)
+        self.assertLessEqual(rows, cats.shown(wide)[1] * 0.7)
+        pieces = set((c, t) for c, ts in P.cells.items() for t in ts)
+        self.assertEqual(component(links(P), next(iter(sorted(pieces)))), pieces)     # still one piece of track
+        self.assertEqual(len(P.points), len(wide.points))
+        for (cell, edge), pt in P.points.items():
+            self.assertEqual(len(pt["routes"]), 2, pt)
+            self.assertEqual(len([t for t in P.cells[cell] if edge in cats.ENDS[t]]), 2, (cell, edge))
+        self.assertEqual(len(P.shared), len(wide.shared))
+        # every switch keeps its own OS block: 3 and 8 (one unit of level track apart) get a widened column
+        self.assertEqual(sorted(n for n in P.names.values() if n.startswith("OS")),
+                         sorted(n for n in wide.names.values() if n.startswith("OS")))
+        self.assertEqual(P.log, ["label 'MAIN WEST' at (5, 11) UPCENT crosses 1 track lines, signals or labels"])
+
+    def test_a_crossover_one_row_deep_crosses_between_the_rows(self):
+        P = compact()
+        (a, ea), (b, eb) = sorted(P.crossings)
+        self.assertEqual((ea, eb), ("BOTTOM", "TOP"))
+        self.assertEqual((b[0], b[1] - 1), a)
+        self.assertEqual(sorted(P.cells[a]), ["HORIZONTAL", "LOWERBACKSLASH", "LOWERSLASH"])
+        self.assertEqual(sum(1 for pt in P.points.values() if pt["switch"] == "6"), 4)
+        root = cats.to_xml(P)
+        x = [se for sec in root.iter("SECTION") for se in sec.findall("SEC_EDGE") if se.find("CROSSINGEDGE") is not None]
+        self.assertEqual([se.find("CROSSINGEDGE").attrib for se in x], [{"LEFT": "NO_BLOCK", "RIGHT": "NO_BLOCK"}] * 2)
+
+    def test_a_block_boundary_may_fall_mid_slope_and_masts_keep_their_blocks(self):
+        P, wide = compact(), cats.panel(helpers.build().bands, bindings=MASTS)
+        bounds = cats.boundaries(P)
+        self.assertTrue(any(e in ("TOP", "BOTTOM") for _, e in bounds))
+        protects = lambda Q: {s["mast"]: Q.names[cats.boundaries(Q)[k]] for k, s in Q.signals.items()}
+        self.assertEqual(protects(P), protects(wide))
+        self.assertEqual(len(P.signals), 3)
+        for k, s in P.signals.items():
+            self.assertEqual(s["loc"], cats.SIG_LOCATION[k[1]])
+
+    def test_labels_share_cells_with_track_without_covering_it(self):
+        P = compact()
+        root = cats.to_xml(P)
+        labels = {s.get("NAME") for s in root.iter("SEC_NAME")}
+        switches = {d["label"] for _, b, _ in helpers.build().bands for d in b["nodes"].values()
+                    if d["kind"] in ("switch", "dx") and d.get("label")}
+        self.assertTrue(switches <= labels, switches - labels)
+        self.assertTrue({"Y-1", "PASSING", "LOOP LEAD"} <= labels)
+        self.assertTrue(any(cell in P.cells for cell in P.labels))       # names on their track
+        lines, boxes = cats.track_lines(P), []
+        for cell, (text, loc, font) in sorted(P.labels.items()):
+            box = cats.text_box(cell, loc, text, font)
+            if text == "MAIN WEST":                                      # the one logged clash
+                continue
+            self.assertFalse([ln for ln in lines if cats.crosses(box, ln)], text)
+            boxes.append((text, box))
+        for i, (t1, b1) in enumerate(boxes):
+            for t2, b2 in boxes[i + 1:]:
+                self.assertFalse(cats.overlaps(b1, b2), (t1, t2))
+
+    def test_one_slope_takes_a_widened_columns_extra_cell_at_a_bend_or_a_free_end(self):
+        self.assertEqual(cats.stretched([(0, 0), (3, 0), (6, 2)]), [(0, 0), (3, 0), (4, 0), (6, 2)])
+        self.assertEqual(cats.stretched([(0, 2), (3, 0), (6, 0)]), [(0, 2), (2, 0), (3, 0), (6, 0)])
+        self.assertEqual(cats.stretched([(0, 0), (4, 2)]), [(0, 0), (1, 1), (3, 1), (4, 2)])
+        self.assertIsNone(cats.stretched([(0, 0), (2, 1)]))                  # points to points, one row deep
+        self.assertEqual(cats.stretched([(0, 0), (2, 1)], (True, False)), [(0, 0), (1, 0), (2, 1)])
+        self.assertEqual(cats.stretched([(0, 0), (2, 1)], (False, True)), [(0, 0), (1, 1), (2, 1)])
+
+    def test_fit(self):
+        P = compact()
+        cols, rows = cats.shown(P)
+        self.assertEqual(cats.check_fit(P, cols, rows), (cols, rows))
+        with self.assertRaisesRegex(cats.SchematicError, rf"shows {cols} x {rows} cells.*1 columns and 0 rows over"):
+            cats.check_fit(P, cols - 1, rows)
+        self.assertEqual(cats.parse_fit("63x36"), (63, 36))
+        for bad in ("63", "0x5", "axb"):
+            with self.assertRaisesRegex(cats.SchematicError, "COLSxROWS"):
+                cats.parse_fit(bad)
+        with self.assertRaisesRegex(cats.SchematicError, "whole number of cells"):
+            cats.panel(helpers.build().bands, scale=0)
+
+    def test_command(self):
+        f = helpers.data_with_signals()
+        with tempfile.TemporaryDirectory() as tmp:
+            import json
+            graph = Path(tmp) / "graph.json"
+            graph.write_text(json.dumps(helpers.graph()))
+            out = Path(tmp) / "panel.xml"
+            run = lambda *extra: subprocess.run([sys.executable, "-m", "schematic", "cats", str(out), "--data", str(f),
+                                                 f"{graph}:example", "--cells-per-unit", "1", *extra],
+                                                cwd=helpers.PLUGIN, capture_output=True, text=True, timeout=120)
+            r = run("--fit", "63x36")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertRegex(r.stdout, r"shows \d+ x \d+ cells \(fit 63 x 36\)")
+            r = run("--fit", "10x10")
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("more than the 10 x 10", r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

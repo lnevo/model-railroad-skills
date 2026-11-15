@@ -10,6 +10,13 @@ LOWERBACKSLASH and (X, Y + 1) UPPERBACKSLASH. So every 45 degree leg lands on wh
 one cell edge (its points), and SCALE = 2 leaves a free row under every track for its name. A double crossover is
 drawn as its X with a crossing edge in the middle; a turnback is a vertical run in one column.
 
+Compact: `panel(bands, scale=1)` (the command's --cells-per-unit 1) is one cell per grid unit, to fit a screen at
+CATS's fixed 30 pixel grid. There is no free row, so labels share cells with track and are placed together at the
+end (place_labels) where they cover no track line, signal or label; OS blocks reach one cell (half a 45 degree
+step) past the points; a one-unit level track between two switches gets a second cell in its grid column
+(widened_columns), so their OS blocks still part; a double crossover between adjacent rows is one column wide with
+its crossing on the edge between the rows. shown(P) is the cells CATS lays out on screen; check_fit tests it.
+
 Blocks: one per strand (its track name, or the two switch numbers it joins), one OS block per switch (shared by
 switches of the same number joined by a track), reaching one step past the points on every leg, so no block
 boundary falls on a points or crossing edge. Each switch's points carry two ROUTEINFO, normal being leg B (the
@@ -36,6 +43,7 @@ on the edge of the block it protects (the side toward the switch or end its move
 that block, on the right-hand side of the move.
 """
 import copy
+import math
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -48,6 +56,7 @@ OS_REACH = 1            # steps an OS block reaches past a switch's points on ea
 DISCIPLINES = ("CTC", "ABS", "APB-2", "APB-3", "DTC", "Unknown")    # the values CATS reads (cats/layout/Discipline.java)
 MARGIN = 2              # cells left of and above the drawing, for labels
 BAND_GAP = 4            # empty rows between bands
+COMPACT_GAP = 3         # the same on a compact panel (one cell per grid unit)
 ENDS = {
     "HORIZONTAL": ("LEFT", "RIGHT"),
     "VERTICAL": ("TOP", "BOTTOM"),
@@ -99,6 +108,94 @@ def unit_steps(pts):
     return out
 
 
+def strand_pieces(steps):
+    """[(cell, track, start, end)] of a strand's unit steps, in order along it; start and end are measured in steps
+    (a 45 degree step is two pieces of half a step each)."""
+    out = []
+    for i, (a, b) in enumerate(steps):
+        ps = step_pieces(a, b)
+        if a[0] > b[0]:
+            ps = ps[::-1]
+        for h, (cell, track) in enumerate(ps):
+            out.append((cell, track, i + h / len(ps), i + (h + 1) / len(ps)))
+    return out
+
+
+def free_ends(band, sid):
+    """(start, end): whether level track may be added at each end of a strand without meeting another track there:
+    a track end, or a switch's A leg (alone on its side of the points)."""
+    nodes = band["nodes"]
+    ok = lambda end: nodes[end[0]]["kind"] == "end" or (nodes[end[0]]["kind"] == "switch" and end[1] == "A")
+    s = band["strands"][sid]
+    return ok(s["src"]), ok(s["dst"])
+
+
+def stretched(pts, free=(False, False)):
+    """The polyline (CATS points) with each slope made wider than it is deep by a widened column given level track
+    for the difference: at the bend where it leaves or meets a level run, else in its middle, else at a `free` end
+    of the strand (free_ends). None when there is no such place (a one-row slope from switch points to switch
+    points)."""
+    q = [pts[0]] + [b for a, b in zip(pts, pts[1:]) if b != a]
+    segs = list(zip(q, q[1:]))
+    level = lambda i: 0 <= i < len(segs) and segs[i][0][1] == segs[i][1][1]
+    out = [q[0]]
+    for i, (a, b) in enumerate(segs):
+        w, dy = b[0] - a[0], b[1] - a[1]
+        f = abs(w) - abs(dy)
+        if dy == 0 or f <= 0:            # level, or 45 degrees already (steeper is unit_steps' error)
+            out.append(b)
+            continue
+        sx, sy = (1 if w > 0 else -1), (1 if dy > 0 else -1)
+        if level(i - 1):
+            out += [(a[0] + sx * f, a[1]), b]
+        elif level(i + 1):
+            out += [(b[0] - sx * f, b[1]), b]
+        elif abs(dy) >= 2:
+            k = abs(dy) // 2
+            m = (a[0] + sx * k, a[1] + sy * k)
+            out += [m, (m[0] + sx * f, m[1]), b]
+        elif i == 0 and free[0]:
+            out += [(a[0] + sx * f, a[1]), b]
+        elif i == len(segs) - 1 and free[1]:
+            out += [(b[0] - sx * f, b[1]), b]
+        else:
+            return None
+    return out
+
+
+def widened_columns(title, band, drawn, reach, log):
+    """{grid column: extra cells} for a compact panel: a level track between two switches gets the cells it needs
+    for their OS blocks to part (each reaching its `reach` cells), added to its first grid column. A column is left
+    alone (logged) when a slope across it has no level track to give the extra cells to."""
+    nodes, strands = band["nodes"], band["strands"]
+    sw = lambda n: nodes[n]["kind"] in ("switch", "dx")
+    widen = {}
+    for sid, s in sorted(strands.items()):
+        u, v = s["src"][0], s["dst"][0]
+        line = drawn.get(sid) or []
+        if not line or not (sw(u) and sw(v)) or len({p[1] for p in line}) != 1:
+            continue
+        short = reach.get(u, 0) + reach.get(v, 0) - int(round(abs(line[-1][0] - line[0][0])))
+        if short > 0:
+            c = math.floor(min(p[0] for p in line))
+            widen[c] = max(widen.get(c, 0), short)
+    while widen:
+        extra = lambda gx: sum(w for c, w in widen.items() if c + 1 <= gx)
+        bad = set()
+        for sid, line in sorted(drawn.items()):
+            if sid in strands and line and \
+                    stretched([(p[0] + extra(p[0]), p[1]) for p in line], free_ends(band, sid)) is None:
+                lo, hi = min(p[0] for p in line), max(p[0] for p in line)
+                bad |= {c for c in widen if lo <= c < hi}
+        if not bad:
+            break
+        for c in sorted(bad):
+            log.append(f"{title}: grid column {c:g} is not widened (a one-row slope from switch to switch "
+                       "crosses it), so the switches at the ends of its short track share one OS block")
+            del widen[c]
+    return widen
+
+
 def touching(point, other):
     """(cell, edge) of a step's piece that ends at `point`; `other` is the step's other point."""
     return ((point[0], point[1]), "LEFT") if other[0] > point[0] else ((point[0] - 1, point[1]), "RIGHT")
@@ -114,6 +211,7 @@ class Panel:
         self.labels = {}                    # cell -> (text, loc, font)
         self.names = {}                     # block root -> unique block name, set when the panel is complete
         self.log = []
+        self.pending = None                 # compact panels: label requests, placed at the end
         self._parent = {}
         # bindings (empty without them)
         self.block_info = {}                # block root -> {"station", "discipline", "occupied", "unoccupied"}
@@ -136,8 +234,13 @@ class Panel:
         if a != b:
             self._parent[max(a, b)] = min(a, b)
 
-    def label(self, cands, text, font="FONT_LABEL"):
-        """Put `text` in the first candidate (cell, loc) with no label, preferring cells with no track."""
+    def label(self, cands, text, font="FONT_LABEL", rank=9):
+        """Put `text` in the first candidate (cell, loc) with no label, preferring cells with no track. On a compact
+        panel (one cell per grid unit) the labels are placed together at the end instead, by place_labels, lower
+        `rank` first, where nothing drawn is in their way."""
+        if self.pending is not None:
+            self.pending.append((rank, len(self.pending), cands, text, font))
+            return None
         free = [c for c in cands if c[0] not in self.labels and c[0][0] >= 1 and c[0][1] >= 1]
         pick = next((c for c in free if c[0] not in self.cells), None) or (free[0] if free else None)
         if pick is None:
@@ -167,13 +270,17 @@ def node_ref(d):
 
 def panel(bands, scale=SCALE, bindings=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom, bound to the layout by `bindings`."""
-    if scale % 2:
-        raise SchematicError("the CATS scale must be even, so a double crossover's X lands on whole cells")
+    if not isinstance(scale, int) or scale < 1:
+        raise SchematicError(f"the CATS scale is a whole number of cells per grid unit (1 or more), not {scale!r}")
+    compact = scale == 1
     bindings = check_bindings(bindings or {})
     sw_bind = switch_bindings(bands, bindings["switches"])
     P = Panel()
+    if compact:
+        P.pending = []
     chains, turn_bounds = {}, {}     # (band, strand) -> its steps and their blocks; (band, turnback) -> its boundary
-    top = MARGIN + 1
+    top = 1 if compact else MARGIN + 1
+    left_col = 1 if compact else MARGIN + 1
     ends = []                  # (band title, node, data, strand name, (cell, edge), block key of the end step)
     used_names = defaultdict(int)
 
@@ -188,15 +295,15 @@ def panel(bands, scale=SCALE, bindings=None):
             raise SchematicError(f"{title}: the band draws no track")
         x0 = min(p[0] for v in drawn.values() for p in v)
         r0 = min(p[1] for v in drawn.values() for p in v)
-        ox = MARGIN + 1 - int(round(scale * x0))
-        oy = top + 2 - int(round(scale * r0))
-        pt = lambda p: (ox + int(round(scale * p[0])), oy + int(round(scale * p[1])))
+        ox = left_col - math.floor(scale * x0)
+        oy = top + 2 - math.floor(scale * r0)
         tag = f"b{bi}:"
 
         # the band title and which way is east
         left, right = opts.get("left", "West"), opts.get("right", "East")
-        P.label([((MARGIN, top), "LOWLEFT"), ((MARGIN, top - 1), "LOWLEFT")],
-                f"{band_key_name(title).upper()}   {left.upper()} <-   -> {right.upper()}", "FONT_TITLE")
+        tx = 1 if compact else MARGIN
+        P.label([((tx, top), "LOWLEFT"), ((tx, top - 1), "LOWLEFT")],
+                f"{band_key_name(title).upper()}   {left.upper()} <-   -> {right.upper()}", "FONT_TITLE", rank=0)
 
         # OS blocks: a switch's own, or shared by switches of one number joined by a track
         def os_key(n):
@@ -213,7 +320,8 @@ def panel(bands, scale=SCALE, bindings=None):
                 if not (bu and bv and bu != bv):        # bound to two blocks: they stay apart
                     P.union(os_key(u), os_key(v))
 
-        # how far each switch's OS reaches along its tracks, in steps
+        # how far each switch's OS reaches along its tracks: in steps, or on a compact panel in cells (half a
+        # 45 degree step), so that a one-unit slope between two switches can still part their OS blocks
         reach = {}
         for n, d in nodes.items():
             if d["kind"] == "switch":
@@ -221,7 +329,12 @@ def panel(bands, scale=SCALE, bindings=None):
             elif d["kind"] == "dx":
                 (iu, _), (il, _) = dx_tracks(nodes, n)
                 r1, r2 = sorted((band["R"]["srow"][iu], band["R"]["srow"][il]))
-                reach[n] = int(round(scale * (r2 - r1))) // 2 + OS_REACH     # the X, then past its points
+                reach[n] = (int(round(scale * (r2 - r1))) + 1) // 2 + OS_REACH     # the X, then past its points
+
+        # a compact panel widens the grid columns of level tracks too short to part the OS blocks at their ends
+        widen = widened_columns(title, band, drawn, reach, P.log) if compact else {}
+        extra = lambda gx: sum(w for c, w in widen.items() if c + 1 <= gx)
+        pt = lambda p: (ox + int(round(scale * p[0])) + extra(p[0]), oy + int(round(scale * p[1])))
 
         # strands
         turn_of, info = {}, {}
@@ -230,34 +343,39 @@ def panel(bands, scale=SCALE, bindings=None):
                 if nodes[t]["kind"].startswith("turn"):
                     turn_of.setdefault(t, []).append(sid)
         for sid, s in sorted(strands.items()):
-            pts = [pt(p) for p in drawn[sid]]
+            pts = stretched([pt(p) for p in drawn[sid]], free_ends(band, sid)) if widen else \
+                [pt(p) for p in drawn[sid]]
             steps = unit_steps(pts)
             if not steps:
                 raise SchematicError(f"{title}: track {s['name'] or sid} is drawn as a single point")
+            pieces = strand_pieces(steps)
             u, v = s["src"][0], s["dst"][0]
             track_key = ("track", tag + sid)
             P.blocks.setdefault(track_key, None)
-            owner = [track_key] * len(steps)
-            ru, rv = reach.get(u, 0), reach.get(v, 0)
-            for i in range(min(ru, len(steps))):
+            owner = [track_key] * len(pieces)
+            if compact:                         # a compact panel's reach is in cells, else in steps
+                ru, rv = reach.get(u, 0), reach.get(v, 0)
+            else:
+                ru = sum(1 for pc in pieces if pc[3] <= reach.get(u, 0))
+                rv = sum(1 for pc in pieces if len(steps) - pc[2] <= reach.get(v, 0))
+            for i in range(min(ru, len(pieces))):
                 owner[i] = os_key(u)
-            for i in range(min(rv, len(steps))):
-                j = len(steps) - 1 - i
+            for i in range(min(rv, len(pieces))):
+                j = len(pieces) - 1 - i
                 if owner[j] != track_key and owner[j] != os_key(v):
                     P.union(owner[j], os_key(v))
                 owner[j] = os_key(v)
             if track_key not in owner:
                 del P.blocks[track_key]
-            for (a, b), key in zip(steps, owner):
-                for cell, track in step_pieces(a, b):
-                    P.add(cell, track, key, f"track {s['name'] or sid}")
+            for (cell, track, _, _), key in zip(pieces, owner):
+                P.add(cell, track, key, f"track {s['name'] or sid}")
             if track_key in P.blocks:
                 P.blocks[track_key] = s["name"] or f"{node_ref(nodes[u])}-{node_ref(nodes[v])}"
             for n, end_pt, nxt, key in ((u, pts[0], steps[0][1], owner[0]), (v, pts[-1], steps[-1][0], owner[-1])):
                 d = nodes[n]
                 if d["kind"] == "end":
                     ends.append((title, n, d, s["name"], touching(end_pt, nxt), key))
-            info[sid] = dict(steps=steps, owner=owner, pts=pts)
+            info[sid] = dict(steps=steps, pieces=pieces, owner=owner, pts=pts)
             chains[(bi, sid)] = info[sid]
 
         # turnbacks: a vertical run in one column, part of the tracks they join
@@ -295,28 +413,37 @@ def panel(bands, scale=SCALE, bindings=None):
             (iu, _), (il, _) = dx_tracks(nodes, n)
             r1, r2 = sorted((band["R"]["srow"][iu], band["R"]["srow"][il]))
             xc, (y1, y2) = pt((x[n], 0))[0], (pt((0, r1))[1], pt((0, r2))[1])
-            h = (y2 - y1) // 2
-            # the X spans h cells each side of its centre, and its points need one level step beyond that
+            depth = y2 - y1
+            a, b = xc - (depth + 1) // 2, xc - (depth + 1) // 2 + depth     # the X runs from point a to point b
+            # its points need one level step beyond the X on each through track
             for yy in (y1, y2):
-                for xx in range(xc - h - OS_REACH, xc + h + OS_REACH):
+                for xx in range(a - OS_REACH, b + OS_REACH):
                     here = P.cells.get((xx, yy), {}).get("HORIZONTAL")
                     if here is None or P.find(here) != P.find(os_key(n)):
                         raise SchematicError(
                             f"double crossover {d.get('label') or n}: its through tracks must run level for "
-                            f"{(h + OS_REACH) / scale:g} grid units each side of it (rows {r1} and {r2}, column {x[n]:g})")
-            for a, b in (((xc - h, y1), (xc + h, y2)), ((xc - h, y2), (xc + h, y1))):
-                for st in unit_steps([a, b]):
+                            f"{((depth + 1) // 2 + OS_REACH) / scale:g} grid units each side of it "
+                            f"(rows {r1} and {r2}, column {x[n]:g})")
+            for p, q in (((a, y1), (b, y2)), ((a, y2), (b, y1))):
+                for st in unit_steps([p, q]):
                     for cell, track in step_pieces(*st):
                         P.add(cell, track, os_key(n), f"double crossover {d.get('label')}")
-            P.crossings |= {((xc - 1, y1 + h), "RIGHT"), ((xc, y1 + h), "LEFT")}     # the middle of the X
-            for yy, xp, frog in ((y1, xc - h, "LEFT"), (y2, xc - h, "LEFT"), (y1, xc + h, "RIGHT"), (y2, xc + h, "RIGHT")):
+            h = depth // 2      # the middle of the X: a column edge when the X is an even number of rows deep,
+            if depth % 2 == 0:  # else the edge between two rows
+                P.crossings |= {((a + h - 1, y1 + h), "RIGHT"), ((a + h, y1 + h), "LEFT")}
+            else:
+                P.crossings |= {((a + h, y1 + h), "BOTTOM"), ((a + h, y1 + h + 1), "TOP")}
+            for yy, xp, frog in ((y1, a, "LEFT"), (y2, a, "LEFT"), (y1, b, "RIGHT"), (y2, b, "RIGHT")):
                 cell = (xp, yy) if frog == "LEFT" else (xp - 1, yy)
                 routes = [(ENDS[t][1] if ENDS[t][0] == frog else ENDS[t][0], t == "HORIZONTAL")
                           for t in P.cells[cell] if frog in ENDS[t]]
                 P.points[(cell, frog)] = dict(switch=d.get("label") or n, routes=sorted(routes))
             if d.get("label"):
-                P.label([((xc, y1 - 1), "LOWCENT"), ((xc - 1, y1 - 1), "LOWCENT"), ((xc, y2 + 1), "UPCENT")],
-                        d["label"])
+                cands = [((xc, y1 - 1), "LOWCENT"), ((xc - 1, y1 - 1), "LOWCENT"), ((xc, y2 + 1), "UPCENT")]
+                if compact:                     # over the X, in its top through track's cells, else under it
+                    cands = [((xx, y1), "UPCENT") for xx in range(a, b)] + \
+                        [((xx, y2), "LOWCENT") for xx in range(a, b)] + cands
+                P.label(cands, d["label"], rank=1)
 
         # switch points
         for n, d in sorted(nodes.items()):
@@ -346,9 +473,16 @@ def panel(bands, scale=SCALE, bindings=None):
             shown = (d.get("label") or "") + (d.get("facing") or "")
             if shown:
                 px, py = cell
-                P.label([((px, py + 1), "UPCENT"), ((px, py - 1), "LOWCENT"), ((px + 1, py + 1), "UPCENT"),
-                         ((px - 1, py + 1), "UPCENT"), ((px + 1, py - 1), "LOWCENT"), ((px - 1, py - 1), "LOWCENT")],
-                        shown)
+                cands = [((px, py + 1), "UPCENT"), ((px, py - 1), "LOWCENT"), ((px + 1, py + 1), "UPCENT"),
+                         ((px - 1, py + 1), "UPCENT"), ((px + 1, py - 1), "LOWCENT"), ((px - 1, py - 1), "LOWCENT")]
+                if compact:     # beside the points, on the side away from the diverging leg first
+                    heel = neighbour(cell, edge)[0]
+                    up = any("TOP" in ENDS[t] for t in P.cells[cell])
+                    down = any("BOTTOM" in ENDS[t] for t in P.cells[cell])
+                    halves = ["LOWCENT", "UPCENT"] if up and not down else ["UPCENT", "LOWCENT"]
+                    beyond = neighbour(heel, edge)[0]
+                    cands = [(c_, h_) for h_ in halves for c_ in (heel, cell, beyond)] + cands
+                P.label(cands, shown, rank=1)
 
         # track names, in a free cell below the strand's longest level run
         for sid, s in sorted(strands.items()):
@@ -361,9 +495,12 @@ def panel(bands, scale=SCALE, bindings=None):
             xa, xb, y = min(a[0], b[0]), max(a[0], b[0]), a[1]
             mid = (xa + xb) // 2
             cols = sorted(range(xa, xb), key=lambda c: (abs(c - mid), c))
-            P.label([((c, y + 1), "UPCENT") for c in cols] + [((c, y - 1), "LOWCENT") for c in cols], s["name"].upper())
+            cands = [((c, y + 1), "UPCENT") for c in cols] + [((c, y - 1), "LOWCENT") for c in cols]
+            if compact:                         # in the track's own cells, over it first
+                cands = [((c, y), "UPCENT") for c in cols] + [((c, y), "LOWCENT") for c in cols] + cands
+            P.label(cands, s["name"].upper(), rank=3)
 
-        top = max(c[1] for c in P.cells) + BAND_GAP
+        top = max(c[1] for c in P.cells) + (COMPACT_GAP if compact else BAND_GAP)
 
     # end joins and end labels
     by_link, by_helix = defaultdict(list), defaultdict(list)
@@ -394,7 +531,11 @@ def panel(bands, scale=SCALE, bindings=None):
         below = (cell[0], cell[1] + 1)
         # text runs to the right: beside an east end, under a west end (beside it, it would run over the track)
         cands = [(beyond, "LEFTCENT"), (below, "UPLEFT")] if edge == "RIGHT" else [(below, "UPLEFT"), ((cell[0], cell[1] - 1), "LOWLEFT")]
-        P.label(cands, text)
+        if compact:     # also over or under the track running back from the end
+            back = -1 if edge == "RIGHT" else 1
+            cands += [((cell[0] + back * k, cell[1] + dy), loc) for k in range(8)
+                      for dy, loc in ((0, "UPLEFT"), (0, "LOWLEFT"), (1, "UPLEFT"), (-1, "LOWLEFT"))]
+        P.label(cands, text, rank=2)
 
     # block names: unique; an OS block after its switch numbers (several when tracks too short to part them merge it).
     # A block name bound to switches is one block wherever they are, and is never suffixed.
@@ -434,7 +575,106 @@ def panel(bands, scale=SCALE, bindings=None):
     bind_blocks(P, bindings["blocks"], set(by_bound))
     bind_routes(P, sw_bind)
     bind_masts(P, bands, bindings["masts"], chains, turn_bounds)
+    if compact:
+        place_labels(P)
     return P
+
+
+# Label placement on a compact panel, where names share cells with track. CATS draws a label as a JLabel at its
+# cell's LOC_NAME spot (cats/gui/frills/FrillLoc.java) and lets it spill over the cells beside it, so each label is
+# measured at the default 30 pixel grid and put at the first candidate spot where it covers no track line, signal
+# or other label. Text widths are estimates of the CATS fonts (11 point labels, 13 point bold titles).
+GRID_PX = 30
+TEXT_PX = {"FONT_LABEL": (8, 14), "FONT_TITLE": (10, 17)}     # pixels per character, line height
+SIG_PX = 8                                                        # CATS SignalFrill radius
+LOC_XY = {"LEFTUP": ("L", "OU"), "LEFTCENT": ("L", "C"), "LEFTLOW": ("L", "OL"), "LOWLEFT": ("OL", "LO"),
+          "LOWCENT": ("C", "LO"), "LOWRIGHT": ("OR", "LO"), "RIGHTLOW": ("R", "OL"), "RIGHTCENT": ("R", "C"),
+          "RIGHTUP": ("R", "OU"), "UPRIGHT": ("OR", "UP"), "UPCENT": ("C", "UP"), "UPLEFT": ("OL", "UP"),
+          "CENT": ("C", "C")}
+
+
+def frill_box(cell, loc, w, h):
+    """(x0, y0, x1, y1) in pixels of a w x h item at `loc` in `cell`, as CATS's FrillLoc places it."""
+    g, X, Y = GRID_PX, cell[0] * GRID_PX, cell[1] * GRID_PX
+    hx, vy = LOC_XY[loc]
+    x = {"L": X + 1, "OL": X + g // 4, "C": X + (g - w) // 2, "OR": X + 3 * g // 4 - w, "R": X + g - w - 1}[hx]
+    y = {"UP": Y + 1, "OU": Y + g // 4, "C": Y + (g - h) // 2 - 1, "OL": Y + 3 * g // 4 - h, "LO": Y + g - h - 1}[vy]
+    return x, y, x + w, y + h
+
+
+def text_box(cell, loc, text, font):
+    per, h = TEXT_PX.get(font, TEXT_PX["FONT_LABEL"])
+    return frill_box(cell, loc, int(math.ceil(per * len(text))) + 4, h)
+
+
+def track_lines(P):
+    """Every drawn track as a pixel line segment."""
+    h = GRID_PX // 2
+    mid = {"LEFT": (0, h), "RIGHT": (GRID_PX, h), "TOP": (h, 0), "BOTTOM": (h, GRID_PX)}
+    out = []
+    for (x, y), tracks in P.cells.items():
+        for t in tracks:
+            (ax, ay), (bx, by) = (mid[e] for e in ENDS[t])
+            out.append((x * GRID_PX + ax, y * GRID_PX + ay, x * GRID_PX + bx, y * GRID_PX + by))
+    return out
+
+
+def signal_boxes(P):
+    out = []
+    for (cell, _), sg in P.signals.items():
+        heads = int(sg["pantype"][-1])
+        long_ = heads * SIG_PX + SIG_PX
+        w, h = (long_, SIG_PX) if sg["orient"] in ("LEFT", "RIGHT") else (SIG_PX, long_)
+        out.append(frill_box(cell, sg["loc"], w, h))
+    return out
+
+
+def crosses(box, line):
+    """True when the line segment passes through the inside of the box (its ink: the box less a 2 pixel rim)."""
+    x0, y0, x1, y1 = box[0] + 2, box[1] + 2, box[2] - 2, box[3] - 2
+    ax, ay, bx, by = line
+    for i in range(33):
+        f = i / 32
+        px, py = ax + (bx - ax) * f, ay + (by - ay) * f
+        if x0 < px < x1 and y0 < py < y1:
+            return True
+    return False
+
+
+def overlaps(a, b, pad=2):
+    return a[0] < b[2] + pad and b[0] < a[2] + pad and a[1] < b[3] and b[1] < a[3]
+
+
+def place_labels(P):
+    """Place a compact panel's pending labels, lower rank first: each at its first candidate that stays inside the
+    drawing and covers no track, signal or placed label; else at the candidate with the fewest such clashes
+    (logged)."""
+    lines, signals = track_lines(P), signal_boxes(P)
+    right = (max(c[0] for c in P.cells) + 1) * GRID_PX
+    placed = []
+    for _, _, cands, text, font in sorted(P.pending, key=lambda r: r[:2]):
+        best = None
+        for cell, loc in cands:
+            if cell in P.labels or cell[0] < 1 or cell[1] < 1:
+                continue
+            box = text_box(cell, loc, text, font)
+            if box[0] < GRID_PX or box[2] > right:
+                continue
+            clash = sum(crosses(box, ln) for ln in lines) + sum(overlaps(box, sb, 0) for sb in signals) + \
+                sum(overlaps(box, pb) for pb in placed)
+            if best is None or clash < best[0]:
+                best = (clash, cell, loc, box)
+            if clash == 0:
+                break
+        if best is None:
+            P.log.append(f"no room for label {text!r}")
+            continue
+        clash, cell, loc, box = best
+        if clash:
+            P.log.append(f"label {text!r} at {cell} {loc} crosses {clash} track lines, signals or labels")
+        P.labels[cell] = (text, loc, font)
+        placed.append(box)
+    P.pending = None
 
 
 def node_of(key):
@@ -588,16 +828,22 @@ def bind_masts(P, bands, masts, chains, turn_bounds):
         bi, sg, (k, at, piece_cm, start) = hits[0]
         strand = bands[bi][1]["strands"][k]
         c = chains[(bi, k)]
-        steps, owner = c["steps"], [P.find(o) for o in c["owner"]]
-        if strand["src"][0] == start:            # orient the run from the end its move is heading for
+        n = len(c["steps"])
+        # the pieces with their blocks and [start, end] in steps, oriented from the end its move is heading for
+        seq = [(cell, track, a, b, P.find(o)) for (cell, track, a, b), o in zip(c["pieces"], c["owner"])]
+        if strand["src"][0] == start:
             near, far = strand["src"][0], strand["dst"][0]
         elif strand["dst"][0] == start:
-            steps, owner = [(b, a) for a, b in reversed(steps)], owner[::-1]
+            seq = [(cell, track, n - b, n - a, o) for cell, track, a, b, o in reversed(seq)]
             near, far = strand["dst"][0], strand["src"][0]
         else:
             raise SchematicError(f"mast {name}: cannot tell which end of track {strand['name'] or k} it faces")
-        n = len(steps)
-        cands = [(i, touching(steps[i][0], steps[i - 1][0])) for i in range(1, n) if owner[i] != owner[i - 1]]
+        cands = []
+        for (cell, track, _, end, o), (cell2, track2, _, _, o2) in zip(seq, seq[1:]):
+            if o != o2:                          # on the nearer block's piece, at the edge toward the next one
+                edge = next(e for e in ENDS[track] if neighbour(cell, e)[0] == cell2 and
+                            neighbour(cell, e)[1] in ENDS[track2])
+                cands.append((end, (cell, edge)))
         live = lambda b: b is not None and P.find(b[1]) != P.find(b[2])     # halves later merged: no boundary
         tb = turn_bounds.get((bi, far), {}).get(k)
         if live(tb):                             # past the far end: this half's side of the cut
@@ -794,6 +1040,34 @@ def write(P, out, discipline="CTC", header=()):
     with open(out, "w", encoding="utf-8") as f:
         f.write(text)
     return text
+
+
+def shown(P):
+    """(columns, rows) of cells CATS lays out on screen: every column from 1 to the rightmost one with track or a
+    label (column 0 is never used), and the rows from the top to the bottom one with track or a label
+    (cats/gui/Screen.java findBounds)."""
+    cells = list(P.cells) + list(P.labels)
+    return max(c[0] for c in cells), max(c[1] for c in cells) - min(c[1] for c in cells) + 1
+
+
+def check_fit(P, cols, rows):
+    """An error when the panel shows more than cols x rows cells (the screen at CATS's fixed grid size)."""
+    have = shown(P)
+    if have[0] > cols or have[1] > rows:
+        raise SchematicError(f"the panel shows {have[0]} x {have[1]} cells, more than the {cols} x {rows} it must "
+                             f"fit ({max(0, have[0] - cols)} columns and {max(0, have[1] - rows)} rows over)")
+    return have
+
+
+def parse_fit(text):
+    """'COLSxROWS' as (cols, rows)."""
+    try:
+        cols, rows = (int(v) for v in text.lower().split("x"))
+    except ValueError:
+        raise SchematicError(f"--fit is COLSxROWS, such as 63x36, not {text!r}") from None
+    if cols < 1 or rows < 1:
+        raise SchematicError(f"--fit is COLSxROWS with both at least 1, not {text!r}")
+    return cols, rows
 
 
 def summary(P):

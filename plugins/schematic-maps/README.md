@@ -24,7 +24,7 @@ schematic detail details/ --data DIR graph.json:NAME                      one sh
 schematic detail yard.svg --data DIR graph.json:NAME --station "Yard"      one station
 schematic detail pair.svg --data DIR graph.json:NAME --switches 11 12 --name "Pair"   any group of switches
 schematic cats panel.xml --data DIR graph.json:NAME [--band "Main"] [--bindings b.json] [--templates-from desk.xml]
-                                                                         a CATS Designer panel from the same grid
+                        [--cells-per-unit 1] [--fit 63x36]                a CATS Designer panel from the same grid
 schematic le panel.xml --data DIR graph.json:NAME [--names names.json] [--panel NAME]   a JMRI Layout Editor panel
 schematic check sheet.svg --list
 ```
@@ -42,6 +42,8 @@ Mileposts are a preference (`mileposts: true`, or `{"step": 0.25}` in miles) and
 ## CATS panel
 
 `schematic cats` writes a CATS Designer panel (XML) from the solved bands, so a dispatcher panel starts from the same track as the drawing. Each schematic grid unit is two CATS cells, so every 45 degree leg lands on whole cells and each track has a free row below it for its name. Bands stack top to bottom; `--band` keeps the bands whose title starts with the text. It writes the track, switch points with two routes (normal is leg B), a double crossover as its X with a crossing edge, turnbacks as a vertical run, one block per track and one OS block per switch, switch numbers and track names as labels, and logical joins for connector letters and helix tracks that appear on two drawn bands. A turnback joining two differently named tracks is two blocks, parted in the middle of its run (before 0.1.13 it was one block under the first name, and the second name was lost). Every block boundary edge names its block in full. Compress Screen and Automatic Wrapping are turned off in the file.
+
+CATS draws every cell at a fixed 30 pixels and has no zoom, so a panel two cells per unit is often wider than the dispatcher's screen. `--cells-per-unit 1` draws one cell per grid unit, half the size each way: names go on the track (over or under it in its own cells), and each label is placed where it covers no track line, signal or other label at the 30 pixel grid. To keep the OS blocks of switches joined by a one-unit level track apart, that grid column gets a second cell (a slope across it takes the extra cell as level track at a bend); a column that cannot widen (a one-row slope from points to points crosses it) is logged and its switches share an OS block. `--fit COLSxROWS` stops the run when the panel shows more cells than that: 63x36 for a 1900 x 1200 screen, allowing about 100 pixels for the menu and title bars.
 
 Without `--bindings` the panel has no sensor or turnout bindings and no signals; open it in the Designer to add them. `--bindings FILE.json` ties it to the layout's devices:
 
