@@ -40,8 +40,11 @@ that join's anchor instead, facing the same block and protecting the hidden join
 bumper: listed in P.moved). That anchor is a block boundary only when the join carries the other band's block:
 `"joins": "other"` on a band gives its hidden joins the other band's block (on one band of a pair, not both). A
 mast with no slot is not placed and is listed in P.unplaced with the reason. Each placed mast gets a signal mast icon on the right-hand side
-of the train it governs, just before the boundary, turned to the direction of travel; `icon` is its upright size in
-pixels (default 12 x 17, a dwarf), `hidden` hides it as Layout Editor does.
+of the train it governs, before the boundary, turned to the direction of travel; `icon` is its upright size in pixels
+(default 12 x 17, a dwarf), `hidden` hides it as Layout Editor does. Then the CATS mast rules (le_masts): the anchors
+of one control point's masts slide along their own straight track into one column per direction (P.gantries,
+P.anchors_moved), each icon takes its clearest spot off turnouts, track, labels and other icons, and a track's name
+slides along its track clear of the icons (P.names_moved). No mast changes slot or blocks.
 
 Fit. `fit` (width, height) is the window the panel opens in at 100% zoom. The panel must fit inside it less Layout
 Editor's own allowance for the frame (CHROME), so the grid is scaled down until the whole panel, margins, labels
@@ -184,7 +187,7 @@ class Panel:
         self.segments = []          # dicts: ident, ends [(ident, type)], block, main, dashed, hidden, arc
         self.points = {}            # ident -> dict(type, xy, conn [seg])
         self.shapes = []            # dicts: ident, centre, r
-        self.labels = []            # dicts: text, xy (top left), size, bold
+        self.labels = []            # dicts: text, xy (top left), size, bold; a track's name: run (its level run)
         self.blocks = set()         # block names used
         self.turnout_names = set()
         self.cur = None             # the band being drawn: every object is tagged with it, to move the band later
@@ -192,10 +195,14 @@ class Panel:
         self.turnout_of = {}        # (band index, node) -> (turnout ident, {band port: Layout Editor leg})
         self.turnbacks = {}         # (band index, turn node) -> [segment ident]
         self.joins = []             # hidden segment idents between two drawn bands
-        self.masts = []             # dicts: mast, kind, ident, slot, icon (x, y, degrees), hidden, size
+        self.masts = []             # dicts: mast, kind, ident, slot, icon (x, y, degrees), hidden, size, box, spot
         self.unplaced = []          # (band title, mast, reason)
         self.moved = []             # (band title, mast, reason): buffer-stop masts placed at a join instead
         self.join_ends = {}         # (band index, anchor ident) -> block of the track that ends there
+        self.gantries = []          # lists of P.masts entries whose boundaries stand in one column (le_masts)
+        self.anchors_moved = []     # (mast, anchor ident, px) boundary anchors slid along their track into a gantry
+        self.names_moved = []       # (track name, px) track names slid along their track clear of mast icons
+        self.cellx = {}             # band index -> px per grid column as drawn
         self.log = []
         self.size = (0, 0)
         self.scale = (1.0, 1.0)     # the grid's scale across and down when `fit` shrank it
@@ -467,6 +474,7 @@ def draw_panel(bands, names, cell, row, page, masts=True):
             cellx = cell * min(STRETCH_MAX, max(1.0, widest * share / (widths[bi] * cell)))
         turned = key in page.get("rotate_bands", ())
         P.cur = bi
+        P.cellx[bi] = cellx
         Band(P, bi, title, band, names.get(key, {}), defaults, joined, cellx, row, turned, ends, opts,
              drawn[bi]).build()
         boxes.append(extent(P, bi))
@@ -600,12 +608,13 @@ def place_masts(P, bands, names):
             if moved:
                 P.moved.append((title, m["mast"], moved))
                 P.log.append(f"{title}: mast {m['mast']}: {moved}")
-            p, d = ix.travel(kind, ident, slot)
-            size = tuple(m.get("icon") or slots.ICON)
-            x, y, deg = slots.icon_place(p, d, size)
-            bw, bh = slots.icon_box(size, deg)
-            P.masts.append(dict(mast=m["mast"], kind=kind, ident=ident, slot=slot, icon=(x, y, deg),
-                                hidden=bool(m.get("hidden")), box=(x, y, bw, bh), band=bi))
+            P.masts.append(dict(mast=m["mast"], kind=kind, ident=ident, slot=slot, hidden=bool(m.get("hidden")),
+                                size=tuple(m.get("icon") or slots.ICON), band=bi))
+    # the CATS rules for where a mast reads best, carried over (le_masts): gantries, then each icon's clearest spot
+    from . import le_masts
+    P.gantries = le_masts.gantries(P, bands, ix)
+    le_masts.icons(P, slots.Index(to_xml(P, "probe")) if P.anchors_moved else ix, P.gantries)
+    le_masts.names_yield(P)
 
 
 def shift(P, bi, dx, dy):
@@ -626,6 +635,8 @@ def shift(P, bi, dx, dy):
     for lb in P.labels:
         if lb["band"] == bi:
             lb["xy"] = move(lb["xy"])
+            if "run" in lb:
+                lb["run"] = [move(q) for q in lb["run"]]
 
 
 class Band:
@@ -964,6 +975,7 @@ class Band:
             if text_width(text, LABEL_SIZE) > abs(b[0] - a[0]) * 1.6:
                 continue
             P.label(text, ((a[0] + b[0]) / 2, a[1] - LABEL_SIZE - 5))
+            P.labels[-1]["run"] = [list(a), list(b)]        # a track's name may slide along this run (le_masts)
         # station names (the `stations` preference) under the band, or over it for a station on the top side
         ys = [p[1] for pts in self.poly.values() for p in pts]
         by_label = defaultdict(list)
@@ -1118,6 +1130,8 @@ def to_xml(P, name, attrs=None, options=None):
             "size": str(lb["size"]), "style": "1" if lb["bold"] else "0", "red": "0", "green": "0", "blue": "0",
             "hasBackground": "no", "justification": "left", "class": CLASS["label"]}))
     for m in P.masts:
+        if not m.get("icon"):           # a probe while the masts are being placed: slots only
+            continue
         x, y, deg = m["icon"]
         le.append(ET.Element("signalmasticon", {
             "signalmast": m["mast"], "x": str(x), "y": str(y), "level": "9", "forcecontroloff": "false",

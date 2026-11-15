@@ -290,16 +290,30 @@ ICON = (12, 17)       # px, a dwarf mast icon upright (JMRI's AAR-1946 SL-1-low 
 GAP = 4               # px from the rail to the icon's near edge, and from the boundary back to its end
 
 
-def icon_place(p, d, size=ICON):
-    """(x, y, degrees) of a mast icon for a train running in direction d into the boundary at p: beside the track on
-    the right-hand side of that train, just before the boundary, turned to the direction of travel (JMRI's own
-    placement: east bound 90, west bound 270, south bound 180), x and y its top left corner as JMRI stores it."""
+def icon_degrees(d):
+    """The degrees JMRI turns a mast icon for a train running in direction d: east bound 90, west bound 270, south
+    bound 180; a direction within 3 degrees of one of those reads as it."""
     deg = math.degrees(math.atan2(d[0], -d[1])) % 360
     near = round(deg / 90) * 90
-    deg = (near if abs(deg - near) <= 3 else round(deg)) % 360      # a mast just off the level reads level
+    return (near if abs(deg - near) <= 3 else round(deg)) % 360
+
+
+def icon_centre(p, d, size=ICON, back=GAP, across=GAP):
+    """The middle of a mast icon `back` pixels before the boundary at p (to its near end) and `across` pixels to the
+    right of the rail (to its near side), for a train running in direction d."""
     w, h = size                     # upright: w across the track, h along it
     right = (-d[1], d[0])           # the right-hand side of the train (y grows down)
-    c = (p[0] - d[0] * (GAP + h / 2) + right[0] * (GAP + w / 2), p[1] - d[1] * (GAP + h / 2) + right[1] * (GAP + w / 2))
+    return (p[0] - d[0] * (back + h / 2) + right[0] * (across + w / 2),
+            p[1] - d[1] * (back + h / 2) + right[1] * (across + w / 2))
+
+
+def icon_place(p, d, size=ICON, back=GAP, across=GAP):
+    """(x, y, degrees) of a mast icon for a train running in direction d into the boundary at p: beside the track on
+    the right-hand side of that train, `back` pixels before the boundary and `across` pixels from the rail (GAP by
+    default), turned to the direction of travel (JMRI's own placement: east bound 90, west bound 270, south bound
+    180), x and y its top left corner as JMRI stores it."""
+    deg = icon_degrees(d)
+    c = icon_centre(p, d, size, back, across)
     bw, bh = icon_box(size, deg)
     return round(c[0] - bw / 2), round(c[1] - bh / 2), deg
 
