@@ -558,17 +558,113 @@ class Compact(unittest.TestCase):
             box = cats.frill_box(cell, s["loc"], 2 * cats.SIG_PX, cats.SIG_PX)
             self.assertFalse([ln for ln in lines if cats.crosses(box, ln, rim=1)], s)
 
-    def test_a_mast_mid_slope_is_drawn_level_where_its_lamps_clear_the_track(self):
-        P = cats.Panel()            # a switch's frog cell: level track and a slope leaving by the bottom edge
+    def test_a_mast_on_level_track_points_its_way_on_its_right_near_its_gap_and_clear(self):
+        P = cats.Panel()                                # a level track, gaps on both ends of cell (5, 5)
+        for x in range(2, 9):
+            P.cells[(x, 5)]["HORIZONTAL"] = ("track", "a")
+        lines = cats.track_lines(P)
+        for edge, heads, want in (("LEFT", 2, ("LOWCENT", "RIGHT")), ("RIGHT", 2, ("UPCENT", "LEFT")),
+                                  ("LEFT", 1, ("LOWRIGHT", "RIGHT")), ("RIGHT", 3, ("UPCENT", "LEFT"))):
+            cost, loc, orient = cats.place_mast(P, (5, 5), edge, heads)
+            self.assertEqual((loc, orient), want, (edge, heads))
+            self.assertEqual(cats.spot_costs(P, (5, 5), edge, heads)[(loc, orient)][1], [])     # nothing against it
+            box = cats.frill_box((5, 5), loc, *cats.mast_size(heads, orient))
+            self.assertTrue(all(cats.box_gap(box, ln) >= 5 for ln in lines))
+            self.assertEqual(box[1] > 15 + 5 * 30, edge == "LEFT")     # below the track going right, above going left
+
+    def test_a_mast_takes_a_spot_clear_of_the_points_and_another_mast(self):
+        P = cats.Panel()                                # points at the LEFT edge of (5, 5), diverging down
+        for x in range(2, 9):
+            P.cells[(x, 5)]["HORIZONTAL"] = ("track", "a")
+        P.cells[(5, 5)]["LOWERBACKSLASH"] = ("track", "a")
+        P.cells[(5, 6)]["UPPERBACKSLASH"] = ("track", "c")
+        P.points[((5, 5), "LEFT")] = dict(switch="1", routes=[("BOTTOM", False), ("RIGHT", True)])
+        costs = cats.spot_costs(P, (5, 5), "RIGHT", 2)
+        self.assertIn("points", costs[("LEFTCENT", "LEFT")][1])     # over the points' gap
+        self.assertIn("ink", costs[("LOWRIGHT", "LEFT")][1])        # on the diverging leg
+        box = cats.frill_box((5, 5), "UPCENT", *cats.mast_size(2, "LEFT"))
+        self.assertEqual(cats.place_mast(P, (5, 5), "RIGHT", 2)[1:], ("UPCENT", "LEFT"))
+        self.assertIn("mast", cats.spot_costs(P, (5, 5), "RIGHT", 2, [box])[("UPCENT", "LEFT")][1])  # if taken
+
+    def test_a_mast_mid_slope_in_a_switch_cell_points_up_beside_the_slope(self):
+        P = cats.Panel()            # a switch's cell: level track and a slope leaving by the bottom edge, points RIGHT
         P.cells[(5, 5)].update(HORIZONTAL=("track", "a"), LOWERSLASH=("track", "b"))
         P.cells[(5, 6)]["UPPERSLASH"] = ("track", "c")
         P.cells[(4, 5)]["HORIZONTAL"] = ("track", "a")
-        loc, orient = cats.level_signal(P, (5, 5), "BOTTOM", 1, cats.SIG_LOCATION["BOTTOM"], "TOP")
-        self.assertEqual((loc, orient), ("LEFTLOW", "RIGHT"))   # the move goes on rightward; lamps below, clear
-        box = cats.frill_box((5, 5), loc, 2 * cats.SIG_PX, cats.SIG_PX)
-        self.assertFalse([ln for ln in cats.track_lines(P) if cats.crosses(box, ln, rim=1)])
-        P.cells[(7, 5)]["VERTICAL"] = ("track", "d")         # a turnback's vertical run keeps an up or down mast
-        self.assertEqual(cats.level_signal(P, (7, 5), "TOP", 1, "LEFTUP", "BOTTOM"), ("LEFTUP", "BOTTOM"))
+        P.cells[(6, 5)]["HORIZONTAL"] = ("track", "a")
+        P.points[((5, 5), "RIGHT")] = dict(switch="1", routes=[("BOTTOM", False), ("LEFT", True)])
+        # nowhere is clean; above the level track would read as that track's mast, so the lamps point up the slope
+        costs = cats.spot_costs(P, (5, 5), "BOTTOM", 1)
+        self.assertIn("other", costs[("UPCENT", "RIGHT")][1])
+        self.assertEqual(cats.place_mast(P, (5, 5), "BOTTOM", 1)[1:], ("LOWLEFT", "TOP"))
+        P.cells[(9, 9)]["VERTICAL"] = ("track", "d")         # a turnback's vertical run: lamps up or down, beside it
+        self.assertEqual(cats.place_mast(P, (9, 9), "TOP", 1)[1:], ("LEFTCENT", "BOTTOM"))
+
+    def test_gaps_slide_along_their_tracks_into_one_column_and_out_of_switch_cells(self):
+        P = cats.Panel()
+        chains, plans = {}, []
+        # three parallel tracks heading east into a control point's OS blocks; their gaps in columns 5, 6 and 5,
+        # and the middle one's first OS cell is a switch's cell
+        for row, gap, name in ((5, 5, "A"), (6, 6, "B"), (7, 5, "C")):
+            pieces, owner = [], []
+            for i, x in enumerate(range(2, 10)):
+                key = ("track", name) if x < gap else ("os", name)
+                P.cells[(x, row)]["HORIZONTAL"] = key
+                P.blocks[key] = name
+                pieces.append(((x, row), "HORIZONTAL", i, i + 1))
+                owner.append(key)
+            chains[(0, name)] = dict(pieces=pieces, owner=owner)
+            plans.append(dict(name="M" + name, bi=0, k=name, rev=True, label=name, gap={"b": gap - 2, "pair": None},
+                              sg={"toward": "9", "dir": "east"}))
+        P.cells[(6, 6)]["LOWERSLASH"] = ("os", "B")
+        bands = [("t", {}, {"control_points": {"Nine": {"switches": ["9"]}}})]
+        gantries = cats.shift_gaps(P, bands, chains, plans)
+        self.assertEqual([sorted(p["name"] for p in g) for g in gantries], [["MA", "MB", "MC"]])
+        cols = {p["name"]: chains[(0, p["k"])]["pieces"][p["gap"]["b"]][0] for p in plans}
+        self.assertEqual(cols, {"MA": (5, 5), "MB": (5, 6), "MC": (5, 7)})     # one column, a plain cell each
+        for name in "ABC":                              # the same two blocks each side of each gap
+            owners = [P.cells[(x, {"A": 5, "B": 6, "C": 7}[name])]["HORIZONTAL"] for x in range(2, 10)]
+            self.assertEqual(owners, [("track", name)] * 3 + [("os", name)] * 5)
+        self.assertEqual([m for m in P.log if "gap moved" in m], ["mast MB: its gap moved 1 cell(s) along track B"])
+
+    def test_columns_of_plain_level_track_come_out_to_keep_a_margin(self):
+        P = cats.Panel()
+        P.pending = []
+        for x in range(2, 11):
+            P.cells[(x, 5)]["HORIZONTAL"] = ("track", "a")
+            P.cells[(x, 6)]["HORIZONTAL"] = ("track", "b" if x < 7 else "c")
+        P.cells[(11, 5)]["LOWERBACKSLASH"] = ("track", "a")     # a turnback's corner in the last column
+        P.signals[((7, 6), "LEFT")] = dict(mast="M", name="M", loc="LOWCENT", orient="RIGHT", pantype="LAMP1",
+                                           template=None)
+        P.pending.append((3, 0, [((9, 5), "UPCENT"), ((10, 5), "UPCENT")], "A", "FONT_LABEL"))
+        cats.trim_columns(P, 9)
+        self.assertEqual(max(c[0] for c in P.cells), 9)
+        self.assertEqual(P.cells[(9, 5)], {"LOWERBACKSLASH": ("track", "a")})      # the corner moved in
+        self.assertIn(((7, 6), "LEFT"), P.signals)                                  # the gap and mast stay
+        self.assertEqual([P.cells[(x, 6)]["HORIZONTAL"][1] for x in range(6, 9)], ["b", "c", "c"])
+        self.assertEqual(P.pending[0][2], [((8, 5), "UPCENT")])                     # a label's spot follows
+        self.assertEqual(len(P.log), 2)
+        P.points[((8, 5), "RIGHT")] = dict(switch="1", routes=[])                   # no plain column is left
+        with self.assertRaises(cats.SchematicError):
+            cats.trim_columns(P, 4)
+
+    def test_ends_of_parallel_tracks_are_named_alike(self):
+        P = cats.Panel()
+        P.pending = []
+        for y in (5, 6):
+            for x in range(2, 8):
+                P.cells[(x, y)]["HORIZONTAL"] = ("track", str(y))
+        P.cells[(11, 5)]["VERTICAL"] = ("track", "v")        # a turnback past the ends: no room beside them
+        P.cells[(11, 6)]["VERTICAL"] = ("track", "v")
+        P.pending.append((2, 0, [(8, ("LEFTCENT",)), (7, ("LOWLEFT",)), (6, ("LOWLEFT",))],
+                          [(5, "HELIX TO MAIN", []), (6, "HELIX TO UPPER", [])], "FONT_LABEL"))
+        P.pending.append((3, 1, [5, 4], [(5, "SHORT", []), (6, "LONGER NAME", [])], "FONT_LABEL"))
+        cats.place_labels(P)
+        self.assertEqual(P.labels[(7, 5)], ("HELIX TO MAIN", "LOWLEFT", "FONT_LABEL"))   # one column and spot
+        self.assertEqual(P.labels[(7, 6)], ("HELIX TO UPPER", "LOWLEFT", "FONT_LABEL"))
+        names = {t: (c, loc) for c, (t, loc, _) in P.labels.items() if t in ("SHORT", "LONGER NAME")}
+        self.assertEqual({loc for _, loc in names.values()}, {"UPLEFT"})   # unequal names start in one line
+        self.assertEqual(len({c[0] for c, _ in names.values()}), 1)
 
     def test_labels_share_cells_with_track_without_covering_it(self):
         P = compact()
@@ -626,6 +722,11 @@ class Compact(unittest.TestCase):
             root = cats.to_xml(compact(), header=cats.header_from(str(src)))
         dark = [c.attrib for c in root.findall("COLORDEFINITION")]
         self.assertEqual(dark, [{"COLORKEY": "DARK", "COLORNAME": "Dark", "COLORTAG": "-1"}])
+
+    def test_lone_tracks_above_one_another_are_named_in_one_column(self):
+        runs = [(10, 40, 2, "MAIN WEST"), (18, 40, 8, "MAIN EAST"), (0, 9, 8, "SPUR"), (35, 60, 5, "SIDING")]
+        groups = [[r[3] for r in g] for g in cats.stacked_runs(runs)]
+        self.assertEqual(groups, [["MAIN WEST", "MAIN EAST"], ["SIDING"], ["SPUR"]])
 
     def test_one_slope_takes_a_widened_columns_extra_cell_at_a_bend_or_a_free_end(self):
         self.assertEqual(cats.stretched([(0, 0), (3, 0), (6, 2)]), [(0, 0), (3, 0), (4, 0), (6, 2)])
