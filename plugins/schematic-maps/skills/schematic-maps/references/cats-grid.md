@@ -1,6 +1,6 @@
 # Seeding a CATS panel from the grid
 
-Not yet implemented by the tool. This is what a later step needs to know: the schematic's layout is already whole grid cells, and the CATS Designer draws on a grid of cells too, so one layout could seed the other. Do not offer it as a feature; offer it as a possible next step.
+`schematic cats OUT.xml --data DIR GRAPH.json:NAME ... [--band TITLE]` seeds a CATS Designer panel from the solved grid. It writes track, switch points, blocks, labels and logical joins only: no sensor, turnout or signal bindings, and no signals. Those are added in the Designer, and the panel has not been checked by loading it in CATS for every kind of railroad, so offer it as a starting panel, not a finished one. What it does is under "How the command builds it" at the end.
 
 The rules below come from the CATS Designer User Guide (pages 10 to 13, 52 to 64, 81 and 87) and were checked against the open CATS source, `cats/layout/items/Track.java` in the [CATS repository](https://bitbucket.org/Kb0oys/cats/src/master/). The guide is [here](https://cats4ctc.wdfiles.com/local--files/main:userguides/DesignerManual.pdf). Not found in either: a maximum grid size, any way to draw a curve, a vertical or non-45-degree diagonal, or rotated text.
 
@@ -25,6 +25,14 @@ The rules below come from the CATS Designer User Guide (pages 10 to 13, 52 to 64
 
 CATS compresses columns that hold no diagonals or labels to half width (Compress Screen) and wraps a wide panel into bands (Automatic Wrapping). Author the panel as one linear layout, or turn both off, so the screen matches the grid.
 
-## If it is built
+## How the command builds it
 
-Use integer rows and columns and 45-degree legs only, one row per offset, labels in a cell beside the track (below preferred), and a logical join for each connector or helix. Keep the schematic as the master; regenerate the panel from it rather than editing the two by hand.
+- **Scale.** One schematic grid unit is two cells. A schematic point (c, r) is the middle of the left edge of cell (2c, 2r) plus a margin. A level step fills one HORIZONTAL; a step up fills UPPERSLASH in its cell and LOWERSLASH in the cell above; a step down fills LOWERBACKSLASH and UPPERBACKSLASH below. Every leg is whole cells at 45 degrees, and the odd rows between tracks hold the names.
+- **Switches.** A switch's legs B and C leave from one cell edge, its points. The points carry SWITCHPOINTS with two ROUTEINFO (the far edge of each leg's piece); leg B, the straight leg as the band records it, is NORMAL. A double crossover is its X across both through tracks: four points and a CROSSINGEDGE where the diagonals meet.
+- **Turnbacks** are a vertical run in one column, ending in a corner piece at each track.
+- **Blocks.** One per track (its name, or the two switch numbers it joins), one OS block per switch (switches of one number joined by a track share it). An OS block reaches one step past the points on each leg (past the X for a crossover), so no boundary lands on points or a crossing; the CATS edge builder ignores points on an edge that also has a block. Each block is named on its first boundary edge; discipline is CTC unless `--discipline` says otherwise.
+- **Ends.** Connector letters and helix tracks that appear on two drawn bands are joined with SHARED (a block boundary on each side); others get a label, `A: TO <level>` or `HELIX TO <level>`.
+- **Labels.** Band title with the left and right words, switch numbers next to the points, track names in a free cell under the longest level run, one label per cell.
+- **Display.** `COMPRESSIONTAG` and `ROWWRAPTAG` are present, which turns Compress Screen and Automatic Wrapping off.
+
+Keep the schematic as the master; regenerate the panel from it rather than editing the two by hand.

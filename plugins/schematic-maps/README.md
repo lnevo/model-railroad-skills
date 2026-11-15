@@ -23,6 +23,7 @@ schematic fingerprint golden.json --data DIR graph.json:NAME
 schematic detail details/ --data DIR graph.json:NAME                      one sheet per station of the `stations` preference
 schematic detail yard.svg --data DIR graph.json:NAME --station "Yard"      one station
 schematic detail pair.svg --data DIR graph.json:NAME --switches 11 12 --name "Pair"   any group of switches
+schematic cats panel.xml --data DIR graph.json:NAME [--band "Main"]       a CATS Designer panel from the same grid
 schematic check sheet.svg --list
 ```
 
@@ -35,6 +36,10 @@ Mileposts are a preference (`mileposts: true`, or `{"step": 0.25}` in miles) and
 ## Detail sheets
 
 `schematic detail` draws one station, or a named group of switches, as its own larger sheet, cut from the same solved drawing as the overall sheet so the two agree: same order of tracks, same lengths, same capacity counts and masts. Tracks that leave the cut end in an arrow reading `TO <station>` or `TO SW <number>`. Sheets come from the `detail_sheets` preference (name to switch numbers, which may overlap stations) when present, else the `stations` preference, all of them by default. Stations may overlap; `station_tracks` (plan overrides) limits a station's car total to listed tracks and `station_side` (preferences) puts its bar above or below the band; the object form (`switches`, `tracks`, `side`) also reads. A sheet shows a bar and car total for each station that lies wholly inside it; `detail_max_scale` (default 2) sets how far a sheet is enlarged. One selection writes a file, several write a folder of `<station>.svg`.
+
+## CATS panel
+
+`schematic cats` writes a CATS Designer panel (XML) from the solved bands, so a dispatcher panel starts from the same track as the drawing. Each schematic grid unit is two CATS cells, so every 45 degree leg lands on whole cells and each track has a free row below it for its name. Bands stack top to bottom; `--band` keeps the bands whose title starts with the text. It writes the track, switch points with two routes (normal is leg B), a double crossover as its X with a crossing edge, turnbacks as a vertical run, one block per track and one OS block per switch, switch numbers and track names as labels, and logical joins for connector letters and helix tracks that appear on two drawn bands. It writes no sensor or turnout bindings and no signals: open the file in the Designer to add them. Compress Screen and Automatic Wrapping are turned off in the file. The cell rules are in [`skills/schematic-maps/references/cats-grid.md`](skills/schematic-maps/references/cats-grid.md).
 
 ## The example
 
