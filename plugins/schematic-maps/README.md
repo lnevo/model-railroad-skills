@@ -25,6 +25,7 @@ schematic detail yard.svg --data DIR graph.json:NAME --station "Yard"      one s
 schematic detail pair.svg --data DIR graph.json:NAME --switches 11 12 --name "Pair"   any group of switches
 schematic cats panel.xml --data DIR graph.json:NAME [--band "Main"] [--bindings b.json] [--templates-from desk.xml]
                                                                          a CATS Designer panel from the same grid
+schematic le panel.xml --data DIR graph.json:NAME [--names names.json] [--panel NAME]   a JMRI Layout Editor panel
 schematic check sheet.svg --list
 ```
 
@@ -63,6 +64,10 @@ Without `--bindings` the panel has no sensor or turnout bindings and no signals;
 - An IOSPEC holds `DECADDR`, `JMRIPREFIX`, `USER_NAME` (also `JMRIDEVICE`, `EXIT_CMD`, `DELAY`) and its `command`, `close` or `throw`. Keys starting with `_` are notes. A name the panel does not have, or an unknown field, stops the run.
 
 `--templates-from DESK.xml` copies the `SIGNALTEMPLATE` and `JMRINAME` elements of an existing CATS panel, so the masts' templates and the IOSPECs' device prefixes resolve; a mast naming a template the panel has no `SIGNALTEMPLATE` for stops the run. The cell rules are in [`skills/schematic-maps/references/cats-grid.md`](skills/schematic-maps/references/cats-grid.md).
+
+## Layout Editor panel
+
+`schematic le` writes a JMRI Layout Editor panel (one `<LayoutEditor>` element) that looks like the sheet: every band stacked on one panel, straight rows, yards leaving at the drawn slopes and running level, every corner rounded by a circular arc, each turnback a half circle, helix ends marked by a circle and connector letters in a circle, with switch numbers, track names, station names and band titles as labels. One grid unit is 36 pixels (`--cell`, `--row`); with the `equal_width` preference a narrower band is stretched along its length as on the sheet. It writes turnouts (right or left hand as drawn, the drawn straight leg as leg B and `continuing` set so the normal route stays on the band's leg B), a double crossover as a DOUBLE_XOVER, two switches of one number joined C to C as one single crossover, track segments with `mainline` set from the main route (Layout Editor draws main track wider), anchors, end bumpers, and a hidden track segment joining each connector letter and helix track that appears on two drawn bands, so the panel is one connected railroad. `--names` binds it to existing JMRI objects: by band key, turnout names, OS blocks, the normal leg, and each track's blocks in order (a track with several blocks is cut into equal lengths); without it, blocks are named after the tracks and turnouts are left unnamed. It writes no masts, sensors or block beans: add the turnouts and blocks to the tables file the panel goes into, close JMRI first, and check the panel with Layout Editor's Check menu once it loads. The mapping is in [`skills/schematic-maps/references/le-panel.md`](skills/schematic-maps/references/le-panel.md).
 
 ## The example
 
