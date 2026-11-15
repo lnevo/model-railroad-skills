@@ -1,5 +1,6 @@
 """The CATS panel seeded from the example's solved bands: track on whole cells, switch points, blocks, joins, XML."""
 import copy
+import math
 import subprocess
 import sys
 import tempfile
@@ -521,7 +522,7 @@ class Compact(unittest.TestCase):
         # every switch keeps its own OS block: 3 and 8 (one unit of level track apart) get a widened column
         self.assertEqual(sorted(n for n in P.names.values() if n.startswith("OS")),
                          sorted(n for n in wide.names.values() if n.startswith("OS")))
-        self.assertEqual(P.log, ["label 'MAIN WEST' at (5, 11) UPCENT crosses 1 track lines, signals or labels"])
+        self.assertEqual(P.log, ["label 'RISE' at (20, 12) UPCENT crosses 1 track lines, signals or labels"])
 
     def test_a_crossover_one_row_deep_crosses_between_the_rows(self):
         P = compact()
@@ -534,15 +535,29 @@ class Compact(unittest.TestCase):
         x = [se for sec in root.iter("SECTION") for se in sec.findall("SEC_EDGE") if se.find("CROSSINGEDGE") is not None]
         self.assertEqual([se.find("CROSSINGEDGE").attrib for se in x], [{"LEFT": "NO_BLOCK", "RIGHT": "NO_BLOCK"}] * 2)
 
-    def test_a_block_boundary_may_fall_mid_slope_and_masts_keep_their_blocks(self):
+    def test_masts_keep_their_blocks_and_stand_on_level_edges(self):
         P, wide = compact(), cats.panel(helpers.build().bands, bindings=MASTS)
-        bounds = cats.boundaries(P)
-        self.assertTrue(any(e in ("TOP", "BOTTOM") for _, e in bounds))
         protects = lambda Q: {s["mast"]: Q.names[cats.boundaries(Q)[k]] for k, s in Q.signals.items()}
         self.assertEqual(protects(P), protects(wide))
         self.assertEqual(len(P.signals), 3)
-        for k, s in P.signals.items():
-            self.assertEqual(s["loc"], cats.SIG_LOCATION[k[1]])
+        lines = cats.track_lines(P)
+        for (cell, edge), s in P.signals.items():
+            self.assertIn(edge, ("LEFT", "RIGHT"))      # whole steps fit, so the boundaries are on level edges
+            self.assertEqual(s["orient"], cats.OPPOSITE[edge])
+            box = cats.frill_box(cell, s["loc"], 2 * cats.SIG_PX, cats.SIG_PX)
+            self.assertFalse([ln for ln in lines if cats.crosses(box, ln, rim=1)], s)
+
+    def test_a_mast_mid_slope_is_drawn_level_where_its_lamps_clear_the_track(self):
+        P = cats.Panel()            # a switch's frog cell: level track and a slope leaving by the bottom edge
+        P.cells[(5, 5)].update(HORIZONTAL=("track", "a"), LOWERSLASH=("track", "b"))
+        P.cells[(5, 6)]["UPPERSLASH"] = ("track", "c")
+        P.cells[(4, 5)]["HORIZONTAL"] = ("track", "a")
+        loc, orient = cats.level_signal(P, (5, 5), "BOTTOM", 1, cats.SIG_LOCATION["BOTTOM"], "TOP")
+        self.assertEqual((loc, orient), ("LEFTLOW", "RIGHT"))   # the move goes on rightward; lamps below, clear
+        box = cats.frill_box((5, 5), loc, 2 * cats.SIG_PX, cats.SIG_PX)
+        self.assertFalse([ln for ln in cats.track_lines(P) if cats.crosses(box, ln, rim=1)])
+        P.cells[(7, 5)]["VERTICAL"] = ("track", "d")         # a turnback's vertical run keeps an up or down mast
+        self.assertEqual(cats.level_signal(P, (7, 5), "TOP", 1, "LEFTUP", "BOTTOM"), ("LEFTUP", "BOTTOM"))
 
     def test_labels_share_cells_with_track_without_covering_it(self):
         P = compact()
@@ -556,13 +571,50 @@ class Compact(unittest.TestCase):
         lines, boxes = cats.track_lines(P), []
         for cell, (text, loc, font) in sorted(P.labels.items()):
             box = cats.text_box(cell, loc, text, font)
-            if text == "MAIN WEST":                                      # the one logged clash
+            if text == "RISE":                                           # the one logged clash
                 continue
             self.assertFalse([ln for ln in lines if cats.crosses(box, ln)], text)
             boxes.append((text, box))
         for i, (t1, b1) in enumerate(boxes):
             for t2, b2 in boxes[i + 1:]:
                 self.assertFalse(cats.overlaps(b1, b2), (t1, t2))
+
+    def test_one_empty_column_on_the_left(self):
+        P = compact()
+        self.assertEqual(min(c[0] for c in P.cells), 2)
+        self.assertEqual(min(c[0] for c in P.labels), 2)
+
+    def test_a_yards_parallel_tracks_are_named_in_one_column(self):
+        runs = [(10, 20, 3, "S-1"), (11, 20, 4, "S-2"), (12, 19, 5, "S-3"), (0, 40, 2, "MAIN"), (30, 34, 4, "SPUR")]
+        groups = [[r[3] for r in g] for g in cats.parallel_runs(runs)]
+        self.assertEqual(groups, [["MAIN"], ["S-1", "S-2", "S-3"], ["SPUR"]])
+        P = cats.Panel()
+        P.pending = []
+        for xa, xb, y, _ in runs[:3]:
+            for x in range(xa, xb):
+                P.cells[(x, y)]["HORIZONTAL"] = ("track", y)
+        P.cells[(15, 3)]["UPPERSLASH"] = ("track", 9)        # in the way at the middle column of the first track
+        P.label(list(range(12, 19)), [(y, t, []) for _, _, y, t in runs[:3]], rank=3)
+        cats.place_labels(P)
+        cols = {c[0] for c in P.labels}
+        self.assertEqual(len(cols), 1, P.labels)
+        self.assertNotIn(15, cols)
+
+    def test_connector_labels_sit_at_their_stub_end_without_joined(self):
+        P = compact()
+        texts = {t: (cell, loc) for cell, (t, loc, _) in P.labels.items()}
+        links = [t for t in texts if t.startswith(("A:", "HELIX"))]
+        self.assertTrue(links)
+        self.assertFalse([t for t in texts if "(JOINED)" in t])
+        self.assertTrue(any("(JOINED)" in t for _, (t, _, _) in cats.panel(helpers.build().bands).labels.items()))
+
+    def test_the_template_panels_colours_are_copied(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "desk.xml"
+            src.write_text('<DOCUMENT><COLORDEFINITION COLORKEY="DARK" COLORNAME="Dark" COLORTAG="-1"/></DOCUMENT>')
+            root = cats.to_xml(compact(), header=cats.header_from(str(src)))
+        dark = [c.attrib for c in root.findall("COLORDEFINITION")]
+        self.assertEqual(dark, [{"COLORKEY": "DARK", "COLORNAME": "Dark", "COLORTAG": "-1"}])
 
     def test_one_slope_takes_a_widened_columns_extra_cell_at_a_bend_or_a_free_end(self):
         self.assertEqual(cats.stretched([(0, 0), (3, 0), (6, 2)]), [(0, 0), (3, 0), (4, 0), (6, 2)])
@@ -582,8 +634,38 @@ class Compact(unittest.TestCase):
         for bad in ("63", "0x5", "axb"):
             with self.assertRaisesRegex(cats.SchematicError, "COLSxROWS"):
                 cats.parse_fit(bad)
-        with self.assertRaisesRegex(cats.SchematicError, "whole number of cells"):
-            cats.panel(helpers.build().bands, scale=0)
+        for bad in (0, 3, True, 1.0):
+            with self.assertRaisesRegex(cats.SchematicError, "1 or an even number of cells"):
+                cats.panel(helpers.build().bands, scale=bad)
+
+    def test_a_half_unit_point_is_an_error_at_one_cell_per_unit(self):
+        with drawn_with({"e13": [(4, 3), (5.5, 3)]}):
+            with self.assertRaisesRegex(cats.SchematicError, "point between cells at 1 cell"):
+                cats.panel(helpers.build().bands, scale=1)
+            cats.panel(helpers.build().bands)                   # whole cells at 2
+
+    def test_a_slope_with_no_place_for_a_widened_cell_is_an_error_not_a_crash(self):
+        bands = helpers.build().bands
+        real = cats.widened_columns
+        with mock.patch.object(cats, "stretched", lambda pts, free=(False, False): None), \
+                mock.patch.object(cats, "widened_columns", lambda *a: real(*a) or {0: 1}):
+            with self.assertRaisesRegex(cats.SchematicError, "no place for its extra cell"):
+                cats.panel(bands, scale=1)
+
+    def test_titles_and_end_labels_may_run_past_the_last_track_column(self):
+        bands = [b for b in bands_copy() if b[0].startswith("Upper")]
+        title, band, opts = bands[0]
+        bands = [(title, band, dict(opts, left="Far away to the west", right="Far away to the east"))]
+        P = cats.panel(bands, scale=1)
+        last = max(c[0] for c in P.cells)
+        texts = {t: (cell, cats.text_box(cell, loc, t, f)) for cell, (t, loc, f) in P.labels.items()}
+        heading = next(t for t in texts if t.startswith("UPPER LEVEL"))
+        end = next(t for t in texts if t.startswith("A: TO"))
+        self.assertGreater(texts[heading][1][2], (last + 1) * cats.GRID_PX)     # the title is kept, spilling
+        self.assertEqual(texts[end][0][0], last + 1)                            # beside the east end
+        self.assertGreaterEqual(cats.shown(P)[0], math.ceil(max(b[2] for _, b in texts.values()) / cats.GRID_PX) - 1)
+        self.assertFalse([line for line in P.log if "no room" in line], P.log)
+        self.assertIn("label 'RISE' at", " ".join(P.log))          # placed past the end, logged, not dropped
 
     def test_command(self):
         f = helpers.data_with_signals()
