@@ -162,8 +162,9 @@ class Panel:
         self.points = {}            # ident -> dict(type, xy, conn [seg])
         self.shapes = []            # dicts: ident, centre, r
         self.labels = []            # dicts: text, xy (top left), size, bold
-        self.blocks = {}            # block name -> True when any of it is main track
+        self.blocks = set()         # block names used
         self.turnout_names = set()
+        self.cur = None             # the band being drawn: every object is tagged with it, to move the band later
         self.strand_segments = defaultdict(list)     # (band index, strand id) -> [segment ident]
         self.turnout_of = {}        # (band index, node) -> (turnout ident, {band port: Layout Editor leg})
         self.turnbacks = {}         # (band index, turn node) -> [segment ident]
@@ -178,7 +179,7 @@ class Panel:
 
     def point(self, kind, xy):
         ident = self.ident("A" if kind == "ANCHOR" else "EB")
-        self.points[ident] = dict(type=kind, xy=list(xy), conn=[])
+        self.points[ident] = dict(type=kind, xy=list(xy), conn=[], band=self.cur)
         return ident
 
     def segment(self, a, b, block, main, dashed=False, hidden=False, arc=None):
@@ -194,14 +195,14 @@ class Panel:
                 t["conn"][leg] = ident
                 ends.append((t["ident"], f"TURNOUT_{leg}"))
         self.segments.append(dict(ident=ident, ends=ends, block=block, main=main, dashed=dashed, hidden=hidden,
-                                  arc=arc))
-        self.blocks[block] = self.blocks.get(block, False) or main
+                                  arc=arc, band=self.cur))
+        self.blocks.add(block)
         return ident
 
     def label(self, text, xy, size=LABEL_SIZE, bold=False, anchor="centre"):
         w = text_width(text, size)
         x = xy[0] - w / 2 if anchor == "centre" else xy[0] - w if anchor == "right" else xy[0]
-        self.labels.append(dict(text=text, xy=[x, xy[1]], size=size, bold=bold))
+        self.labels.append(dict(text=text, xy=[x, xy[1]], size=size, bold=bold, band=self.cur))
 
 
 def text_width(text, size):
@@ -238,8 +239,9 @@ def partners(bands):
     return out
 
 
-def default_names(bands, joined):
-    """Block names when none are given: one per track, shared through a turnback and a join, made unique."""
+def default_names(bands, joined, taken=()):
+    """Block names when none are given: one per track, shared through a turnback and a join, made unique against
+    each other and against `taken` (the names given in the names file, and the default OS blocks)."""
     parent = {}
 
     def find(k):
@@ -270,7 +272,7 @@ def default_names(bands, joined):
     for bi, (_, band, _) in enumerate(bands):
         for sid in band["strands"]:
             groups[find((bi, sid))].append((bi, sid))
-    used, out = defaultdict(int), {}
+    taken, out = set(taken), {}
     for root in sorted(groups):
         keys = sorted(groups[root])
         name = next((bands[bi][1]["strands"][sid]["name"] for bi, sid in keys if bands[bi][1]["strands"][sid]["name"]),
@@ -279,11 +281,42 @@ def default_names(bands, joined):
             bi, sid = keys[0]
             s, nodes = bands[bi][1]["strands"][sid], bands[bi][1]["nodes"]
             name = f"{node_ref(nodes[s['src'][0]])}-{node_ref(nodes[s['dst'][0]])}"
-        used[name] += 1
-        name = name if used[name] == 1 else f"{name} {used[name]}"
+        base, i = name, 1
+        while name in taken:
+            i += 1
+            name = f"{base} {i}"
+        taken.add(name)
         for k in keys:
             out[k] = [name]
     return out
+
+
+NAME_KEYS = ("turnouts", "os", "normal", "blocks")
+
+
+def check_names(bands, names):
+    """Stop on a names file that names a band, a section, a switch or a track that is not there."""
+    keys = {band_key(t): band for t, band, _ in bands}
+    unknown = set(names) - set(keys)
+    if unknown:
+        raise SchematicError(f"names given for {', '.join(sorted(unknown))}, which is not a band "
+                             f"(bands: {', '.join(keys)})")
+    for key, given in names.items():
+        if not isinstance(given, dict):
+            raise SchematicError(f"names for {key} must be an object of {', '.join(NAME_KEYS)}")
+        bad = set(given) - set(NAME_KEYS)
+        if bad:
+            raise SchematicError(f"names for {key}: {', '.join(sorted(bad))} is not one of {', '.join(NAME_KEYS)}")
+        band = keys[key]
+        switches = {n for n, d in band["nodes"].items() if d["kind"] in ("switch", "dx")}
+        for section in NAME_KEYS:
+            ids = set(given.get(section) or {})
+            have = set(band["strands"]) if section == "blocks" else switches
+            missing = sorted(ids - have)
+            if missing:
+                what = "track" if section == "blocks" else "switch"
+                raise SchematicError(f"names for {key}: {section} names {', '.join(missing)}, which is no {what} "
+                                     "of the band")
 
 
 def panel(bands, names=None, cell=CELL, row=ROW, page=None):
@@ -293,20 +326,23 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None):
         raise SchematicError("no band to draw")
     page = page if page is not None else bands[-1][2]
     names = names or {}
-    unknown = set(names) - {band_key(t) for t, _, _ in bands}
-    if unknown:
-        raise SchematicError(f"names given for {', '.join(sorted(unknown))}, which is not a band "
-                             f"(bands: {', '.join(band_key(t) for t, _, _ in bands)})")
+    check_names(bands, names)
     joined = partners(bands)
-    defaults = default_names(bands, joined)
+    given = {b for g in names.values() for v in (g.get("blocks") or {}).values()
+             for b in ([v] if isinstance(v, str) else v)} | \
+        {b for g in names.values() for b in (g.get("os") or {}).values()}
+    os_defaults = {f"OS {d.get('label') or n}" for _, band, _ in bands for n, d in band["nodes"].items()
+                   if d["kind"] in ("switch", "dx")}
+    defaults = default_names(bands, joined, given | os_defaults)
     P = Panel()
+    drawn = [paths(band) for _, band, _ in bands]
     widths = []
-    for title, band, _ in bands:
-        xs = [p[0] for v in paths(band).values() for p in v]
+    for d in drawn:
+        xs = [p[0] for v in d.values() for p in v]
         widths.append(max(xs) - min(xs))
     widest = max(w * cell for w in widths)
-    top = MARGIN + TITLE_GAP
     ends = {}                   # (band index, end node) -> (point ident, strand id, outward direction, block, main)
+    boxes = []
     for bi, (title, band, opts) in enumerate(bands):
         key = band_key(title)
         cellx = cell
@@ -314,14 +350,17 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None):
             share = page.get("band_width", {}).get(key, 1.0)
             cellx = cell * min(STRETCH_MAX, max(1.0, widest * share / (widths[bi] * cell)))
         turned = key in page.get("rotate_bands", ())
-        first = (len(P.turnouts), len(P.segments), set(P.points), len(P.shapes), len(P.labels))
-        Band(P, bi, title, band, names.get(key, {}), defaults, joined, cellx, row, turned, ends, opts).build()
-        # move the band into place: centred on the widest band, below the band before
-        new_pts = [p for k, p in P.points.items() if k not in first[2]]
-        box = extent(P, first, new_pts)
-        dx = MARGIN + (widest - (box[2] - box[0])) / 2 - box[0]
-        dy = top - box[1]
-        shift(P, first, new_pts, dx, dy)
+        P.cur = bi
+        Band(P, bi, title, band, names.get(key, {}), defaults, joined, cellx, row, turned, ends, opts,
+             drawn[bi]).build()
+        boxes.append(extent(P, bi))
+    # move each band into place: its whole box (labels, circles and arcs too) centred on the widest box, each band
+    # below the one before, so nothing lies left of or above the margin
+    P.cur = None
+    full = max(b[2] - b[0] for b in boxes)
+    top = MARGIN + TITLE_GAP
+    for bi, ((title, _, _), box) in enumerate(zip(bands, boxes)):
+        shift(P, bi, MARGIN + (full - (box[2] - box[0])) / 2 - box[0], top - box[1])
         P.label(title.upper(), (MARGIN, top - TITLE_GAP + 4), TITLE_SIZE, True, anchor="left")
         top += box[3] - box[1] + BAND_GAP
     for (bi, n), (bj, m) in sorted(joined.items()):
@@ -329,62 +368,70 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None):
             continue
         a, b = ends[(bi, n)], ends[(bj, m)]
         P.joins.append(P.segment(a[0], b[0], a[3], a[4] and b[4], hidden=True))
-    xs = [p["xy"][0] for p in P.points.values()] + [lb["xy"][0] + text_width(lb["text"], lb["size"]) for lb in P.labels]
-    ys = [p["xy"][1] for p in P.points.values()] + [lb["xy"][1] + lb["size"] for lb in P.labels]
-    xs += [t["cen"][0] for t in P.turnouts]
-    ys += [t["cen"][1] for t in P.turnouts]
-    P.size = (math.ceil(max(xs) + MARGIN), math.ceil(max(ys) + MARGIN))
+    box = extent(P)
+    P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
     return P
 
 
-def extent(P, first, new_pts):
+def extent(P, bi=None):
+    """(left, top, right, bottom) of everything drawn for band bi (all bands when None): track, arcs, circles and
+    labels."""
+    mine = lambda o: bi is None or o["band"] == bi      # noqa: E731
     xs, ys = [], []
-    for t in P.turnouts[first[0]:]:
-        for p in t["pts"].values():
-            xs.append(p[0])
-            ys.append(p[1])
-    for p in new_pts:
-        xs.append(p["xy"][0])
-        ys.append(p["xy"][1])
-    for s in P.segments[first[1]:]:
-        if s["arc"]:
+    for t in P.turnouts:
+        if mine(t):
+            for p in [t["cen"], *t["pts"].values()]:
+                xs.append(p[0])
+                ys.append(p[1])
+    for p in P.points.values():
+        if mine(p):
+            xs.append(p["xy"][0])
+            ys.append(p["xy"][1])
+    for s in P.segments:
+        if mine(s) and s["arc"]:
             for q in s["arc"]["drawn"]:
                 xs.append(q[0])
                 ys.append(q[1])
-    for sh in P.shapes[first[3]:]:
-        xs += [sh["centre"][0] - sh["r"], sh["centre"][0] + sh["r"]]
-        ys += [sh["centre"][1] - sh["r"], sh["centre"][1] + sh["r"]]
-    for lb in P.labels[first[4]:]:
-        xs += [lb["xy"][0], lb["xy"][0] + text_width(lb["text"], lb["size"])]
-        ys += [lb["xy"][1], lb["xy"][1] + lb["size"]]
+    for sh in P.shapes:
+        if mine(sh):
+            xs += [sh["centre"][0] - sh["r"], sh["centre"][0] + sh["r"]]
+            ys += [sh["centre"][1] - sh["r"], sh["centre"][1] + sh["r"]]
+    for lb in P.labels:
+        if mine(lb):
+            xs += [lb["xy"][0], lb["xy"][0] + text_width(lb["text"], lb["size"])]
+            ys += [lb["xy"][1], lb["xy"][1] + lb["size"]]
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def shift(P, first, new_pts, dx, dy):
+def shift(P, bi, dx, dy):
     move = lambda p: [p[0] + dx, p[1] + dy]       # noqa: E731
-    for t in P.turnouts[first[0]:]:
-        t["cen"] = move(t["cen"])
-        t["pts"] = {k: move(p) for k, p in t["pts"].items()}
-    for p in new_pts:
-        p["xy"] = move(p["xy"])
-    for s in P.segments[first[1]:]:
-        if s["arc"]:
+    for t in P.turnouts:
+        if t["band"] == bi:
+            t["cen"] = move(t["cen"])
+            t["pts"] = {k: move(p) for k, p in t["pts"].items()}
+    for p in P.points.values():
+        if p["band"] == bi:
+            p["xy"] = move(p["xy"])
+    for s in P.segments:
+        if s["band"] == bi and s["arc"]:
             s["arc"]["drawn"] = [move(q) for q in s["arc"]["drawn"]]
-    for sh in P.shapes[first[3]:]:
-        sh["centre"] = move(sh["centre"])
-    for lb in P.labels[first[4]:]:
-        lb["xy"] = move(lb["xy"])
+    for sh in P.shapes:
+        if sh["band"] == bi:
+            sh["centre"] = move(sh["centre"])
+    for lb in P.labels:
+        if lb["band"] == bi:
+            lb["xy"] = move(lb["xy"])
 
 
 class Band:
     """One band drawn into the panel, in its own pixels (moved into place afterwards)."""
 
-    def __init__(self, P, bi, title, band, names, defaults, joined, cellx, row, turned, ends, opts=None):
+    def __init__(self, P, bi, title, band, names, defaults, joined, cellx, row, turned, ends, opts=None, drawn=None):
         self.P, self.bi, self.title, self.band = P, bi, title, band
         self.opts = opts or {}
         self.names, self.defaults, self.joined, self.ends = names, defaults, joined, ends
         self.nodes, self.strands = band["nodes"], band["strands"]
-        drawn = paths(band)
+        drawn = drawn if drawn is not None else paths(band)
         x0 = min(p[0] for v in drawn.values() for p in v)
         y0 = min(p[1] for v in drawn.values() for p in v)
         k = -1 if turned else 1
@@ -463,16 +510,18 @@ class Band:
         P = self.P
         t = dict(ident=P.ident("TO"), type=ttype, cen=list(cen), pts={k: list(v) for k, v in pts.items()}, conn={},
                  blocks=blocks, continuing=continuing, ver="2" if "XOVER" in ttype else "1",
-                 name=None, nodes=nodes)
+                 name=None, nodes=nodes, band=self.bi)
         names = {self.names.get("turnouts", {}).get(n) for n in nodes} - {None}
         if len(names) > 1:
             raise SchematicError(f"{self.title}: one turnout for switches {', '.join(nodes)} given two names "
                                  f"{sorted(names)}")
         if names:
             t["name"] = names.pop()
+            if t["name"] in P.turnout_names:
+                raise SchematicError(f"{self.title}: turnout name {t['name']!r} given to two separate turnouts "
+                                     f"(switch {self.nodes[nodes[0]].get('label') or nodes[0]})")
             P.turnout_names.add(t["name"])
-        for b in blocks.values():
-            P.blocks.setdefault(b, False)
+        P.blocks.update(blocks.values())
         for (n, port), leg in conn_ports.items():
             self.conn[(n, port)] = (t, leg)
             self.leg_pt[(n, port)] = pts[leg]
@@ -520,6 +569,10 @@ class Band:
         else:            # neither leg straight on: a wye, its points opposite the middle of the two legs
             B, C = add(c, dirs["B"], L), add(c, dirs["C"], L)
             m = mid(sub(B, c), sub(C, c))
+            if math.hypot(*m) < 1e-3 * L:
+                raise SchematicError(f"{self.title}: switch {d.get('label') or n}: legs B and C leave in opposite "
+                                     "directions and neither runs straight on from leg A; Layout Editor has no "
+                                     "turnout of that shape")
             A = sub(c, m)
             if dot(unit(m), dirs["A"]) > -1 + 1e-3:
                 self.P.log.append(f"{self.title}: switch {d.get('label') or n} drawn as a wye with a bent leg A")
@@ -567,6 +620,9 @@ class Band:
         for p in "ABCD":
             pts = self.away(n, p)
             dx_ = pts[1][0] - pts[0][0]
+            if abs(dx_) < 1e-3:
+                raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: leg {p} "
+                                     "leaves straight up or down, so it is on neither side of the crossover")
             if abs(pts[1][1] - pts[0][1]) > EPS:
                 self.P.log.append(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: leg {p} "
                                   "does not leave on the level")
@@ -576,6 +632,9 @@ class Band:
             raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n} is not drawn "
                                  "across two tracks")
         xc = sum(e[0][0] for e in ends.values()) / 4
+        if any(abs(e[0][0] - xc) > 0.5 for e in ends.values()):
+            raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: its four legs "
+                                 "do not start at one column")
         h = min([0.5 * (ys[1] - ys[0])] + [0.4 * self.first_len(n, p) for p in "ABCD"])
         corner = {(ys[0], "left"): "A", (ys[0], "right"): "B", (ys[1], "right"): "C", (ys[1], "left"): "D"}
         conn = {(n, p): corner[(round(e[0][1], 3), e[1])] for p, e in ends.items()}
@@ -604,12 +663,12 @@ class Band:
         side = "left" if out[0] > 0 else "right"
         if d.get("sub") == "helix":
             centre = add(pts[0], out, HELIX_R)
-            self.P.shapes.append(dict(ident=self.P.ident("SH"), centre=list(centre), r=HELIX_R))
+            self.P.shapes.append(dict(ident=self.P.ident("SH"), centre=list(centre), r=HELIX_R, band=self.bi))
             tip = add(centre, out, HELIX_R + 4)
             self.P.label(f"HELIX TO {to}".strip(), (tip[0], tip[1] - LABEL_SIZE / 2 - 1), LABEL_SIZE - 1, anchor=side)
         elif d.get("sub") == "link":        # the connector letter in a circle, where it goes above it
             centre = add(pts[0], out, HELIX_R)
-            self.P.shapes.append(dict(ident=self.P.ident("SH"), centre=list(centre), r=HELIX_R))
+            self.P.shapes.append(dict(ident=self.P.ident("SH"), centre=list(centre), r=HELIX_R, band=self.bi))
             self.P.label(d.get("label") or "", (centre[0], centre[1] - NUMBER_SIZE / 2 - 1), NUMBER_SIZE, True)
             if to:
                 self.P.label(f"TO {to}", (centre[0], centre[1] - HELIX_R - LABEL_SIZE - 4), LABEL_SIZE - 2)
@@ -650,20 +709,27 @@ class Band:
         line = [self.px(p) for p in self.drawn[t]]
         out = 1 if line[1][0] > line[0][0] else -1          # the way the turnback bows
         r = (b[1] - a[1]) / 2
-        apex = (max(a[0], b[0]) + r if out > 0 else min(a[0], b[0]) - r, (a[1] + b[1]) / 2)
-        apex_id = self.P.point("ANCHOR", apex)
+        if r <= EPS:
+            raise SchematicError(f"{self.title}: a turnback joins two tracks on one row")
+        x = max(a[0], b[0]) if out > 0 else min(a[0], b[0])   # the end further out: the other is run on to it
+        apex_id = self.P.point("ANCHOR", (x + out * r, (a[1] + b[1]) / 2))
         segs = []
         for (p, port, sid), first in (((a, pa, sa), True), ((b, pb, sb), False)):
+            s = self.strands[sid]
             blocks = self.blocks_of(sid)
-            at_src = tuple(self.strands[sid]["src"]) == (t, port)
-            block = blocks[0] if at_src else blocks[-1]
-            toward = (p[0] + out * r, p[1])
+            block = blocks[0] if tuple(s["src"]) == (t, port) else blocks[-1]
+            here = self.conn[(t, port)]
+            if abs(p[0] - x) > 0.01:        # a straight first, so both quarter arcs start level at one column
+                q = (x, p[1])
+                q_id = self.P.point("ANCHOR", q)
+                segs.append(self.P.segment(here, q_id, block, s["main"], dashed=s.get("hidden", False)))
+                here, p = q_id, q
+            apex = self.P.points[apex_id]["xy"]
             p1, p2 = (p, apex) if first else (apex, p)
-            flip = flip_toward(p1, p2, 90.0, toward)
+            flip = flip_toward(p1, p2, 90.0, (p[0] + out * r, p[1]))
             arc = dict(angle=90.0, flip=flip, drawn=arc_points(p1, p2, 90.0, flip))
-            c1, c2 = (self.conn[(t, port)], apex_id) if first else (apex_id, self.conn[(t, port)])
-            segs.append(self.P.segment(c1, c2, block, self.strands[sid]["main"],
-                                       dashed=self.strands[sid].get("hidden", False), arc=arc))
+            c1, c2 = (here, apex_id) if first else (apex_id, here)
+            segs.append(self.P.segment(c1, c2, block, s["main"], dashed=s.get("hidden", False), arc=arc))
         self.P.turnbacks[(self.bi, t)] = segs
 
     # ---- names on the drawing

@@ -185,7 +185,18 @@ def run(argv=None):
             bands = [b for b in s.bands if not a.band or any(b[0].startswith(w) for w in a.band)]
             if not bands:
                 raise SchematicError("no band title starts with " + ", ".join(a.band))
-            names = json.load(open(a.names)) if a.names else None
+            names = None
+            if a.names:
+                try:
+                    with open(a.names, encoding="utf-8") as f:
+                        names = json.load(f)
+                except (OSError, ValueError) as e:
+                    raise SchematicError(f"{a.names}: cannot read the names ({e})") from None
+                if not isinstance(names, dict):
+                    raise SchematicError(f"{a.names}: the names must be an object by band key")
+                le.check_names(s.bands, names)          # against every band, so --band can draw part of a full file
+                drawn = {le.band_key(t) for t, _, _ in bands}
+                names = {k: v for k, v in names.items() if k in drawn}
             pnl = le.panel(bands, names, a.cell, a.row, page=s.opts)
             le.write(pnl, a.out, a.panel)
             print(", ".join(t for t, _, _ in bands) + ": " + le.summary(pnl))

@@ -367,5 +367,117 @@ class Xml(unittest.TestCase):
             self.assertNotIn("Upper level", run.stdout)
             self.assertEqual(ET.parse(out).getroot().get("name"), "Example")
 
+def turnback_band():
+    """Two tracks into one turnback, their ends a column apart: the shorter is run on before the loop."""
+    nodes = {"E1": dict(kind="end", sub="bumper", label="", ins={}, outs={"E": "a"}),
+             "E2": dict(kind="end", sub="bumper", label="", ins={}, outs={"E": "b"}),
+             "T": dict(kind="turnR", label="", ins={0: "a", 1: "b"}, outs={})}
+    st = lambda a, b: dict(src=a, dst=b, name="Loop", main=True, hidden=False, link=False, edge="", cm=1.0)  # noqa: E731
+    strands = {"a": st(("E1", "E"), ("T", 0)), "b": st(("E2", "E"), ("T", 1))}
+    drawn = {"a": [(0, 0), (4, 0)], "b": [(0, 2), (3, 2)], "T": [(4, 0), (4.5, 0.5), (4.5, 1.5), (4, 2)]}
+    return [("Test level", dict(nodes=nodes, strands=strands, _drawn=drawn), {})]
+
+
+def wye_band():
+    """A switch whose legs B and C leave straight up and straight down: no Layout Editor turnout has that shape."""
+    end = lambda s, io: dict(kind="end", sub="bumper", label="", ins={"E": s} if io else {}, outs={} if io else {"E": s})  # noqa: E731
+    nodes = {"W": end("a", False), "N": end("b", True), "S": end("c", True),
+             "X": dict(kind="switch", label="9", hand=1, ins={"A": "a"}, outs={"B": "b", "C": "c"})}
+    st = lambda a, b: dict(src=a, dst=b, name="", main=False, hidden=False, link=False, edge="", cm=1.0)  # noqa: E731
+    strands = {"a": st(("W", "E"), ("X", "A")), "b": st(("X", "B"), ("N", "E")), "c": st(("X", "C"), ("S", "E"))}
+    drawn = {"a": [(0, 1), (2, 1)], "b": [(2, 1), (2, 0), (4, 0)], "c": [(2, 1), (2, 2), (4, 2)]}
+    return [("Test level", dict(nodes=nodes, strands=strands, _drawn=drawn), {})]
+
+
+class ReviewFixes(unittest.TestCase):
+    def test_turnback_with_ends_at_two_columns_stays_tangent(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            P = le.panel(turnback_band())
+        segs = {s["ident"]: s for s in P.segments}
+        loop = [segs[k] for k in P.turnbacks[(0, "T")]]
+        self.assertEqual([bool(s["arc"]) for s in loop], [True, False, True])     # arc, run-on straight, arc
+        arcs = [s for s in loop if s["arc"]]
+        starts = [P.points[arcs[0]["ends"][0][0]]["xy"], P.points[arcs[1]["ends"][1][0]]["xy"]]
+        self.assertAlmostEqual(starts[0][0], starts[1][0])          # both quarter arcs start at one column
+        apex = P.points[arcs[0]["ends"][1][0]]["xy"]
+        r = (starts[1][1] - starts[0][1]) / 2
+        self.assertAlmostEqual(apex[0] - starts[0][0], r)
+        for s in arcs:                                              # every point on the circle about the centre
+            for q in s["arc"]["drawn"]:
+                self.assertAlmostEqual(math.dist(q, (starts[0][0], starts[0][1] + r)), r, places=2)
+
+    def test_everything_lies_inside_the_margin(self):
+        for P in (panel(), panel(Names.NAMES)):
+            box = le.extent(P)
+            self.assertGreaterEqual(box[0], le.MARGIN - 0.01)
+            self.assertGreaterEqual(box[1], le.MARGIN - 0.01)
+            self.assertLessEqual(box[2], P.size[0])
+            self.assertLessEqual(box[3], P.size[1])
+
+    def test_one_turnout_name_on_two_switches_stops(self):
+        with self.assertRaisesRegex(SchematicError, "two separate turnouts"):
+            le.panel(bands(), {"Lower": {"turnouts": {"S1": "Switch X", "S2": "Switch X"}}})
+
+    def test_names_for_switches_or_tracks_that_are_not_there_stop(self):
+        for bad in ({"blocks": {"nope": ["X"]}}, {"turnouts": {"e1": "X"}}, {"os": {"nope": "X"}},
+                    {"normal": {"nope": "C"}}, {"tracks": {}}):
+            with self.assertRaises(SchematicError, msg=bad):
+                le.panel(bands(), {"Lower": bad})
+
+    def test_default_names_never_meet_given_names(self):
+        P = panel({"Lower": {"blocks": {"e1": ["Main"]}}})
+        lower = next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
+        segs = {s["ident"]: s for s in P.segments}
+        owner = defaultdict(set)
+        for (bi, sid), ks in P.strand_segments.items():
+            for k in ks:
+                owner[segs[k]["block"]].add((bi, sid))
+        self.assertEqual(owner["Main"], {(lower, "e1")})            # e3, whose default would be Main, is not in it
+        for block, strands in owner.items():                        # no two unrelated tracks share a block
+            self.assertTrue(len(strands) == 1 or block in ("Loop", "Summit", "Rise"), (block, strands))
+
+    def test_double_crossover_leg_straight_up_stops(self):
+        band = bands()[[t for t, _, _ in bands()].index(next(t for t, _, _ in bands() if t.startswith("Lower")))][1]
+        from schematic.layout import paths
+        drawn = paths(band)
+        drawn["e7"] = [(6, 1), (6, 0.5), (10, 1)]
+        with mock.patch.object(le, "paths", lambda b: drawn if b is band else paths(b)):
+            with self.assertRaisesRegex(SchematicError, "double crossover 6: leg B leaves straight up or down"):
+                le.panel([b for b in bands() if b[1] is band])
+
+    def test_switch_with_legs_b_and_c_opposite_stops_clearly(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            with self.assertRaisesRegex(SchematicError, "switch 9: legs B and C leave in opposite directions"):
+                le.panel(wye_band())
+
+    def test_cli_names_checked_against_every_band_and_read_safely(self):
+        f = helpers.data_with_signals()
+        with tempfile.TemporaryDirectory() as tmp:
+            graph = Path(tmp) / "graph.json"
+            graph.write_text(json.dumps(helpers.graph()))
+            names = Path(tmp) / "names.json"
+            run = lambda *extra: subprocess.run(  # noqa: E731
+                [sys.executable, "-m", "schematic", "le", str(Path(tmp) / "le.xml"), "--data", str(f),
+                 f"{graph}:example", "--band", "Lower", *extra], capture_output=True, text=True,
+                cwd=helpers.PLUGIN, timeout=120)
+            names.write_text(json.dumps({"Upper": {"turnouts": {"U1": "Turnout 21"}},
+                                         "Lower": {"turnouts": {"S1": "Turnout 1"}}}))
+            r = run("--names", str(names))
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("Turnout 1", (Path(tmp) / "le.xml").read_text())
+            names.write_text(json.dumps({"Nowhere": {}}))
+            r = run("--names", str(names))
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("not a band", r.stderr)
+            r = run("--names", str(Path(tmp) / "missing.json"))
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("cannot read the names", r.stderr)
+            self.assertNotIn("Traceback", r.stderr)
+            names.write_text("{not json")
+            r = run("--names", str(names))
+            self.assertEqual(r.returncode, 2)
+            self.assertNotIn("Traceback", r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
