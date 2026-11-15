@@ -52,7 +52,7 @@ import math
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-from .core import SchematicError, dx_tracks
+from .core import SchematicError, dx_tracks, node_ref
 from .draw import mast_piece
 from .layout import paths
 
@@ -297,16 +297,6 @@ class Panel:
 
 def band_key_name(title):
     return title.split(",")[0].strip()
-
-
-def node_ref(d):
-    if d["kind"] in ("switch", "dx") and d.get("label"):
-        return d["label"]
-    if d.get("sub") == "link" and d.get("label"):
-        return "link " + d["label"]
-    if d.get("sub") == "helix":
-        return "helix"
-    return "end"
 
 
 def panel(bands, scale=SCALE, bindings=None, max_cols=None):

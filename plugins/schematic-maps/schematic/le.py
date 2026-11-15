@@ -36,9 +36,10 @@ a strand's block is its track name (or the two switch numbers it joins, made uni
 or connector track share the block of the track they continue, an OS block is "OS <switch number>", and no turnout
 is named. Sensors are not placed. `leg_b` names the band leg that is Layout Editor leg B (default: the drawn
 straight one); a drawn diverging leg B puts the centre midway between legs A and B, where Layout Editor finds point
-A. `idents` gives drawn objects an older panel's idents once everything is placed (apply_idents): a switch's
+A. `idents` gives drawn objects an older panel's idents once the track is drawn (give_idents): a switch's
 turnout, the one anchor between two blocks, the one end bumper of a block, the one segment of a block; the rest keep
-generated idents, whose form (G after the prefix) no given ident may take.
+generated idents, whose form (G after the prefix) no given ident may take. The given idents are an alias layer:
+the Panel's own lookups keep the generated idents, and the XML and every log line use P.name(ident).
 
 Masts. Each mast in `masts` goes in the slot of that band whose facing block and protected blocks, as JMRI resolves
 them (slots.py), are the ones given: an anchor's east or west slot, a turnout leg, or (with `protects` empty) an end
@@ -66,7 +67,7 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 from . import stations
-from .core import SchematicError, tidy
+from .core import SchematicError, node_ref, tidy
 from .draw import band_key
 from .layout import paths
 
@@ -215,7 +216,7 @@ class Panel:
         self.anchors_from = {}      # anchor ident -> where it stood before it slid
         self.names_moved = []       # (track name, px) track names slid along their track clear of mast icons
         self.cellx = {}             # band index -> px per grid column as drawn
-        self.idents_given = {}      # generated ident -> the ident the names gave it (apply_idents)
+        self.idents_given = {}      # generated ident -> the ident the names give it (give_idents): the alias layer
         self.log = []
         self.size = (0, 0)
         self.scale = (1.0, 1.0)     # the grid's scale across and down when `fit` shrank it
@@ -225,6 +226,11 @@ class Panel:
     def ident(self, kind):
         self._n[kind] += 1
         return f"{kind}{PREFIX}{self._n[kind]}"
+
+    def name(self, ident):
+        """The ident an object is written and logged under: the one the names give it, else its generated one.
+        Every lookup of the Panel (turnouts, segments, points, masts, strand_segments, ...) keeps generated idents."""
+        return self.idents_given.get(ident, ident)
 
     def point(self, kind, xy):
         ident = self.ident("A" if kind == "ANCHOR" else "EB")
@@ -256,16 +262,6 @@ class Panel:
 
 def text_width(text, size):
     return 0.6 * size * len(text)
-
-
-def node_ref(d):
-    if d["kind"] in ("switch", "dx") and d.get("label"):
-        return d["label"]
-    if d.get("sub") == "link" and d.get("label"):
-        return "link " + d["label"]
-    if d.get("sub") == "helix":
-        return "helix"
-    return "end"
 
 
 def partners(bands):
@@ -453,7 +449,7 @@ def check_idents(key, idents, band, switches, named, seen):
     up as its kind of object (jmri_kind), never one the panel generates itself (so a given and a generated ident
     never meet), used once across every band (`seen`) but by the two switches of one single crossover; each block
     one the names give (`named`: the band's `blocks` and `os`). Whether a boundary or end is drawn as exactly one
-    anchor or bumper can only be checked once drawn (apply_idents)."""
+    anchor or bumper can only be checked once drawn (give_idents)."""
     if idents is None:
         return
     what = f"names for {key}: idents"
@@ -657,21 +653,22 @@ def draw_panel(bands, names, cell, row, page, masts=True):
         P.joins.append(P.segment(a[0], b[0], block, a[4] and b[4], hidden=True))
         P.join_ends[(bi, a[0])] = a[3]
         P.join_ends[(bj, b[0])] = b[3]
+    if any(g.get("idents") for g in names.values()):
+        give_idents(P, bands, names)        # before the masts, so every ident they log is the one written
     if masts and any(g.get("masts") for g in names.values()):
         place_masts(P, bands, names)
-    if any(g.get("idents") for g in names.values()):
-        apply_idents(P, bands, names)
     box = extent(P)
     P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
     return P
 
 
-def apply_idents(P, bands, names):
-    """Give the drawn objects the idents the names ask for (an older panel's, say), once everything is placed:
-    a switch's turnout; the anchor between two blocks (the pair must be drawn as exactly one anchor); the end bumper
-    of a block (the block must end at exactly one bumper); a block's one track segment (used only when the block is
-    drawn as one segment, else logged). The rest keep their generated idents, which no given ident can take
-    (check_idents). Sets P.idents_given {old: new}."""
+def give_idents(P, bands, names):
+    """The idents the names ask for (an older panel's, say), as an alias layer over the generated ones, once the
+    track is drawn and joined (masts move no track, so they cannot change what these find): a switch's turnout; the
+    anchor between two blocks (the pair must be drawn as exactly one anchor); the end bumper of a block (the block must
+    end at exactly one bumper); a block's one track segment (used only when the block is drawn as one segment, else
+    logged). The rest keep their generated idents, which no given ident can take (check_idents). Sets
+    P.idents_given {generated: given}; nothing is renamed: to_xml and the log write P.name(ident)."""
     rename = {}
 
     def take(old, new, what):
@@ -727,37 +724,36 @@ def apply_idents(P, bands, names):
                              f"ident {new} is not used (they keep generated idents)")
                 continue
             take(got[0], new, f"{title}: idents: segment of {block}")
-    if not rename:
-        return
-    r = lambda i: rename.get(i, i)      # noqa: E731
-    for t in P.turnouts:
-        t["ident"] = r(t["ident"])
-        t["conn"] = {k: r(v) for k, v in t["conn"].items()}
-    for s in P.segments:
-        s["ident"] = r(s["ident"])
-        s["ends"] = [(r(i), typ) for i, typ in s["ends"]]
-    P.points = {r(k): {**p, "conn": [r(c) for c in p["conn"]]} for k, p in P.points.items()}
-    for m in P.masts:
-        m["ident"] = r(m["ident"])
-    P.strand_segments = defaultdict(list, {k: [r(i) for i in v] for k, v in P.strand_segments.items()})
-    P.turnout_of = {k: (r(v[0]), v[1]) for k, v in P.turnout_of.items()}
-    P.turnbacks = {k: [r(i) for i in v] for k, v in P.turnbacks.items()}
-    P.joins = [r(i) for i in P.joins]
-    P.join_ends = {(b, r(i)): v for (b, i), v in P.join_ends.items()}
-    P.anchors_moved = [(m, r(i), px) for m, i, px in P.anchors_moved]
-    P.anchors_from = {r(k): v for k, v in P.anchors_from.items()}
-    # invariant: every ident once, every connection names an object that is there
-    idents = [t["ident"] for t in P.turnouts] + [s["ident"] for s in P.segments] + list(P.points)
-    if len(idents) != len(set(idents)):
-        dup = sorted({i for i in idents if idents.count(i) > 1})
-        raise SchematicError(f"idents: {', '.join(dup)} named twice after renaming")
-    check_connections(P)
     P.idents_given = dict(rename)
+    check_connections(P)
+    written_idents(P)                   # every object written under one ident, each given ident used once
+
+
+def written_idents(P):
+    """{generated ident: written ident} for every object to_xml writes (turnouts, track segments, points, shapes),
+    checked: no generated ident is two objects, every given ident names one drawn object, and no two objects are
+    written under one ident."""
+    out = {}
+    for i in ([t["ident"] for t in P.turnouts] + [s["ident"] for s in P.segments] + list(P.points)
+              + [sh["ident"] for sh in P.shapes]):
+        if i in out:
+            raise SchematicError(f"idents: {i} is generated for two objects")
+        out[i] = P.name(i)
+    lost = sorted(set(P.idents_given) - set(out))
+    if lost:
+        raise SchematicError(f"idents: given to nothing drawn: {', '.join(f'{i} ({P.name(i)})' for i in lost)}")
+    seen = defaultdict(list)
+    for i, n in out.items():
+        seen[n].append(i)
+    dup = sorted(n for n, v in seen.items() if len(v) > 1)
+    if dup:
+        raise SchematicError("idents: " + "; ".join(f"{n} would name {', '.join(seen[n])}" for n in dup))
+    return out
 
 
 def check_connections(P):
-    """Stop unless every ident a part of the panel names is an object of it, of the right kind, after renaming:
-    segment ends, turnout legs, points' tracks, masts' slots, and the Panel's own lookups."""
+    """Stop unless every ident a part of the panel names is an object of it, of the right kind: segment ends,
+    turnout legs, points' tracks, masts' slots, and the Panel's own lookups (all generated idents)."""
     turnouts = {t["ident"] for t in P.turnouts}
     segs = {s["ident"] for s in P.segments}
     bad = []
@@ -778,7 +774,7 @@ def check_connections(P):
     bad += [f"join {i}" for i in P.joins if i not in segs]
     bad += [f"join end {i}" for (_b, i) in P.join_ends if i not in P.points]
     if bad:
-        raise SchematicError("idents: after renaming these name nothing on the panel: " + "; ".join(bad[:8]))
+        raise SchematicError("idents: these name nothing on the panel: " + "; ".join(bad[:8]))
 
 
 def extent(P, bi=None):
@@ -854,14 +850,15 @@ def place_masts(P, bands, names):
                 beyond = [c for c in joins if ix.blocks(*c)[1] and ix.blocks(*c)[1] != [m["facing"]]]
                 if len(beyond) == 1:
                     cands = beyond
-                    moved = (f"{m['facing']} has no buffer stop: it runs on through the join at {beyond[0][1]}, so "
-                             f"the mast stands there (an anchor, not an end bumper), protecting "
-                             f"{ix.blocks(*beyond[0])[1]}")
+                    moved = (f"{m['facing']} has no buffer stop: it runs on through the join at "
+                             f"{P.name(beyond[0][1])}, so the mast stands there (an anchor, not an end bumper), "
+                             f"protecting {ix.blocks(*beyond[0])[1]}")
                 elif beyond:
-                    join_why = f"{m['facing']} runs through {len(beyond)} joins: {', '.join(c[1] for c in beyond)}"
+                    join_why = (f"{m['facing']} runs through {len(beyond)} joins: "
+                                f"{', '.join(P.name(c[1]) for c in beyond)}")
                 elif at:
-                    join_why = (f"the join at {', '.join(at)} carries {m['facing']} on both sides, so it is no block "
-                                "boundary (give one band \"joins\": \"other\")")
+                    join_why = (f"the join at {', '.join(map(P.name, at))} carries {m['facing']} on both sides, so "
+                                "it is no block boundary (give one band \"joins\": \"other\")")
             if not cands:
                 if join_why:
                     why = f"no buffer stop for {m['facing']}, and {join_why}"
@@ -876,8 +873,8 @@ def place_masts(P, bands, names):
                 P.log.append(f"{title}: mast {m['mast']} not placed: {why}")
                 continue
             if len(cands) > 1:
-                P.log.append(f"{title}: mast {m['mast']}: {len(cands)} slots fit, took {cands[0][0]} {cands[0][1]} "
-                             f"{cands[0][2]}")
+                P.log.append(f"{title}: mast {m['mast']}: {len(cands)} slots fit, took {cands[0][0]} "
+                             f"{P.name(cands[0][1])} {cands[0][2]}")
             kind, ident, slot = cands[0]
             taken.add((kind, ident, slot))
             if moved:
@@ -1446,7 +1443,9 @@ def split(pieces, k, what, shares=None, least=None, room=None, log=None):
 def to_xml(P, name, attrs=None, options=None, probe=False):
     """The panel as a <LayoutEditor> element. `attrs` replace the editor attributes (a template panel's, say);
     `options` is a layoutTrackDrawingOptions element to copy (its name is set to the panel's). `probe`: for reading
-    the slots while the masts are being placed, without their icons; otherwise a mast with no icon stops."""
+    the slots while the masts are being placed, without their icons and under the generated idents (the Panel's
+    own); otherwise a mast with no icon stops, and every ident is written as P.name gives it, each object's checked
+    to be one only it has (written_idents)."""
     a = dict(EDITOR) if attrs is None else dict(attrs)
     a.pop("class", None)
     if P.fit:           # the panel was fitted inside this window less CHROME, so the window fits
@@ -1456,6 +1455,12 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
     a.update(name=name, x="0", y="0", panelwidth=str(P.size[0]), panelheight=str(P.size[1]),
              windowwidth=str(window[0]), windowheight=str(window[1]))
     le = ET.Element("LayoutEditor", {"class": CLASS["editor"], **a})
+    if probe:
+        n = str
+    else:
+        check_connections(P)
+        written = written_idents(P)
+        n = written.__getitem__         # every ident written resolves through the one mapping
     on_turnout, on_point = defaultdict(dict), defaultdict(dict)
     for m in P.masts:
         (on_turnout if m["kind"] == "turnout" else on_point)[m["ident"]][m["slot"]] = m["mast"]
@@ -1468,7 +1473,7 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
             ET.SubElement(opts, tag).text = text
     le.append(opts)
     for t in P.turnouts:
-        at = {"ident": t["ident"], "type": t["type"], "hidden": "no", "disabled": "no", "disableWhenOccupied": "yes",
+        at = {"ident": n(t["ident"]), "type": t["type"], "hidden": "no", "disabled": "no", "disableWhenOccupied": "yes",
               "continuing": t["continuing"], "xcen": r1(t["cen"][0]), "ycen": r1(t["cen"][1])}
         pts = dict(t["pts"])
         pts.setdefault("D", pts["A"])
@@ -1484,15 +1489,16 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
                 at[f"block{leg.lower()}name"] = t["blocks"][leg]
         for leg in "ABCD":
             if leg in t["conn"]:
-                at[f"connect{leg.lower()}name"] = t["conn"][leg]
+                at[f"connect{leg.lower()}name"] = n(t["conn"][leg])
         el = ET.SubElement(le, "layoutturnout", at)
         for leg in "ABCD":
             if leg in on_turnout.get(t["ident"], {}):
                 ET.SubElement(el, f"signal{leg}Mast").text = on_turnout[t["ident"]][leg]
     for s in P.segments:
         (c1, t1), (c2, t2) = s["ends"]
-        at = {"ident": s["ident"], "blockname": s["block"], "connect1name": c1, "type1": t1, "connect2name": c2,
-              "type2": t2, "dashed": "yes" if s["dashed"] else "no", "mainline": "yes" if s["main"] else "no",
+        at = {"ident": n(s["ident"]), "blockname": s["block"], "connect1name": n(c1), "type1": t1,
+              "connect2name": n(c2), "type2": t2, "dashed": "yes" if s["dashed"] else "no",
+              "mainline": "yes" if s["main"] else "no",
               "hidden": "yes" if s["hidden"] else "no"}
         if s["arc"]:
             at.update(arc="yes", flip="yes" if s["arc"]["flip"] else "no", circle="yes",
@@ -1500,15 +1506,15 @@ def to_xml(P, name, attrs=None, options=None, probe=False):
         at["class"] = CLASS["segment"]
         le.append(ET.Element("tracksegment", at))
     for ident, p in P.points.items():
-        at = {"ident": ident, "type": p["type"], "x": r1(p["xy"][0]), "y": r1(p["xy"][1])}
+        at = {"ident": n(ident), "type": p["type"], "x": r1(p["xy"][0]), "y": r1(p["xy"][1])}
         for i, seg in enumerate(p["conn"], 1):
-            at[f"connect{i}name"] = seg
+            at[f"connect{i}name"] = n(seg)
         for slot, mast in sorted(on_point.get(ident, {}).items()):
             at[f"{slot}boundsignalmast"] = mast
         at["class"] = CLASS["point"]
         le.append(ET.Element("positionablepoint", at))
     for sh in P.shapes:
-        el = ET.Element("layoutShape", {"ident": sh["ident"], "type": "Closed", "level": "3", "linewidth": "2",
+        el = ET.Element("layoutShape", {"ident": n(sh["ident"]), "type": "Closed", "level": "3", "linewidth": "2",
                                         "lineColor": "#000000", "fillColor": "#FFFFFF", "class": CLASS["shape"]})
         pts = ET.SubElement(el, "points")
         R = sh["r"] / math.cos(math.pi / 8)        # quadratic curves through the mid points draw the circle

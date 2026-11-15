@@ -332,13 +332,15 @@ class Idents(unittest.TestCase):
                                                                      "ident": "F3-A-1"}],
                              ends={"Y-1": "EB100"}, segments={"Y-1": "T-Y1", "Yard Lead": "F2-S-7"}))
         lower = self.lower()
-        self.assertEqual(P.turnout_of[(lower, "S1")][0], "TO100")
-        self.assertEqual(P.points["F3-A-1"]["type"], "ANCHOR")
-        self.assertEqual(P.points["EB100"]["type"], "END_BUMPER")
-        segs = {sg["ident"]: sg for sg in P.segments}
-        self.assertEqual({segs[c]["block"] for c in P.points["F3-A-1"]["conn"]}, {"Main West 1", "Main West 2"})
-        self.assertEqual(segs["T-Y1"]["block"], "Y-1")
-        self.assertNotIn("F2-S-7", segs)
+        self.assertEqual(P.name(P.turnout_of[(lower, "S1")][0]), "TO100")
+        self.assertTrue(le.GENERATED.fullmatch(P.turnout_of[(lower, "S1")][0]))   # the Panel keeps generated idents
+        by = items(element(P))
+        self.assertEqual(by["F3-A-1"].get("type"), "ANCHOR")
+        self.assertEqual(by["EB100"].get("type"), "END_BUMPER")
+        self.assertEqual({by[by["F3-A-1"].get(f"connect{i}name")].get("blockname") for i in (1, 2)},
+                         {"Main West 1", "Main West 2"})
+        self.assertEqual(by["T-Y1"].get("blockname"), "Y-1")
+        self.assertNotIn("F2-S-7", by)
         self.assertIn("Lower level: idents: block Yard Lead is drawn as 3 track segments, so segment ident F2-S-7 is not used (they keep "
                       "generated idents)", P.log)
         self.assertEqual(set(P.idents_given.values()), {"TO100", "F3-A-1", "EB100", "T-Y1"})
@@ -387,11 +389,26 @@ class Idents(unittest.TestCase):
     def test_a_crossover_shares_one_ident(self):
         with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
             P = le.panel(crossover_band(), {"Test": {"idents": {"turnouts": {"P": "TO117", "Q": "TO117"}}}})
-            self.assertEqual([t["ident"] for t in P.turnouts], ["TO117"])
+            self.assertEqual([P.name(t["ident"]) for t in P.turnouts], ["TO117"])
             with self.assertRaisesRegex(SchematicError, "already named"):      # one turnout, two idents
                 le.panel(crossover_band(), {"Test": {"idents": {"turnouts": {"P": "TO1", "Q": "TO2"}}}})
             with self.assertRaisesRegex(SchematicError, "half of a single crossover"):
                 le.panel(crossover_band(), {"Test": {"leg_b": {"P": "C"}}})
+
+    def test_every_written_ident_resolves_through_the_one_mapping(self):
+        P = panel(self.names(turnouts={"S1": "TO100"}))
+        el = element(P)
+        written = [c.get("ident") for c in el if c.get("ident")]
+        self.assertEqual(len(written), len(set(written)))
+        self.assertIn("TO100", written)
+        self.assertNotIn(next(k for k, v in P.idents_given.items() if v == "TO100"), written)
+        for bad, why in (({"TG999999": "T-NONE"}, "given to nothing drawn"),          # an alias of nothing
+                         ({P.segments[0]["ident"]: "TO100"}, "TO100 would name")):     # two objects, one ident
+            Q = le.Panel()
+            Q.__dict__.update({k: v for k, v in P.__dict__.items()})
+            Q.idents_given = {**P.idents_given, **bad}
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, why):
+                le.to_xml(Q, "Generated")
 
     def test_a_joins_hidden_segment_does_not_count_against_its_block(self):
         upper = 1 - self.lower()
@@ -400,7 +417,7 @@ class Idents(unittest.TestCase):
         P = panel(names)
         mine = [sg for sg in P.segments if sg["block"] == "Rise" and sg["band"] == upper]
         self.assertTrue(any(sg["hidden"] for sg in P.segments if sg["block"] == "Rise"))   # the join carries it
-        self.assertEqual([sg["ident"] for sg in mine], ["T-RISE"])    # its one drawn segment, not the join
+        self.assertEqual([P.name(sg["ident"]) for sg in mine], ["T-RISE"])    # its one drawn segment, not the join
 
     def test_leg_b_keeps_the_letters_and_layout_editors_point_a(self):
         P = panel({"Lower": {"leg_b": {"S4": "C"}}})

@@ -236,6 +236,24 @@ class Masts(unittest.TestCase):
         self.assertIn(got["protects"][0], hidden)            # the join carries the other band's block
         self.assertNotEqual(got["protects"][0], block)
 
+    def test_a_join_given_an_ident_is_logged_under_it(self):
+        names, anchor, block = self.joined_names()
+        names[self.key]["masts"] = [dict(mast="Stop", facing=block, protects=[], or_join=True)]
+        place = le.place_masts
+
+        def aliased(P, bands_, names_):         # as give_idents does: the alias is known before the masts go in
+            P.idents_given[anchor] = "F9-A-1"
+            return place(P, bands_, names_)
+        with mock.patch.object(le, "place_masts", aliased):
+            P = le.panel(bands(), names)
+        self.assertIn("the join at F9-A-1", P.moved[0][2])
+        self.assertTrue(any("the join at F9-A-1" in line for line in P.log))
+        self.assertFalse([line for line in P.log + [w for _t, _m, w in P.moved] if anchor in line])
+        (m,) = P.masts
+        self.assertEqual(m["ident"], anchor)                # the Panel keeps the generated ident
+        pt = next(p for p in le.to_xml(P, "Generated").findall("positionablepoint") if p.get("ident") == "F9-A-1")
+        self.assertIn("Stop", pt.attrib.values())
+
     def test_only_an_or_join_mast_moves_to_a_join(self):
         names, _anchor, block = self.joined_names()
         names[self.key]["masts"] = [dict(mast="Stop", facing=block, protects=[], kind="end bumper")]
