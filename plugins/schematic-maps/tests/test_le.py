@@ -310,6 +310,74 @@ class Names(unittest.TestCase):
             le.panel(bands(), {"Lower": {"normal": {"S4": "D"}}})
 
 
+class Idents(unittest.TestCase):
+    """`idents` gives drawn objects an older panel's names; `leg_b` keeps a turnout's leg letters."""
+    BASE = {"blocks": {"e1": ["Main West 1", "Main West 2"]}}
+
+    def lower(self):
+        return next(i for i, (t, _, _) in enumerate(bands()) if t.startswith("Lower"))
+
+    def names(self, **idents):
+        return {"Lower": {**self.BASE, "idents": idents}}
+
+    def test_given_idents_reach_the_panel_and_its_xml(self):
+        P = panel(self.names(turnouts={"S1": "TO100"}, boundaries=[{"blocks": ["Main West 2", "Main West 1"],
+                                                                     "ident": "A100"}],
+                             ends={"Y-1": "EB100"}, segments={"Y-1": "T-Y1", "Main West 1": "T-MW1"}))
+        lower = self.lower()
+        self.assertEqual(P.turnout_of[(lower, "S1")][0], "TO100")
+        self.assertEqual(P.points["A100"]["type"], "ANCHOR")
+        self.assertEqual(P.points["EB100"]["type"], "END_BUMPER")
+        segs = {s["ident"]: s for s in P.segments}
+        self.assertEqual({segs[c]["block"] for c in P.points["A100"]["conn"]}, {"Main West 1", "Main West 2"})
+        self.assertTrue({"TO100", "A100", "EB100"} <= set(P.idents_given.values()))
+        for block, ident in (("Y-1", "T-Y1"), ("Main West 1", "T-MW1")):
+            drawn = [s for s in P.segments if s["block"] == block]
+            if len(drawn) == 1:
+                self.assertEqual(drawn[0]["ident"], ident)
+            else:
+                self.assertTrue(any(ident in line for line in P.log), block)
+        el = element(P)
+        names = {c.get("ident") for c in el if c.get("ident")}
+        self.assertTrue({"TO100", "A100", "EB100"} <= names)
+        for c in el:                                    # every connection names an object of the panel
+            for a in ("connect1name", "connect2name", "connectaname", "connectbname", "connectcname"):
+                if c.get(a):
+                    self.assertIn(c.get(a), names, (c.get("ident"), a))
+
+    def test_bad_idents_stop_before_drawing(self):
+        bad = [dict(turnouts={"S1": "X1"}),                                  # not a turnout's prefix
+               dict(turnouts={"S1": "TOG1"}),                                # the generated form
+               dict(turnouts={"S1": "TO100"}, ends={"Y-1": "TO100"}),        # wrong prefix for an end
+               dict(turnouts={"S1": "TO100", "S2": "TO100"}),                # two separate turnouts
+               dict(segments={"Y-1": "TO5"}),                                # a segment named like a turnout
+               dict(boundaries=[{"blocks": ["Y-1", "Y-1"], "ident": "A1"}]),
+               dict(boundaries=[{"blocks": ["Y-1", "Y-2"], "ident": "A1"}]),  # not drawn as one anchor
+               dict(ends={"Main West 1": "EB1"}),                            # ends at no bumper
+               dict(turnouts={"NOPE": "TO1"}),
+               dict(nope={})]
+        for idents in bad:
+            with self.subTest(idents=idents), self.assertRaises(SchematicError):
+                le.panel(bands(), self.names(**idents))
+
+    def test_leg_b_keeps_the_letters_and_layout_editors_point_a(self):
+        P = panel({"Lower": {"leg_b": {"S4": "C"}}})
+        ident, legs = P.turnout_of[(self.lower(), "S4")]
+        t = next(t for t in P.turnouts if t["ident"] == ident)
+        self.assertEqual(legs, {"A": "A", "B": "C", "C": "B"})            # the drawn diverging leg is leg B
+        self.assertEqual(t["continuing"], "4")                              # normal stays on the band's leg B
+        c, p = t["cen"], t["pts"]
+        self.assertLess(math.dist(p["A"], (2 * c[0] - p["B"][0], 2 * c[1] - p["B"][1])), 0.01)
+        plain = next(t for t in panel().turnouts if t["ident"] == panel().turnout_of[(self.lower(), "S4")][0])
+        for leg in "ABC":                                                   # every leg still ends where it did
+            other = {"A": "A", "B": "C", "C": "B"}[leg]
+            self.assertLess(math.dist(p[leg], plain["pts"][other]), 0.01)
+        self.assertTrue(any("leg_b" in line for line in P.log))
+        for bad in ({"S4": "D"}, {"DX": "B"}, {"nope": "B"}):
+            with self.subTest(bad=bad), self.assertRaises(SchematicError):
+                le.panel(bands(), {"Lower": {"leg_b": bad}})
+
+
 class Ends(unittest.TestCase):
     def test_connector_and_helix_are_joined_hidden(self):
         P = panel()
