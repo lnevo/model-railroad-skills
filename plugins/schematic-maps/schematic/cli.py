@@ -94,7 +94,7 @@ def run(argv=None):
     p.add_argument("--data", required=True)
     p.add_argument("inputs", nargs="+", metavar="GRAPH.json:NAME")
     p.add_argument("--band", action="append", help="draw only bands whose title starts with this (repeat; default all)")
-    p.add_argument("--discipline", default="CTC", help="the blocks' CATS discipline (default CTC)")
+    p.add_argument("--discipline", default="CTC", choices=cats.DISCIPLINES, help="the blocks' CATS discipline (default CTC)")
     p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
     p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
 

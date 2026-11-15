@@ -1,4 +1,5 @@
 """The CATS panel seeded from the example's solved bands: track on whole cells, switch points, blocks, joins, XML."""
+import copy
 import subprocess
 import sys
 import tempfile
@@ -6,6 +7,7 @@ import unittest
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
+from unittest import mock
 
 import helpers
 from schematic import cats
@@ -149,6 +151,103 @@ class Cats(unittest.TestCase):
             self.assertIn("Lower level", r.stdout)
             self.assertNotIn("Upper level", r.stdout)
             self.assertEqual(ET.parse(out).getroot().tag, "DOCUMENT")
+
+
+def bands_copy():
+    return copy.deepcopy(helpers.build().bands)
+
+
+def drawn_with(changes):
+    """paths() of the example, with some lines replaced: {line id: points}, or {None: ...} to draw nothing."""
+    real = paths
+
+    def fake(band):
+        out = real(band)
+        if None in changes:
+            return {}
+        return {k: changes.get(k, v) for k, v in out.items()}
+    return mock.patch.object(cats, "paths", fake)
+
+
+def tiny_panel():
+    """Two cells of one block, a track on its own: (1, 1) and (2, 1), level."""
+    P = cats.Panel()
+    P.cells[(1, 1)]["HORIZONTAL"] = ("track", "t")
+    P.cells[(2, 1)]["HORIZONTAL"] = ("track", "t")
+    P.blocks[("track", "t")] = "Lone"
+    P.names[("track", "t")] = "Lone"
+    return P
+
+
+class Review(unittest.TestCase):
+    def test_a_track_on_two_bands_is_one_block(self):
+        P = panel()
+        names = set(P.names.values())
+        self.assertTrue({"Summit", "Rise"} <= names, names)
+        self.assertFalse({"Summit 2", "Rise 2"} & names, names)
+        root = cats.to_xml(P)
+        for se in root.iter("SEC_EDGE"):
+            if se.find("SHARED") is not None:
+                self.assertIsNone(se.find("BLOCK"), "a joined end inside one block is no boundary")
+
+    def test_a_strand_drawn_as_a_point_is_an_error(self):
+        with drawn_with({"e13": [(4, 3), (4, 3)]}):
+            with self.assertRaisesRegex(cats.SchematicError, "single point"):
+                cats.panel(helpers.build().bands)
+
+    def test_a_band_with_nothing_drawn_is_an_error(self):
+        with drawn_with({None: None}):
+            with self.assertRaisesRegex(cats.SchematicError, "draws no track"):
+                cats.panel(helpers.build().bands)
+
+    def test_a_crossover_without_level_track_beside_it_is_an_error(self):
+        with drawn_with({"e3": [(2, 1), (3, 0), (5, 0), (6, 1)]}):    # Main slopes straight into crossover 6
+            with self.assertRaisesRegex(cats.SchematicError, "double crossover 6: its through tracks must run level"):
+                cats.panel(helpers.build().bands)
+
+    def test_switches_sharing_an_os_block_name_it_together(self):
+        with mock.patch.object(cats, "OS_REACH", 3):           # 3-8 is 2 steps, 8-4 is 4: too short for 3 each
+            P = cats.panel(helpers.build().bands)
+        self.assertIn("OS 3-4-8", P.names.values())
+        self.assertTrue(any("switches 3, 4, 8 share one OS block" in line for line in P.log), P.log)
+
+    def test_a_block_without_boundary_is_named_on_its_track_end(self):
+        root = cats.to_xml(tiny_panel())
+        named = [(sec.get("X"), se.get("EDGE")) for sec in root.iter("SECTION") for se in sec.findall("SEC_EDGE")
+                 if se.find("BLOCK") is not None]
+        self.assertEqual(named, [("1", "LEFT")])
+
+    def test_a_block_on_points_is_an_error(self):
+        P = tiny_panel()
+        P.cells[(2, 1)]["UPPERSLASH"] = ("track", "t")
+        P.cells[(0, 1)]["HORIZONTAL"] = ("track", "u")
+        P.blocks[("track", "u")] = P.names[("track", "u")] = "Other"
+        P.points[((1, 1), "LEFT")] = dict(switch="9", routes=[("RIGHT", True), ("TOP", False)])
+        P.cells[(1, 1)]["UPPERSLASH"] = ("track", "t")
+        with self.assertRaisesRegex(cats.SchematicError, "switch points"):
+            cats.to_xml(P)
+
+    def test_no_empty_labels(self):
+        bands = bands_copy()
+        for _, band, _ in bands:
+            for d in band["nodes"].values():
+                if d["kind"] == "dx":
+                    d["label"] = ""
+        root = cats.to_xml(cats.panel(bands))
+        texts = [s.get("NAME") for s in root.iter("SEC_NAME")]
+        self.assertNotIn("", texts)
+        self.assertEqual(sum(t.startswith(("UPPER LEVEL", "LOWER LEVEL")) for t in texts), 2)   # band titles
+
+    def test_discipline_is_one_cats_reads(self):
+        P = panel()
+        self.assertEqual({b.get("DISCIPLINE") for b in cats.to_xml(P, "APB-2").iter("BLOCK") if b.get("NAME")},
+                         {"APB-2"})
+        with self.assertRaisesRegex(cats.SchematicError, "not one CATS reads"):
+            cats.to_xml(P, "UNDEFINED")
+        r = subprocess.run([sys.executable, "-m", "schematic", "cats", "x.xml", "--data", ".", "g.json:x",
+                            "--discipline", "APB"], cwd=helpers.PLUGIN, capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("invalid choice", r.stderr)
 
 
 if __name__ == "__main__":

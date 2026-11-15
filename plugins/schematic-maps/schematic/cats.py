@@ -24,6 +24,8 @@ from .core import SchematicError, dx_tracks
 from .layout import paths
 
 SCALE = 2
+OS_REACH = 1            # steps an OS block reaches past a switch's points on each leg
+DISCIPLINES = ("CTC", "ABS", "APB-2", "APB-3", "DTC", "Unknown")    # the values CATS reads (cats/layout/Discipline.java)
 MARGIN = 2              # cells left of and above the drawing, for labels
 BAND_GAP = 4            # empty rows between bands
 ENDS = {
@@ -85,6 +87,7 @@ class Panel:
         self.crossings = set()              # (cell, edge)
         self.shared = {}                    # (cell, edge) -> (cell, edge)
         self.labels = {}                    # cell -> (text, loc, font)
+        self.names = {}                     # block root -> unique block name, set when the panel is complete
         self.log = []
         self._parent = {}
 
@@ -139,7 +142,7 @@ def panel(bands, scale=SCALE):
         raise SchematicError("the CATS scale must be even, so a double crossover's X lands on whole cells")
     P = Panel()
     top = MARGIN + 1
-    ends = []                  # (band title, node, data, strand name, (cell, edge), outward)
+    ends = []                  # (band title, node, data, strand name, (cell, edge), block key of the end step)
     used_names = defaultdict(int)
 
     def unique(name):
@@ -149,6 +152,8 @@ def panel(bands, scale=SCALE):
     for bi, (title, band, opts) in enumerate(bands):
         nodes, strands, x = band["nodes"], band["strands"], band["x"]
         drawn = paths(band)
+        if not any(drawn.values()):
+            raise SchematicError(f"{title}: the band draws no track")
         x0 = min(p[0] for v in drawn.values() for p in v)
         r0 = min(p[1] for v in drawn.values() for p in v)
         ox = MARGIN + 1 - int(round(scale * x0))
@@ -158,8 +163,8 @@ def panel(bands, scale=SCALE):
 
         # the band title and which way is east
         left, right = opts.get("left", "West"), opts.get("right", "East")
-        P.labels[(MARGIN, top)] = (f"{band_key_name(title).upper()}   {left.upper()} <-   -> {right.upper()}",
-                                   "LOWLEFT", "FONT_TITLE")
+        P.label([((MARGIN, top), "LOWLEFT"), ((MARGIN, top - 1), "LOWLEFT")],
+                f"{band_key_name(title).upper()}   {left.upper()} <-   -> {right.upper()}", "FONT_TITLE")
 
         # OS blocks: a switch's own, or shared by switches of one number joined by a track
         def os_key(n):
@@ -178,11 +183,11 @@ def panel(bands, scale=SCALE):
         reach = {}
         for n, d in nodes.items():
             if d["kind"] == "switch":
-                reach[n] = 1
+                reach[n] = OS_REACH
             elif d["kind"] == "dx":
                 (iu, _), (il, _) = dx_tracks(nodes, n)
                 r1, r2 = sorted((band["R"]["srow"][iu], band["R"]["srow"][il]))
-                reach[n] = int(round(scale * (r2 - r1))) // 2 + 1     # the X, then one step past its points
+                reach[n] = int(round(scale * (r2 - r1))) // 2 + OS_REACH     # the X, then past its points
 
         # strands
         turn_of, info = {}, {}
@@ -194,7 +199,7 @@ def panel(bands, scale=SCALE):
             pts = [pt(p) for p in drawn[sid]]
             steps = unit_steps(pts)
             if not steps:
-                continue
+                raise SchematicError(f"{title}: track {s['name'] or sid} is drawn as a single point")
             u, v = s["src"][0], s["dst"][0]
             track_key = ("track", tag + sid)
             P.blocks.setdefault(track_key, None)
@@ -214,10 +219,10 @@ def panel(bands, scale=SCALE):
                     P.add(cell, track, key, f"track {s['name'] or sid}")
             if track_key in P.blocks:
                 P.blocks[track_key] = s["name"] or f"{node_ref(nodes[u])}-{node_ref(nodes[v])}"
-            for n, end_pt, nxt in ((u, pts[0], steps[0][1]), (v, pts[-1], steps[-1][0])):
+            for n, end_pt, nxt, key in ((u, pts[0], steps[0][1], owner[0]), (v, pts[-1], steps[-1][0], owner[-1])):
                 d = nodes[n]
                 if d["kind"] == "end":
-                    ends.append((title, n, d, s["name"], touching(end_pt, nxt), (bi, sid)))
+                    ends.append((title, n, d, s["name"], touching(end_pt, nxt), key))
             info[sid] = dict(steps=steps, owner=owner, pts=pts)
 
         # turnbacks: a vertical run in one column, part of the tracks they join
@@ -244,22 +249,27 @@ def panel(bands, scale=SCALE):
             r1, r2 = sorted((band["R"]["srow"][iu], band["R"]["srow"][il]))
             xc, (y1, y2) = pt((x[n], 0))[0], (pt((0, r1))[1], pt((0, r2))[1])
             h = (y2 - y1) // 2
+            # the X spans h cells each side of its centre, and its points need one level step beyond that
+            for yy in (y1, y2):
+                for xx in range(xc - h - OS_REACH, xc + h + OS_REACH):
+                    here = P.cells.get((xx, yy), {}).get("HORIZONTAL")
+                    if here is None or P.find(here) != P.find(os_key(n)):
+                        raise SchematicError(
+                            f"double crossover {d.get('label') or n}: its through tracks must run level for "
+                            f"{(h + OS_REACH) / scale:g} grid units each side of it (rows {r1} and {r2}, column {x[n]:g})")
             for a, b in (((xc - h, y1), (xc + h, y2)), ((xc - h, y2), (xc + h, y1))):
                 for st in unit_steps([a, b]):
                     for cell, track in step_pieces(*st):
                         P.add(cell, track, os_key(n), f"double crossover {d.get('label')}")
-            for yy in (y1, y2):
-                for xx in range(xc - h, xc + h):
-                    if "HORIZONTAL" not in P.cells.get((xx, yy), {}):
-                        raise SchematicError(f"double crossover {d.get('label')}: its through tracks must run "
-                                             f"level across the X")
             P.crossings |= {((xc - 1, y1 + h), "RIGHT"), ((xc, y1 + h), "LEFT")}     # the middle of the X
             for yy, xp, frog in ((y1, xc - h, "LEFT"), (y2, xc - h, "LEFT"), (y1, xc + h, "RIGHT"), (y2, xc + h, "RIGHT")):
                 cell = (xp, yy) if frog == "LEFT" else (xp - 1, yy)
                 routes = [(ENDS[t][1] if ENDS[t][0] == frog else ENDS[t][0], t == "HORIZONTAL")
                           for t in P.cells[cell] if frog in ENDS[t]]
                 P.points[(cell, frog)] = dict(switch=d.get("label") or n, routes=sorted(routes))
-            P.labels.setdefault((xc, y1 - 1), (d.get("label") or "", "LOWCENT", "FONT_LABEL"))
+            if d.get("label"):
+                P.label([((xc, y1 - 1), "LOWCENT"), ((xc - 1, y1 - 1), "LOWCENT"), ((xc, y2 + 1), "UPCENT")],
+                        d["label"])
 
         # switch points
         for n, d in sorted(nodes.items()):
@@ -318,6 +328,9 @@ def panel(bands, scale=SCALE):
         if len(group) == 2 and group[0][0] != group[1][0]:
             (ca, cb) = group[0][4], group[1][4]
             P.shared[ca], P.shared[cb] = cb, ca
+            ka, kb = group[0][5], group[1][5]
+            if ka[0] == kb[0] == "track":       # one track drawn on two bands is one block
+                P.union(ka, kb)
             joined |= {id(group[0]), id(group[1])}
     for e in ends:
         title, n, d, name, (cell, edge), _ = e
@@ -333,20 +346,26 @@ def panel(bands, scale=SCALE):
         cands = [(beyond, "LEFTCENT"), (below, "UPLEFT")] if edge == "RIGHT" else [(below, "UPLEFT"), ((cell[0], cell[1] - 1), "LOWLEFT")]
         P.label(cands, text)
 
-    # block names: unique, OS blocks after their switch number
-    names = {}
-    for key in sorted(P.blocks, key=lambda k: (k[0] != "track", k)):
-        root = P.find(key)
-        if root in names:
-            continue
-        if key[0] == "os":
-            label = next((lab for k2 in sorted(P.blocks) if P.find(k2) == root and k2[0] == "os"
-                          for lab in [label_of(bands, k2)] if lab), None)
-            names[root] = unique(f"OS {label}" if label else "OS")
+    # block names: unique; an OS block after its switch numbers (several when tracks too short to part them merge it)
+    groups = defaultdict(list)
+    for key in sorted(P.blocks):
+        groups[P.find(key)].append(key)
+    for root in sorted(groups, key=lambda r: (r[0] != "track", r)):
+        keys = groups[root]
+        labels = sorted({label_of(bands, k) for k in keys if k[0] == "os"} - {""}, key=number_order)
+        if any(k[0] == "os" for k in keys):
+            P.names[root] = unique("OS " + "-".join(labels) if labels else "OS")
+            if len(labels) > 1:
+                P.log.append(f"switches {', '.join(labels)} share one OS block: the tracks between them are too short "
+                             "to hold a block of their own")
         else:
-            names[root] = unique(P.blocks[key] or "Track")
-    P.names = names
+            P.names[root] = unique(next(P.blocks[k] for k in keys) or "Track")
     return P
+
+
+def number_order(label):
+    digits = "".join(ch for ch in label if ch.isdigit())
+    return (int(digits) if digits else 0, label)
 
 
 def label_of(bands, key):
@@ -366,11 +385,37 @@ def boundaries(P):
             far, fedge = P.shared.get((cell, edge)) or neighbour(cell, edge)
             theirs = {P.find(b) for t, b in P.cells.get(far, {}).items() if fedge in ENDS[t]}
             if theirs and mine != theirs:
-                if len(mine) > 1:
-                    raise SchematicError(f"cell {cell} edge {edge}: a block boundary on points")
+                if (cell, edge) in P.points or (cell, edge) in P.crossings or len(mine) > 1:
+                    raise SchematicError(f"cell {cell} edge {edge}: a block boundary on switch points or a crossing; "
+                                         "CATS would drop the points")
                 out[(cell, edge)] = next(iter(mine))
-            elif (cell, edge) in P.shared:
-                out[(cell, edge)] = next(iter(mine))
+    return out
+
+
+def dangling(P, cell, edge):
+    """True when no track continues across this edge of `cell`: a track end."""
+    if (cell, edge) in P.shared:
+        return False
+    far, fedge = neighbour(cell, edge)
+    return not any(fedge in ENDS[t] for t in P.cells.get(far, {}))
+
+
+def lone_blocks(P, bounds):
+    """{(cell, edge): block root} naming each block that has no boundary at one of its track ends."""
+    have = set(bounds.values())
+    out = {}
+    for cell in sorted(P.cells, key=lambda c: (c[1], c[0])):
+        for edge in EDGE_ORDER:
+            blks = {P.find(b) for t, b in P.cells[cell].items() if edge in ENDS[t]}
+            if len(blks) == 1 and dangling(P, cell, edge):
+                blk = next(iter(blks))
+                if blk not in have:
+                    out[(cell, edge)] = blk
+                    have.add(blk)
+    missing = set(P.names) - have
+    if missing:
+        raise SchematicError("blocks with no boundary and no track end to name them on: " +
+                             ", ".join(sorted(P.names[b] for b in missing)))
     return out
 
 
@@ -395,7 +440,10 @@ def to_xml(P, discipline="CTC"):
     ET.SubElement(root, "COMPRESSIONTAG")      # present = Compress Screen off
     ET.SubElement(root, "ROWWRAPTAG")          # present = Automatic Wrapping off
     plan = ET.SubElement(root, "TRACKPLAN", COLUMNS=str(cols), ROWS=str(rows))
+    if discipline not in DISCIPLINES:
+        raise SchematicError(f"discipline {discipline!r} is not one CATS reads: {', '.join(DISCIPLINES)}")
     bounds = boundaries(P)
+    bounds.update(lone_blocks(P, bounds))
     named = set()
     for cell in sorted(set(P.cells) | set(P.labels), key=lambda c: (c[1], c[0])):
         sec = ET.SubElement(plan, "SECTION", X=str(cell[0]), Y=str(cell[1]))
@@ -409,6 +457,8 @@ def to_xml(P, discipline="CTC"):
                     continue
                 se = ET.SubElement(sec, "SEC_EDGE", EDGE=edge)
                 if (cell, edge) in bounds:
+                    if (cell, edge) in P.points or (cell, edge) in P.crossings:
+                        raise SchematicError(f"cell {cell} edge {edge}: a block on switch points or a crossing")
                     blk = bounds[(cell, edge)]
                     if blk in named:
                         ET.SubElement(se, "BLOCK")
@@ -430,18 +480,6 @@ def to_xml(P, discipline="CTC"):
         if cell in P.labels:
             text, loc, font = P.labels[cell]
             ET.SubElement(sec, "SEC_NAME", LOC_NAME=loc, NAME=text, FONT_NAME=font)
-    # a block that has no boundary at all (a track on its own) is named on its first edge
-    missing = set(P.names) - named
-    if missing:
-        for sec in plan.iter("SECTION"):
-            cell = (int(sec.get("X")), int(sec.get("Y")))
-            for se in sec.findall("SEC_EDGE"):
-                tracks = P.cells.get(cell, {})
-                blks = {P.find(b) for t, b in tracks.items() if se.get("EDGE") in ENDS[t]}
-                blk = next(iter(blks)) if len(blks) == 1 else None
-                if blk in missing and len(list(se)) == 0:
-                    ET.SubElement(se, "BLOCK", NAME=P.names[blk], DISCIPLINE=discipline, VISIBLE="true")
-                    missing.discard(blk)
     ET.indent(root, "  ")
     return root
 
