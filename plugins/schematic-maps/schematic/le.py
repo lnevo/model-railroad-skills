@@ -23,11 +23,13 @@ circle, and joined or not, each connector or helix end is labelled where it goes
 
 Names (optional, by band key, the first word of the band title):
     {"Main": {"turnouts": {node: turnout name}, "os": {node: OS block}, "normal": {node: "B" or "C"},
-              "blocks": {strand id: [block, ...]},
+              "blocks": {strand id: [block, ...]}, "lengths": {block: real length, any one unit},
               "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
                          "icon": [w, h], "or_join": ...}],
               "joins": "own" or "other"}}
-A strand with several blocks is cut into equal lengths for them, from its first end to its second. Without names
+A strand with several blocks is cut for them in order from its first end to its second: in proportion to their
+real lengths when `lengths` gives one for each (so a short throat block sits at its own end of the track), else into
+equal lengths; no block is drawn shorter than MIN_BLOCK px, and no cut falls inside an arc. Without names
 a strand's block is its track name (or the two switch numbers it joins, made unique), a turnback and a joined helix
 or connector track share the block of the track they continue, an OS block is "OS <switch number>", and no turnout
 is named. Sensors are not placed.
@@ -65,6 +67,7 @@ CELL = 36           # px per grid column, before `equal_width` stretches a band
 ROW = 36            # px per grid row
 LEG = 12            # px from a switch's points to the end of a leg
 BEND = 18           # largest radius of a rounded corner, px
+MIN_BLOCK = LEG     # px a block of several on one track is drawn at least (a throat: just clear of its switch)
 HELIX_R = 9         # radius of the circle that marks a helix end, px
 MARGIN = 60         # px left of and above the drawing
 BAND_GAP = 96       # px between one band's lowest track and the next band's highest
@@ -201,6 +204,7 @@ class Panel:
         self.join_ends = {}         # (band index, anchor ident) -> block of the track that ends there
         self.gantries = []          # lists of P.masts entries whose boundaries stand in one column (le_masts)
         self.anchors_moved = []     # (mast, anchor ident, px) boundary anchors slid along their track into a gantry
+        self.anchors_from = {}      # anchor ident -> where it stood before it slid
         self.names_moved = []       # (track name, px) track names slid along their track clear of mast icons
         self.cellx = {}             # band index -> px per grid column as drawn
         self.log = []
@@ -327,7 +331,7 @@ def default_names(bands, joined, taken=()):
     return out
 
 
-NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins")
+NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths")
 MAST_KINDS = ("anchor", "end bumper", "turnout")
 MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join")
 
@@ -349,6 +353,15 @@ def check_names(bands, names):
         band = keys[key]
         switches = {n for n, d in band["nodes"].items() if d["kind"] in ("switch", "dx")}
         check_masts(key, given.get("masts") or [], seen_masts)
+        lengths = given.get("lengths", {})
+        if not isinstance(lengths, dict) or not all(
+                isinstance(k, str) and isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+                and v > 0 for k, v in lengths.items()):
+            raise SchematicError(f"names for {key}: lengths must be an object of block name: length above zero")
+        named = {b for v in (given.get("blocks") or {}).values() for b in ([v] if isinstance(v, str) else v or [])}
+        stray = sorted(set(lengths) - named)
+        if stray:
+            raise SchematicError(f"names for {key}: lengths given for {', '.join(stray)}, which no track's blocks name")
         if given.get("joins", "own") not in ("own", "other"):
             raise SchematicError(f"names for {key}: joins must be \"own\" or \"other\", not {given['joins']!r}")
         for section in NAME_KEYS[:4]:
@@ -544,7 +557,7 @@ def extent(P, bi=None):
 def place_masts(P, bands, names):
     """Each named mast into the slot of its band that JMRI resolves to its facing and protected blocks."""
     from . import slots
-    ix = slots.Index(to_xml(P, "probe"))
+    ix = slots.Index(to_xml(P, "probe", probe=True))
     taken = set()
     for bi, (title, _, _) in enumerate(bands):
         want = names.get(band_key(title), {}).get("masts") or []
@@ -612,9 +625,7 @@ def place_masts(P, bands, names):
                                 size=tuple(m.get("icon") or slots.ICON), band=bi))
     # the CATS rules for where a mast reads best, carried over (le_masts): gantries, then each icon's clearest spot
     from . import le_masts
-    P.gantries = le_masts.gantries(P, bands, ix)
-    le_masts.icons(P, slots.Index(to_xml(P, "probe")) if P.anchors_moved else ix, P.gantries)
-    le_masts.names_yield(P)
+    le_masts.place(P, bands, ix)
 
 
 def shift(P, bi, dx, dy):
@@ -672,6 +683,38 @@ class Band:
                 raise SchematicError(f"{self.title}: no block named for track {sid}")
             return list(got)
         return list(self.defaults[(self.bi, sid)])
+
+    def least_of(self, block):
+        """The shortest a block may be drawn: MIN_BLOCK, or room for the icon of a mast that faces it (a train in
+        that block reads the mast, so its icon stands beside that block's track, before the boundary)."""
+        from .slots import GAP, ICON
+        icons = [m.get("icon") or ICON for m in self.names.get("masts") or [] if m.get("facing") == block]
+        return max([MIN_BLOCK] + [2 * GAP + h for _w, h in icons])
+
+    def room_at(self, first, second):
+        """(px, px) of straight track a mast at the boundary from block `first` to `second` needs for its icon on
+        each side: before it for a mast facing `first`, after it for one facing `second` (from the names' masts)."""
+        from .slots import GAP, ICON
+        need = [0.0, 0.0]
+        for m in self.names.get("masts") or []:
+            for i, (f, p) in enumerate(((first, second), (second, first))):
+                if m.get("facing") == f and list(m.get("protects") or []) == [p]:
+                    need[i] = max(need[i], 2 * GAP + (m.get("icon") or ICON)[1])
+        return tuple(need)
+
+    def shares_of(self, sid, blocks):
+        """The real lengths of a strand's blocks, when the names give one for every block of it (else None: equal
+        blocks; logged when only some are given)."""
+        lengths = self.names.get("lengths") or {}
+        got = [lengths.get(b) for b in blocks]
+        if len(blocks) < 2 or not any(v is not None for v in got):
+            return None
+        if any(v is None for v in got):
+            self.P.log.append(f"{self.title}: track {self.strands[sid]['name'] or sid}: lengths given for "
+                              f"{', '.join(b for b, v in zip(blocks, got) if v is not None)} but not for "
+                              f"{', '.join(b for b, v in zip(blocks, got) if v is None)}; its blocks are drawn equal")
+            return None
+        return got
 
     def os_of(self, n):
         got = self.names.get("os", {}).get(n)
@@ -900,14 +943,11 @@ class Band:
             raise SchematicError(f"{self.title}: track {s['name'] or sid} is shorter than its switches' legs")
         pieces = rounded(pts)
         blocks = self.blocks_of(sid)
-        pieces = split(pieces, len(blocks), f"{self.title}: track {s['name'] or sid}")
-        total = sum(piece_len(p) for p in pieces)
-        run = 0.0
+        pieces = split(pieces, len(blocks), f"{self.title}: track {s['name'] or sid}", self.shares_of(sid, blocks),
+                       [self.least_of(b) for b in blocks], [self.room_at(a, b) for a, b in zip(blocks, blocks[1:])],
+                       self.P.log)
         prev = self.conn[(u, pu)]
-        for i, pc in enumerate(pieces):
-            L = piece_len(pc)
-            k = min(len(blocks) - 1, int((run + L / 2) / total * len(blocks)))
-            run += L
+        for i, (pc, k) in enumerate(pieces):
             nxt = self.conn[(v, pv)] if i == len(pieces) - 1 else self.P.point("ANCHOR", pc["b"])
             arc = None
             if pc["kind"] == "arc":
@@ -1018,41 +1058,91 @@ def piece_len(pc):
     return chord / 2 / math.sin(th / 2) * th
 
 
-def split(pieces, k, what):
-    """Cut straight pieces where a strand of k blocks changes block (k equal lengths)."""
-    if k == 1:
-        return pieces
+def split(pieces, k, what, shares=None, least=None, room=None, log=None):
+    """[(piece, block index)]: the pieces of a strand of k blocks, cut where one block ends and the next begins.
+    `shares` (k positive numbers, the blocks' real lengths in any one unit) set where the cuts fall; without them
+    the blocks are equal. A block is never drawn shorter than MIN_BLOCK px, or its `least` (px per block) when
+    given; on a strand too short for that, its equal share. A cut never falls inside an arc: it moves to the arc's
+    nearer end. `room` ((before, after) px per cut) is the straight track the icons of the masts at a cut need on
+    each side: the cut moves to the nearest place on a straight piece with that room; when there is none it stays,
+    noted in `log`. Then every cut is checked to keep the blocks in order and none empty."""
     total = sum(piece_len(p) for p in pieces)
-    targets = [total * j / k for j in range(1, k)]
-    out, run = [], 0.0
+    if k == 1:
+        return [(pc, 0) for pc in pieces]
+    shares = list(shares) if shares else [1.0] * k
+    lens = [total * v / sum(shares) for v in shares]
+    floors = [min(f, total / k) for f in (least or [MIN_BLOCK] * k)]
+    short = set()
+    for _ in range(k):               # the short blocks take their floor, the others give it up in proportion
+        more = {i for i, v in enumerate(lens) if v < floors[i] - EPS} - short
+        if not more:
+            break
+        short |= more
+        rest = total - sum(floors[i] for i in short)
+        big = sum(shares[i] for i in range(k) if i not in short)
+        lens = [floors[i] if i in short else (shares[i] * rest / big if big else 0.0) for i in range(k)]
+    if any(v < floors[i] - 1e-6 for i, v in enumerate(lens)):
+        raise SchematicError(f"{what}: too short to draw each of its {k} blocks at its least length")
+    targets, acc = [], 0.0
+    for v in lens[:-1]:
+        acc += v
+        targets.append(acc)
+    # a cut inside an arc moves to the arc's nearer end
+    starts, run = [], 0.0
     for pc in pieces:
+        starts.append(run)
+        run += piece_len(pc)
+    cuts = []
+    for t in targets:
+        for pc, s0 in zip(pieces, starts):
+            L = piece_len(pc)
+            if s0 + EPS < t < s0 + L - EPS and pc["kind"] == "arc":
+                t = s0 if t - s0 <= s0 + L - t else s0 + L
+                break
+        cuts.append(t)
+    for j, (before, after) in enumerate(room or []):
+        if not before and not after:
+            continue
+        spans = [(s0 + before, s0 + piece_len(pc) - after) for pc, s0 in zip(pieces, starts)
+                 if pc["kind"] == "line" and piece_len(pc) >= before + after]
+        if spans:               # the nearest place with straight room on both sides
+            cuts[j] = min((min(max(cuts[j], lo), hi) for lo, hi in spans), key=lambda t: (abs(t - cuts[j]), t))
+        elif log is not None:
+            log.append(f"{what}: no straight piece leaves room for the icons at the cut after its block {j + 1} "
+                       f"({before:g} px before, {after:g} px after); the cut stays")
+    edges = [0.0] + cuts + [total]
+    if any(b - a < EPS for a, b in zip(edges, edges[1:])):
+        raise SchematicError(f"{what}: too short to hold its {k} blocks")
+    out = []
+    for pc, s0 in zip(pieces, starts):
         L = piece_len(pc)
-        cuts = [s - run for s in targets if run < s < run + L]
-        if pc["kind"] == "line" and cuts:
+        inner = [c - s0 for c in cuts if s0 + EPS < c < s0 + L - EPS]
+        if pc["kind"] == "line" and inner:
             a = pc["a"]
-            for c in cuts:
+            for c in inner:
                 q = add(pc["a"], unit(sub(pc["b"], pc["a"])), c)
                 out.append(dict(kind="line", a=a, b=q))
                 a = q
             out.append(dict(kind="line", a=a, b=pc["b"]))
         else:
             out.append(pc)
-        run += L
-    got, run = set(), 0.0
+    got, run = [], 0.0
     for pc in out:
         L = piece_len(pc)
-        got.add(min(k - 1, int((run + L / 2) / total * k)))
+        mid_ = run + L / 2
+        got.append((pc, sum(mid_ > c for c in cuts)))
         run += L
-    if len(got) != k:
+    if len({i for _, i in got}) != k:
         raise SchematicError(f"{what}: too short to hold its {k} blocks")
-    return out
+    return got
 
 
 # ---------------------------------------------------------------- XML
 
-def to_xml(P, name, attrs=None, options=None):
+def to_xml(P, name, attrs=None, options=None, probe=False):
     """The panel as a <LayoutEditor> element. `attrs` replace the editor attributes (a template panel's, say);
-    `options` is a layoutTrackDrawingOptions element to copy (its name is set to the panel's)."""
+    `options` is a layoutTrackDrawingOptions element to copy (its name is set to the panel's). `probe`: for reading
+    the slots while the masts are being placed, without their icons; otherwise a mast with no icon stops."""
     a = dict(EDITOR) if attrs is None else dict(attrs)
     a.pop("class", None)
     if P.fit:           # the panel was fitted inside this window less CHROME, so the window fits
@@ -1130,8 +1220,10 @@ def to_xml(P, name, attrs=None, options=None):
             "size": str(lb["size"]), "style": "1" if lb["bold"] else "0", "red": "0", "green": "0", "blue": "0",
             "hasBackground": "no", "justification": "left", "class": CLASS["label"]}))
     for m in P.masts:
-        if not m.get("icon"):           # a probe while the masts are being placed: slots only
+        if probe:                       # slots only, while the masts are being placed
             continue
+        if not m.get("icon"):
+            raise SchematicError(f"mast {m['mast']} has no icon placed")
         x, y, deg = m["icon"]
         le.append(ET.Element("signalmasticon", {
             "signalmast": m["mast"], "x": str(x), "y": str(y), "level": "9", "forcecontroloff": "false",
