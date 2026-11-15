@@ -184,16 +184,10 @@ def run(argv=None):
                     raise SchematicError(f"{a.bindings}: cannot read the bindings ({e})") from None
             header = cats.header_from(a.templates_from) if a.templates_from else ()
             fit = cats.parse_fit(a.fit) if a.fit else None
+            window = cats.parse_window(a.window) if a.window else None
             pnl = cats.panel(bands, scale=a.cells_per_unit, bindings=bindings)
             if fit:
                 cats.check_fit(pnl, *fit)
-            window = None
-            if a.window:
-                try:
-                    window = tuple(int(v) for v in a.window.lower().split("x"))
-                    assert len(window) == 2
-                except (ValueError, AssertionError):
-                    raise SchematicError(f"--window {a.window}: give WIDTHxHEIGHT in pixels, e.g. 1900x1100")
             cats.write(pnl, a.out, a.discipline, header, window)
             cols, rows = cats.shown(pnl)
             print(", ".join(t for t, _, _ in bands) + ": " + cats.summary(pnl) +

@@ -600,6 +600,58 @@ class Compact(unittest.TestCase):
         P.cells[(9, 9)]["VERTICAL"] = ("track", "d")         # a turnback's vertical run: lamps up or down, beside it
         self.assertEqual(cats.place_mast(P, (9, 9), "TOP", 1)[1:], ("LEFTCENT", "BOTTOM"))
 
+    def gantry_rows(self, toward="9"):
+        P = cats.Panel()
+        chains, plans = {}, []
+        for row, gap, name in ((5, 5, "A"), (6, 6, "B")):
+            pieces, owner = [], []
+            for i, x in enumerate(range(2, 10)):
+                key = ("track", name) if x < gap else ("os", name)
+                P.cells[(x, row)]["HORIZONTAL"] = key
+                P.blocks[key] = P.names[key] = name + key[0]
+                pieces.append(((x, row), "HORIZONTAL", i, i + 1))
+                owner.append(key)
+            chains[(0, name)] = dict(pieces=pieces, owner=owner, steps=[None] * len(pieces))
+            plans.append(dict(name="M" + name, bi=0, k=name, rev=True, label=name, far="x", near="y", pos=0.0,
+                              gap={"b": gap - 2, "pair": (("os", name), ("track", name))},
+                              sg={"toward": toward, "dir": "east"}))
+        return P, chains, plans
+
+    def test_only_masts_of_one_switch_or_control_point_form_a_gantry(self):
+        P, chains, plans = self.gantry_rows(toward="")
+        self.assertEqual(cats.shift_gaps(P, [("t", {}, {})], chains, plans), [])
+        self.assertEqual([p["gap"]["b"] for p in plans], [3, 4])                    # nothing moved
+        P, chains, plans = self.gantry_rows()
+        self.assertEqual(len(cats.shift_gaps(P, [("t", {}, {})], chains, plans)), 1)
+
+    def test_a_gap_that_cannot_move_stays_where_it_is(self):
+        P, chains, plans = self.gantry_rows()
+        P.crossings.add(((6, 6), "LEFT"))               # its own gap fails the checks
+        self.assertEqual(cats.shift_gaps(P, [("t", {}, {})], chains, plans), [])
+        self.assertEqual(plans[1]["gap"]["b"], 4)
+        self.assertIn("mast MB: its gap stays where it is (no room to move it)", P.log)
+
+    def test_a_gap_between_other_blocks_is_an_error(self):
+        P, chains, plans = self.gantry_rows()
+        self.assertEqual(cats.mast_gap(P, chains, {}, plans[0], plans[0]["gap"]["pair"])["at"], ((5, 5), "LEFT"))
+        with self.assertRaisesRegex(cats.SchematicError, "no longer on its track"):
+            cats.mast_gap(P, chains, {}, plans[0], (("os", "B"), ("track", "B")))
+
+    def test_a_gantry_look_keeps_clear_of_masts_already_placed(self):
+        P, chains, plans = self.gantry_rows()
+        spots = {"MA": ((5, 5), "LEFT"), "MB": ((5, 6), "LEFT")}
+        for p in plans:
+            p["heads"] = 2
+        lines = cats.track_lines(P)
+        free = cats.gantry_look(P, plans, spots, [], lines)
+        box = cats.frill_box((5, 6), free[0], *cats.mast_size(2, free[1]))
+        taken = cats.gantry_look(P, plans, spots, [box], lines)
+        self.assertNotEqual(taken, free)
+        for p in plans:
+            if taken:
+                b = cats.frill_box(spots[p["name"]][0], taken[0], *cats.mast_size(2, taken[1]))
+                self.assertFalse(cats.overlaps(b, box, 1))
+
     def test_gaps_slide_along_their_tracks_into_one_column_and_out_of_switch_cells(self):
         P = cats.Panel()
         chains, plans = {}, []
@@ -647,6 +699,20 @@ class Compact(unittest.TestCase):
         P.points[((8, 5), "RIGHT")] = dict(switch="1", routes=[])                   # no plain column is left
         with self.assertRaises(cats.SchematicError):
             cats.trim_columns(P, 4)
+
+    def test_an_empty_cell_between_two_track_ends_is_never_taken_out(self):
+        P = cats.Panel()
+        for x in range(2, 9):
+            P.cells[(x, 5)]["HORIZONTAL"] = ("track", "a")
+        for x in (2, 3, 5, 6, 7, 8):                    # row 6: two tracks ending either side of the empty (4, 6)
+            P.cells[(x, 6)]["HORIZONTAL"] = ("track", "b" if x < 4 else "c")
+        self.assertFalse(cats.column_plain(P, 4))
+        self.assertTrue(cats.column_plain(P, 6))
+        spots = {"M": ((7, 6), "LEFT")}
+        cats.trim_columns(P, 7, spots)
+        self.assertEqual(spots, {"M": ((6, 6), "LEFT")})                           # a mast's spot follows
+        self.assertNotIn((4, 6), P.cells)
+        self.assertEqual(P.cells[(3, 6)]["HORIZONTAL"], ("track", "b"))
 
     def test_ends_of_parallel_tracks_are_named_alike(self):
         P = cats.Panel()
@@ -735,6 +801,17 @@ class Compact(unittest.TestCase):
         self.assertIsNone(cats.stretched([(0, 0), (2, 1)]))                  # points to points, one row deep
         self.assertEqual(cats.stretched([(0, 0), (2, 1)], (True, False)), [(0, 0), (1, 0), (2, 1)])
         self.assertEqual(cats.stretched([(0, 0), (2, 1)], (False, True)), [(0, 0), (1, 1), (2, 1)])
+
+    def test_an_orient_binding_on_a_wide_panel_keeps_the_usual_spot(self):
+        P = cats.panel(helpers.build().bands, bindings={"masts": {"M12C": {"orient": "TOP"}}})
+        (sg,) = P.signals.values()
+        self.assertEqual((sg["orient"], sg["loc"]), ("TOP", cats.SIG_LOCATION["BOTTOM"]))
+
+    def test_window_sizes_are_read_like_fits(self):
+        self.assertEqual(cats.parse_window("1900x1100"), (1900, 1100))
+        for bad in ("1900", "0x5", "1900x1100x3"):
+            with self.assertRaisesRegex(cats.SchematicError, "--window is WIDTHxHEIGHT"):
+                cats.parse_window(bad)
 
     def test_fit(self):
         P = compact()

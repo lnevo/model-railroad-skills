@@ -682,31 +682,34 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None):
             P.names[root] = unique(base)
     bind_blocks(P, bindings["blocks"], set(by_bound))
     bind_routes(P, sw_bind)
-    bind_masts(P, bands, bindings["masts"], chains, turn_bounds, compact)
-    if max_cols is not None:
-        trim_columns(P, max_cols)
+    bind_masts(P, bands, bindings["masts"], chains, turn_bounds, compact, max_cols=max_cols)
     if compact:
         place_labels(P)
     return P
 
 
-def trim_columns(P, max_cols):
+def trim_columns(P, max_cols, spots=None):
     """Take out whole columns until no track reaches past column `max_cols`, the rightmost first: a column goes
     when every cell in it is empty or a level track of the same block as the cells on both sides (so no gap,
     switch, mast, join or turnback is in it, and no block loses its last cell). It shortens level runs on the
     panel only, never the sheet, to keep a margin on the screen. An error when no such column is left."""
     while max(c[0] for c in P.cells) > max_cols:
         xs = sorted({c[0] for c in P.cells}, reverse=True)
-        col = next((x for x in xs[1:] if column_plain(P, x)), None)
+        col = next((x for x in xs[1:] if column_plain(P, x) and
+                    not any(c[0] == x for c, _ in (spots or {}).values())), None)    # nor a mast still to place
         if col is None:
             raise SchematicError(f"the panel's track reaches column {xs[0]}, past {max_cols}, and no column of plain "
                                  "level track is left to take out")
         drop_column(P, col)
+        for k, (cell, edge) in (spots or {}).items():      # masts still to place follow their cells
+            if cell[0] > col:
+                spots[k] = ((cell[0] - 1, cell[1]), edge)
         P.log.append(f"column {col} taken out (level track in every row) to keep the track within {max_cols} columns")
 
 
 def column_plain(P, x):
-    """True when every cell in column x is a level track whose block goes on through both its neighbours."""
+    """True when every cell in column x is a level track whose block goes on through both its neighbours, and no
+    empty cell in it parts two track ends that would meet without it."""
     for (cx, y), tracks in P.cells.items():
         if cx != x:
             continue
@@ -717,6 +720,11 @@ def column_plain(P, x):
             touch = [P.find(k) for t, k in P.cells.get((nx, y), {}).items() if edge in ENDS[t]]
             if touch != [b]:
                 return False
+    rows = {y for (cx, y) in P.cells if cx in (x - 1, x + 1)} - {y for (cx, y) in P.cells if cx == x}
+    for y in rows:                               # an empty cell between two track ends would join them
+        if any("RIGHT" in ENDS[t] for t in P.cells.get((x - 1, y), {})) and \
+                any("LEFT" in ENDS[t] for t in P.cells.get((x + 1, y), {})):
+            return False
     taken = [k for k in list(P.points) + list(P.crossings) + list(P.shared) + list(P.signals) if k[0][0] == x]
     return not taken and not any(c[0] == x for c in P.labels)
 
@@ -1015,10 +1023,11 @@ def bind_routes(P, sw_bind):
         P.route_io[at] = {edge: e["routes"].get(port, []) for edge, port in pt["ports"].items()}
 
 
-def bind_masts(P, bands, masts, chains, turn_bounds, compact=False, gantry=True):
+def bind_masts(P, bands, masts, chains, turn_bounds, compact=False, gantry=True, max_cols=None):
     """Each bound mast on the block boundary nearest where it stands, on the edge of the block it protects. On a
     compact panel the gaps of a control point's masts are first slid along their tracks into one column per
-    direction and out of switch cells (shift_gaps), and each mast is drawn at its clearest spot (place_mast)."""
+    direction and out of switch cells (shift_gaps), and each mast is drawn at its clearest spot (place_mast).
+    `max_cols`: columns are taken out (trim_columns) once the gaps are set and before the spots are chosen."""
     known = {sg["mast"]: sg for _, _, o in bands for sg in o.get("signals") or ()}
     unknown = set(masts) - set(known)
     if unknown:
@@ -1046,43 +1055,63 @@ def bind_masts(P, bands, masts, chains, turn_bounds, compact=False, gantry=True)
                   pos=n * at / piece_cm if piece_cm else 0.0, label=strand["name"] or k)
         pl["gap"] = mast_gap(P, chains, turn_bounds, pl)
         plans.append(pl)
-    if compact and gantry:
-        for g in shift_gaps(P, bands, chains, plans):       # one look for a gantry's masts, where it is clear
-            spots = [(pl, mast_gap(P, chains, turn_bounds, pl, pl["gap"]["pair"])["at"]) for pl in g]
-            costs = [spot_costs(P, cell, edge, max(1, min(3, int(pl["sg"].get("heads") or 1))))
-                     for pl, (cell, edge) in spots]
-            common = set(costs[0]).intersection(*costs[1:])
-            fine = [k for k in common if all("ink" not in c[k][1] and "points" not in c[k][1] for c in costs)]
-            if fine:
-                def feet(k):                                    # gantry masts stand in one line: their feet
-                    xs = []
-                    for pl, (cell, _) in spots:
-                        heads = max(1, min(3, int(pl["sg"].get("heads") or 1)))
-                        bx = frill_box(cell, k[0], *mast_size(heads, k[1]))
-                        xs.append(bx[0] if k[1] != "LEFT" else bx[2])
-                    return max(xs) - min(xs)
-                look = min(fine, key=lambda k: (feet(k) > 2, sum(c[k][0] for c in costs), list(LOC_XY).index(k[0])))
-                for pl in g:
-                    pl["look"] = look
+    gantries = shift_gaps(P, bands, chains, plans) if compact and gantry else []
+    spots = {}                                   # mast -> (cell, edge), followed through any column taken out
+    for pl in plans:
+        spots[pl["name"]] = mast_gap(P, chains, turn_bounds, pl, pl["gap"]["pair"])["at"]
+        pl["heads"] = max(1, min(3, int(pl["sg"].get("heads") or 1)))
+    if max_cols is not None:                     # before the spots are chosen, so they see the final track
+        trim_columns(P, max_cols, spots)
+    lines = track_lines(P)
+    gantry_of = {pl["name"]: g for g in gantries for pl in g}
     boxes = []
     for pl in sorted(plans, key=lambda p: p["name"]):
-        e, sg = pl["e"], pl["sg"]
-        cell, edge = mast_gap(P, chains, turn_bounds, pl, pl["gap"]["pair"])["at"]
+        e = pl["e"]
+        cell, edge = spots[pl["name"]]
         if (cell, edge) in P.signals:
             raise SchematicError(f"masts {P.signals[(cell, edge)]['mast']} and {pl['name']} fall on one block boundary")
-        heads = max(1, min(3, int(sg.get("heads") or 1)))
+        heads = pl["heads"]
         loc, orient = SIG_LOCATION[edge], OPPOSITE[edge]
         if compact:
-            loc, orient = pl.get("look") or place_mast(P, cell, edge, heads, boxes)[1:]
+            g = gantry_of.get(pl["name"])
+            if g and "look" not in pl:          # the gantry's first mast: one look for all, clear of masts placed
+                look = gantry_look(P, g, spots, boxes, lines)
+                for q in g:
+                    q["look"] = look
+            loc, orient = pl.get("look") or place_mast(P, cell, edge, heads, boxes, lines=lines)[1:]
         if e.get("orient"):                      # the bindings choose the way the lamps point (and maybe the spot)
             orient = e["orient"]
-            loc = e.get("location") or place_mast(P, cell, edge, heads, boxes, [orient])[1]
+            loc = e.get("location") or (place_mast(P, cell, edge, heads, boxes, [orient], lines)[1] if compact
+                                        else SIG_LOCATION[OPPOSITE[orient]])
         elif e.get("location"):
             loc = e["location"]
         boxes.append(frill_box(cell, loc, *mast_size(heads, orient)))
         P.signals[(cell, edge)] = dict(mast=pl["name"], name=e.get("name") or pl["name"], loc=loc,
                                        orient=orient, pantype=e.get("pantype") or f"LAMP{heads}",
                                        template=e.get("template"))
+
+
+def gantry_look(P, g, spots, boxes, lines):
+    """(SIGLOCATION, SIGORIENT) shared by a gantry's masts: the cheapest spot clear of track, points and masts
+    already placed for every one of them, with their feet (bases) in one line; None when there is none."""
+    costs = [spot_costs(P, *spots[pl["name"]], pl["heads"], boxes, lines) for pl in g]
+    common = set(costs[0]).intersection(*costs[1:])
+    fine = [k for k in common if all(not {"ink", "points", "mast"} & set(c[k][1]) for c in costs)]
+    if not fine:
+        return None
+
+    def feet(k):
+        xs = []
+        for pl in g:
+            bx = frill_box(spots[pl["name"]][0], k[0], *mast_size(pl["heads"], k[1]))
+            xs.append(bx[0] if k[1] != "LEFT" else bx[2])
+        return max(xs) - min(xs)
+    look = min(fine, key=lambda k: (feet(k) > 2, sum(c[k][0] for c in costs), list(LOC_XY).index(k[0])))
+    # the gantry's masts must not overlap one another either
+    placed = [frill_box(spots[pl["name"]][0], look[0], *mast_size(pl["heads"], look[1])) for pl in g]
+    if any(overlaps(a, b_, 1) for i, a in enumerate(placed) for b_ in placed[i + 1:]):
+        return None
+    return look
 
 
 def mast_gap(P, chains, turn_bounds, pl, pair=None):
@@ -1108,7 +1137,10 @@ def mast_gap(P, chains, turn_bounds, pl, pair=None):
     if live(other):                              # behind the near end: the other half's side, the block it enters
         cands.append((-0.5, other[0], (P.find(other[1]), P.find(other[2])), None))
     if pair is not None:
-        cands = [cd for cd in cands if cd[2] == pair] or cands
+        cands = [cd for cd in cands if cd[2] == pair]
+        if not cands:
+            raise SchematicError(f"mast {pl['name']}: its gap between blocks {P.names.get(pair[0], pair[0])} and "
+                                 f"{P.names.get(pair[1], pair[1])} is no longer on its track {pl['label']}")
     if not cands:
         raise SchematicError(f"mast {pl['name']}: no block boundary on its track {pl['label']}")
     _, at, pr, b = min(cands, key=lambda c_: (abs(c_[0] - pl["pos"]), c_[0]))
@@ -1183,10 +1215,10 @@ def points_zones(P, cell):
 def spot_costs(P, cell, edge, heads, boxes=(), lines=None, orients=None):
     """{(SIGLOCATION, SIGORIENT): (cost, [reasons])} for a mast on `edge` of `cell`, every spot and the ways its
     lamps may point (`orients`, else the move's way across the screen and, on a slope, up or down the way it
-    climbs). The cheapest reads best; the reasons are SPOT_COST's keys."""
-    if lines is None:
-        lines = [ln for ln in track_lines(P) if abs(ln[0] - cell[0] * GRID_PX) <= 2 * GRID_PX and
-                 abs(ln[1] - cell[1] * GRID_PX) <= 2 * GRID_PX]
+    climbs). The cheapest reads best; the reasons are SPOT_COST's keys. `lines`: the panel's track_lines, when
+    the caller has them (they are worked out here otherwise); only those near the cell count."""
+    lines = [ln for ln in (track_lines(P) if lines is None else lines)
+             if abs(ln[0] - cell[0] * GRID_PX) <= 2 * GRID_PX and abs(ln[1] - cell[1] * GRID_PX) <= 2 * GRID_PX]
     move = move_of(P, cell, edge)
     way = lamp_way(move)
     ways = orients or ([way, lamp_way((0, move[1]))] if move[0] and move[1] else [way])
@@ -1238,9 +1270,9 @@ def spot_costs(P, cell, edge, heads, boxes=(), lines=None, orients=None):
     return out
 
 
-def place_mast(P, cell, edge, heads, boxes=(), orients=None):
+def place_mast(P, cell, edge, heads, boxes=(), orients=None, lines=None):
     """(cost, SIGLOCATION, SIGORIENT): the clearest spot for a compact panel's mast (spot_costs)."""
-    costs = spot_costs(P, cell, edge, heads, boxes, orients=orients)
+    costs = spot_costs(P, cell, edge, heads, boxes, lines, orients)
     (loc, orient), (cost, _) = min(costs.items(), key=lambda kv: (kv[1][0], list(LOC_XY).index(kv[0][0])))
     return cost, loc, orient
 
@@ -1289,7 +1321,8 @@ def shift_gaps(P, bands, chains, plans):
             continue
         sg = pl["sg"]
         toward = str(sg.get("toward") or "")
-        groups[(pl["bi"], cp_of.get((pl["bi"], toward), "switch " + toward), sg.get("dir"))].append(pl)
+        where = cp_of.get((pl["bi"], toward), "switch " + toward) if toward else "mast " + pl["name"]   # else alone
+        groups[(pl["bi"], where, sg.get("dir"))].append(pl)
     gantries = []
     for key in sorted(groups, key=str):
         members = sorted(groups[key], key=lambda p: (piece(p, p["gap"]["b"])[0][0], p["name"]))
@@ -1304,8 +1337,16 @@ def shift_gaps(P, bands, chains, plans):
             # masts sharing a gap move together, so a gap shared with a mast of another cluster stays put
             shared = lambda pl: [q for q in plans if q is not pl and q["k"] == pl["k"] and q["bi"] == pl["bi"]
                                  and q["gap"]["b"] == pl["gap"]["b"]]
-            opts = {pl["name"]: ({pl["gap"]["b"]: options(pl)[pl["gap"]["b"]]}
-                                 if any(q not in cl for q in shared(pl)) else options(pl)) for pl in cl}
+            opts = {}
+            for pl in list(cl):
+                own, b = options(pl), pl["gap"]["b"]
+                if b not in own:                 # its own gap fails the checks: leave the mast where it stands
+                    P.log.append(f"mast {pl['name']}: its gap stays where it is (no room to move it)")
+                    cl.remove(pl)
+                    continue
+                opts[pl["name"]] = {b: own[b]} if any(q not in cl for q in shared(pl)) else own
+            if not cl:
+                continue
             best = None
             for col in sorted({o[0] for os_ in opts.values() for o in os_.values()}):
                 pick, score = {}, [0, 0, 0]
@@ -1563,15 +1604,25 @@ def check_fit(P, cols, rows):
     return have
 
 
+def parse_size(text, option="--fit", form="COLSxROWS", example="63x36"):
+    """'AxB' as (a, b), both whole numbers of at least 1; an error naming the option otherwise."""
+    try:
+        a, b = (int(v) for v in text.lower().split("x"))
+    except ValueError:
+        raise SchematicError(f"{option} is {form}, such as {example}, not {text!r}") from None
+    if a < 1 or b < 1:
+        raise SchematicError(f"{option} is {form} with both at least 1, not {text!r}")
+    return a, b
+
+
 def parse_fit(text):
     """'COLSxROWS' as (cols, rows)."""
-    try:
-        cols, rows = (int(v) for v in text.lower().split("x"))
-    except ValueError:
-        raise SchematicError(f"--fit is COLSxROWS, such as 63x36, not {text!r}") from None
-    if cols < 1 or rows < 1:
-        raise SchematicError(f"--fit is COLSxROWS with both at least 1, not {text!r}")
-    return cols, rows
+    return parse_size(text)
+
+
+def parse_window(text):
+    """'WIDTHxHEIGHT' in pixels as (width, height)."""
+    return parse_size(text, "--window", "WIDTHxHEIGHT in pixels", "1900x1100")
 
 
 def summary(P):
