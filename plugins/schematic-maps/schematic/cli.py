@@ -102,6 +102,8 @@ def run(argv=None):
     p.add_argument("--cells-per-unit", type=int, default=cats.SCALE, choices=(1, 2),
                    help="CATS cells per schematic grid unit: 2 (default) leaves a free row under each track for its "
                         "name; 1 is half the size each way, with names placed on the track, to fit a smaller screen")
+    p.add_argument("--window", metavar="WIDTHxHEIGHT",
+                   help="the window CATS opens the panel in, in pixels (default: CATS's own); CATS has no zoom")
     p.add_argument("--fit", metavar="COLSxROWS",
                    help="fail if the panel shows more cells than this (CATS draws 30 pixel cells: 1900x1200 is 63x36)")
     p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
@@ -185,7 +187,14 @@ def run(argv=None):
             pnl = cats.panel(bands, scale=a.cells_per_unit, bindings=bindings)
             if fit:
                 cats.check_fit(pnl, *fit)
-            cats.write(pnl, a.out, a.discipline, header)
+            window = None
+            if a.window:
+                try:
+                    window = tuple(int(v) for v in a.window.lower().split("x"))
+                    assert len(window) == 2
+                except (ValueError, AssertionError):
+                    raise SchematicError(f"--window {a.window}: give WIDTHxHEIGHT in pixels, e.g. 1900x1100")
+            cats.write(pnl, a.out, a.discipline, header, window)
             cols, rows = cats.shown(pnl)
             print(", ".join(t for t, _, _ in bands) + ": " + cats.summary(pnl) +
                   f"; shows {cols} x {rows} cells" + (f" (fit {fit[0]} x {fit[1]})" if fit else ""))

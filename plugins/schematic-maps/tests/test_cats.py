@@ -297,6 +297,17 @@ class Bindings(unittest.TestCase):
         P = cats.panel(bands, bindings={"switches": {"1/2/T10": {"block": "OS Slash"}}})    # alias after the last /
         self.assertIn("OS Slash", P.names.values())
 
+    def test_a_switch_label_binding_replaces_the_number_shown(self):
+        P = cats.panel(helpers.build().bands, bindings={"switches": {"1": {"label": "1X"}, "6": {"label": "6Y"}}})
+        texts = {t for t, _, _ in P.labels.values()}
+        self.assertTrue({"1X", "6Y"} <= texts, texts)
+        self.assertFalse({"1", "6"} & texts)
+        P = cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"1": {"label": "1X"}}})
+        self.assertIn("1X", {t for t, _, _ in P.labels.values()})
+        for bad in ("", 7):
+            with self.assertRaisesRegex(cats.SchematicError, "label is the text shown"):
+                cats.panel(helpers.build().bands, bindings={"switches": {"1": {"label": bad}}})
+
     def test_switch_routes_are_bound_by_leg(self):
         b = {"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": io("close"), "SELECTEDREPORT": io("close")},
                                            "C": {"ROUTECOMMAND": io("throw")}}}}}

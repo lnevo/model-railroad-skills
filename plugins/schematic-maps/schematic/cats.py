@@ -30,10 +30,12 @@ is two blocks, parted in the middle of its vertical run.
 Bindings (optional, `panel(bands, bindings=...)`, the command's --bindings FILE.json) tie the panel to the
 layout's devices; every name in them must exist in the panel, or it is an error:
 
-    {"switches": {"LABEL" or "LABEL/ALIAS": {"block": "OS name", "normal": "B" or "C",
+    {"switches": {"LABEL" or "LABEL/ALIAS": {"block": "OS name", "normal": "B" or "C", "label": "shown text",
                                               "routes": {"B": {"ROUTECOMMAND": IO, "SELECTEDREPORT": IO}, "C": {..}}}},
      "blocks":   {"BLOCK": {"name": "layout name", "station": "..", "discipline": "CTC", "occupied": IO, "unoccupied": IO}},
-     "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2"}}}
+     "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2",
+                           "orient": "LEFT", "RIGHT", "TOP" or "BOTTOM" (optional: the way the lamps point),
+                           "location": a SIGLOCATION such as "LEFTLOW" (optional: where in its cell)}}}
 
 IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "command": "close" or "throw"} (also
 JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
@@ -486,7 +488,7 @@ def panel(bands, scale=SCALE, bindings=None):
                 if compact:                     # over the X, in its top through track's cells, else under it
                     cands = [((xx, y1), "UPCENT") for xx in range(a, b)] + \
                         [((xx, y2), "LOWCENT") for xx in range(a, b)] + cands
-                P.label(cands, d["label"], rank=1)
+                P.label(cands, str(sw_bind.get((bi, n), {}).get("label") or d["label"]), rank=1)
 
         # switch points
         for n, d in sorted(nodes.items()):
@@ -513,7 +515,7 @@ def panel(bands, scale=SCALE, bindings=None):
                 routes.append((far, port == normal))
                 ports[far] = port
             P.points[frog] = dict(switch=d.get("label") or n, routes=sorted(routes), node=(bi, n), ports=ports)
-            shown = (d.get("label") or "") + (d.get("facing") or "")
+            shown = str(sw_bind.get((bi, n), {}).get("label") or d.get("label") or "") + (d.get("facing") or "")
             if shown:
                 px, py = cell
                 cands = [((px, py + 1), "UPCENT"), ((px, py - 1), "LOWCENT"), ((px + 1, py + 1), "UPCENT"),
@@ -803,7 +805,9 @@ def check_bindings(b):
     out = {"switches": {}, "blocks": {}, "masts": {}}
     section = lambda name: fields(b.get(name) or {}, [k for k in (b.get(name) or {})], f"bindings {name}")
     for key, e in section("switches").items():
-        e = fields(e, ("block", "normal", "routes"), f"switch {key}")
+        e = fields(e, ("block", "normal", "routes", "label"), f"switch {key}")
+        if "label" in e and (not isinstance(e["label"], str) or not e["label"].strip()):
+            raise SchematicError(f"switch {key}: label is the text shown at its points, a non-empty string")
         if e.get("normal", "B") not in ("B", "C"):
             raise SchematicError(f"switch {key}: normal is leg B or C, not {e['normal']!r}")
         routes = fields(e.get("routes", {}), ("B", "C"), f"switch {key} routes")
@@ -821,9 +825,13 @@ def check_bindings(b):
                 e[f] = check_io(e[f], f"block {key} {f}")
         out["blocks"][key] = e
     for key, e in section("masts").items():
-        e = fields(e, ("name", "template", "pantype"), f"mast {key}")
+        e = fields(e, ("name", "template", "pantype", "orient", "location"), f"mast {key}")
         if e.get("pantype") is not None and e["pantype"] not in SIG_PANTYPES:
             raise SchematicError(f"mast {key}: pantype is one of {', '.join(SIG_PANTYPES)}")
+        if e.get("orient") is not None and e["orient"] not in OPPOSITE:
+            raise SchematicError(f"mast {key}: orient is one of {', '.join(OPPOSITE)}")
+        if e.get("location") is not None and e["location"] not in LOC_XY:
+            raise SchematicError(f"mast {key}: location is one of {', '.join(LOC_XY)}")
         out["masts"][key] = e
     return out
 
@@ -953,6 +961,11 @@ def bind_masts(P, bands, masts, chains, turn_bounds, compact=False):
         loc, orient = SIG_LOCATION[edge], OPPOSITE[edge]
         if compact:
             loc, orient = level_signal(P, cell, edge, heads, loc, orient)
+        if e.get("orient"):                      # the bindings choose the way the lamps point (and maybe the spot)
+            orient = e["orient"]
+            loc = e.get("location") or clear_spot(P, cell, heads, orient, loc)
+        elif e.get("location"):
+            loc = e["location"]
         P.signals[(cell, edge)] = dict(mast=name, name=e.get("name") or name, loc=loc,
                                        orient=orient, pantype=e.get("pantype") or f"LAMP{heads}",
                                        template=e.get("template"))
@@ -979,6 +992,19 @@ def level_signal(P, cell, edge, heads, loc, orient):
         if not any(crosses(box, ln, rim=1) for ln in lines):
             return spot, orient
     return loc if edge in ("LEFT", "RIGHT") else spots[1], orient
+
+
+def clear_spot(P, cell, heads, orient, first):
+    """The first SIGLOCATION in `cell` where a mast of `heads` lamps pointing `orient` crosses no track line; the
+    given spot `first` when none is clear. Lamps pointing up or down stack vertically (SignalFrill)."""
+    lines = [ln for ln in track_lines(P) if abs(ln[0] - cell[0] * GRID_PX) <= 2 * GRID_PX and
+             abs(ln[1] - cell[1] * GRID_PX) <= 2 * GRID_PX]
+    long, short = heads * SIG_PX + SIG_PX, SIG_PX
+    size = (short, long) if orient in ("TOP", "BOTTOM") else (long, short)
+    for spot in (first,) + tuple(s for s in LOC_XY if s != first):
+        if not any(crosses(frill_box(cell, spot, *size), ln, rim=1) for ln in lines):
+            return spot
+    return first
 
 
 def number_order(label):
@@ -1068,11 +1094,20 @@ def set_io(parent, tag, io):
         io["command"]
 
 
-def to_xml(P, discipline="CTC", header=()):
+def to_xml(P, discipline="CTC", header=(), window=None):
     """The panel as a CATS Designer document (an ElementTree root). `header`: SIGNALTEMPLATE and JMRINAME
-    elements to copy in (header_from)."""
+    elements to copy in (header_from). `window`: (width, height) in pixels of the window CATS opens the panel in,
+    placed at the screen's top left; CATS has no zoom, so a window smaller than the panel crops it."""
     cols, rows = P.size()
     root = ET.Element("DOCUMENT", VERSION="3.1")
+    if window:
+        w, h = window
+        if w < 1 or h < 1:
+            raise SchematicError(f"window {w}x{h}: both sides must be at least 1 pixel")
+        root.set("WIDTH", str(int(w)))
+        root.set("HEIGHT", str(int(h)))
+        root.set("X", "0")
+        root.set("Y", "0")
     for key, name, color, size, style in HEADER_FONTS:
         ET.SubElement(root, "FONTDEFINITION", FONTKEY=key, FONTNAME=name, FONTCOLOR=color, FONTSIZE=size,
                       FONTSTYLE=style)
@@ -1157,8 +1192,8 @@ def to_xml(P, discipline="CTC", header=()):
     return root
 
 
-def write(P, out, discipline="CTC", header=()):
-    root = to_xml(P, discipline, header)
+def write(P, out, discipline="CTC", header=(), window=None):
+    root = to_xml(P, discipline, header, window)
     text = "<?xml version='1.0' encoding='UTF-8'?>\n" + ET.tostring(root, encoding="unicode") + "\n"
     with open(out, "w", encoding="utf-8") as f:
         f.write(text)
