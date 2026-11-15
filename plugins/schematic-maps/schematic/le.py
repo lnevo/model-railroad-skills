@@ -26,13 +26,19 @@ Names (optional, by band key, the first word of the band title):
               "blocks": {strand id: [block, ...]}, "lengths": {block: real length, any one unit},
               "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
                          "icon": [w, h], "or_join": ...}],
-              "joins": "own" or "other"}}
+              "joins": "own" or "other", "leg_b": {node: "B" or "C"},
+              "idents": {"turnouts": {node: ident}, "boundaries": [{"blocks": [block, block], "ident": ident}],
+                         "ends": {block: ident}, "segments": {block: ident}}}}
 A strand with several blocks is cut for them in order from its first end to its second: in proportion to their
 real lengths when `lengths` gives one for each (so a short throat block sits at its own end of the track), else into
 equal lengths; no block is drawn shorter than MIN_BLOCK px, and no cut falls inside an arc. Without names
 a strand's block is its track name (or the two switch numbers it joins, made unique), a turnback and a joined helix
 or connector track share the block of the track they continue, an OS block is "OS <switch number>", and no turnout
-is named. Sensors are not placed.
+is named. Sensors are not placed. `leg_b` names the band leg that is Layout Editor leg B (default: the drawn
+straight one); a drawn diverging leg B puts the centre midway between legs A and B, where Layout Editor finds point
+A. `idents` gives drawn objects an older panel's idents once everything is placed (apply_idents): a switch's
+turnout, the one anchor between two blocks, the one end bumper of a block, the one segment of a block; the rest keep
+generated idents, whose form (G after the prefix) no given ident may take.
 
 Masts. Each mast in `masts` goes in the slot of that band whose facing block and protected blocks, as JMRI resolves
 them (slots.py), are the ones given: an anchor's east or west slot, a turnout leg, or (with `protects` empty) an end
@@ -55,6 +61,7 @@ the width needs (so rows keep their room for the labels between tracks), each th
 keep their size so they stay readable. The panel's window is the panel plus CHROME, within `fit`.
 """
 import math
+import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -208,6 +215,7 @@ class Panel:
         self.anchors_from = {}      # anchor ident -> where it stood before it slid
         self.names_moved = []       # (track name, px) track names slid along their track clear of mast icons
         self.cellx = {}             # band index -> px per grid column as drawn
+        self.idents_given = {}      # generated ident -> the ident the names gave it (apply_idents)
         self.log = []
         self.size = (0, 0)
         self.scale = (1.0, 1.0)     # the grid's scale across and down when `fit` shrank it
@@ -332,15 +340,51 @@ def default_names(bands, joined, taken=()):
     return out
 
 
-NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths")
+NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents")
 MAST_KINDS = ("anchor", "end bumper", "turnout")
 MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join")
+IDENT_KEYS = ("turnouts", "boundaries", "ends", "segments")
+# the kind of object each section's idents must be found as by JMRI (jmri_kind)
+IDENT_KIND = {"turnouts": "turnout", "boundaries": "point", "ends": "point", "segments": "segment"}
+GENERATED = re.compile(r"(TO|T|A|EB|SH)" + PREFIX + r"\d+")
+
+
+def jmri_kind(name):
+    """The kind of object Layout Editor looks a connection name up as, by the rules and in the order of
+    LayoutEditorFindItems.findObjectByName (JMRI 5.16): "turnout", "point" (anchor, end bumper or edge connector),
+    "xing", "slip", "turntable", "traverser", "segment", or None (JMRI logs an unknown prefix and leaves the
+    connection empty)."""
+    if name.startswith("TO"):
+        return "turnout"
+    if name.startswith(("A", "EB", "EC")) or re.fullmatch(r"F\d+-A-\d+", name):
+        return "point"
+    for prefix, kind in (("X", "xing"), ("SL", "slip"), ("TUR", "turntable"), ("TRV", "traverser")):
+        if name.startswith(prefix):
+            return kind
+    if name.startswith("T") or re.fullmatch(r"F\d+-S-\d+", name):
+        return "segment"
+    if name.endswith("-EB"):
+        return "point"
+    return None
+
+
+def crossover_pairs(band):
+    """[(track id, switch, switch)]: two switches of one number joined C to C by one track, drawn as one single
+    crossover (when both stand on level track; else as two turnouts, and the log says so)."""
+    nodes, out = band["nodes"], []
+    for sid, st in sorted(band["strands"].items()):
+        (u, pu), (v, pv) = st["src"], st["dst"]
+        du, dv = nodes[u], nodes[v]
+        if u != v and pu == pv == "C" and du["kind"] == dv["kind"] == "switch" and du.get("label") \
+                and du.get("label") == dv.get("label"):
+            out.append((sid, u, v))
+    return out
 
 
 def check_names(bands, names):
     """Stop on a names file that names a band, a section, a switch or a track that is not there."""
     keys = {band_key(t): band for t, band, _ in bands}
-    seen_masts = {}
+    seen_masts, seen_idents = {}, {}
     unknown = set(names) - set(keys)
     if unknown:
         raise SchematicError(f"names given for {', '.join(sorted(unknown))}, which is not a band "
@@ -380,6 +424,20 @@ def check_names(bands, names):
             raise SchematicError(f"names for {key}: lengths given for {', '.join(stray)}, which no track's blocks name")
         if given.get("joins", "own") not in ("own", "other"):
             raise SchematicError(f"names for {key}: joins must be \"own\" or \"other\", not {given['joins']!r}")
+        leg_b = given.get("leg_b", {})
+        if not isinstance(leg_b, dict) or any(v not in ("B", "C") for v in leg_b.values()):
+            raise SchematicError(f"names for {key}: leg_b must be an object of switch id: \"B\" or \"C\"")
+        stray = sorted(set(leg_b) - {n for n in switches if band["nodes"][n]["kind"] == "switch"})
+        if stray:
+            raise SchematicError(f"names for {key}: leg_b names {', '.join(stray)}, which is no plain switch of the "
+                                 "band")
+        halves = sorted(set(leg_b) & {n for _sid, u, v in crossover_pairs(band) for n in (u, v)})
+        if halves:
+            raise SchematicError(f"names for {key}: leg_b names {', '.join(halves)}, half of a single crossover, "
+                                 "whose legs are the crossover's (A to D), not a plain turnout's")
+        named = {b for v in (given.get("blocks") or {}).values() for b in ([v] if isinstance(v, str) else v)} | \
+            set((given.get("os") or {}).values())
+        check_idents(key, given.get("idents"), band, switches, named, seen_idents)
         for section in NAME_KEYS[:4]:
             ids = set(given.get(section) or {})
             have = set(band["strands"]) if section == "blocks" else switches
@@ -388,6 +446,77 @@ def check_names(bands, names):
                 what = "track" if section == "blocks" else "switch"
                 raise SchematicError(f"names for {key}: {section} names {', '.join(missing)}, which is no {what} "
                                      "of the band")
+
+
+def check_idents(key, idents, band, switches, named, seen):
+    """Stop on an `idents` section that is not well formed, before anything is drawn: each ident a name JMRI looks
+    up as its kind of object (jmri_kind), never one the panel generates itself (so a given and a generated ident
+    never meet), used once across every band (`seen`) but by the two switches of one single crossover; each block
+    one the names give (`named`: the band's `blocks` and `os`). Whether a boundary or end is drawn as exactly one
+    anchor or bumper can only be checked once drawn (apply_idents)."""
+    if idents is None:
+        return
+    what = f"names for {key}: idents"
+    if not isinstance(idents, dict):
+        raise SchematicError(f"{what} must be an object of {', '.join(IDENT_KEYS)}")
+    bad = set(idents) - set(IDENT_KEYS)
+    if bad:
+        raise SchematicError(f"{what}: {', '.join(sorted(bad))} is not one of {', '.join(IDENT_KEYS)}")
+    partner = {}
+    for _sid, u, v in crossover_pairs(band):
+        partner[u], partner[v] = v, u
+
+    def ident(section, v, where):
+        if not (isinstance(v, str) and re.fullmatch(r"[A-Za-z0-9_-]+", v)):
+            raise SchematicError(f"{what}: {section} {where}: {v!r} is no Layout Editor name (letters, digits, - "
+                                 "or _)")
+        if jmri_kind(v) != IDENT_KIND[section]:
+            raise SchematicError(f"{what}: {section} {where}: JMRI would look {v!r} up as "
+                                 f"{jmri_kind(v) or 'nothing (an unknown prefix)'}, not a {IDENT_KIND[section]} "
+                                 "(LayoutEditorFindItems.findObjectByName)")
+        if GENERATED.fullmatch(v):
+            raise SchematicError(f"{what}: {section} {where}: {v!r} has the form the panel gives its own objects "
+                                 f"({PREFIX} after the prefix); pick another")
+        if v in seen and seen[v] != (key, section, where):
+            raise SchematicError(f"{what}: {v!r} given twice ({seen[v][1]} {seen[v][2]} and {section} {where})")
+        seen[v] = (key, section, where)
+
+    def block(section, b, where):
+        if b not in named:
+            raise SchematicError(f"{what}: {section} {where}: {b!r} is no block the names give this band (give the "
+                                 "tracks' blocks in \"blocks\")")
+
+    for section in ("turnouts", "ends", "segments"):
+        got = idents.get(section, {})
+        if not isinstance(got, dict) or not all(isinstance(k, str) and k.strip() for k in got):
+            raise SchematicError(f"{what}: {section} must be an object keyed by "
+                                 f"{'switch id' if section == 'turnouts' else 'block name'}")
+        for k, v in sorted(got.items()):
+            if section == "turnouts":
+                if k not in switches:
+                    raise SchematicError(f"{what}: turnouts names {k}, which is no switch of the band")
+                if partner.get(k) in got and got[partner[k]] == v and partner[k] < k:
+                    continue            # the other switch of its crossover gave the same ident
+            else:
+                block(section, k, k)
+            ident(section, v, k)
+    got = idents.get("boundaries", [])
+    if not isinstance(got, list):
+        raise SchematicError(f"{what}: boundaries must be a list of {{\"blocks\": [block, block], \"ident\": name}}")
+    pairs = set()
+    for b in got:
+        if not (isinstance(b, dict) and set(b) == {"blocks", "ident"} and isinstance(b["blocks"], list)
+                and len(b["blocks"]) == 2 and all(isinstance(x, str) and x.strip() for x in b["blocks"])
+                and b["blocks"][0] != b["blocks"][1]):
+            raise SchematicError(f"{what}: boundaries: each entry is {{\"blocks\": [two different block names], "
+                                 f"\"ident\": name}}, not {b!r}")
+        pair = frozenset(b["blocks"])
+        if pair in pairs:
+            raise SchematicError(f"{what}: boundaries: {' | '.join(sorted(pair))} given twice")
+        pairs.add(pair)
+        for x in b["blocks"]:
+            block("boundaries", x, " | ".join(sorted(pair)))
+        ident("boundaries", b["ident"], " | ".join(sorted(pair)))
 
 
 def check_masts(key, masts, seen):
@@ -530,9 +659,126 @@ def draw_panel(bands, names, cell, row, page, masts=True):
         P.join_ends[(bj, b[0])] = b[3]
     if masts and any(g.get("masts") for g in names.values()):
         place_masts(P, bands, names)
+    if any(g.get("idents") for g in names.values()):
+        apply_idents(P, bands, names)
     box = extent(P)
     P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
     return P
+
+
+def apply_idents(P, bands, names):
+    """Give the drawn objects the idents the names ask for (an older panel's, say), once everything is placed:
+    a switch's turnout; the anchor between two blocks (the pair must be drawn as exactly one anchor); the end bumper
+    of a block (the block must end at exactly one bumper); a block's one track segment (used only when the block is
+    drawn as one segment, else logged). The rest keep their generated idents, which no given ident can take
+    (check_idents). Sets P.idents_given {old: new}."""
+    rename = {}
+
+    def take(old, new, what):
+        if old in rename and rename[old] != new:
+            raise SchematicError(f"{what}: {old} is already named {rename[old]}")
+        if new in rename.values() and rename.get(old) != new:
+            raise SchematicError(f"{what}: ident {new} given to two separate objects")
+        rename[old] = new
+
+    seg_of = {s["ident"]: s for s in P.segments}
+    for bi, (title, _, _) in enumerate(bands):
+        idents = names.get(band_key(title), {}).get("idents") or {}
+        if not idents:
+            continue
+        mine_pts = {k: p for k, p in P.points.items() if p["band"] == bi}
+        for n, new in sorted((idents.get("turnouts") or {}).items()):
+            got = P.turnout_of.get((bi, n))
+            if got is None:
+                raise SchematicError(f"{title}: idents: switch {n} is drawn as no turnout")
+            take(got[0], new, f"{title}: idents: switch {n}")
+        between = defaultdict(list)
+        ends = defaultdict(list)
+        for ident, p in sorted(mine_pts.items()):
+            blocks = [seg_of[c]["block"] for c in p["conn"]]
+            if p["type"] == "END_BUMPER":
+                ends[blocks[0]].append(ident)
+            elif len(blocks) == 2 and blocks[0] != blocks[1]:
+                between[frozenset(blocks)].append(ident)
+        for b in idents.get("boundaries") or []:
+            pair = frozenset(b["blocks"])
+            got = between.get(pair, [])
+            if len(got) != 1:
+                raise SchematicError(f"{title}: idents: the boundary {' | '.join(sorted(pair))} ({b['ident']}) is "
+                                     f"drawn at {len(got)} anchors{': ' + ', '.join(got) if got else ''}; it must "
+                                     "be exactly one")
+            take(got[0], b["ident"], f"{title}: idents: boundary {' | '.join(sorted(pair))}")
+        for block, new in sorted((idents.get("ends") or {}).items()):
+            got = ends.get(block, [])
+            if len(got) != 1:
+                raise SchematicError(f"{title}: idents: block {block} ends at {len(got)} end bumpers; an end "
+                                     "ident needs exactly one")
+            take(got[0], new, f"{title}: idents: end of {block}")
+        segs = defaultdict(list)            # the band's own drawn segments; a hidden join keeps its generated ident
+        for s in P.segments:
+            if s["band"] == bi:
+                segs[s["block"]].append(s["ident"])
+        for block, new in sorted((idents.get("segments") or {}).items()):
+            got = segs.get(block, [])
+            if not got:
+                raise SchematicError(f"{title}: idents: segment {new}: no track of block {block} is drawn")
+            if len(got) != 1:
+                P.log.append(f"{title}: idents: block {block} is drawn as {len(got)} track segments, so segment "
+                             f"ident {new} is not used (they keep generated idents)")
+                continue
+            take(got[0], new, f"{title}: idents: segment of {block}")
+    if not rename:
+        return
+    r = lambda i: rename.get(i, i)      # noqa: E731
+    for t in P.turnouts:
+        t["ident"] = r(t["ident"])
+        t["conn"] = {k: r(v) for k, v in t["conn"].items()}
+    for s in P.segments:
+        s["ident"] = r(s["ident"])
+        s["ends"] = [(r(i), typ) for i, typ in s["ends"]]
+    P.points = {r(k): {**p, "conn": [r(c) for c in p["conn"]]} for k, p in P.points.items()}
+    for m in P.masts:
+        m["ident"] = r(m["ident"])
+    P.strand_segments = defaultdict(list, {k: [r(i) for i in v] for k, v in P.strand_segments.items()})
+    P.turnout_of = {k: (r(v[0]), v[1]) for k, v in P.turnout_of.items()}
+    P.turnbacks = {k: [r(i) for i in v] for k, v in P.turnbacks.items()}
+    P.joins = [r(i) for i in P.joins]
+    P.join_ends = {(b, r(i)): v for (b, i), v in P.join_ends.items()}
+    P.anchors_moved = [(m, r(i), px) for m, i, px in P.anchors_moved]
+    P.anchors_from = {r(k): v for k, v in P.anchors_from.items()}
+    # invariant: every ident once, every connection names an object that is there
+    idents = [t["ident"] for t in P.turnouts] + [s["ident"] for s in P.segments] + list(P.points)
+    if len(idents) != len(set(idents)):
+        dup = sorted({i for i in idents if idents.count(i) > 1})
+        raise SchematicError(f"idents: {', '.join(dup)} named twice after renaming")
+    check_connections(P)
+    P.idents_given = dict(rename)
+
+
+def check_connections(P):
+    """Stop unless every ident a part of the panel names is an object of it, of the right kind, after renaming:
+    segment ends, turnout legs, points' tracks, masts' slots, and the Panel's own lookups."""
+    turnouts = {t["ident"] for t in P.turnouts}
+    segs = {s["ident"] for s in P.segments}
+    bad = []
+    for s in P.segments:
+        for i, typ in s["ends"]:
+            if i not in (P.points if typ == "POS_POINT" else turnouts):
+                bad.append(f"segment {s['ident']} ends at {i} ({typ})")
+    for t in P.turnouts:
+        bad += [f"turnout {t['ident']} leg {leg}: {v}" for leg, v in t["conn"].items() if v not in segs]
+    for k, p in P.points.items():
+        bad += [f"point {k}: {c}" for c in p["conn"] if c not in segs]
+    for m in P.masts:
+        if m["ident"] not in (turnouts if m["kind"] == "turnout" else P.points):
+            bad.append(f"mast {m['mast']} on {m['ident']}")
+    bad += [f"strand {k}: {i}" for k, v in P.strand_segments.items() for i in v if i not in segs]
+    bad += [f"switch {k}: {v[0]}" for k, v in P.turnout_of.items() if v[0] not in turnouts]
+    bad += [f"turnback {k}: {i}" for k, v in P.turnbacks.items() for i in v if i not in segs]
+    bad += [f"join {i}" for i in P.joins if i not in segs]
+    bad += [f"join end {i}" for (_b, i) in P.join_ends if i not in P.points]
+    if bad:
+        raise SchematicError("idents: after renaming these name nothing on the panel: " + "; ".join(bad[:8]))
 
 
 def extent(P, bi=None):
@@ -649,6 +895,7 @@ def shift(P, bi, dx, dy):
     for t in P.turnouts:
         if t["band"] == bi:
             t["cen"] = move(t["cen"])
+            t["at"] = move(t["at"])
             t["pts"] = {k: move(p) for k, p in t["pts"].items()}
     for p in P.points.values():
         if p["band"] == bi:
@@ -788,9 +1035,11 @@ class Band:
         self.labels()
 
     # ---- switches
-    def add_turnout(self, nodes, ttype, cen, pts, conn_ports, blocks, continuing="2"):
+    def add_turnout(self, nodes, ttype, cen, pts, conn_ports, blocks, continuing="2", at=None):
+        """`at`: where the drawn legs meet, when the centre stands elsewhere (leg_b); labels go by it."""
         P = self.P
-        t = dict(ident=P.ident("TO"), type=ttype, cen=list(cen), pts={k: list(v) for k, v in pts.items()}, conn={},
+        t = dict(ident=P.ident("TO"), type=ttype, cen=list(cen), at=list(at if at is not None else cen),
+                 pts={k: list(v) for k, v in pts.items()}, conn={},
                  blocks=blocks, continuing=continuing, ver="2" if "XOVER" in ttype else "1",
                  name=None, nodes=nodes, band=self.bi)
         names = {self.names.get("turnouts", {}).get(n) for n in nodes} - {None}
@@ -830,7 +1079,7 @@ class Band:
 
     def turnout(self, n):
         d = self.nodes[n]
-        c = self.node_point(n)
+        c = junction = self.node_point(n)
         dirs = {p: self.direction(n, p) for p in "ABC"}
         L = min([LEG] + [0.4 * self.first_len(n, p) for p in "ABC"])
         normal = self.normal_of(n)
@@ -842,12 +1091,21 @@ class Band:
             straight, other = "C", "B"
         else:
             straight = None
+        want_b = self.names.get("leg_b", {}).get(n)
         if straight:
-            B, C = add(c, dirs[straight], L), add(c, dirs[other], L)
             A = add(c, dirs[straight], -L)
-            ttype = "RH_TURNOUT" if cross(dirs[straight], dirs[other]) > 0 else "LH_TURNOUT"
-            conn = {(n, "A"): "A", (n, straight): "B", (n, other): "C"}
-            continuing = "2" if normal == straight else "4"
+            on_b, on_c = (other, straight) if want_b == other else (straight, other)
+            B, C = add(c, dirs[on_b], L), add(c, dirs[on_c], L)
+            ttype = "RH_TURNOUT" if cross(dirs[on_b], dirs[on_c]) > 0 else "LH_TURNOUT"
+            conn = {(n, "A"): "A", (n, on_b): "B", (n, on_c): "C"}
+            continuing = "2" if normal == on_b else "4"
+            if on_b != straight:
+                # Layout Editor finds point A of a plain turnout as the centre less leg B's offset, so with the
+                # drawn diverging leg as leg B the centre stands midway between A and B: all three legs still end
+                # where the drawn track starts
+                c = mid(A, B)
+                self.P.log.append(f"{self.title}: switch {d.get('label') or n}: its drawn diverging leg is Layout "
+                                  "Editor leg B (leg_b), so its centre stands midway between legs A and B")
         else:            # neither leg straight on: a wye, its points opposite the middle of the two legs
             B, C = add(c, dirs["B"], L), add(c, dirs["C"], L)
             m = mid(sub(B, c), sub(C, c))
@@ -859,18 +1117,17 @@ class Band:
             if dot(unit(m), dirs["A"]) > -1 + 1e-3:
                 self.P.log.append(f"{self.title}: switch {d.get('label') or n} drawn as a wye with a bent leg A")
             ttype = "WYE_TURNOUT"
-            conn = {(n, "A"): "A", (n, "B"): "B", (n, "C"): "C"}
-            continuing = "2" if normal == "B" else "4"
-        self.add_turnout([n], ttype, c, {"A": A, "B": B, "C": C}, conn, blocks, continuing)
+            on_b, on_c = ("C", "B") if want_b == "C" else ("B", "C")
+            if want_b == "C":
+                B, C = C, B
+            conn = {(n, "A"): "A", (n, on_b): "B", (n, on_c): "C"}
+            continuing = "2" if normal == on_b else "4"
+        self.add_turnout([n], ttype, c, {"A": A, "B": B, "C": C}, conn, blocks, continuing, at=junction)
 
     def crossovers(self):
         """Two switches of one number joined C to C by a track: one single crossover."""
-        for sid, s in sorted(self.strands.items()):
-            (u, pu), (v, pv) = s["src"], s["dst"]
-            du, dv = self.nodes[u], self.nodes[v]
-            if not (u != v and pu == pv == "C" and du["kind"] == dv["kind"] == "switch" and du.get("label")
-                    and du.get("label") == dv.get("label")):
-                continue
+        for sid, u, v in crossover_pairs(self.band):
+            du = self.nodes[u]
             if (self.bi, u) in self.P.turnout_of or (self.bi, v) in self.P.turnout_of:
                 continue
             level = all(abs(self.direction(n, p)[1]) < EPS for n in (u, v) for p in "AB")
@@ -1018,7 +1275,7 @@ class Band:
             label = self.nodes[t["nodes"][0]].get("label") or ""
             if not label:
                 continue
-            cen = t["cen"]
+            cen = t["at"]           # where the drawn legs meet (the centre moves with leg_b)
             if "XOVER" in t["type"]:
                 top = min(p[1] for p in t["pts"].values())
                 P.label(label, (cen[0], top - NUMBER_SIZE - 5), NUMBER_SIZE, True)
@@ -1044,7 +1301,7 @@ class Band:
         by_label = defaultdict(list)
         for t in self.mine:
             for n in t["nodes"]:
-                by_label[(self.nodes[n].get("label") or "").rstrip("*")].append(t["cen"][0])
+                by_label[(self.nodes[n].get("label") or "").rstrip("*")].append(t["at"][0])
         for name, e in stations.entries(self.opts).items():
             xs = [x for sw in e["switches"] for x in by_label.get(str(sw), ())]
             if not xs:
