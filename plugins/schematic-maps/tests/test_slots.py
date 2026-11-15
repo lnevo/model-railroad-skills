@@ -145,7 +145,7 @@ class Icons(unittest.TestCase):
 
 def boundaries(P, bi):
     """{(facing, protects): (kind, ident, slot)} for every slot of band bi on the drawn panel."""
-    ix = slots.Index(le.to_xml(P, "probe"))
+    ix = slots.Index(le.to_xml(P, "probe", probe=True))
     mine = {t["ident"] for t in P.turnouts if t["band"] == bi} | {k for k, p in P.points.items() if p["band"] == bi}
     out = {}
     for c in ix.candidates():

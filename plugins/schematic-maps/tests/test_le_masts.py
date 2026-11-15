@@ -325,6 +325,141 @@ class Throats(unittest.TestCase):
                 le.panel(bands(), {key(): {"blocks": self.BLOCKS, "lengths": bad}})
 
 
+def block_lengths(got):
+    out = []
+    for pc, i in got:
+        if out and out[-1][0] == i:
+            out[-1] = (i, out[-1][1] + le.piece_len(pc))
+        else:
+            out.append((i, le.piece_len(pc)))
+    return [v for _, v in out]
+
+
+class Split(unittest.TestCase):
+    """Moving a cut off an arc or to a place with room for an icon never breaks the blocks' order or floors."""
+    line = staticmethod(lambda a, b: dict(kind="line", a=a, b=b))
+
+    def test_room_that_would_squeeze_a_throat_gives_way_to_its_floor(self):
+        log = []
+        got = block_lengths(le.split([self.line((0, 0), (100, 0))], 3, "t", [10, 80, 10], room=[(0, 0), (95, 0)],
+                                     log=log))
+        self.assertTrue(all(v >= le.MIN_BLOCK - 1e-6 for v in got), got)
+        self.assertTrue(log)
+
+    def test_room_never_makes_cuts_cross(self):
+        got = le.split([self.line((0, 0), (100, 0))], 3, "t", [10, 10, 80], room=[(30, 0), (0, 0)])
+        self.assertEqual([i for _, i in got], [0, 1, 2])
+        self.assertTrue(all(v >= le.MIN_BLOCK - 1e-6 for v in block_lengths(got)))
+        self.assertGreaterEqual(block_lengths(got)[0], 30 - 1e-6)
+
+    def test_a_rounded_corner_never_leaves_a_sliver(self):
+        got = le.split(le.rounded([(0, 0), (30, 0), (30, 30)]), 3, "t")
+        self.assertTrue(all(v >= le.MIN_BLOCK - 1e-6 for v in block_lengths(got)), block_lengths(got))
+        self.assertFalse([pc for pc, _ in got if pc["kind"] == "arc" and le.piece_len(pc) < 1])
+
+    def test_two_cuts_near_one_arc_end_take_both_ends(self):
+        got = le.split(le.rounded([(0, 0), (100, 0), (100, 100)]), 3, "t", [60, 10, 100])
+        self.assertEqual(len(block_lengths(got)), 3)
+        self.assertTrue(all(v >= le.MIN_BLOCK - 1e-6 for v in block_lengths(got)))
+
+    def test_no_place_stops_naming_the_track(self):
+        with self.assertRaisesRegex(SchematicError, "Track Q: too short"):
+            le.split(le.rounded([(0, 0), (40, 0), (40, 40)]), 3, "Track Q", least=[30, 30, 30])
+
+
+class ReviewFixes(unittest.TestCase):
+    def test_a_gantry_is_never_slid_again_by_a_lone_anchor(self):
+        real = le_masts.Masts.best
+        gantry = {"East 6 main", "East 6 passing"}
+
+        def best(self, m, others):                       # the gantry's masts are clean only out of their column
+            got = real(self, m, others)
+            xs = {round(self.boundary(self.by_name[n])[0], 2) for n in gantry}
+            return (got[0] + 10, *got[1:4], ["ink"], *got[5:]) if m["mast"] in gantry and len(xs) == 1 else got
+        real_options = le_masts.Masts.options
+
+        def options(self, m, run=None):                  # no spot common to the gantry: each icon takes its own
+            got = real_options(self, m, run)
+            return [o for o in got if (o[1] == slots.GAP) == (m["mast"] == "East 6 main")] or got
+        with mock.patch.object(le_masts.Masts, "best", best), mock.patch.object(le_masts.Masts, "options", options):
+            P = le.panel(bands(), names_for(False)[0])
+        xs = {round(P.points[m["ident"]]["xy"][0], 3) for m in P.masts if m["mast"] in gantry}
+        self.assertEqual(len(xs), 1)
+        self.assertFalse([line for line in P.log if "no icon spot was clean where it stood" in line
+                          and any(n in line for n in gantry)])
+        self.assertTrue(any("East 6" in line and "no clean spot for its icon" in line for line in P.log))
+
+    def test_a_turnout_legs_gantry_scores_its_own_turnout_as_its_track(self):
+        seen = []
+        real = le_masts.Masts.mine
+
+        def mine(m):
+            seen.append(m["mast"])
+            return real(m)
+        with mock.patch.object(le_masts.Masts, "mine", staticmethod(mine)):
+            P = le.panel(bands(), names_for(True)[0])
+        legs = [g for g in P.gantries if all(m["kind"] == "turnout" for m in g)]
+        self.assertTrue(legs)
+        for g in legs:
+            self.assertTrue(all(m["mast"] in seen for m in g))
+
+    def test_every_icon_is_scored_where_everything_stands_at_the_end(self):
+        real = le_masts.Masts.best
+        names = names_for(True)[0]
+        P0 = le.panel(bands(), {key(): {"blocks": BLOCKS}})
+        lone = next(m for m in names[key()]["masts"] if m["mast"] == "East 6 main")
+        names[key()]["masts"] = [m for m in names[key()]["masts"] if m["mast"] not in ("East 6 passing",)]
+        ident = masts_of(le.panel(bands(), names)).by_name["East 6 main"]["ident"]
+        x0 = P0.points[ident]["xy"][0]
+
+        def best(self, m, others):                       # East 6 main is clean only 5 px east of where it was drawn
+            got = real(self, m, others)
+            if m["mast"] == lone["mast"] and self.boundary(m)[0] < x0 + 5:
+                return (got[0] + 10, *got[1:4], ["ink"], *got[5:])
+            return got
+        with mock.patch.object(le_masts.Masts, "best", best):
+            P = le.panel(bands(), names)
+        self.assertIn(ident, P.anchors_from)
+        self.assertEqual(sum(1 for a in P.anchors_moved if a[1] == ident), 1)       # recorded once
+        M = masts_of(P)
+        rects = {m["mast"]: le_masts.icon_rect_of(m) for m in P.masts}
+        for m in P.masts:
+            with self.subTest(mast=m["mast"]):
+                _run, own = M.run(m)
+                why = le_masts.spot_cost(rects[m["mast"]], M.world.near(M.boundary(m), le_masts.NEAR + m["size"][1]),
+                                         own, M.mine(m), [r for n, r in rects.items() if n != m["mast"]])[1]
+                self.assertEqual(sorted(why), sorted(m["spot"][2]))
+
+    def test_a_slid_anchor_rescores_the_masts_whose_track_it_ends(self):
+        P, _found, _masts = built()
+        M = masts_of(P)
+        for m in P.masts:
+            M.picks[m["mast"]] = (0, 0, [], 0, le_masts.icon_rect_of(m), m["icon"])
+        ident = next(m["ident"] for m in P.masts if m["kind"] == "anchor")
+        conn = set(P.points[ident]["conn"])
+        mine = {m["mast"] for m in M.on_anchor[ident]}
+        touched = {m["mast"] for m in P.masts if m["mast"] not in mine and M.run(m)[1] & conn}
+        self.assertTrue(touched)
+        seen = []
+        real = le_masts.Masts.best
+        with mock.patch.object(le_masts.Masts, "best", lambda self, m, o: seen.append(m["mast"]) or real(self, m, o)):
+            M.rescore(ident, tuple(P.points[ident]["xy"]), mine, set())
+        self.assertTrue(touched <= set(seen), touched - set(seen))
+        self.assertFalse(mine & set(seen))
+
+    def test_bad_block_names_stop(self):
+        for bad in ([["A"]], {"e3": 7}, {"e3": []}, {"e3": [None]}, {"e3": ["A", ""]}, {"e3": {"A": 1}}):
+            with self.subTest(bad=bad), self.assertRaises(SchematicError):
+                le.panel(bands(), {key(): {"blocks": bad}})
+        with self.assertRaises(SchematicError):
+            le.panel(bands(), {key(): {"turnouts": ["x"]}})
+
+    def test_a_length_on_two_tracks_is_logged(self):
+        blocks = dict(BLOCKS, e3=["Shared", "Main B"], e7=["Shared", "Main D"])
+        P = le.panel(bands(), {key(): {"blocks": blocks, "lengths": {"Shared": 1, "Main B": 5, "Main D": 5}}})
+        self.assertTrue(any("Shared's length is used on more than one track" in line for line in P.log))
+
+
 class Icons(unittest.TestCase):
     def test_icons_clear_of_turnouts_tracks_labels_and_each_other(self):
         P, _found, masts = built(dense=False)

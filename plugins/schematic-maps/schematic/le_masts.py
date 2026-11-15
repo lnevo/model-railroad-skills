@@ -247,6 +247,7 @@ class Masts:
         self.first_len = {sid: math.dist(*(self.xy(e) for e in s["ends"]))    # before any anchor moved
                           for sid, s in self.segs.items()}
         self.picks = {}             # mast -> (back, across, why, cost, rect, place)
+        self.gantry_anchors = set()  # anchors standing in a gantry's column: never slid again
 
     # ---- the drawn railroad
     def xy(self, end):
@@ -458,7 +459,7 @@ class Masts:
         # move one anchor at a time, each against where the others stand by then: two never meet or pass
         planned = [m for m in cl if reach[m["mast"]][0] - 0.05 <= col <= reach[m["mast"]][1] + 0.05]
         for m in sorted(planned, key=lambda m: (abs(col - now[m["mast"]]), m["mast"])):
-            if reach[m["mast"]][2] is None or abs(col - now[m["mast"]]) < 0.05:
+            if reach[m["mast"]][2] is None or abs(col - self.boundary(m)[0]) < 0.05:    # where it stands now
                 continue
             slide = self.slide(m["ident"], cell)
             t = dot(sub(at(slide, col), slide[0]), slide[1]) if slide else None
@@ -476,7 +477,10 @@ class Masts:
             self.P.log.append(f"{title}: mast {m['mast']}: its boundary moved {moved:.1f} px along its track, into "
                               f"the gantry of {key[1]} {key[2]} bound")
             self.P.anchors_moved.append((m["mast"], m["ident"], round(moved, 1)))
-        return [m for m in cl if abs(self.boundary(m)[0] - col) < 0.05]
+        got = [m for m in cl if abs(self.boundary(m)[0] - col) < 0.05]
+        if len(got) > 1:            # a gantry's anchors are never slid again (lone_slides), even if its icons differ
+            self.gantry_anchors |= {m["ident"] for m in got if m["kind"] == "anchor"}
+        return got
 
     # ---- icons
     def options(self, m, run=None):
@@ -495,7 +499,7 @@ class Masts:
         p, d = self.boundary(m), self.d[m["mast"]]
         near = self.world.near(p, NEAR + m["size"][1])
         run, own = self.run(m)
-        mine = {m["ident"]} if m["kind"] == "turnout" else set()
+        mine = self.mine(m)
         scored = []
         for i, (back, across) in enumerate(self.options(m, run)):
             r, place = icon_rect(p, d, m["size"], back, across)
@@ -503,6 +507,11 @@ class Masts:
             c += (ICON_COST["wide"] if across == WIDE else 0) + (back - slots.GAP) * ICON_PER_PX
             scored.append((c, i, back, across, why, r, place))
         return min(scored, key=lambda t: t[:2])
+
+    @staticmethod
+    def mine(m):
+        """The turnout a mast's icon belongs to: its own legs are its track, not another's."""
+        return {m["ident"]} if m["kind"] == "turnout" else set()
 
     def put(self, name, pick):
         cost, _i, back, across, why, r, place = pick
@@ -525,7 +534,7 @@ class Masts:
                     _run, own = self.run(m)
                     costs[m["mast"]] = spot_cost(rs[m["mast"]][0], self.world.near(self.boundary(m),
                                                                                   NEAR + m["size"][1]),
-                                                 own, set(), self.others(names))
+                                                 own, self.mine(m), self.others(names))
                 if all(not c[1] for c in costs.values()):
                     for n in names:
                         self.put(n, (costs[n][0], 0, back, across, costs[n][1], *rs[n]))
@@ -548,7 +557,7 @@ class Masts:
         least it must, to where every one of them has one: the last resort."""
         for ident, ms in sorted(self.on_anchor.items()):
             names = {m["mast"] for m in ms}
-            if names & in_gantry or all(not self.picks[n][2] for n in names):
+            if ident in self.gantry_anchors or names & in_gantry or all(not self.picks[n][2] for n in names):
                 continue
             cell = self.P.cellx[ms[0]["band"]]
             slide = self.slide(ident, cell)
@@ -578,13 +587,35 @@ class Masts:
                            f"masts {', '.join(m['mast'] for m in ms)}: their")
                     self.P.log.append(f"{self.bands[ms[0]['band']][0]}: {who} boundary moved {abs(t - s0):.1f} px "
                                       "along its track: no icon spot was clean where it stood")
-                    for m in ms:
-                        self.P.anchors_moved.append((m["mast"], ident, round(abs(t - s0), 1)))
+                    self.P.anchors_moved.append((", ".join(sorted(names)), ident, round(abs(t - s0), 1)))  # once
+                    self.rescore(ident, start, names, in_gantry)
                     break
             else:
                 self.P.points[ident]["xy"] = list(start)
                 self.world.update(self.P.points[ident]["conn"])
                 self.P.log.append(f"mast {who}: no clean icon spot anywhere its anchor {ident} may slide; it stays")
+
+    def rescore(self, ident, start, moved, in_gantry):
+        """After an anchor slid, place again the icons of the other masts near the tracks it ends (their spots were
+        scored against those tracks where they were). A gantry's shared spot is kept while it stays clean."""
+        reach = NEAR + ICON_BACK + 60
+        here = tuple(self.P.points[ident]["xy"])
+        conn = set(self.P.points[ident]["conn"])
+        for m in self.P.masts:
+            if m["mast"] in moved:
+                continue
+            p = self.boundary(m)
+            if min(math.dist(p, start), math.dist(p, here)) > reach and not (self.run(m)[1] & conn):
+                continue
+            if m["mast"] in in_gantry:
+                _run, own = self.run(m)
+                why = spot_cost(self.picks[m["mast"]][4], self.world.near(p, NEAR + m["size"][1]), own,
+                                self.mine(m), self.others({m["mast"]}))[1]
+                if not why:
+                    continue
+                self.P.log.append(f"mast {m['mast']}: its gantry's spot is no longer clean after anchor {ident} "
+                                  "slid; it takes its own")
+            self.put(m["mast"], self.best(m, self.others({m["mast"]})))
 
     # ---- checks
     def verify(self):

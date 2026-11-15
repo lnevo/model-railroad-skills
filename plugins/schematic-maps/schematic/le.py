@@ -204,6 +204,7 @@ class Panel:
         self.join_ends = {}         # (band index, anchor ident) -> block of the track that ends there
         self.gantries = []          # lists of P.masts entries whose boundaries stand in one column (le_masts)
         self.anchors_moved = []     # (mast, anchor ident, px) boundary anchors slid along their track into a gantry
+        self.length_strands = {}    # block -> {(band index, strand id)} drawn at their given lengths
         self.anchors_from = {}      # anchor ident -> where it stood before it slid
         self.names_moved = []       # (track name, px) track names slid along their track clear of mast icons
         self.cellx = {}             # band index -> px per grid column as drawn
@@ -353,12 +354,27 @@ def check_names(bands, names):
         band = keys[key]
         switches = {n for n, d in band["nodes"].items() if d["kind"] in ("switch", "dx")}
         check_masts(key, given.get("masts") or [], seen_masts)
+        text = lambda v: isinstance(v, str) and v.strip()      # noqa: E731
+        for section in NAME_KEYS[:4]:
+            got = given.get(section)
+            if got is None:
+                continue
+            if not isinstance(got, dict) or not all(isinstance(k, str) for k in got):
+                raise SchematicError(f"names for {key}: {section} must be an object keyed by "
+                                     f"{'track' if section == 'blocks' else 'switch'} id")
+            for k, v in got.items():
+                ok = (text(v) or isinstance(v, list) and v and all(text(b) for b in v)) if section == "blocks" \
+                    else text(v)
+                if not ok:
+                    raise SchematicError(f"names for {key}: {section} {k}: "
+                                         + ("a block name or a non-empty list of block names" if section == "blocks"
+                                            else "a name as text") + f", not {v!r}")
         lengths = given.get("lengths", {})
         if not isinstance(lengths, dict) or not all(
                 isinstance(k, str) and isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
                 and v > 0 for k, v in lengths.items()):
             raise SchematicError(f"names for {key}: lengths must be an object of block name: length above zero")
-        named = {b for v in (given.get("blocks") or {}).values() for b in ([v] if isinstance(v, str) else v or [])}
+        named = {b for v in (given.get("blocks") or {}).values() for b in ([v] if isinstance(v, str) else v)}
         stray = sorted(set(lengths) - named)
         if stray:
             raise SchematicError(f"names for {key}: lengths given for {', '.join(stray)}, which no track's blocks name")
@@ -709,6 +725,13 @@ class Band:
         got = [lengths.get(b) for b in blocks]
         if len(blocks) < 2 or not any(v is not None for v in got):
             return None
+        if all(v is not None for v in got):
+            for b in blocks:                # a block's length weighs on each track it is drawn on
+                strands = self.P.length_strands.setdefault(b, set())
+                strands.add((self.bi, sid))
+                if len(strands) == 2:
+                    self.P.log.append(f"{self.title}: block {b}'s length is used on more than one track; each track "
+                                      "weighs its blocks by the whole length")
         if any(v is None for v in got):
             self.P.log.append(f"{self.title}: track {self.strands[sid]['name'] or sid}: lengths given for "
                               f"{', '.join(b for b, v in zip(blocks, got) if v is not None)} but not for "
@@ -1060,18 +1083,19 @@ def piece_len(pc):
 
 def split(pieces, k, what, shares=None, least=None, room=None, log=None):
     """[(piece, block index)]: the pieces of a strand of k blocks, cut where one block ends and the next begins.
-    `shares` (k positive numbers, the blocks' real lengths in any one unit) set where the cuts fall; without them
-    the blocks are equal. A block is never drawn shorter than MIN_BLOCK px, or its `least` (px per block) when
-    given; on a strand too short for that, its equal share. A cut never falls inside an arc: it moves to the arc's
-    nearer end. `room` ((before, after) px per cut) is the straight track the icons of the masts at a cut need on
-    each side: the cut moves to the nearest place on a straight piece with that room; when there is none it stays,
-    noted in `log`. Then every cut is checked to keep the blocks in order and none empty."""
+    `shares` (k positive numbers, the blocks' real lengths in any one unit) set where the cuts would fall; without
+    them the blocks are equal. Every block is drawn at least MIN_BLOCK px long, or its `least` (px per block) when
+    given; on a strand too short for that, its equal share. A cut stands on straight track or at a piece's end,
+    never inside an arc. `room` ((before, after) px per cut) is the straight track the icons of the masts at a cut
+    need on each side: the cut stands on a straight piece with that room when the others allow it (else it is noted
+    in `log` and only kept off arcs). Each cut takes the place nearest its share that leaves every block, before and
+    after it, its least length, in order; a strand with no such places stops."""
     total = sum(piece_len(p) for p in pieces)
     if k == 1:
         return [(pc, 0) for pc in pieces]
     shares = list(shares) if shares else [1.0] * k
-    lens = [total * v / sum(shares) for v in shares]
     floors = [min(f, total / k) for f in (least or [MIN_BLOCK] * k)]
+    lens = [total * v / sum(shares) for v in shares]
     short = set()
     for _ in range(k):               # the short blocks take their floor, the others give it up in proportion
         more = {i for i, v in enumerate(lens) if v < floors[i] - EPS} - short
@@ -1081,38 +1105,61 @@ def split(pieces, k, what, shares=None, least=None, room=None, log=None):
         rest = total - sum(floors[i] for i in short)
         big = sum(shares[i] for i in range(k) if i not in short)
         lens = [floors[i] if i in short else (shares[i] * rest / big if big else 0.0) for i in range(k)]
-    if any(v < floors[i] - 1e-6 for i, v in enumerate(lens)):
-        raise SchematicError(f"{what}: too short to draw each of its {k} blocks at its least length")
     targets, acc = [], 0.0
     for v in lens[:-1]:
         acc += v
         targets.append(acc)
-    # a cut inside an arc moves to the arc's nearer end
     starts, run = [], 0.0
     for pc in pieces:
         starts.append(run)
         run += piece_len(pc)
-    cuts = []
-    for t in targets:
-        for pc, s0 in zip(pieces, starts):
-            L = piece_len(pc)
-            if s0 + EPS < t < s0 + L - EPS and pc["kind"] == "arc":
-                t = s0 if t - s0 <= s0 + L - t else s0 + L
-                break
-        cuts.append(t)
-    for j, (before, after) in enumerate(room or []):
-        if not before and not after:
-            continue
-        spans = [(s0 + before, s0 + piece_len(pc) - after) for pc, s0 in zip(pieces, starts)
-                 if pc["kind"] == "line" and piece_len(pc) >= before + after]
-        if spans:               # the nearest place with straight room on both sides
-            cuts[j] = min((min(max(cuts[j], lo), hi) for lo, hi in spans), key=lambda t: (abs(t - cuts[j]), t))
-        elif log is not None:
-            log.append(f"{what}: no straight piece leaves room for the icons at the cut after its block {j + 1} "
-                       f"({before:g} px before, {after:g} px after); the cut stays")
+    # where a cut may stand: on a straight piece, or at the end of any piece (never inside an arc)
+    base = [(s0, s0 + piece_len(pc)) for pc, s0 in zip(pieces, starts) if pc["kind"] == "line"] + \
+        [(s0, s0) for s0 in starts[1:]]
+    allowed = []
+    for j in range(k - 1):
+        before, after = (room or [(0, 0)] * (k - 1))[j]
+        roomy = [(s0 + before, s0 + piece_len(pc) - after) for pc, s0 in zip(pieces, starts)
+                 if pc["kind"] == "line" and piece_len(pc) >= before + after] if before or after else base
+        if not roomy:
+            if log is not None:
+                log.append(f"{what}: no straight piece leaves room for the icons at the cut after its block "
+                           f"{j + 1} ({before:g} px before, {after:g} px after); that cut is only kept off arcs")
+            roomy = base
+        allowed.append(roomy)
+
+    def place(sets):
+        """The cuts: each the place in its set nearest its target, leaving every block its floor; None if none."""
+        latest = [None] * (k - 1)
+        bound = total - floors[k - 1]
+        for j in reversed(range(k - 1)):
+            cand = [min(hi, bound) for lo, hi in sets[j] if lo <= bound + EPS]
+            if not cand:
+                return None
+            latest[j] = max(cand)
+            bound = latest[j] - floors[j]
+        out, prev = [], 0.0
+        for j in range(k - 1):
+            lo_, hi_ = prev + floors[j], latest[j]
+            cand = [min(max(targets[j], max(lo, lo_)), min(hi, hi_)) for lo, hi in sets[j]
+                    if max(lo, lo_) <= min(hi, hi_) + EPS]
+            if not cand:
+                return None
+            prev = min(cand, key=lambda t: (abs(t - targets[j]), t))
+            out.append(prev)
+        return out
+    cuts = place(allowed)
+    if cuts is None and room:
+        if log is not None:
+            log.append(f"{what}: no straight places leave room for the icons at its cuts and every block its least "
+                       "length; its cuts are only kept off arcs")
+        cuts = place([base] * (k - 1))
+    if cuts is None:
+        raise SchematicError(f"{what}: too short to draw its {k} blocks in order, each at least "
+                             f"{', '.join(f'{f:.0f}' for f in floors)} px, with no cut inside an arc")
     edges = [0.0] + cuts + [total]
-    if any(b - a < EPS for a, b in zip(edges, edges[1:])):
-        raise SchematicError(f"{what}: too short to hold its {k} blocks")
+    if any(b - a < floors[i] - 1e-6 for i, (a, b) in enumerate(zip(edges, edges[1:]))):
+        raise SchematicError(f"{what}: a block drawn shorter than its least length")
     out = []
     for pc, s0 in zip(pieces, starts):
         L = piece_len(pc)
