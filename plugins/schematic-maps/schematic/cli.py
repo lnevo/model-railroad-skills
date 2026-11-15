@@ -5,6 +5,7 @@
     python3 -m schematic signals TABLES.xml GRAPH.json NAME OUT.json --data DIR [--numbers ..] [--lengths ..]
     python3 -m schematic draw OUT.svg --data DIR GRAPH.json:NAME [GRAPH.json:NAME ...] [--no-preferences]
     python3 -m schematic detail OUT --data DIR GRAPH.json:NAME ... [--station NAME ...] [--switches N ... --name TITLE]
+    python3 -m schematic cats OUT.xml --data DIR GRAPH.json:NAME ... [--band TITLE ...]  a CATS Designer panel
     python3 -m schematic report --data DIR GRAPH.json:NAME ...          rule checks and drawing faults
     python3 -m schematic fingerprint OUT.json --data DIR GRAPH.json:NAME ...
     python3 -m schematic check DRAWING.svg [--list]                     label faults in a finished SVG
@@ -15,7 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import detail, fingerprint, label_check, layers, panel_reader, plan_reader, report, sheet, signal_reader
+from . import cats, detail, fingerprint, label_check, layers, panel_reader, plan_reader, report, sheet, signal_reader
 from .core import SchematicError
 from .plan_reader import PlanError
 
@@ -88,6 +89,15 @@ def run(argv=None):
     p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
     p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
 
+    p = sub.add_parser("cats", help="a CATS Designer panel (XML) from the solved bands, without IO bindings")
+    p.add_argument("out")
+    p.add_argument("--data", required=True)
+    p.add_argument("inputs", nargs="+", metavar="GRAPH.json:NAME")
+    p.add_argument("--band", action="append", help="draw only bands whose title starts with this (repeat; default all)")
+    p.add_argument("--discipline", default="CTC", help="the blocks' CATS discipline (default CTC)")
+    p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
+    p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
+
     p = sub.add_parser("check", help="label faults in a finished SVG")
     p.add_argument("svg")
     p.add_argument("--list", action="store_true")
@@ -137,6 +147,15 @@ def run(argv=None):
                 target.write_text(svg)
                 faults, text = label_check.report(str(target))
                 print(f"{name}: switches {', '.join(members)} -> {target}\n{text}")
+        elif a.cmd == "cats":
+            s = build(a)
+            bands = [b for b in s.bands if not a.band or any(b[0].startswith(w) for w in a.band)]
+            if not bands:
+                raise SchematicError("no band title starts with " + ", ".join(a.band))
+            pnl = cats.panel(bands)
+            cats.write(pnl, a.out, a.discipline)
+            print(", ".join(t for t, _, _ in bands) + ": " + cats.summary(pnl))
+            print("\n".join(pnl.log))
         elif a.cmd == "report":
             print(report.text(report.run(build(a))))
         elif a.cmd == "fingerprint":
