@@ -559,3 +559,25 @@ class Spots(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SegWithin(unittest.TestCase):
+    """Rect.seg_within(a, b, t) is gap_seg(a, b) < t, with a shortcut that never changes the answer."""
+
+    def test_agrees_with_the_exact_gap_on_turned_rectangles(self):
+        import random
+        rng = random.Random(5)
+        for _ in range(4000):
+            ang = rng.uniform(0, 2 * math.pi)
+            rect = le_masts.Rect((rng.uniform(-5, 5), rng.uniform(-5, 5)), (math.cos(ang), math.sin(ang)),
+                                 rng.uniform(1, 9), rng.uniform(1, 5))
+            for _ in range(5):
+                a = (rng.uniform(-30, 30), rng.uniform(-30, 30))
+                b = a if rng.random() < 0.1 else (rng.uniform(-30, 30), rng.uniform(-30, 30))
+                t = rng.choice((0.0, le_masts.CLEAR[0], le_masts.CLEAR[1], 7.5))
+                self.assertEqual(rect.seg_within(a, b, t), rect.gap_seg(a, b) < t, (rect.c, rect.u, a, b, t))
+
+    def test_the_shortcut_boundary(self):
+        rect = le_masts.Rect((0, 0), (1, 0), 3, 4)            # circle radius 5
+        self.assertFalse(rect.seg_within((8, -20), (8, 20), 3))    # bounding box exactly r + t away: gap 5 >= 3
+        self.assertTrue(rect.seg_within((5.9, -20), (5.9, 20), 3))  # gap 2.9 to the long side
