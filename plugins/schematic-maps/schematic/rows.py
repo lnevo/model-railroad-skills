@@ -1,7 +1,9 @@
 """Rows: each switch keeps one leg level, and rows are chosen so the sloped legs are short."""
 import collections
 
-from .core import SchematicError, dx_tracks
+import math
+
+from .core import descend, dx_tracks
 
 
 
@@ -36,10 +38,29 @@ def find_cycle(classes, above):
 SPREAD = 0.3        # cost of each row the band spans, top to bottom
 
 
+def row_price(slopes, bias, lo, hi):
+    """The cost from its parts: the weighted slope lengths, the bias, and the band's height (hi - lo rows)."""
+    return (slopes + bias) + SPREAD * (hi - lo)
+
+
 def rows_cost(r, terms, bias):
-    """What an arrangement of rows costs: the weighted slope lengths, the bias, and the band's height."""
-    return (sum(w * abs(r[a] - r[b]) for a, b, w in terms) + bias
-            + SPREAD * (max(r.values()) - min(r.values())))
+    """What an arrangement of rows costs, added up in full."""
+    return row_price(sum(w * abs(r[a] - r[b]) for a, b, w in terms), bias, min(r.values()), max(r.values()))
+
+
+def half_rows(w):
+    """A slope weight as a whole count of half rows, or None when it is not one (or not finite)."""
+    h = w * 2
+    return int(h) if math.isfinite(h) and h == int(h) else None
+
+
+def search_rows(start, classes, above, below, terms, bias):
+    """The row search: descend_rows when every weight is a whole count of half rows (all of solve's are), else the
+    plain core.descend with the cost added up in full, which chooses the same where both apply."""
+    if all(half_rows(w) is not None for _a, _b, w in terms):
+        return descend_rows(start, classes, above, below, terms, bias)
+    push = lambda r, c, step: {**r, **push_rows(r, c, step, above, below)}      # noqa: E731
+    return descend(dict(start), classes, push, lambda r: rows_cost(r, terms, bias))
 
 
 def push_rows(r, c, step, above, below):
@@ -51,7 +72,7 @@ def push_rows(r, c, step, above, below):
         while todo:
             k = todo.pop()
             up = new[k] + 1
-            for d in above[k]:
+            for d in above.get(k, ()):
                 if new.get(d, r[d]) < up:
                     new[d] = up
                     todo.append(d)
@@ -59,7 +80,7 @@ def push_rows(r, c, step, above, below):
         while todo:
             k = todo.pop()
             down = new[k] - 1
-            for d in below[k]:
+            for d in below.get(k, ()):
                 if new.get(d, r[d]) > down:
                     new[d] = down
                     todo.append(d)
@@ -72,15 +93,16 @@ def descend_rows(start, classes, above, below, terms, bias):
     The same moves are tried in the same order and kept on the same test (`c < best - 1e-9`) as core.descend with
     rows_cost, and every cost is the same float: the weights are whole multiples of 0.5, so the slope sum is
     exact whether it is added up in full or changed term by term; it is kept as a whole count of half rows and
-    turned into the same float the full sum gives. Returns (rows, cost)."""
+    turned into the same float the full sum gives. Returns (rows, cost). search_rows picks it; a weight that is
+    not a whole count of half rows is a ValueError here."""
     halves = collections.defaultdict(int)      # (class, other class): weight in half rows, both ways round
     for a, b, w in terms:
-        h = w * 2
-        if h != int(h):
-            raise SchematicError(f"rows: slope weight {w} between {a} and {b} is not a multiple of 0.5")
+        h = half_rows(w)
+        if h is None:
+            raise ValueError(f"rows: slope weight {w} between {a} and {b} is not a whole count of half rows")
         if a != b:                              # a slope within one class is always 0
-            halves[a, b] += int(h)
-            halves[b, a] += int(h)
+            halves[a, b] += h
+            halves[b, a] += h
     links = collections.defaultdict(list)
     for (a, b), h in halves.items():
         links[a].append((b, h))
@@ -90,7 +112,7 @@ def descend_rows(start, classes, above, below, terms, bias):
     lo, hi = min(count), max(count)
 
     def price(total, lo, hi):
-        return (total * 0.5 + bias) + SPREAD * (hi - lo)
+        return row_price(total * 0.5, bias, lo, hi)
 
     best = price(total, lo, hi)
     no_links = ()
@@ -150,7 +172,7 @@ class Rows:
         self.tolerant = bool(free)
         self.spans = None       # R7: when set, two tracks keep their order only if their extents overlap
         self.dropped = 0
-        self.memo = None        # while optimise runs: {(level legs, tolerant, extra): (solve result, dropped)}
+        self.memo = None        # while optimise runs: {level legs: (solve result, dropped)}
         self.memo_keep = (None, {})     # the memo kept between optimise calls, and the inputs it was made from
 
     def frog(self, n):
@@ -166,13 +188,13 @@ class Rows:
         return self.nodes[n]["kind"] == "switch" and p in "BC" and self.flat[n] != p
 
     def solve(self):
-        """Rows for the current level legs. While optimise runs, an arrangement solved before is read back, with the
-        count of dropped rules it set. The key holds the level legs in their order (it decides the class names, and
-        so the order of the search), tolerant and the extra rules; optimise drops the memo if spans, free tracks, snaps
-        or close pairs change."""
-        if self.memo is None:
+        """Rows for the current level legs. While optimise runs (where tolerant is always on), an arrangement solved
+        before is read back, with the count of dropped rules it set. The key holds the level legs in their order (it
+        decides the class names, and so the order of the search); optimise drops the memo when anything else solve
+        reads has changed (optimise's ctx)."""
+        if self.memo is None or not self.tolerant:
             return self.solve_now()
-        key = (tuple(self.flat.items()), self.tolerant, frozenset(self.extra))
+        key = tuple(self.flat.items())
         if key not in self.memo:
             self.memo[key] = (self.solve_now(), self.dropped)
         r, self.dropped = self.memo[key]
@@ -267,7 +289,7 @@ class Rows:
             other = st[self.frog(n)["C" if f == "B" else "B"]]["cm"]
             bias += (0.2 if other > 2 * level + 20 else 0.0) + (0.01 if f == "C" else 0.0)
 
-        row, c = descend_rows(row, classes, above, below, terms, bias)
+        row, c = search_rows(row, classes, above, below, terms, bias)
         lo = min(row.values())
         srow = {s: row[find(s)] - lo for s in st if s not in diag}
         nrow = {}
@@ -290,8 +312,11 @@ class Rows:
             st_.update(self.pins)
         best = None
         held, memo = self.memo_keep
-        ctx = (None if self.spans is None else dict(self.spans), frozenset(self.free),     # a copy, not the caller's
-               tuple(map(tuple, self.snaps)), tuple(self.close))
+        # everything else solve reads, as values: a change to any of them (the graph edited in place too) drops the
+        # memo, and the entries of an earlier set of extra rules go with it
+        ctx = (repr(self.nodes), repr(self.strands), None if self.spans is None else repr(self.spans),
+               frozenset(self.free), repr(self.snaps), tuple(self.close), frozenset(self.extra),
+               tuple(sorted(self.pins.items())), tuple(sorted(self.soft.items())))
         self.memo = memo if held == ctx else {}
         self.memo_keep = (ctx, self.memo)
         try:
