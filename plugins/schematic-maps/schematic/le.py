@@ -238,6 +238,7 @@ class Panel:
         self.extras = []            # dicts: id, block, xy, band, box, on_track: the caller's items (le_labels)
         self.labels_unplaced = []   # (item, reason): items le_labels left out (strict=False only)
         self.crossover_run = None   # px across every single crossover's diagonal runs (panel), None: as drawn
+        self.split_names = set()    # turnout names of crossovers with no room, drawn as two turnouts (crossovers)
         self.lamps = []             # the caller's lamp boxes the label layer kept clear (le_labels lamp_columns)
         self.band_boxes = []        # (x0, y0, x1, y1) each band was placed by: its drawing with the room for its labels
         self.names_skipped = []     # why each names_last track name was left out (le_labels)
@@ -851,6 +852,10 @@ def check_band_align(bands, page):
     return align
 
 
+class NoRoom(SchematicError):
+    """A crossover with no room for the shape JMRI draws: it is drawn as two turnouts instead (logged)."""
+
+
 def plan_shared(P, bands, names, page):
     """{turnout name: how many turnouts carry it} from the names, checked before drawing (the one place the rule
     lives): a name on more than one turnout must be in `shared_turnouts` of every band that gives it; a shared name
@@ -893,12 +898,15 @@ def plan_shared(P, bands, names, page):
 
 def check_shared(P, planned):
     """After drawing: each turnout name is on as many turnouts as plan_shared counted (a single crossover drawn as
-    two turnouts, when its switches are not on two level tracks, would not be)."""
+    two turnouts, when its switches are not on two level tracks, would not be), one more for a crossover with no room
+    for JMRI's shape, which is drawn as two turnouts on its one turnout on purpose (P.split_names, logged)."""
     drawn = defaultdict(int)
     for t in P.turnouts:
         if t["name"]:
             drawn[t["name"]] += 1
-    bad = sorted(n for n in set(drawn) | set(planned) if drawn.get(n, 0) != planned.get(n, 0))
+    # a crossover with no room for JMRI's shape is drawn as two turnouts on its one name (logged by Band)
+    want = {n: c + (1 if n in P.split_names else 0) for n, c in planned.items()}
+    bad = sorted(n for n in set(drawn) | set(want) if drawn.get(n, 0) != want.get(n, 0))
     if bad:
         raise SchematicError("turnout names on a different number of turnouts than the names give: " +
                              ", ".join(f"{n} ({drawn.get(n, 0)} drawn, {planned.get(n, 0)} given)" for n in bad))
@@ -1290,7 +1298,7 @@ class Band:
         P = self.P
         t = dict(ident=P.ident("TO"), type=ttype, cen=list(cen), at=list(at if at is not None else cen),
                  pts={k: list(v) for k, v in pts.items()}, conn={},
-                 blocks=blocks, continuing=continuing, ver="2" if "XOVER" in ttype else "1",
+                 blocks=blocks, continuing=continuing, ver="1",
                  name=None, nodes=nodes, band=self.bi)
         names = {self.names.get("turnouts", {}).get(n) for n in nodes} - {None}
         if len(names) > 1:
@@ -1386,9 +1394,19 @@ class Band:
             (top, tp), (bot, bp) = sorted(((u, pu_), (v, pv_)), key=lambda t: t[1][1])
             if abs(tp[1] - bp[1]) < EPS:
                 continue
-            h = min([1.5 * LEG] + [0.4 * self.first_len(n, p) for n in (u, v) for p in "AB"])
-            if self.run() is not None:
-                tp, bp = self.crossover_points(du["label"], top, tp, bot, bp, h)
+            try:
+                tp, bp, _h = self.crossover_points(du["label"], top, tp, bot, bp)
+            except NoRoom as e:
+                self.P.log.append(f"{e}; drawn as two turnouts on its one turnout, not a crossover")
+                name = self.names.get("turnouts", {}).get(u)
+                if name:
+                    self.P.split_names.add(name)
+                continue
+            # whole pixels, so the four points JMRI rebuilds from B, C and the centre are exactly the ones written
+            tp, bp = (round(tp[0]), tp[1]), (round(bp[0]), bp[1])
+            h = abs(bp[0] - tp[0])
+            # JMRI's shape for a single crossover (LayoutTurnoutView keeps no other on load): each track's piece of
+            # it, A-B and D-C, is twice the run of its diagonal, centred on that half's point
             pts = {"A": (tp[0] - h, tp[1]), "B": (tp[0] + h, tp[1]), "D": (bp[0] - h, bp[1]), "C": (bp[0] + h, bp[1])}
             conn = {}
             for n, left, right in ((top, "A", "B"), (bot, "D", "C")):
@@ -1408,10 +1426,10 @@ class Band:
         run = self.P.crossover_run
         return run.get(band_key(self.title)) if isinstance(run, dict) else run
 
-    def room_toward(self, n, port, h):
-        """px a crossover half at node n may move along its row toward `port`: its first straight piece that way,
-        less its own leg (h), the far switch's leg when the piece runs straight to it, and MIN_BLOCK; shared half
-        and half when the far switch is a crossover half that may move toward it too."""
+    def room_toward(self, n, port):
+        """px of track a crossover half at node n may take along its row toward `port` (its leg, and its own move
+        that way): its first straight piece that way, less the far switch's leg when the piece runs straight to it,
+        and MIN_BLOCK; shared half and half when the far switch is a crossover half that takes its share too."""
         pts = self.away(n, port)
         sid = self.port_strand(n, port)
         s = self.strands[sid]
@@ -1421,33 +1439,57 @@ class Band:
             reserve, share = (1.5 * LEG, 0.5) if far in halves else (LEG, 1.0)
         else:
             reserve, share = 0.0, 1.0           # a bend first: its arc takes from the run beyond, not this piece
-        return max(0.0, (self.first_len(n, port) - h - reserve - MIN_BLOCK) * share)
+        return max(0.0, (self.first_len(n, port) - reserve - MIN_BLOCK) * share)
 
-    def crossover_points(self, label, top, tp, bot, bp, h):
-        """(top point, bottom point) of a single crossover drawn P.crossover_run px across, about its middle: each
-        half moves along its own row, as far as its track on that side has room (room_toward); where that leaves less
-        than the run asked, the crossover takes what there is (logged with its angle)."""
+    def crossover_points(self, label, top, tp, bot, bp):
+        """(top point, bottom point, h) of a single crossover as JMRI draws one: the run of its diagonal across
+        (P.crossover_run, else as the sheet draws it) and each track's piece of it h = that run either side of its
+        half's point, so A-B and D-C are twice the run (LayoutTurnoutView keeps no other shape: it rebuilds the
+        crossover from B and C, or reshapes it, on load). The halves move apart along their rows and the crossover
+        may slide along them as one, as far as each half's track on each side has room (room_toward); where no slide
+        leaves room for the run asked, it takes the widest that fits (logged with its angle). Stops when not even a
+        steep one fits. The sheet is not changed: only the Layout Editor drawing of the crossover."""
         dx0, dy = abs(bp[0] - tp[0]), abs(bp[1] - tp[1])
         way = 1 if bp[0] >= tp[0] else -1
-        move = (self.run() - dx0) / 2          # px each half moves apart (negative: together)
-        if abs(move) < EPS:
-            return tp, bp
-        room = []
-        for n, sign in ((top, -way), (bot, way)):        # the side each half moves toward
-            side = 1 if move * sign > 0 else -1
-            ports = [p for p in "AB" if self.direction(n, p)[0] * side > 0]
-            if len(ports) != 1:
-                raise SchematicError(f"{self.title}: switch {label}: no one leg of the crossover leads that way")
-            room.append(self.room_toward(n, ports[0], h))
-        step = math.copysign(min(abs(move), *room), move)
-        if abs(step - move) > EPS:
-            run = dx0 + 2 * step
-            self.P.log.append(f"{self.title}: switch {label}: crossover drawn {run:.1f} px across, "
-                              f"{math.degrees(math.atan2(dy, run)):.1f} degrees: no room for "
-                              f"{self.run():.1f} px")
-        mid_x = (tp[0] + bp[0]) / 2
-        half = (dx0 + 2 * step) / 2
-        return (mid_x - way * half, tp[1]), (mid_x + way * half, bp[1])
+        run = self.run() if self.run() is not None else dx0
+        rooms = {}
+        for n in (top, bot):
+            for side in (-1, 1):
+                ports = [p for p in "AB" if self.direction(n, p)[0] * side > 0]
+                if len(ports) != 1:
+                    raise SchematicError(f"{self.title}: switch {label}: no one leg of the crossover leads that way")
+                rooms[(n, side)] = self.room_toward(n, ports[0])
+
+        def slide(m):
+            """The (lo, hi) range of the common slide when the halves move m px apart each, or None."""
+            h = dx0 + 2 * m
+            if h <= 0:
+                return None
+            # top moves by -way*m + s, bottom by way*m + s; each half's piece takes h + move on the side it moves
+            # toward and h - move on the other, within that side's room
+            lo = max(h + way * m - rooms[(top, -1)], h - way * m - rooms[(bot, -1)])
+            hi = min(rooms[(top, 1)] - h + way * m, rooms[(bot, 1)] - h - way * m)
+            return (lo, hi) if lo <= hi + EPS else None
+
+        want = (run - dx0) / 2
+        if slide(want) is not None:
+            m = want
+        else:
+            a = 0.5 - dx0 / 2                   # the steepest: a 1 px run
+            if slide(a) is None:
+                raise NoRoom(f"{self.title}: switch {label}: no room for a crossover JMRI can draw (its track "
+                             "pieces would be twice its run across)")
+            b = want
+            for _ in range(60):
+                mid_ = (a + b) / 2
+                a, b = (mid_, b) if slide(mid_) is not None else (a, mid_)
+            m = a
+            got = dx0 + 2 * m
+            self.P.log.append(f"{self.title}: switch {label}: crossover drawn {got:.1f} px across, "
+                              f"{math.degrees(math.atan2(dy, got)):.1f} degrees: no room for {run:.1f} px")
+        lo, hi = slide(m)
+        shift = min(max(0.0, lo), hi)
+        return (tp[0] - way * m + shift, tp[1]), (bp[0] + way * m + shift, bp[1]), dx0 + 2 * m
 
     def double(self, n):
         ends = {}
@@ -1479,6 +1521,7 @@ class Band:
                                   f"{2 * got:.1f} px across, {math.degrees(math.atan2(ys[1] - ys[0], 2 * got)):.1f} "
                                   f"degrees: no room for {self.run():.1f} px")
             h = got
+        h, xc = round(h), round(xc * 2) / 2     # whole and half pixels: JMRI rebuilds the same four points
         corner = {(ys[0], "left"): "A", (ys[0], "right"): "B", (ys[1], "right"): "C", (ys[1], "left"): "D"}
         conn = {(n, p): corner[(round(e[0][1], 3), e[1])] for p, e in ends.items()}
         if sorted(conn.values()) != list("ABCD"):

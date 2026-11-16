@@ -214,8 +214,8 @@ class Switches(unittest.TestCase):
             elif t["type"] == "WYE_TURNOUT":
                 m = ((p["B"][0] + p["C"][0]) / 2 - c[0], (p["B"][1] + p["C"][1]) / 2 - c[1])
                 self.assertLess(math.dist(p["A"], (c[0] - m[0], c[1] - m[1])), 0.01)
-            else:
-                self.assertEqual(t["ver"], "2")
+            else:       # JMRI 5.16 keeps a crossover's view at version 1, whatever the XML says (JmriCrossovers)
+                self.assertEqual(t["ver"], "1")
 
     def test_double_crossover(self):
         P = panel()
@@ -244,6 +244,64 @@ def crossover_band():
     drawn = {"s1": [(0, 0), (2, 0)], "s2": [(2, 0), (6, 0)], "x": [(2, 0), (3, 1)], "s3": [(0, 1), (3, 1)],
              "s4": [(3, 1), (6, 1)]}
     return [("Test level", dict(nodes=nodes, strands=strands, _drawn=drawn), {})]
+
+
+def mirrored(bands_):
+    """The crossover band drawn end for end (x negated): its crossover leans the other way."""
+    (title, band, opts), = bands_
+    band = dict(band, _drawn={k: [(-x, y) for x, y in v] for k, v in band["_drawn"].items()})
+    return [(title, band, opts)]
+
+
+class JmriCrossovers(unittest.TestCase):
+    """What JMRI 5.16 draws from the crossovers the panel writes (tests/jmri_xover.py ports its loader): the same four
+    points, leaning the way the sheet draws them."""
+
+    def check(self, P, drawn_slant):
+        import jmri_xover
+        el = le.to_xml(P, "G")
+        seen = 0
+        for t in el.findall("layoutturnout"):
+            if "XOVER" not in t.get("type"):
+                continue
+            seen += 1
+            got = jmri_xover.load(t)
+            for leg in "ABCD":
+                want = (float(t.get("x" + leg.lower())), float(t.get("y" + leg.lower())))
+                self.assertAlmostEqual(got[leg][0], want[0], places=3, msg=(t.get("ident"), leg))
+                self.assertAlmostEqual(got[leg][1], want[1], places=3, msg=(t.get("ident"), leg))
+            if t.get("type") != "DOUBLE_XOVER":
+                self.assertEqual(jmri_xover.slant(got), drawn_slant, t.get("ident"))
+                self.assertEqual(t.get("type"), "RH_XOVER" if drawn_slant == "\\" else "LH_XOVER")
+        self.assertTrue(seen)
+
+    def test_single_crossovers_load_as_written_and_lean_as_drawn(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            for run in (None, 20.0, 40.0):
+                with self.subTest(run=run):
+                    self.check(le.panel(crossover_band(), crossover_run=run), "\\")      # 7 at (2,0) and (3,1)
+                    self.check(le.panel(mirrored(crossover_band()), crossover_run=run), "/")
+
+    def test_a_crossover_with_no_room_is_two_turnouts_on_its_one_name(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]), \
+                mock.patch.object(le.Band, "room_toward", lambda self, n, port: 0.0):
+            P = le.panel(crossover_band(), {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 7"}}})
+        self.assertEqual(sorted(t["type"] for t in P.turnouts), ["RH_TURNOUT", "RH_TURNOUT"])
+        self.assertEqual({t["name"] for t in P.turnouts}, {"Switch 7"})
+        self.assertTrue(any("no room for a crossover JMRI can draw" in line and "two turnouts" in line
+                            for line in P.log))
+
+    def test_a_double_crossover_loads_as_written(self):
+        self.check(panel(), None)
+
+    def test_the_old_shape_is_what_jmri_mirrored(self):
+        import jmri_xover
+        import xml.etree.ElementTree as ET
+        # the 2026-11-16 candidate's Switch 23: legs 18 px either side, ver 2; JMRI draws it leaning the other way
+        el = ET.fromstring('<layoutturnout type="RH_XOVER" xcen="1412.5" ycen="210.0" xa="1370.5" ya="186.0" '
+                           'xb="1406.5" yb="186.0" xc="1454.5" yc="234.0" xd="1418.5" yd="234.0" ver="2"/>')
+        self.assertEqual(jmri_xover.slant(jmri_xover.load(el)), "/")
+        self.assertNotAlmostEqual(jmri_xover.load(el)["A"][0], 1370.5)
 
 
 class Crossover(unittest.TestCase):
