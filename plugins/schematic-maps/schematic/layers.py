@@ -33,6 +33,9 @@ def merge(a, b):
     return out
 
 
+LAYER_KINDS = ("plan_overrides", "hints", "preferences", "signals")   # <name>.<kind>.json: every layer file load reads
+
+
 def load(name, data, preferences=True, hints=False):
     """The options of one named level with the layers asked for. Layer 1 is always read."""
     opts = {}

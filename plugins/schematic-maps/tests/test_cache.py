@@ -59,7 +59,51 @@ class SheetCache(unittest.TestCase):
     def test_a_file_outside_the_layer_files_does_not_change_the_key(self):
         k = cache.key(self.inputs, self.data, True, False)
         (self.data / "notes.csv").write_text("not read by a build\n")
+        (self.data / "other.preferences.json").write_text("{}")
         self.assertEqual(cache.key(self.inputs, self.data, True, False), k)
+
+    def test_every_layer_file_of_a_name_with_a_folder_is_in_the_key(self):
+        (self.data / "levels").mkdir()
+        inputs = [(helpers.graph(), "levels/example")]
+        k = cache.key(inputs, self.data, True, False)
+        (self.data / "levels/example.hints.json").write_text("{}")
+        k2 = cache.key(inputs, self.data, True, False)
+        self.assertNotEqual(k, k2)                              # a new file is a new key
+        (self.data / "levels/example.hints.json").write_text("")
+        self.assertNotEqual(cache.key(inputs, self.data, True, False), k2)
+        (self.data / "sheet.preferences.json").write_text("{}")
+        self.assertNotEqual(cache.key(inputs, self.data, True, False), k2)
+
+    def test_a_graph_that_is_not_plain_json_is_solved_without_the_cache(self):
+        self.inputs = [(dict(helpers.graph(), odd={1, 2}), "example")]
+        with mock.patch("sys.stderr") as err:
+            self.assertEqual(self.solves(), 1)
+        self.assertIn("not plain JSON", "".join(c.args[0] for c in err.write.call_args_list))
+        self.assertFalse(list(self.where.glob("*.pickle")))
+
+    def test_a_cache_that_cannot_be_written_still_returns_the_solved_sheet(self):
+        self.where.mkdir()
+        with mock.patch("tempfile.mkstemp", side_effect=OSError(28, "No space left on device")), \
+                mock.patch("sys.stderr") as err:
+            got = self.build()
+        self.assertEqual(got.svg(), helpers.build().svg())
+        self.assertIn("cannot write", "".join(c.args[0] for c in err.write.call_args_list))
+
+    def test_an_entry_removed_by_another_build_while_pruning_is_skipped(self):
+        self.where.mkdir()
+        cache.store(self.where, "a", ["sheet"])
+        real = cache._mtime
+        with mock.patch.object(cache, "_mtime", side_effect=lambda p: None if p.stem == "a" else real(p)):
+            cache.prune(self.where)                             # no FileNotFoundError
+
+    def test_old_half_written_files_are_removed(self):
+        self.where.mkdir()
+        old, new = self.where / "x.tmp", self.where / "y.tmp"
+        old.write_bytes(b"half")
+        new.write_bytes(b"half")
+        os.utime(old, (1000, 1000))
+        cache.prune(self.where)
+        self.assertEqual([p.name for p in self.where.glob("*.tmp")], ["y.tmp"])
 
     def test_off_without_the_variable(self):
         with mock.patch.dict(os.environ, {cache.ENV: ""}):

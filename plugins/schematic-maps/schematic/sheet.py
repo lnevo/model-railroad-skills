@@ -11,6 +11,7 @@ band per level. The options of the last input also set the page (title, band ord
 """
 import copy
 import json
+import pickle
 from pathlib import Path
 
 from . import cache, columns, direction, draw, edits, layers, layout, mileposts, stations
@@ -146,15 +147,15 @@ def build(inputs, data, preferences=True, hints=False):
     """Read and lay out every input. `inputs` is a list of (graph or path to its JSON, layer-file name).
     With SCHEMATIC_CACHE set, a sheet solved before from the same inputs is read back instead (cache.py)."""
     where = cache.folder()
-    if where is None:
+    k = cache.key(inputs, data, preferences, hints) if where is not None else None
+    if k is None:
         return solve(inputs, data, preferences, hints)
-    k = cache.key(inputs, data, preferences, hints)
     sheet = cache.load(where, k)
     if sheet is None:
-        sheet = solve(inputs, data, preferences, hints)
-        sheet.svg()                     # the render is kept too: every caller draws or reads it
-        cache.store(where, k, sheet)
-        sheet = cache.load(where, k) or sheet    # its own copy, the one the next caller will read
+        sheet = solve(inputs, data, preferences, hints)    # solve renders the sheet, so the SVG is kept too
+        stored = cache.store(where, k, sheet)
+        if stored is not None:
+            sheet = pickle.loads(stored)                   # its own copy: the caller may change what it gets
     return sheet
 
 
