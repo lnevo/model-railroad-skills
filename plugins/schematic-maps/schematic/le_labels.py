@@ -762,6 +762,9 @@ def lamp_boxes(L, opts, named, xs):
         w, h = opts[bi]["lamp_size"]
         ys = [a[1] for i in by[(bi, text)] for a, b in L.pieces.get(("seg", i), [])
               if abs(a[1] - b[1]) < 1e-6 and min(a[0], b[0]) <= cx <= max(a[0], b[0])]
+        if not ys:
+            raise SchematicError(f"{L.bands[bi][0]}: lamp_columns: track {text} has no level piece at x {cx:g} to "
+                                 "stand its lamp on")
         out.append(dict(band=bi, track=text, box=(round(cx - w / 2), round(ys[0] - h / 2), w, h)))
     return out
 

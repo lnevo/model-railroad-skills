@@ -416,6 +416,74 @@ class TightCrossovers(unittest.TestCase):
             le.panel(three_way_band(), tight_crossovers={"Test": [["7", "8"]]})
 
 
+class BandRoundsReview(unittest.TestCase):
+    """The 0.1.25 review fixes: rooms, rounding, split crossovers, double crossovers and lamp columns."""
+
+    def three_way(self, **kw):
+        names = {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 7", "R": "Switch 8", "S": "Switch 8"}}}
+        (t, b, o), = three_way_band()
+        bands_ = [(t, b, dict(o, le_labels={"block_contents": False}))]
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            return le.panel(bands_, names, **kw)
+
+    def test_a_tight_partner_drawn_as_turnouts_bounds_the_room(self):
+        real = le.Band.crossover_points
+
+        def no_room_for_8(self, label, *a, **k):
+            if label == "8":
+                raise le.NoRoom(f"{self.title}: switch 8: no room for a crossover JMRI can draw")
+            return real(self, label, *a, **k)
+        with mock.patch.object(le.Band, "crossover_points", no_room_for_8):
+            P = self.three_way(crossover_run=70.0, tight_crossovers={"Test": [["7", "8"]]})     # more than fits
+        seven = next(t for t in P.turnouts if t["name"] == "Switch 7")
+        eights = [t for t in P.turnouts if t["name"] == "Switch 8"]
+        self.assertEqual(len(eights), 2)                    # drawn as two turnouts
+        row = seven["pts"]["B"][1]
+        shared = next(t for t in eights if abs(t["at"][1] - row) < 1e-6)
+        legs = [p[0] for p in shared["pts"].values() if abs(p[1] - row) < 1e-6]
+        self.assertGreaterEqual(min(legs) - seven["pts"]["B"][0], le.MIN_BLOCK - 0.5)
+
+    def test_a_split_half_slid_past_its_track_stops(self):
+        with self.assertRaisesRegex(SchematicError, "switch 7: drawn as two turnouts, its track toward leg .* "
+                                                    "\\(it slid past that track's far end\\)"):
+            self.three_way(crossover_run=400.0, split_crossovers={"Test": ["7"]})
+
+    def test_split_crossovers_go_through_the_fit(self):
+        P = self.three_way(split_crossovers={"Test": ["7"]}, fit=(1300, 700))
+        self.assertIn("Switch 7", P.split_names)
+        self.assertEqual(sum(t["name"] == "Switch 7" for t in P.turnouts), 2)
+
+    def test_a_double_crossover_takes_the_run_asked_or_logs_why_not(self):
+        def dx(P):
+            t = next(t for t in P.turnouts if t["type"] == "DOUBLE_XOVER")
+            return t["pts"]["B"][0] - t["pts"]["A"][0]
+        default = dx(panel())
+        small = le.panel(bands(), crossover_run=6.0)
+        self.assertEqual(dx(small), 2 * round(4 * 6.0 / 3))      # below its default: honoured
+        self.assertLess(dx(small), default)
+        big = le.panel(bands(), crossover_run=200.0)
+        self.assertTrue(any("double crossover" in line and "no room for 200.0 px" in line for line in big.log))
+        t = next(t for t in big.turnouts if t["type"] == "DOUBLE_XOVER")
+        self.assertLess(dx(big), 2 * 4 * 200.0 / 3)
+
+    def test_rounding_past_the_room_is_logged_or_stops(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            with mock.patch.object(le.Band, "over_room", lambda self, n, x, h: 0.3):
+                P = le.panel(crossover_band(), crossover_run=24.0)
+            self.assertTrue(any("rounded to whole pixels, its crossover reaches 0.30 px past" in line
+                                for line in P.log))
+            with mock.patch.object(le.Band, "over_room", lambda self, n, x, h: 2.0), \
+                    self.assertRaisesRegex(SchematicError, "switch 7: rounded to whole pixels, .* 2.00 px past"):
+                le.panel(crossover_band(), crossover_run=24.0)
+
+    def test_a_lamp_column_with_no_level_piece_stops(self):
+        from types import SimpleNamespace
+        from schematic import le_labels
+        L = SimpleNamespace(pieces={("seg", "T1"): [((0, 0), (40, 40))]}, bands=[("Test level", None, {})])
+        with self.assertRaisesRegex(SchematicError, "Test level: lamp_columns: track Siding has no level piece"):
+            le_labels.lamp_boxes(L, [{"lamp_size": (8, 8)}], [(0, "s", "Siding", ["T1"])], {(0, "Siding"): 20})
+
+
 class Crossover(unittest.TestCase):
     def test_two_switches_of_one_number_are_one_single_crossover(self):
         with mock.patch.object(le, "paths", lambda band: band["_drawn"]):

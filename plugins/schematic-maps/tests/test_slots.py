@@ -341,7 +341,7 @@ class Fit(unittest.TestCase):
                 # fits only where the two scales agree, so the axis by axis search never settles
                 self.size = (1000 * kx, 1000 * ky + (0 if abs(kx - ky) < 1e-9 else 10 ** 6))
 
-        def draw(bands_, names, cell, row, page, masts=True, labels=True, gap=le.BAND_GAP):
+        def draw(bands_, names, cell, row, page, masts=True, labels=True, gap=le.BAND_GAP, split_crossovers=None):
             return Fake(cell / le.CELL, row / le.ROW)
         with mock.patch.object(le, "draw_panel", draw), mock.patch.object(le, "label_layer"):
             P = le.panel(bands(), None, fit=(500 + le.CHROME[0], 500 + le.CHROME[1]))
