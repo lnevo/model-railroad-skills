@@ -46,7 +46,8 @@ block, beside the rest of its track (a short throat block at a crowded yard ladd
 band, STATION_GAPS px out, sliding along it STEP px at a time. A spot is clean when its box
   - lies inside the panel: right of and below its margin, within its width and height (P.size, set by the drawing),
   - is CLEAR px from every drawn track line and turnout leg and TURNOUT_R px from every turnout's centre (its
-    control circle, where a click throws it),
+    control circle, where a click throws it) and from each single crossover half's middle (where a caller puts
+    that half's own lamp),
   - is PAD px from every other label, block contents icon, mast icon box and circle,
   - reads as its own: a track name or track block icon is no nearer any other line than its own track (the whole
     track the block is part of); a switch number or OS block icon is no nearer another turnout than its own.
@@ -74,7 +75,10 @@ of the track lines rather than reusing Layer's (it checks from scratch).
 Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-     "block_contents_short": "OCS-1", "names_last": false}
+     "block_contents_short": "OCS-1", "names_last": false, "name_columns": []}
+`name_columns` (a band's): groups of track names whose labels stand on one centre x, the middle of where the
+group's tracks all run level side by side (a yard's tracks between its ladders); each such name tries only spots at
+that x, above then below its track, and stops if it has none.
 `names_last` (a band's): that band's track names are placed after every other item of the panel (block contents
 icons and caller's items included), and a name with no clean spot then is left out and logged (P.names_skipped)
 instead of stopping: for a crowded band where every block's icon matters more than its name. It is the band's own
@@ -107,7 +111,7 @@ GRID = 64           # px per cell of the indexes
 
 DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-            "block_contents_short": "OCS-1", "names_last": False}
+            "block_contents_short": "OCS-1", "names_last": False, "name_columns": []}
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 
 
@@ -120,7 +124,15 @@ def _check(where, o):
     if unknown:
         raise SchematicError(f"{where}: le_labels: unknown key {', '.join(unknown)} (keys: {', '.join(DEFAULTS)})")
     for k, v in o.items():
-        if k in ("switch_bold", "block_contents", "names_last"):
+        if k == "name_columns":
+            if not isinstance(v, list) or not all(isinstance(g, list) and len(g) > 1 and
+                                                  all(isinstance(n, str) and n.strip() for n in g) for g in v):
+                raise SchematicError(f"{where}: le_labels: name_columns must be a list of lists of two or more track "
+                                     f"names, not {v!r}")
+            names = [n for g in v for n in g]
+            if len(names) != len(set(names)):
+                raise SchematicError(f"{where}: le_labels: name_columns names a track twice")
+        elif k in ("switch_bold", "block_contents", "names_last"):
             if not isinstance(v, bool):
                 raise SchematicError(f"{where}: le_labels: {k} must be true or false, not {v!r}")
         elif k.endswith("_size"):
@@ -265,6 +277,8 @@ class Layer:
             self.circles.add(box_of(cen[0], cen[1], 0, 0), t["ident"])
             for key, p in self.halves(t).items():
                 self.marks.add(box_of(p[0], p[1], 0, 0), (t["ident"], key))
+                if key:         # a single crossover's half: kept clear as a circle too (its OS block's lamp)
+                    self.circles.add(box_of(p[0], p[1], 0, 0), t["ident"])
         self.track_of = {}                  # segment ident -> the segments of its whole track (strand or turnback)
         for idents in list(P.strand_segments.values()) + list(P.turnbacks.values()):
             for i in idents:
@@ -623,6 +637,7 @@ def specs(P, bands, opts, L, extras=()):
         label = bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
         if label:
             out.append((("switch", t["ident"]), _switch_number(L, t, o["switch_prefix"] + label, o)))
+    named = []
     for (bi, sid), idents in sorted(P.strand_segments.items()):
         name = bands[bi][1]["strands"][sid]["name"]
         mine = [i for i in idents if i in L.world.track]
@@ -631,7 +646,10 @@ def specs(P, bands, opts, L, extras=()):
         if (bi, sid) in P.no_name:          # the drawing keeps no room for it: as before the label layer, no name
             P.log.append(f"{bands[bi][0]}: track {tidy([name])[0]}: no name placed ({P.no_name[(bi, sid)]})")
             continue
-        out.append((("name", bi, sid), _track_name(L, bi, tidy([name])[0], mine)))
+        named.append((bi, sid, tidy([name])[0], mine))
+    column = name_column_x(L, bands, opts, named)
+    for bi, sid, text, mine in named:
+        out.append((("name", bi, sid), _track_name(L, bi, text, mine, column.get((bi, text)))))
     places = block_places(P, L)
     out += _extras(L, places, extras)       # before the icons: bigger, and rarer
     out += _bcis(P, L, places)
@@ -668,7 +686,51 @@ def _switch_number(L, t, text, o):
     return make
 
 
-def _track_name(L, bi, text, mine):
+def level_span(lines):
+    """(x0, x1) of the level pieces of a track drawn as lines [(a, b)], or None when none is level."""
+    xs = [x for a, b in lines if abs(a[1] - b[1]) < 1e-6 for x in (a[0], b[0])]
+    return (min(xs), max(xs)) if xs else None
+
+
+def name_column_x(L, bands, opts, named):
+    """{(band, name): centre x} for each name of a band's `name_columns`: the middle of the x range where every
+    track of its group runs level. Stops on a name that is no named track of the band, or a group with no such
+    range."""
+    out = {}
+    by = {(bi, text): mine for bi, _sid, text, mine in named}
+    for bi, (title, _band, _opts) in enumerate(bands):
+        for group in opts[bi]["name_columns"]:
+            spans = []
+            for text in group:
+                if (bi, text) not in by:
+                    raise SchematicError(f"{title}: le_labels: name_columns names {text}, which is no named track "
+                                         "with a name placed on the band")
+                span = level_span([pc for i in by[(bi, text)] for pc in L.pieces.get(("seg", i), [])])
+                if span is None:
+                    raise SchematicError(f"{title}: le_labels: name_columns: track {text} runs level nowhere")
+                spans.append(span)
+            lo, hi = max(s[0] for s in spans), min(s[1] for s in spans)
+            if lo >= hi:
+                raise SchematicError(f"{title}: le_labels: name_columns {group}: the tracks run level side by side "
+                                     "nowhere")
+            for text in group:
+                out[(bi, text)] = (lo + hi) / 2
+    return out
+
+
+def column(lines, w, h, cx):
+    """Top-left corners of a w x h box centred on x = cx beside the level piece of a track (lines) that spans cx,
+    above then below it, GAPS px out."""
+    ys = [a[1] for a, b in lines if abs(a[1] - b[1]) < 1e-6 and min(a[0], b[0]) <= cx <= max(a[0], b[0])]
+    for g in GAPS:
+        for y in ys[:1]:
+            yield cx - w / 2, y - g - h
+            yield cx - w / 2, y + g
+
+
+def _track_name(L, bi, text, mine, cx=None):
+    """make(state, short) for a track's name: beside its track (along), or, with `cx` (name_columns), only centred
+    on that x."""
     what = f"{L.bands[bi][0]}: track name {text}"
 
     def make(state, short=False):
@@ -679,7 +741,9 @@ def _track_name(L, bi, text, mine):
         def commit(box):
             state["name_side"].update({i: side(box, it["own_lines"]) for i in mine})
             return _label_dict(it, box, "name", bi)
-        return it, along(it["own_lines"], it["w"], it["h"], "above"), commit
+        spots = along(it["own_lines"], it["w"], it["h"], "above") if cx is None else \
+            column(it["own_lines"], it["w"], it["h"], cx)
+        return it, spots, commit
     return make
 
 
@@ -807,13 +871,38 @@ def _extras(L, places, extras):
             return "extra", dict(id=e["id"], block=e["block"], xy=[box[0], box[1]], band=bi, box=_boxed(box),
                                  on_track=it["on_track"])
         maker = by_block(L, places, e["block"], new_item, (w, w), done)
+        if "x" in e:                # the caller's x: only spots with the box's left edge there
+            maker = at_x(maker, e["x"], w, h)
         out.append((("extra", e["id"]), lambda state, short=False, maker=maker: None if short else maker(state)))
     return out
 
 
+def at_x(maker, x, w, h):
+    """make(state) like `maker`'s, its spots only those with the box's left edge at `x`: beside its own track where
+    a piece of it spans the box's middle (above, then below, GAPS px out), then on it."""
+    def make(state):
+        it, _spots, commit = maker(state)
+        cx = x + w / 2
+        ys = []
+        for a, b in it["own_lines"]:
+            if min(a[0], b[0]) <= cx <= max(a[0], b[0]) and abs(b[0] - a[0]) > 1e-6:
+                ys.append(a[1] + (b[1] - a[1]) * (cx - a[0]) / (b[0] - a[0]))
+
+        def spots():
+            for g in GAPS:
+                for y in ys:
+                    yield x, y - g - h
+                    yield x, y + g
+            for y in ys:
+                yield x, y - h / 2, True
+        return it, spots(), commit
+    return make
+
+
 def check_extras(extras, blocks=None):
     """The caller's block-tied items, checked: a list of {"id": non-empty text, unique; "block": a block name (one
-    the panel draws, once `blocks` is known); "size": [w, h] px above zero}; nothing else."""
+    the panel draws, once `blocks` is known); "size": [w, h] px above zero; optionally "x": the box's left edge, px
+    (at_x)}; nothing else."""
     if extras is None:
         return []
     if not isinstance(extras, (list, tuple)):
@@ -823,8 +912,9 @@ def check_extras(extras, blocks=None):
         where = f"extras[{i}]"
         if not isinstance(e, dict):
             raise SchematicError(f"{where} must be an object of id, block and size, not {e!r}")
-        if set(e) != {"id", "block", "size"}:
-            raise SchematicError(f"{where}: needs exactly id, block and size, not {', '.join(sorted(e)) or 'none'}")
+        if not {"id", "block", "size"} <= set(e) <= {"id", "block", "size", "x"}:
+            raise SchematicError(f"{where}: needs id, block and size (and may give x), not "
+                                 f"{', '.join(sorted(e)) or 'none'}")
         if not isinstance(e["id"], str) or not e["id"].strip():
             raise SchematicError(f"{where}: id must be non-empty text, not {e['id']!r}")
         if e["id"] in seen:
@@ -836,6 +926,9 @@ def check_extras(extras, blocks=None):
         if not (isinstance(size, (list, tuple)) and len(size) == 2 and
                 all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 for v in size)):
             raise SchematicError(f"extra {e['id']}: size must be [width, height] in px, both above zero")
+        if "x" in e and (isinstance(e["x"], bool) or not isinstance(e["x"], (int, float)) or
+                         not math.isfinite(e["x"])):
+            raise SchematicError(f"extra {e['id']}: x must be a number of px, not {e['x']!r}")
         if blocks is not None and e["block"] not in blocks:
             raise SchematicError(f"extra {e['id']}: block {e['block']!r} is not on the panel")
     return list(extras)

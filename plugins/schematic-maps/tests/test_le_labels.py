@@ -272,8 +272,8 @@ class ShortReserve(unittest.TestCase):
 REAL_TRACK_NAME = le_labels._track_name
 
 
-def no_room_for_names(L, bi, text, mine):
-    make = REAL_TRACK_NAME(L, bi, text, mine)
+def no_room_for_names(L, bi, text, mine, cx=None):
+    make = REAL_TRACK_NAME(L, bi, text, mine, cx)
     return lambda state, short=False: (lambda got: got and (got[0], iter(()), got[2]))(make(state, short))
 
 
@@ -299,6 +299,52 @@ class ByBand(unittest.TestCase):
         one, by = le.panel(b), le.panel(b, labels_by_band=True)
         self.assertEqual([(lb["text"], lb["box"]) for lb in one.labels], [(lb["text"], lb["box"]) for lb in by.labels])
         self.assertEqual([(x["block"], x["box"]) for x in one.bcis], [(x["block"], x["box"]) for x in by.bcis])
+
+
+class NameColumns(unittest.TestCase):
+    def test_a_groups_names_stand_on_one_centre_x(self):
+        b = bands()
+        lower = next(i for i, (t, _b, _o) in enumerate(b) if t.startswith("Lower"))
+        P0 = le.panel(b)
+        level = [lb["text"] for lb in P0.labels if lb["kind"] == "name" and lb["band"] == lower]
+        groups = []
+        for i, t1 in enumerate(level):          # two names whose tracks run level side by side somewhere
+            for t2 in level[i + 1:]:
+                try:
+                    P = le.panel([(t, band, dict(o, le_labels={"name_columns": [[t1, t2]]}) if k == lower else o)
+                                  for k, (t, band, o) in enumerate(b)])
+                except SchematicError:
+                    continue
+                groups.append((t1, t2, P))
+        self.assertTrue(groups, "no pair of level tracks side by side in the example")
+        t1, t2, P = groups[0]
+        centres = {lb["text"]: lb["box"][0] + lb["box"][2] / 2 for lb in P.labels if lb["text"] in (t1, t2)}
+        self.assertAlmostEqual(centres[t1], centres[t2], delta=1.0)    # whole pixels
+        le_labels.verify(P)
+
+    def test_name_columns_are_checked(self):
+        for bad in ("S-1", [["S-1"]], [["S-1", ""]], [["A", "B"], ["B", "C"]]):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "name_columns"):
+                le_labels.options(with_opts({"name_columns": bad}), None)
+        with self.assertRaisesRegex(SchematicError, "name_columns names Nowhere"):
+            le.panel(with_opts({"name_columns": [["Nowhere", "Else"]]}))
+
+
+class CrossoverRun(unittest.TestCase):
+    def test_every_single_crossover_runs_the_same_distance_across(self):
+        from test_le import crossover_band
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            base = le.panel(crossover_band())
+            P = le.panel(crossover_band(), crossover_run=20.0)
+        t0, t = base.turnouts[0], P.turnouts[0]
+        mid = lambda q, a, b: ((q[a][0] + q[b][0]) / 2)          # noqa: E731
+        self.assertAlmostEqual(mid(t["pts"], "D", "C") - mid(t["pts"], "A", "B"), 20.0)
+        self.assertAlmostEqual(t["cen"][0], t0["cen"][0])          # about its middle
+        for bad in (0, -1, "9", True):
+            with self.subTest(run=bad), self.assertRaisesRegex(SchematicError, "crossover_run"):
+                le.panel(bands(), crossover_run=bad)
+        with self.assertRaisesRegex(SchematicError, "not one fitted"):
+            le.panel(bands(), crossover_run=10.0, fit=(1300, 700))
 
 
 class NamesLast(unittest.TestCase):
@@ -413,10 +459,22 @@ class Extras(unittest.TestCase):
         with self.assertRaisesRegex(SchematicError, "item Huge \\(block Passing\\): no clean spot"):
             le.panel(bands(), extras=[{"id": "Huge", "block": "Passing", "size": [5000, 400]}])
 
+    def test_a_callers_item_at_a_given_x(self):
+        P = le.panel(bands(), extras=self.EXTRAS)
+        first = next(e for e in P.extras if e["id"] == "Passing cluster")
+        want = dict(self.EXTRAS[0], x=first["box"][0] - 16)
+        Q = le.panel(bands(), extras=[want] + list(self.EXTRAS[1:]))
+        got = next(e for e in Q.extras if e["id"] == "Passing cluster")
+        self.assertEqual(got["box"][0], round(want["x"]))
+        le_labels.verify(Q)
+        with self.assertRaisesRegex(SchematicError, "Passing cluster.*no clean spot"):
+            le.panel(bands(), extras=[dict(self.EXTRAS[0], x=-5000)])        # no track of its block there
+
     def test_bad_extras_stop_before_drawing(self):
         good = {"id": "A", "block": "Passing", "size": [10, 10]}
         for bad, msg in (("x", "must be a list"), (["x"], "must be an object"),
-                         ([dict(good, colour=1)], "exactly id, block and size"), ([dict(good, id="")], "id must"),
+                         ([dict(good, colour=1)], "needs id, block and size"), ([dict(good, id="")], "id must"),
+                         ([dict(good, x="9")], "x must be a number"), ([dict(good, x=float("inf"))], "x must"),
                          ([good, good], "given twice"), ([dict(good, block=3)], "block must"),
                          ([dict(good, size=[10])], "size must"), ([dict(good, size=[10, 0])], "size must"),
                          ([dict(good, size=[True, 4])], "size must"),

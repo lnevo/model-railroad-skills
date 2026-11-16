@@ -237,6 +237,7 @@ class Panel:
         self.bcis = []              # dicts: block, kind (track, os), xy, size, band, box, on_track (le_labels)
         self.extras = []            # dicts: id, block, xy, band, box, on_track: the caller's items (le_labels)
         self.labels_unplaced = []   # (item, reason): items le_labels left out (strict=False only)
+        self.crossover_run = None   # px across every single crossover's diagonal runs (panel), None: as drawn
         self.band_boxes = []        # (x0, y0, x1, y1) each band was placed by: its drawing with the room for its labels
         self.names_skipped = []     # why each names_last track name was left out (le_labels)
         self.no_name = {}           # (band index, strand id) -> why the drawing keeps no room for its name
@@ -606,7 +607,7 @@ def check_masts(key, masts, seen):
 
 
 def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP,
-          labels_by_band=False):
+          labels_by_band=False, crossover_run=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
@@ -615,11 +616,19 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     drawing and the next band's highest (BAND_GAP), say to keep room under a band for what the caller adds there;
     or a list, one per pair of bands, top first.
     `labels_by_band`: the label layer places each band's labels in rounds of their own, top band first, each band's
-    standing for the next (le_labels.place), so a band's labels are the same whatever bands are drawn below it."""
+    standing for the next (le_labels.place), so a band's labels are the same whatever bands are drawn below it.
+    `crossover_run`: px across that every single crossover's diagonal runs (its two halves' points that far apart
+    along the rows, about their middle), so all cross at one angle however each band is stretched; None: as drawn."""
     if not isinstance(labels_by_band, bool):
         raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
+    if crossover_run is not None and (isinstance(crossover_run, bool) or not isinstance(crossover_run, (int, float))
+                                      or not math.isfinite(crossover_run) or crossover_run <= 0):
+        raise SchematicError(f"crossover_run must be a number of px above zero, not {crossover_run!r}")
     if fit is None:
-        return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band)
+        return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band,
+                          crossover_run=crossover_run)
+    if crossover_run is not None:
+        raise SchematicError("crossover_run is for a panel drawn at a given grid, not one fitted to a window")
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
@@ -669,7 +678,7 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
 
 
 def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None, gap=BAND_GAP,
-               labels_by_band=False):
+               labels_by_band=False, crossover_run=None):
     """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
     idents (Panel.text). `labels`: then run the label layer (label_layer). `page` as given: the drawing takes the
     last band's options when it is None (_draw), the labels take none (le_labels.options), so a band's le_labels
@@ -678,6 +687,7 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
         le_labels.options(bands, page)      # checked before any drawing (page None: no page-wide label options)
     le_labels.check_extras(extras)
     P = Panel()
+    P.crossover_run = crossover_run
     try:
         _draw(P, bands, names, cell, row, page, masts, gap)
     except SchematicError as e:
@@ -1365,6 +1375,10 @@ class Band:
             (top, tp), (bot, bp) = sorted(((u, pu_), (v, pv_)), key=lambda t: t[1][1])
             if abs(tp[1] - bp[1]) < EPS:
                 continue
+            run = self.P.crossover_run
+            if run is not None and abs(abs(bp[0] - tp[0]) - run) > EPS:     # one angle for every crossover
+                way, mid_x = (1 if bp[0] >= tp[0] else -1), (tp[0] + bp[0]) / 2
+                tp, bp = (mid_x - way * run / 2, tp[1]), (mid_x + way * run / 2, bp[1])
             h = min([1.5 * LEG] + [0.4 * self.first_len(n, p) for n in (u, v) for p in "AB"])
             pts = {"A": (tp[0] - h, tp[1]), "B": (tp[0] + h, tp[1]), "D": (bp[0] - h, bp[1]), "C": (bp[0] + h, bp[1])}
             conn = {}
