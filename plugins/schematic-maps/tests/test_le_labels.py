@@ -269,6 +269,36 @@ class ShortReserve(unittest.TestCase):
                 le_labels.options(with_opts(o), None)
 
 
+REAL_TRACK_NAME = le_labels._track_name
+
+
+def no_room_for_names(L, bi, text, mine):
+    make = REAL_TRACK_NAME(L, bi, text, mine)
+    return lambda state, short=False: (lambda got: got and (got[0], iter(()), got[2]))(make(state, short))
+
+
+class NamesLast(unittest.TestCase):
+    def test_a_names_last_band_leaves_out_a_name_with_no_room_and_logs_it(self):
+        with mock.patch.object(le_labels, "_track_name", no_room_for_names):
+            with self.assertRaisesRegex(SchematicError, "track name .*: no clean spot"):
+                le.panel(bands())
+            P = le.panel(with_opts({"names_last": True}))
+        self.assertFalse([lb for lb in P.labels if lb["kind"] == "name"])
+        self.assertTrue(P.names_skipped)
+        self.assertEqual(len([line for line in P.log if "(names_last: left out)" in line]), len(P.names_skipped))
+        self.assertEqual(sorted(b["block"] for b in P.bcis), sorted(P.blocks))
+        le_labels.verify(P)
+
+    def test_names_last_places_the_icons_before_the_names(self):
+        P = le.panel(with_opts({"names_last": True}))
+        self.assertEqual(P.names_skipped, [])
+        named = [k for k in P.strand_segments if bands()[k[0]][1]["strands"][k[1]]["name"]]
+        self.assertEqual(len([lb for lb in P.labels if lb["kind"] == "name"]), len(named))
+        for v in (1, "yes"):
+            with self.subTest(v=v), self.assertRaisesRegex(SchematicError, "names_last must be true or false"):
+                le_labels.options(with_opts({"names_last": v}), None)
+
+
 class ReviewFixes(unittest.TestCase):
     def test_a_bands_options_reach_only_that_band_with_or_without_fit(self):
         b = [(t, band, dict(o, le_labels={"switch_prefix": "L-"}) if t.startswith("Lower") else

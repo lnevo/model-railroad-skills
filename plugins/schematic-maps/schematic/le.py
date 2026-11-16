@@ -4,7 +4,9 @@
     le.write(P, "OUT.xml", "Layout (generated)")
 
 Grid. A schematic grid point (column c, row r) becomes the panel point (cell * c, ROW * r) in pixels, each band moved
-below the one before it, so the panel stacks the bands as the sheet does. With the page preference `equal_width`
+below the one before it (`gap` px apart), so the panel stacks the bands as the sheet does: each centred on the
+widest, or against its left or right edge as the page's `band_align` says ({band key: "left", "centre" or
+"right"}, as on the sheet), so a band can keep the place it has when drawn alone. With the page preference `equal_width`
 a narrower band is stretched along its length to the widest band's width (`band_width` shares as on the sheet), so
 its slopes lie a little flatter. A band named in `rotate_bands` is turned end for end.
 
@@ -26,7 +28,7 @@ Names (optional, by band key, the first word of the band title):
               "blocks": {strand id: [block, ...]}, "lengths": {block: real length, any one unit},
               "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
                          "icon": [w, h], "or_join": ...}],
-              "joins": "own" or "other", "leg_b": {node: "B" or "C"},
+              "joins": "own" or "other", "leg_b": {node: "B" or "C"}, "shared_turnouts": [turnout name, ...],
               "idents": {"turnouts": {node: ident}, "boundaries": [{"blocks": [block, block], "ident": ident}],
                          "ends": {block: ident}, "segments": {block: ident}}}}
 A strand with several blocks is cut for them in order from its first end to its second: in proportion to their
@@ -38,7 +40,10 @@ is named. Sensors are not placed. `leg_b` names the band leg that is Layout Edit
 straight one); a drawn diverging leg B puts the centre midway between legs A and B, where Layout Editor finds point
 A. `idents` gives drawn objects an older panel's idents once the track is drawn (give_idents): a switch's
 turnout, the one anchor between two blocks, the one end bumper of a block, the one segment of a block; the rest keep
-generated idents, whose form (G after the prefix) no given ident may take. The given idents are an alias layer:
+generated idents, whose form (G after the prefix) no given ident may take. A turnout name is given to one
+turnout, unless it is in `shared_turnouts` of each band that draws it: one turnout drawn as two Layout Editor
+turnouts (a crossover whose halves are not drawn as one single crossover, or stand on two bands), which JMRI throws
+together. The given idents are an alias layer:
 the Panel's own lookups keep the generated idents (P.name maps one), and the XML and every message (the log,
 P.unplaced and P.moved reasons, errors) name objects by the idents written (Panel.text).
 
@@ -232,6 +237,7 @@ class Panel:
         self.bcis = []              # dicts: block, kind (track, os), xy, size, band, box, on_track (le_labels)
         self.extras = []            # dicts: id, block, xy, band, box, on_track: the caller's items (le_labels)
         self.labels_unplaced = []   # (item, reason): items le_labels left out (strict=False only)
+        self.names_skipped = []     # why each names_last track name was left out (le_labels)
         self.no_name = {}           # (band index, strand id) -> why the drawing keeps no room for its name
         self.cellx = {}             # band index -> px per grid column as drawn
         self.idents_given = {}      # generated ident -> the ident the names give it (give_idents): the alias layer
@@ -261,8 +267,15 @@ class Panel:
         self.unplaced = [(t, m, self.text(why)) for t, m, why in self.unplaced]
         self.moved = [(t, m, self.text(why)) for t, m, why in self.moved]
 
-    def point(self, kind, xy):
-        ident = self.ident("A" if kind == "ANCHOR" else "EB")
+    def point(self, kind, xy, end=False):
+        """A point's ident: AG<n> for an anchor, EBG<n> for an end bumper; a track's end joined to another band
+        (`end`, an anchor) is numbered among the end bumpers, AGE<n>, so whether a band's ends are joined renumbers
+        nothing else of it."""
+        if kind == "ANCHOR" and end:
+            self._n["EB"] += 1
+            ident = f"A{PREFIX}E{self._n['EB']}"
+        else:
+            ident = self.ident("A" if kind == "ANCHOR" else "EB")
         self.points[ident] = dict(type=kind, xy=list(xy), conn=[], band=self.cur)
         return ident
 
@@ -370,13 +383,13 @@ def default_names(bands, joined, taken=()):
     return out
 
 
-NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents")
+NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents", "shared_turnouts")
 MAST_KINDS = ("anchor", "end bumper", "turnout")
 MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join")
 IDENT_KEYS = ("turnouts", "boundaries", "ends", "segments")
 # the kind of object each section's idents must be found as by JMRI (jmri_kind)
 IDENT_KIND = {"turnouts": "turnout", "boundaries": "point", "ends": "point", "segments": "segment"}
-GENERATED = re.compile(r"(TO|T|A|EB|SH)" + PREFIX + r"\d+")
+GENERATED = re.compile(r"(?:(TO|T|A|EB|SH)" + PREFIX + r"|A" + PREFIX + r"E)\d+")     # AGE<n>: a joined end
 GENERATED_WORD = re.compile(r"(?<![A-Za-z0-9_-])" + GENERATED.pattern + r"(?![A-Za-z0-9_-])")   # as in a message
 
 
@@ -466,6 +479,13 @@ def check_names(bands, names):
         if halves:
             raise SchematicError(f"names for {key}: leg_b names {', '.join(halves)}, half of a single crossover, "
                                  "whose legs are the crossover's (A to D), not a plain turnout's")
+        shared = given.get("shared_turnouts", [])
+        if not isinstance(shared, list) or not all(text(v) for v in shared) or len(set(shared)) != len(shared):
+            raise SchematicError(f"names for {key}: shared_turnouts must be a list of different turnout names")
+        stray = sorted(set(shared) - set((given.get("turnouts") or {}).values()))
+        if stray:
+            raise SchematicError(f"names for {key}: shared_turnouts names {', '.join(stray)}, which no switch of the "
+                                 "band is given as its turnout")
         named = {b for v in (given.get("blocks") or {}).values() for b in ([v] if isinstance(v, str) else v)} | \
             set((given.get("os") or {}).values())
         check_idents(key, given.get("idents"), band, switches, named, seen_idents)
@@ -581,21 +601,25 @@ def check_masts(key, masts, seen):
             raise SchematicError(f"{what}: icon must be [width, height] in pixels, both above zero")
 
 
-def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None):
+def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
     text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
-    beside their block's track (P.extras); the plugin writes nothing for them."""
+    beside their block's track (P.extras); the plugin writes nothing for them. `gap`: px between one band's lowest
+    drawing and the next band's highest (BAND_GAP), say to keep room under a band for what the caller adds there."""
+    if isinstance(gap, bool) or not isinstance(gap, (int, float)) or not math.isfinite(gap) or gap < 0:
+        raise SchematicError(f"the gap between bands must be a number of px, 0 or more, not {gap!r}")
     if fit is None:
-        return draw_panel(bands, names, cell, row, page, extras=extras)
+        return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap)
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
     fits = lambda Q: Q.size[0] <= W and Q.size[1] <= H      # noqa: E731
 
     def search(masts):
-        draw = lambda kx, ky: draw_panel(bands, names, cell * kx, row * ky, page, masts, labels=False)  # noqa: E731
+        draw = lambda kx, ky: draw_panel(bands, names, cell * kx, row * ky, page, masts, labels=False,  # noqa: E731
+                                         gap=gap)
         lo = draw(FIT_MIN, FIT_MIN)
         if not fits(lo):
             raise SchematicError(f"the panel does not fit a {fit[0]}x{fit[1]} px window even with the grid at "
@@ -627,16 +651,16 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     # their icons push the panel past the window, search again with them
     # (the label layer comes last, once the grid is settled: it changes nothing else and keeps inside the panel)
     kx, ky = search(False)
-    P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False)
+    P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False, gap=gap)
     if not fits(P):
         kx, ky = search(True)
-        P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False)
+        P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False, gap=gap)
     label_layer(P, bands, page, extras)
     P.scale, P.fit = (kx, ky), tuple(fit)
     return P
 
 
-def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None):
+def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None, gap=BAND_GAP):
     """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
     idents (Panel.text). `labels`: then run the label layer (label_layer). `page` as given: the drawing takes the
     last band's options when it is None (_draw), the labels take none (le_labels.options), so a band's le_labels
@@ -646,7 +670,7 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
     le_labels.check_extras(extras)
     P = Panel()
     try:
-        _draw(P, bands, names, cell, row, page, masts)
+        _draw(P, bands, names, cell, row, page, masts, gap)
     except SchematicError as e:
         raise SchematicError(P.text(str(e))) from None
     P.final_text()
@@ -691,7 +715,7 @@ def label_layer(P, bands, page, extras=None):
                                         f"{before.get(key)}, now {after.get(key)}"))
 
 
-def _draw(P, bands, names, cell, row, page, masts):
+def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     if not bands:
         raise SchematicError("no band to draw")
     page = page if page is not None else bands[-1][2]
@@ -729,10 +753,20 @@ def _draw(P, bands, names, cell, row, page, masts):
     P.cur = None
     full = max(b[2] - b[0] for b in boxes)
     top = MARGIN + TITLE_GAP
+    align = page.get("band_align") or {}
+    keys = [band_key(t) for t, _, _ in bands]
+    bad = ["not an object"] if not isinstance(align, dict) else \
+        sorted(k for k in align if k not in keys) + sorted(f"{k}: {v!r}" for k, v in align.items()
+                                                           if v not in ("left", "centre", "right"))
+    if bad:
+        raise SchematicError(f"band_align must be an object of band: \"left\", \"centre\" or \"right\" "
+                             f"(bands: {', '.join(keys)}){': ' + ', '.join(bad) if bad else ''}")
     for bi, ((title, _, _), box) in enumerate(zip(bands, boxes)):
-        shift(P, bi, MARGIN + (full - (box[2] - box[0])) / 2 - box[0], top - box[1])
+        room = full - (box[2] - box[0])
+        left = {"left": 0, "right": room}.get(align.get(band_key(title), "centre"), room / 2)
+        shift(P, bi, MARGIN + left - box[0], top - box[1])
         P.label(title.upper(), (MARGIN, top - TITLE_GAP + 4), TITLE_SIZE, True, anchor="left", kind="title")
-        top += box[3] - box[1] + BAND_GAP
+        top += box[3] - box[1] + gap
     for (bi, n), (bj, m) in sorted(joined.items()):
         if (bi, n) > (bj, m):
             continue
@@ -745,12 +779,32 @@ def _draw(P, bands, names, cell, row, page, masts):
         P.joins.append(P.segment(a[0], b[0], block, a[4] and b[4], hidden=True))
         P.join_ends[(bi, a[0])] = a[3]
         P.join_ends[(bj, b[0])] = b[3]
+    check_shared(P, bands, names)
     if any(g.get("idents") for g in names.values()):
         give_idents(P, bands, names)        # before the masts, so the alias is known for all they say
     if masts and any(g.get("masts") for g in names.values()):
         place_masts(P, bands, names)
     box = extent(P)
     P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
+
+
+def check_shared(P, bands, names):
+    """Stop unless each turnout name on more than one turnout is in `shared_turnouts` of every band that draws one
+    of them, and each shared name is on at least two turnouts (so a list entry that shares nothing is caught)."""
+    on = defaultdict(list)
+    for t in P.turnouts:
+        if t["name"]:
+            on[t["name"]].append(t)
+    for bi, (title, _, _) in enumerate(bands):
+        shared = (names.get(band_key(title)) or {}).get("shared_turnouts") or []
+        for name in shared:
+            if len(on.get(name, ())) < 2:
+                raise SchematicError(f"{title}: shared_turnouts names {name!r}, which is drawn as "
+                                     f"{len(on.get(name, ()))} turnout; it shares nothing")
+        for name, ts in on.items():
+            if len(ts) > 1 and any(t["band"] == bi for t in ts) and name not in shared:
+                raise SchematicError(f"{title}: turnout name {name!r} is given to {len(ts)} turnouts, but this band "
+                                     "does not list it in shared_turnouts")
 
 
 def give_idents(P, bands, names):
@@ -1147,9 +1201,10 @@ class Band:
                                  f"{sorted(names)}")
         if names:
             t["name"] = names.pop()
-            if t["name"] in P.turnout_names:
+            if t["name"] in P.turnout_names and t["name"] not in self.names.get("shared_turnouts", ()):
                 raise SchematicError(f"{self.title}: turnout name {t['name']!r} given to two separate turnouts "
-                                     f"(switch {self.nodes[nodes[0]].get('label') or nodes[0]})")
+                                     f"(switch {self.nodes[nodes[0]].get('label') or nodes[0]}); list it in "
+                                     "shared_turnouts if they are one turnout drawn twice")
             P.turnout_names.add(t["name"])
         P.blocks.update(blocks.values())
         for (n, port), leg in conn_ports.items():
@@ -1290,7 +1345,7 @@ class Band:
         pts = self.away(n, port)
         sid = self.port_strand(n, port)
         joined = (self.bi, n) in self.joined
-        ident = self.P.point("ANCHOR" if joined else "END_BUMPER", pts[0])
+        ident = self.P.point("ANCHOR" if joined else "END_BUMPER", pts[0], end=True)
         self.conn[(n, port)] = ident
         self.leg_pt[(n, port)] = pts[0]
         out = unit(sub(pts[0], pts[1]))
