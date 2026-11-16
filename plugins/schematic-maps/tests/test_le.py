@@ -305,6 +305,16 @@ class BandPlaces(unittest.TestCase):
                 with self.subTest(gap=gap), self.assertRaisesRegex(SchematicError, "gap between bands"):
                     draw(gap)
 
+    def test_a_gap_per_pair_of_bands(self):
+        base = panel()
+        P = le.panel(bands(), gap=[le.BAND_GAP + 30])          # two bands: one gap
+        self.assertAlmostEqual(le.extent(P, 1)[1], le.extent(base, 1)[1] + 30)
+        (_a, _b, _c, low), (_d, top, _e, _f) = P.band_boxes      # the boxes the bands were placed by, that far apart
+        self.assertAlmostEqual(top - low, le.BAND_GAP + 30)
+        for bad in ([], [1, 2], [-1], ["9"], (True,)):
+            with self.subTest(gap=bad), self.assertRaisesRegex(SchematicError, "gaps between bands must be 1"):
+                le.panel(bands(), gap=bad)
+
     def test_gap_moves_the_bands_below_down(self):
         base, wide = panel(), le.panel(bands(), gap=le.BAND_GAP + 50)
         self.assertAlmostEqual(le.extent(wide, 0)[1], le.extent(base, 0)[1])

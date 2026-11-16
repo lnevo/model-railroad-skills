@@ -237,6 +237,7 @@ class Panel:
         self.bcis = []              # dicts: block, kind (track, os), xy, size, band, box, on_track (le_labels)
         self.extras = []            # dicts: id, block, xy, band, box, on_track: the caller's items (le_labels)
         self.labels_unplaced = []   # (item, reason): items le_labels left out (strict=False only)
+        self.band_boxes = []        # (x0, y0, x1, y1) each band was placed by: its drawing with the room for its labels
         self.names_skipped = []     # why each names_last track name was left out (le_labels)
         self.no_name = {}           # (band index, strand id) -> why the drawing keeps no room for its name
         self.cellx = {}             # band index -> px per grid column as drawn
@@ -611,7 +612,8 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
     text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
     beside their block's track (P.extras); the plugin writes nothing for them. `gap`: px between one band's lowest
-    drawing and the next band's highest (BAND_GAP), say to keep room under a band for what the caller adds there.
+    drawing and the next band's highest (BAND_GAP), say to keep room under a band for what the caller adds there;
+    or a list, one per pair of bands, top first.
     `labels_by_band`: the label layer places each band's labels in rounds of their own, top band first, each band's
     standing for the next (le_labels.place), so a band's labels are the same whatever bands are drawn below it."""
     if not isinstance(labels_by_band, bool):
@@ -722,11 +724,24 @@ def label_layer(P, bands, page, extras=None, by_band=False):
                                         f"{before.get(key)}, now {after.get(key)}"))
 
 
+def band_gaps(gap, n):
+    """[px] between each band and the next of `n` bands: `gap` (a number for all, or a list of one per pair of
+    bands, top first), each a number of px, 0 or more."""
+    ok = lambda g: not isinstance(g, bool) and isinstance(g, (int, float)) and math.isfinite(g) and g >= 0  # noqa: E731
+    if isinstance(gap, (list, tuple)):
+        if len(gap) != max(n - 1, 0) or not all(ok(g) for g in gap):
+            raise SchematicError(f"the gaps between bands must be {max(n - 1, 0)} numbers of px, 0 or more (one "
+                                 f"per pair of bands), not {gap!r}")
+        return list(gap)
+    if not ok(gap):
+        raise SchematicError(f"the gap between bands must be a number of px, 0 or more, not {gap!r}")
+    return [gap] * max(n - 1, 0)
+
+
 def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     if not bands:
         raise SchematicError("no band to draw")
-    if isinstance(gap, bool) or not isinstance(gap, (int, float)) or not math.isfinite(gap) or gap < 0:
-        raise SchematicError(f"the gap between bands must be a number of px, 0 or more, not {gap!r}")
+    gaps = band_gaps(gap, len(bands))
     page = page if page is not None else bands[-1][2]
     names = names or {}
     check_names(bands, names)
@@ -768,8 +783,9 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
         room = full - (box[2] - box[0])
         left = {"left": 0, "right": room}.get(align.get(band_key(title), "centre"), room / 2)
         shift(P, bi, MARGIN + left - box[0], top - box[1])
+        P.band_boxes.append((MARGIN + left, top, MARGIN + left + box[2] - box[0], top + box[3] - box[1]))
         P.label(title.upper(), (MARGIN, top - TITLE_GAP + 4), TITLE_SIZE, True, anchor="left", kind="title")
-        top += box[3] - box[1] + gap
+        top += box[3] - box[1] + (gaps[bi] if bi < len(gaps) else 0)
     for (bi, n), (bj, m) in sorted(joined.items()):
         if (bi, n) > (bj, m):
             continue
