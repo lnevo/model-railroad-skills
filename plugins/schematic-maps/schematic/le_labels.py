@@ -46,7 +46,8 @@ block, beside the rest of its track (a short throat block at a crowded yard ladd
 band, STATION_GAPS px out, sliding along it STEP px at a time. A spot is clean when its box
   - lies inside the panel: right of and below its margin, within its width and height (P.size, set by the drawing),
   - is CLEAR px from every drawn track line and turnout leg and TURNOUT_R px from every turnout's centre (its
-    control circle, where a click throws it),
+    control circle, where a click throws it) and from each single crossover half's middle (where a caller puts
+    that half's own lamp),
   - is PAD px from every other label, block contents icon, mast icon box and circle,
   - reads as its own: a track name or track block icon is no nearer any other line than its own track (the whole
     track the block is part of); a switch number or OS block icon is no nearer another turnout than its own.
@@ -74,13 +75,23 @@ of the track lines rather than reusing Layer's (it checks from scratch).
 Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-     "block_contents_short": "OCS-1", "names_last": false}
+     "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "lamp_columns": [],
+     "lamp_size": [10, 10], "numbers_below": []}
+`numbers_below`: switch numbers (the switches' labels, no prefix) whose number tries the spots below its turnout
+first (a crossover's number tries above first, a plain switch's the side away from its diverging leg).
+`lamp_columns` (a band's): groups of track names whose caller's lamps (lamp_size) stand on one centre x, on each
+track there, the same x as name_columns would give; their boxes are kept clear before anything is placed, and
+P.lamps holds them ({band, track, box}) for the caller to put its lamps in.
+`name_columns` (a band's): groups of track names whose labels stand on one centre x, the middle of where the
+group's tracks all run level side by side (a yard's tracks between its ladders); each such name tries only spots at
+that x, above then below its track, and stops if it has none.
 `names_last` (a band's): that band's track names are placed after every other item of the panel (block contents
 icons and caller's items included), and a name with no clean spot then is left out and logged (P.names_skipped)
 instead of stopping: for a crowded band where every block's icon matters more than its name. It is the band's own
 le_labels key only: the page's le_labels may not set it. Known limit: a name left out is not tried again in a later
 round (once every other item stands it takes what room is left).
 """
+import copy
 import itertools
 import math
 from collections import defaultdict
@@ -106,7 +117,8 @@ GRID = 64           # px per cell of the indexes
 
 DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-            "block_contents_short": "OCS-1", "names_last": False}
+            "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "lamp_columns": [],
+            "lamp_size": [10, 10], "numbers_below": []}
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 
 
@@ -119,7 +131,24 @@ def _check(where, o):
     if unknown:
         raise SchematicError(f"{where}: le_labels: unknown key {', '.join(unknown)} (keys: {', '.join(DEFAULTS)})")
     for k, v in o.items():
-        if k in ("switch_bold", "block_contents", "names_last"):
+        if k == "lamp_size":
+            if not (isinstance(v, list) and len(v) == 2 and
+                    all(isinstance(n, (int, float)) and not isinstance(n, bool) and n > 0 for n in v)):
+                raise SchematicError(f"{where}: le_labels: lamp_size must be [width, height] in px above zero, "
+                                     f"not {v!r}")
+        elif k in ("name_columns", "lamp_columns"):
+            if not isinstance(v, list) or not all(isinstance(g, list) and len(g) > 1 and
+                                                  all(isinstance(n, str) and n.strip() for n in g) for g in v):
+                raise SchematicError(f"{where}: le_labels: {k} must be a list of lists of two or more track "
+                                     f"names, not {v!r}")
+            names = [n for g in v for n in g]
+            if len(names) != len(set(names)):
+                raise SchematicError(f"{where}: le_labels: {k} names a track twice")
+        elif k == "numbers_below":
+            if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
+                raise SchematicError(f"{where}: le_labels: numbers_below must be a list of switch numbers, not "
+                                     f"{v!r}")
+        elif k in ("switch_bold", "block_contents", "names_last"):
             if not isinstance(v, bool):
                 raise SchematicError(f"{where}: le_labels: {k} must be true or false, not {v!r}")
         elif k.endswith("_size"):
@@ -244,6 +273,8 @@ class Layer:
         from . import le_masts
         from .le import LABEL_SIZE, MARGIN
         self.P, self.bands, self.opts = P, bands, opts
+        self.kept = None            # what earlier bands placed, standing (place by band); None: nothing yet
+        self.reserved = []          # the caller's lamp boxes (lamp_columns): {band, track, box}
         self.margin, self.name_size = MARGIN, LABEL_SIZE
         view = le_masts.PanelView(P)
         self.world = world = le_masts.World(view)
@@ -263,6 +294,8 @@ class Layer:
             self.circles.add(box_of(cen[0], cen[1], 0, 0), t["ident"])
             for key, p in self.halves(t).items():
                 self.marks.add(box_of(p[0], p[1], 0, 0), (t["ident"], key))
+                if key:         # a single crossover's half: kept clear as a circle too (its OS block's lamp)
+                    self.circles.add(box_of(p[0], p[1], 0, 0), t["ident"])
         self.track_of = {}                  # segment ident -> the segments of its whole track (strand or turnback)
         for idents in list(P.strand_segments.values()) + list(P.turnbacks.values()):
             for i in idents:
@@ -270,9 +303,13 @@ class Layer:
         self.reset()
 
     def reset(self):
-        """Nothing placed yet: the boxes to clear are the labels le drew itself, the mast icons and the circles."""
+        """Nothing placed yet: the boxes to clear are the labels le drew itself, the mast icons and the circles; and,
+        once a band's labels stand (place by band), those (self.kept)."""
         P = self.P
         self.notes = []                     # log lines of this round
+        if self.kept is not None:
+            self.boxes = copy.deepcopy(self.kept)
+            return
         self.boxes = Grid()                 # (box, (what, kind)) of every label, icon and circle to clear
         for lb in P.labels:
             self.boxes.add(label_box(lb), (f"label {lb['text']!r}", "a label"))
@@ -281,6 +318,8 @@ class Layer:
         for sh in P.shapes:
             (cx, cy), r = sh["centre"], sh["r"]
             self.boxes.add((cx - r, cy - r, cx + r, cy + r), ("a circle", "a circle"))
+        for lamp in self.reserved:          # a caller's lamp (lamp_columns): kept clear from the start
+            self.boxes.add(box_of(*lamp["box"]), (f"lamp of {lamp['track']}", "a lamp"))
 
     def band_of(self, owner):
         kind, ident = owner
@@ -471,20 +510,78 @@ def diverges_down(t):
     return any(t["pts"][k][1] > t["at"][1] + 1e-6 for k in "BC")
 
 
-def place(P, bands, opts, strict=True, extras=None):
+def place(P, bands, opts, strict=True, extras=None, by_band=False):
     """Every switch number, track name, block contents icon and station name, then the check (module text). Items
     that find no clean spot are placed first in another round (up to ROUNDS): a crowded spot goes to what needs it
     most. Only when no order places every block contents icon at full size, the rounds run again with each icon
     that found no spot at full size taking the short reserve from then on, and after each round the icons still
     without one trying it against everything placed; the first round that places everything stands, else the one
-    that leaves the fewest. Strict, an item left with none stops; else it is
-    listed in P.labels_unplaced."""
+    that leaves the fewest. With `by_band`, each band's items go through those rounds on their own, top band first,
+    and what a band placed stands for the bands after it (so a band's labels do not depend on the bands below it).
+    Strict, an item left with none stops; else it is listed in P.labels_unplaced."""
     P.labels = [lb for lb in P.labels if lb["kind"] in FIXED]     # the rest only kept their room in the drawing
     L = Layer(P, bands, opts)
-    items = specs(P, bands, opts, L, check_extras(extras, P.blocks))
+    extras = check_extras(extras, P.blocks)
+    items = specs(P, bands, opts, L, extras)
     # a band's names_last: its track names go after everything else and may be left out
     optional = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
     items = [it for it in items if it[0] not in optional] + [it for it in items if it[0] in optional]
+    if by_band:
+        band = item_bands(P, L, items, extras)
+        groups = [[it for it in items if band[it[0]] == bi] for bi in sorted(set(band.values()))]
+    else:
+        groups = [items]
+    done, failed, skipped, notes = [], [], [], []
+    for group in groups:
+        g_done, g_failed, g_skipped = place_items(L, group, optional)
+        done += g_done
+        failed += g_failed
+        skipped += g_skipped
+        notes += L.notes
+        L.kept = copy.deepcopy(L.boxes)         # this band's labels stand for the next
+    L.kept = None
+    if failed and strict:
+        raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
+    P.labels_unplaced = [(k, msg) for k, msg in failed]
+    P.lamps = list(L.reserved)
+    P.names_skipped = [msg for _k, msg in skipped]
+    P.log += notes + [f"{msg} (names_last: left out)" for msg in P.names_skipped]
+    P.bcis, P.extras = [], []
+    for kind, d in done:
+        {"bci": P.bcis, "extra": P.extras}.get(kind, P.labels).append(d)
+    for lb in P.labels:
+        if "box" not in lb:
+            x0, y0, x1, y1 = label_box(lb)
+            lb["box"] = (x0, y0, x1 - x0, y1 - y0)
+    if strict:              # not strict, items may be missing: the caller only looks at what does not fit
+        verify(P)
+
+
+def item_bands(P, L, items, extras):
+    """{item key: band index} for place's items: a switch number's turnout's band, a track or station name's own,
+    a block contents icon's or caller's item's block's (block_band)."""
+    places = block_places(P, L)
+    turnout_band = {t["ident"]: t["band"] for t in P.turnouts}
+    extra_block = {e["id"]: e["block"] for e in extras}
+    out = {}
+    for key, _make in items:
+        kind = key[0]
+        if kind == "switch":
+            out[key] = turnout_band[key[1]]
+        elif kind in ("name", "station"):
+            out[key] = key[1]
+        elif kind == "bci":
+            out[key] = block_band(L, places, key[1])
+        elif kind == "extra":
+            out[key] = block_band(L, places, extra_block[key[1]])
+        else:
+            raise SchematicError(f"le labels: no band known for an item of kind {kind}")
+    return out
+
+
+def place_items(L, items, optional):
+    """(done, failed, skipped) of placing `items` in rounds (place): every icon at full size if any order of rounds
+    allows it; only then the short reserve. `optional`: the names_last names, which may be left out (skipped)."""
     makers = dict(items)
     skipped = []
 
@@ -507,7 +604,6 @@ def place(P, bands, opts, strict=True, extras=None):
                 done.append(got[2](box))
         return done, failed, still
 
-    # every icon at full size if any order of rounds allows it; only then the short reserve
     for short in (False, True):
         first, tried, best = [], set(), None
         for _ in range(ROUNDS):
@@ -526,21 +622,7 @@ def place(P, bands, opts, strict=True, extras=None):
             done, failed, still = attempt(best[1], short)
         if not still:
             break
-    failed = still
-    if failed and strict:
-        raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
-    P.labels_unplaced = [(k, msg) for k, msg in failed]
-    P.names_skipped = [msg for _k, msg in skipped]
-    P.log += L.notes + [f"{msg} (names_last: left out)" for msg in P.names_skipped]
-    P.bcis, P.extras = [], []
-    for kind, d in done:
-        {"bci": P.bcis, "extra": P.extras}.get(kind, P.labels).append(d)
-    for lb in P.labels:
-        if "box" not in lb:
-            x0, y0, x1, y1 = label_box(lb)
-            lb["box"] = (x0, y0, x1 - x0, y1 - y0)
-    if strict:              # not strict, items may be missing: the caller only looks at what does not fit
-        verify(P)
+    return done, still, list(skipped)
 
 
 def place_round(L, items, first, again=()):
@@ -570,11 +652,25 @@ def specs(P, bands, opts, L, extras=()):
     make(state) gives (item, its spots, commit(box) -> ("label" or "bci", the dict P keeps)); `state` carries the
     side each number and name took, for the icons placed after them."""
     out = []
+    # a crossover drawn as two turnouts on its one name (P.split_names) has one number: by its lower turnout when
+    # the switch is in numbers_below, else by its upper one
+    numbered = {}
+    for t in P.turnouts:
+        if t["name"] in P.split_names:
+            below = (bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or "") in opts[t["band"]]["numbers_below"]
+            key = (t["band"], t["name"])
+            best = numbered.get(key)
+            if best is None or (t["at"][1] > best["at"][1] if below else t["at"][1] < best["at"][1]):
+                numbered[key] = t
     for t in P.turnouts:
         o = opts[t["band"]]
         label = bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
+        if t["name"] in P.split_names and numbered[(t["band"], t["name"])] is not t:
+            continue
         if label:
-            out.append((("switch", t["ident"]), _switch_number(L, t, o["switch_prefix"] + label, o)))
+            out.append((("switch", t["ident"]), _switch_number(L, t, o["switch_prefix"] + label, o,
+                                                               label in o["numbers_below"])))
+    named = []
     for (bi, sid), idents in sorted(P.strand_segments.items()):
         name = bands[bi][1]["strands"][sid]["name"]
         mine = [i for i in idents if i in L.world.track]
@@ -583,7 +679,11 @@ def specs(P, bands, opts, L, extras=()):
         if (bi, sid) in P.no_name:          # the drawing keeps no room for it: as before the label layer, no name
             P.log.append(f"{bands[bi][0]}: track {tidy([name])[0]}: no name placed ({P.no_name[(bi, sid)]})")
             continue
-        out.append((("name", bi, sid), _track_name(L, bi, tidy([name])[0], mine)))
+        named.append((bi, sid, tidy([name])[0], mine))
+    column = name_column_x(L, bands, opts, named)
+    L.reserved = lamp_boxes(L, opts, named, name_column_x(L, bands, opts, named, "lamp_columns"))
+    for bi, sid, text, mine in named:
+        out.append((("name", bi, sid), _track_name(L, bi, text, mine, column.get((bi, text)))))
     places = block_places(P, L)
     out += _extras(L, places, extras)       # before the icons: bigger, and rarer
     out += _bcis(P, L, places)
@@ -597,15 +697,16 @@ def _label_dict(it, box, kind, bi):
                          box=_boxed(box))
 
 
-def _switch_number(L, t, text, o):
+def _switch_number(L, t, text, o, below=False):
+    """`below`: the switch is in `numbers_below`, so its number is tried below its turnout first."""
     what = f"{L.bands[t['band']][0]}: switch number {text}"
     if "XOVER" in t["type"]:
         pts = list(t["pts"].values())
         region = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
-        up = True
+        up = not below
     else:
         region = (*t["at"], *t["at"])
-        up = diverges_down(t)               # the side away from the diverging leg first
+        up = not below and diverges_down(t)     # the side away from the diverging leg first
     marks = [(t["ident"], k) for k in L.halves(t)]
 
     def make(state, short=False):
@@ -620,7 +721,67 @@ def _switch_number(L, t, text, o):
     return make
 
 
-def _track_name(L, bi, text, mine):
+def level_span(lines):
+    """(x0, x1) of the level pieces of a track drawn as lines [(a, b)], or None when none is level."""
+    xs = [x for a, b in lines if abs(a[1] - b[1]) < 1e-6 for x in (a[0], b[0])]
+    return (min(xs), max(xs)) if xs else None
+
+
+def name_column_x(L, bands, opts, named, key="name_columns"):
+    """{(band, name): centre x} for each name of a band's `name_columns` (or `key`): the middle of the x range where
+    every track of its group runs level. Stops on a name that is no named track of the band, or a group with no such
+    range."""
+    out = {}
+    by = {(bi, text): mine for bi, _sid, text, mine in named}
+    for bi, (title, _band, _opts) in enumerate(bands):
+        for group in opts[bi][key]:
+            spans = []
+            for text in group:
+                if (bi, text) not in by:
+                    raise SchematicError(f"{title}: le_labels: {key} names {text}, which is no named track "
+                                         "with a name placed on the band")
+                span = level_span([pc for i in by[(bi, text)] for pc in L.pieces.get(("seg", i), [])])
+                if span is None:
+                    raise SchematicError(f"{title}: le_labels: {key}: track {text} runs level nowhere")
+                spans.append(span)
+            lo, hi = max(s[0] for s in spans), min(s[1] for s in spans)
+            if lo >= hi:
+                raise SchematicError(f"{title}: le_labels: {key} {group}: the tracks run level side by side "
+                                     "nowhere")
+            for text in group:
+                out[(bi, text)] = (lo + hi) / 2
+    return out
+
+
+def lamp_boxes(L, opts, named, xs):
+    """[{band, track, box}] of each lamp_columns track's lamp: lamp_size centred on its column's x, on the level
+    piece of its track there."""
+    by = {(bi, text): mine for bi, _sid, text, mine in named}
+    out = []
+    for (bi, text), cx in sorted(xs.items()):
+        w, h = opts[bi]["lamp_size"]
+        ys = [a[1] for i in by[(bi, text)] for a, b in L.pieces.get(("seg", i), [])
+              if abs(a[1] - b[1]) < 1e-6 and min(a[0], b[0]) <= cx <= max(a[0], b[0])]
+        if not ys:
+            raise SchematicError(f"{L.bands[bi][0]}: lamp_columns: track {text} has no level piece at x {cx:g} to "
+                                 "stand its lamp on")
+        out.append(dict(band=bi, track=text, box=(round(cx - w / 2), round(ys[0] - h / 2), w, h)))
+    return out
+
+
+def column(lines, w, h, cx):
+    """Top-left corners of a w x h box centred on x = cx beside the level piece of a track (lines) that spans cx,
+    above then below it, GAPS px out."""
+    ys = [a[1] for a, b in lines if abs(a[1] - b[1]) < 1e-6 and min(a[0], b[0]) <= cx <= max(a[0], b[0])]
+    for g in GAPS:
+        for y in ys[:1]:
+            yield cx - w / 2, y - g - h
+            yield cx - w / 2, y + g
+
+
+def _track_name(L, bi, text, mine, cx=None):
+    """make(state, short) for a track's name: beside its track (along), or, with `cx` (name_columns), only centred
+    on that x."""
     what = f"{L.bands[bi][0]}: track name {text}"
 
     def make(state, short=False):
@@ -631,7 +792,9 @@ def _track_name(L, bi, text, mine):
         def commit(box):
             state["name_side"].update({i: side(box, it["own_lines"]) for i in mine})
             return _label_dict(it, box, "name", bi)
-        return it, along(it["own_lines"], it["w"], it["h"], "above"), commit
+        spots = along(it["own_lines"], it["w"], it["h"], "above") if cx is None else \
+            column(it["own_lines"], it["w"], it["h"], cx)
+        return it, spots, commit
     return make
 
 
@@ -759,13 +922,38 @@ def _extras(L, places, extras):
             return "extra", dict(id=e["id"], block=e["block"], xy=[box[0], box[1]], band=bi, box=_boxed(box),
                                  on_track=it["on_track"])
         maker = by_block(L, places, e["block"], new_item, (w, w), done)
+        if "x" in e:                # the caller's x: only spots with the box's left edge there
+            maker = at_x(maker, e["x"], w, h)
         out.append((("extra", e["id"]), lambda state, short=False, maker=maker: None if short else maker(state)))
     return out
 
 
+def at_x(maker, x, w, h):
+    """make(state) like `maker`'s, its spots only those with the box's left edge at `x`: beside its own track where
+    a piece of it spans the box's middle (above, then below, GAPS px out), then on it."""
+    def make(state):
+        it, _spots, commit = maker(state)
+        cx = x + w / 2
+        ys = []
+        for a, b in it["own_lines"]:
+            if min(a[0], b[0]) <= cx <= max(a[0], b[0]) and abs(b[0] - a[0]) > 1e-6:
+                ys.append(a[1] + (b[1] - a[1]) * (cx - a[0]) / (b[0] - a[0]))
+
+        def spots():
+            for g in GAPS:
+                for y in ys:
+                    yield x, y - g - h
+                    yield x, y + g
+            for y in ys:
+                yield x, y - h / 2, True
+        return it, spots(), commit
+    return make
+
+
 def check_extras(extras, blocks=None):
     """The caller's block-tied items, checked: a list of {"id": non-empty text, unique; "block": a block name (one
-    the panel draws, once `blocks` is known); "size": [w, h] px above zero}; nothing else."""
+    the panel draws, once `blocks` is known); "size": [w, h] px above zero; optionally "x": the box's left edge, px
+    (at_x)}; nothing else."""
     if extras is None:
         return []
     if not isinstance(extras, (list, tuple)):
@@ -775,8 +963,9 @@ def check_extras(extras, blocks=None):
         where = f"extras[{i}]"
         if not isinstance(e, dict):
             raise SchematicError(f"{where} must be an object of id, block and size, not {e!r}")
-        if set(e) != {"id", "block", "size"}:
-            raise SchematicError(f"{where}: needs exactly id, block and size, not {', '.join(sorted(e)) or 'none'}")
+        if not {"id", "block", "size"} <= set(e) <= {"id", "block", "size", "x"}:
+            raise SchematicError(f"{where}: needs id, block and size (and may give x), not "
+                                 f"{', '.join(sorted(e)) or 'none'}")
         if not isinstance(e["id"], str) or not e["id"].strip():
             raise SchematicError(f"{where}: id must be non-empty text, not {e['id']!r}")
         if e["id"] in seen:
@@ -788,6 +977,9 @@ def check_extras(extras, blocks=None):
         if not (isinstance(size, (list, tuple)) and len(size) == 2 and
                 all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 for v in size)):
             raise SchematicError(f"extra {e['id']}: size must be [width, height] in px, both above zero")
+        if "x" in e and (isinstance(e["x"], bool) or not isinstance(e["x"], (int, float)) or
+                         not math.isfinite(e["x"])):
+            raise SchematicError(f"extra {e['id']}: x must be a number of px, not {e['x']!r}")
         if blocks is not None and e["block"] not in blocks:
             raise SchematicError(f"extra {e['id']}: block {e['block']!r} is not on the panel")
     return list(extras)
@@ -846,6 +1038,7 @@ def verify(P):
               for lb in P.labels]
     things += [(box_of(*b["box"]), f"block contents of {b['block']}", "bci") for b in P.bcis]
     things += [(box_of(*e["box"]), f"item {e['id']}", "bci") for e in getattr(P, "extras", [])]
+    things += [(box_of(*lp["box"]), f"lamp of {lp['track']}", "lamp") for lp in getattr(P, "lamps", [])]
     for box, what, kind in things:
         if kind != "mast" and (box[0] < 0 or box[1] < 0 or box[2] > P.size[0] or box[3] > P.size[1]):
             raise SchematicError(f"le labels: {what} lies outside the {P.size[0]}x{P.size[1]} px panel")
@@ -873,7 +1066,7 @@ def verify(P):
         ink.add(box_of(cen[0], cen[1], 0, 0), (cen, None, "a turnout's control circle", None))
     shapes = [(tuple(sh["centre"]), sh["r"]) for sh in P.shapes]
     for box, what, kind in things:
-        if kind == "mast":
+        if kind in ("mast", "lamp"):        # a lamp stands on its own track on purpose
             continue
         if kind != "fixed":                 # a connector's letter stands in its circle on purpose
             for c, r in shapes:
