@@ -604,15 +604,20 @@ def check_masts(key, masts, seen):
             raise SchematicError(f"{what}: icon must be [width, height] in pixels, both above zero")
 
 
-def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP):
+def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP,
+          labels_by_band=False):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
     text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
     beside their block's track (P.extras); the plugin writes nothing for them. `gap`: px between one band's lowest
-    drawing and the next band's highest (BAND_GAP), say to keep room under a band for what the caller adds there."""
+    drawing and the next band's highest (BAND_GAP), say to keep room under a band for what the caller adds there.
+    `labels_by_band`: the label layer places each band's labels in rounds of their own, top band first, each band's
+    standing for the next (le_labels.place), so a band's labels are the same whatever bands are drawn below it."""
+    if not isinstance(labels_by_band, bool):
+        raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
     if fit is None:
-        return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap)
+        return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band)
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
@@ -656,12 +661,13 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     if not fits(P):
         kx, ky = search(True)
         P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False, gap=gap)
-    label_layer(P, bands, page, extras)
+    label_layer(P, bands, page, extras, labels_by_band)
     P.scale, P.fit = (kx, ky), tuple(fit)
     return P
 
 
-def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None, gap=BAND_GAP):
+def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None, gap=BAND_GAP,
+               labels_by_band=False):
     """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
     idents (Panel.text). `labels`: then run the label layer (label_layer). `page` as given: the drawing takes the
     last band's options when it is None (_draw), the labels take none (le_labels.options), so a band's le_labels
@@ -676,7 +682,7 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
         raise SchematicError(P.text(str(e))) from None
     P.final_text()
     if labels:
-        label_layer(P, bands, page, extras)
+        label_layer(P, bands, page, extras, labels_by_band)
     return P
 
 
@@ -699,13 +705,13 @@ def geometry(P):
     return out
 
 
-def label_layer(P, bands, page, extras=None):
+def label_layer(P, bands, page, extras=None, by_band=False):
     """le_labels.place, then the check that it changed nothing of the drawing: every turnout, track segment, point,
     shape and mast icon, and the panel's size, as before it ran (the labels adapt to the approved geometry, never
     the reverse). Stops naming the first thing that differs."""
     before = geometry(P)
     try:
-        le_labels.place(P, bands, le_labels.options(bands, page), extras=extras)
+        le_labels.place(P, bands, le_labels.options(bands, page), extras=extras, by_band=by_band)
     except SchematicError as e:
         raise SchematicError(P.text(str(e))) from None
     P.final_text()

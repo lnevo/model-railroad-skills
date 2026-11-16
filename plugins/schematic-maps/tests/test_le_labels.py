@@ -277,6 +277,30 @@ def no_room_for_names(L, bi, text, mine):
     return lambda state, short=False: (lambda got: got and (got[0], iter(()), got[2]))(make(state, short))
 
 
+class ByBand(unittest.TestCase):
+    def test_a_bands_labels_are_the_same_whatever_is_drawn_below_it(self):
+        def placed(P, bi):
+            return sorted((lb["text"], tuple(lb["box"])) for lb in P.labels if lb["band"] == bi) + \
+                sorted((b["block"], tuple(b["box"])) for b in P.bcis if b["band"] == bi)
+        b = bands()
+        # the lower band's labels made much harder to place: the upper band's stay where they were
+        hard = [b[0]] + [(t, band, dict(o, le_labels={"block_contents_text": "OCS-123456"}))
+                         for t, band, o in b[1:]]
+        both = le.panel(b, labels_by_band=True)
+        self.assertEqual(placed(le.panel(hard, labels_by_band=True), 0), placed(both, 0))
+        self.assertNotEqual(placed(le.panel(hard, labels_by_band=True), 1), placed(both, 1))
+        self.assertEqual(sorted(x["block"] for x in both.bcis), sorted(both.blocks))
+        le_labels.verify(both)
+        with self.assertRaisesRegex(SchematicError, "labels_by_band must be true or false"):
+            le.panel(b, labels_by_band="yes")
+
+    def test_by_band_is_the_same_as_one_round_for_one_band(self):
+        b = bands()[:1]
+        one, by = le.panel(b), le.panel(b, labels_by_band=True)
+        self.assertEqual([(lb["text"], lb["box"]) for lb in one.labels], [(lb["text"], lb["box"]) for lb in by.labels])
+        self.assertEqual([(x["block"], x["box"]) for x in one.bcis], [(x["block"], x["box"]) for x in by.bcis])
+
+
 class NamesLast(unittest.TestCase):
     def test_a_names_last_band_leaves_out_a_name_with_no_room_and_logs_it(self):
         with mock.patch.object(le_labels, "_track_name", no_room_for_names):

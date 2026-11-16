@@ -81,6 +81,7 @@ instead of stopping: for a crowded band where every block's icon matters more th
 le_labels key only: the page's le_labels may not set it. Known limit: a name left out is not tried again in a later
 round (once every other item stands it takes what room is left).
 """
+import copy
 import itertools
 import math
 from collections import defaultdict
@@ -244,6 +245,7 @@ class Layer:
         from . import le_masts
         from .le import LABEL_SIZE, MARGIN
         self.P, self.bands, self.opts = P, bands, opts
+        self.kept = None            # what earlier bands placed, standing (place by band); None: nothing yet
         self.margin, self.name_size = MARGIN, LABEL_SIZE
         view = le_masts.PanelView(P)
         self.world = world = le_masts.World(view)
@@ -270,9 +272,13 @@ class Layer:
         self.reset()
 
     def reset(self):
-        """Nothing placed yet: the boxes to clear are the labels le drew itself, the mast icons and the circles."""
+        """Nothing placed yet: the boxes to clear are the labels le drew itself, the mast icons and the circles; and,
+        once a band's labels stand (place by band), those (self.kept)."""
         P = self.P
         self.notes = []                     # log lines of this round
+        if self.kept is not None:
+            self.boxes = copy.deepcopy(self.kept)
+            return
         self.boxes = Grid()                 # (box, (what, kind)) of every label, icon and circle to clear
         for lb in P.labels:
             self.boxes.add(label_box(lb), (f"label {lb['text']!r}", "a label"))
@@ -471,20 +477,77 @@ def diverges_down(t):
     return any(t["pts"][k][1] > t["at"][1] + 1e-6 for k in "BC")
 
 
-def place(P, bands, opts, strict=True, extras=None):
+def place(P, bands, opts, strict=True, extras=None, by_band=False):
     """Every switch number, track name, block contents icon and station name, then the check (module text). Items
     that find no clean spot are placed first in another round (up to ROUNDS): a crowded spot goes to what needs it
     most. Only when no order places every block contents icon at full size, the rounds run again with each icon
     that found no spot at full size taking the short reserve from then on, and after each round the icons still
     without one trying it against everything placed; the first round that places everything stands, else the one
-    that leaves the fewest. Strict, an item left with none stops; else it is
-    listed in P.labels_unplaced."""
+    that leaves the fewest. With `by_band`, each band's items go through those rounds on their own, top band first,
+    and what a band placed stands for the bands after it (so a band's labels do not depend on the bands below it).
+    Strict, an item left with none stops; else it is listed in P.labels_unplaced."""
     P.labels = [lb for lb in P.labels if lb["kind"] in FIXED]     # the rest only kept their room in the drawing
     L = Layer(P, bands, opts)
-    items = specs(P, bands, opts, L, check_extras(extras, P.blocks))
+    extras = check_extras(extras, P.blocks)
+    items = specs(P, bands, opts, L, extras)
     # a band's names_last: its track names go after everything else and may be left out
     optional = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
     items = [it for it in items if it[0] not in optional] + [it for it in items if it[0] in optional]
+    if by_band:
+        band = item_bands(P, L, items, extras)
+        groups = [[it for it in items if band[it[0]] == bi] for bi in sorted(set(band.values()))]
+    else:
+        groups = [items]
+    done, failed, skipped, notes = [], [], [], []
+    for group in groups:
+        g_done, g_failed, g_skipped = place_items(L, group, optional)
+        done += g_done
+        failed += g_failed
+        skipped += g_skipped
+        notes += L.notes
+        L.kept = copy.deepcopy(L.boxes)         # this band's labels stand for the next
+    L.kept = None
+    if failed and strict:
+        raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
+    P.labels_unplaced = [(k, msg) for k, msg in failed]
+    P.names_skipped = [msg for _k, msg in skipped]
+    P.log += notes + [f"{msg} (names_last: left out)" for msg in P.names_skipped]
+    P.bcis, P.extras = [], []
+    for kind, d in done:
+        {"bci": P.bcis, "extra": P.extras}.get(kind, P.labels).append(d)
+    for lb in P.labels:
+        if "box" not in lb:
+            x0, y0, x1, y1 = label_box(lb)
+            lb["box"] = (x0, y0, x1 - x0, y1 - y0)
+    if strict:              # not strict, items may be missing: the caller only looks at what does not fit
+        verify(P)
+
+
+def item_bands(P, L, items, extras):
+    """{item key: band index} for place's items: a switch number's turnout's band, a track or station name's own,
+    a block contents icon's or caller's item's block's (block_band)."""
+    places = block_places(P, L)
+    turnout_band = {t["ident"]: t["band"] for t in P.turnouts}
+    extra_block = {e["id"]: e["block"] for e in extras}
+    out = {}
+    for key, _make in items:
+        kind = key[0]
+        if kind == "switch":
+            out[key] = turnout_band[key[1]]
+        elif kind in ("name", "station"):
+            out[key] = key[1]
+        elif kind == "bci":
+            out[key] = block_band(L, places, key[1])
+        elif kind == "extra":
+            out[key] = block_band(L, places, extra_block[key[1]])
+        else:
+            raise SchematicError(f"le labels: no band known for an item of kind {kind}")
+    return out
+
+
+def place_items(L, items, optional):
+    """(done, failed, skipped) of placing `items` in rounds (place): every icon at full size if any order of rounds
+    allows it; only then the short reserve. `optional`: the names_last names, which may be left out (skipped)."""
     makers = dict(items)
     skipped = []
 
@@ -507,7 +570,6 @@ def place(P, bands, opts, strict=True, extras=None):
                 done.append(got[2](box))
         return done, failed, still
 
-    # every icon at full size if any order of rounds allows it; only then the short reserve
     for short in (False, True):
         first, tried, best = [], set(), None
         for _ in range(ROUNDS):
@@ -526,21 +588,7 @@ def place(P, bands, opts, strict=True, extras=None):
             done, failed, still = attempt(best[1], short)
         if not still:
             break
-    failed = still
-    if failed and strict:
-        raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
-    P.labels_unplaced = [(k, msg) for k, msg in failed]
-    P.names_skipped = [msg for _k, msg in skipped]
-    P.log += L.notes + [f"{msg} (names_last: left out)" for msg in P.names_skipped]
-    P.bcis, P.extras = [], []
-    for kind, d in done:
-        {"bci": P.bcis, "extra": P.extras}.get(kind, P.labels).append(d)
-    for lb in P.labels:
-        if "box" not in lb:
-            x0, y0, x1, y1 = label_box(lb)
-            lb["box"] = (x0, y0, x1 - x0, y1 - y0)
-    if strict:              # not strict, items may be missing: the caller only looks at what does not fit
-        verify(P)
+    return done, still, list(skipped)
 
 
 def place_round(L, items, first, again=()):
