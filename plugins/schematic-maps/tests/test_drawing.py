@@ -143,20 +143,24 @@ class Labels(unittest.TestCase):
         self.assertEqual(out["AB"], (20, -10, "middle"))
         self.assertEqual(p.unplaced, ["t CD"])
 
-    def test_line_prefilter_agrees_with_the_exact_distance(self):
-        """The bounding-box shortcut in labels._line_hits never changes the answer of the exact test."""
+    def test_seg_box_within_agrees_with_the_exact_distance(self):
+        """The bounding-box shortcut in label_check.seg_box_within never changes the answer of the exact gap."""
         import random
         rng = random.Random(3)
         box = (10.0, 10.0, 30.0, 18.0)
         for _ in range(20000):
             a = (rng.uniform(-20, 60), rng.uniform(-20, 50))
             b = (rng.uniform(-20, 60), rng.uniform(-20, 50)) if rng.random() < 0.9 else a
-            w, pad = rng.choice((0.0, 1.4, 2.0, 6.0)), rng.choice((0.0, labels.PAD))
-            exact = label_check.seg_box_gap(a, b, box) < w / 2 + pad
-            self.assertEqual(labels._line_hits(a, b, w, box, pad), exact, (a, b, w, pad))
+            t = rng.choice((0.0, 0.7, 1.9, 4.2))
+            self.assertEqual(label_check.seg_box_within(a, b, box, t), label_check.seg_box_gap(a, b, box) < t, (a, b, t))
+        within = label_check.seg_box_within
         for a, b in (((0, 14), (40, 14)), ((20, 0), (20, 30)), ((5, 5), (35, 23))):   # through the box
-            self.assertTrue(labels._line_hits(a, b, 1.4, box, labels.PAD))
-        self.assertFalse(labels._line_hits((0, 30), (40, 30), 1.4, box, labels.PAD))  # well below it
+            self.assertTrue(within(a, b, box, 1.9))
+        # exactly t away on one axis: the gap equals t, so not within; a hair closer is within
+        self.assertFalse(within((31.9, 0), (31.9, 30), box, 1.9))
+        self.assertFalse(within((0, 8.1), (40, 8.1), box, 1.9))
+        self.assertTrue(within((31.8, 0), (31.8, 30), box, 1.9))
+        self.assertFalse(within((0, 30), (40, 30), box, 1.9))                         # well below it
 
     def test_placer_places_the_hardest_label_first(self):
         p = labels.Placer()

@@ -120,6 +120,15 @@ def seg_box_gap(a, b, box):
     return min(best, *(_pt_seg(p, c, d) for p in (a, b) for c, d in edges))
 
 
+def seg_box_within(a, b, box, t):
+    """Whether segment ab comes closer than t to the box: seg_box_gap(a, b, box) < t. A segment whose bounding box is
+    t or more away on either axis answers False at once, since the exact gap is never smaller than an axis gap."""
+    if (min(a[0], b[0]) >= box[2] + t or max(a[0], b[0]) <= box[0] - t
+            or min(a[1], b[1]) >= box[3] + t or max(a[1], b[1]) <= box[1] - t):
+        return False
+    return seg_box_gap(a, b, box) < t
+
+
 def _pt_seg(p, a, b):
     dx, dy = b[0] - a[0], b[1] - a[1]
     L = dx * dx + dy * dy
@@ -146,7 +155,7 @@ def check(svg):
     T = out["texts"]
     for i, (t, box) in enumerate(T):
         for a, b, w in lines:
-            if seg_box_gap(a, b, box) < w / 2 + PAD:
+            if seg_box_within(a, b, box, w / 2 + PAD):
                 faults.append(("track", t, f"line {a[0]:.0f},{a[1]:.0f}-{b[0]:.0f},{b[1]:.0f}", box))
                 break
         for kind, sb in out["shapes"]:

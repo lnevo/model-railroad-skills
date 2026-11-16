@@ -13,7 +13,7 @@ Positions are SVG text anchors: (x, baseline y, text-anchor).
 """
 import math
 
-from .label_check import BELOW, CAP, _pt_seg, boxes_overlap, seg_box_gap, text_width
+from .label_check import BELOW, CAP, _pt_seg, boxes_overlap, seg_box_within, text_width
 
 PAD = 1.2
 MARK_HALF = 3.5       # half the width of a mark (a milepost diamond) that stands between a label and its track
@@ -23,16 +23,6 @@ def text_box(x, y, anchor, s, size, weight, spacing=0.0):
     w = text_width(s, size, weight, spacing)
     x0 = x - (w / 2 if anchor == "middle" else w if anchor == "end" else 0)
     return (x0, y - CAP * size, x0 + w, y + BELOW * size)
-
-
-def _line_hits(a, b, w, box, pad):
-    """Whether line ab of width w comes within w/2 + pad of the box. A line whose bounding box is that far away
-    on either axis is clear without the exact distance, which is never smaller than the axis gap."""
-    t = w / 2 + pad
-    if (min(a[0], b[0]) >= box[2] + t or max(a[0], b[0]) <= box[0] - t
-            or min(a[1], b[1]) >= box[3] + t or max(a[1], b[1]) <= box[1] - t):
-        return False
-    return seg_box_gap(a, b, box) < t
 
 
 class Placer:
@@ -50,12 +40,12 @@ class Placer:
         self.boxes.append(b)
 
     def clear(self, box, pad=PAD):
-        if any(_line_hits(a, b, w, box, pad) for a, b, w in self.lines):
+        if any(seg_box_within(a, b, box, w / 2 + pad) for a, b, w in self.lines):
             return False
         return not any(boxes_overlap(box, o, pad) for o in self.boxes)
 
     def cost(self, box):
-        c = sum(1 for a, b, w in self.lines if _line_hits(a, b, w, box, PAD))
+        c = sum(1 for a, b, w in self.lines if seg_box_within(a, b, box, w / 2 + PAD))
         return c + sum(1 for o in self.boxes if boxes_overlap(box, o, PAD))
 
     def ask(self, what, s, size, cands, weight="normal", extra="", spacing=0.0, emit=None, room=(), reach=None):
