@@ -269,6 +269,62 @@ class Crossover(unittest.TestCase):
                 le.panel(crossover_band(), {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 8"}}})
 
 
+class BandPlaces(unittest.TestCase):
+    def test_band_align_puts_a_band_against_an_edge_of_the_widest(self):
+        page = dict(bands()[-1][2])
+        base = panel()
+        widths = [le.extent(base, bi)[2] - le.extent(base, bi)[0] for bi in range(len(bands()))]
+        narrow = widths.index(min(widths))
+        key = bands()[narrow][0].split()[0]
+        x = lambda P: min(t["cen"][0] for t in P.turnouts if t["band"] == narrow)     # noqa: E731
+        moved = {side: x(le.panel(bands(), page=dict(page, band_align={key: side}))) - x(base)
+                 for side in ("left", "centre", "right")}
+        self.assertEqual(moved["centre"], 0)
+        self.assertLess(moved["left"], 0)                       # the narrower band to the left edge ...
+        self.assertAlmostEqual(moved["right"], -moved["left"])  # ... or as far to the right
+        other = 1 - narrow
+        self.assertEqual([t["cen"] for t in le.panel(bands(), page=dict(page, band_align={key: "left"})).turnouts
+                          if t["band"] == other], [t["cen"] for t in base.turnouts if t["band"] == other])
+        for bad, shown in (({"Nowhere": "left"}, "Nowhere \\(no band"), ({key: "middle"}, "'middle'"),
+                           (["left"], "not \\['left'\\]")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "band_align.*" + shown):
+                le.panel(bands(), page=dict(page, band_align=bad))
+
+    def test_band_align_may_name_a_band_the_page_knows_but_not_drawn(self):
+        page = dict(bands()[-1][2])                         # band_order: Upper, Lower
+        lower = [b for b in bands() if b[0].startswith("Lower")]
+        P = le.panel(lower, page=dict(page, band_align={"Upper": "right"}))      # `schematic le --band Lower`
+        self.assertTrue(P.turnouts)
+        with self.assertRaisesRegex(SchematicError, "Nowhere"):
+            le.panel(lower, page=dict(page, band_align={"Nowhere": "right"}))
+
+    def test_gap_is_checked_on_every_path(self):
+        for gap in (-1, "9", True, float("nan")):
+            for draw in (lambda g: le.panel(bands(), gap=g), lambda g: le.panel(bands(), gap=g, fit=(1300, 700)),
+                         lambda g: le.draw_panel(bands(), None, le.CELL, le.ROW, None, gap=g)):
+                with self.subTest(gap=gap), self.assertRaisesRegex(SchematicError, "gap between bands"):
+                    draw(gap)
+
+    def test_gap_moves_the_bands_below_down(self):
+        base, wide = panel(), le.panel(bands(), gap=le.BAND_GAP + 50)
+        self.assertAlmostEqual(le.extent(wide, 0)[1], le.extent(base, 0)[1])
+        self.assertAlmostEqual(le.extent(wide, 1)[1], le.extent(base, 1)[1] + 50)
+        for bad in (-1, "96", True, float("nan")):
+            with self.subTest(gap=bad), self.assertRaisesRegex(SchematicError, "gap between bands"):
+                le.panel(bands(), gap=bad)
+
+    def test_a_joined_end_is_numbered_among_the_ends(self):
+        P = panel()
+        joined = {i for (_b, i) in P.join_ends}
+        self.assertTrue(joined)
+        self.assertTrue(all(re.fullmatch(r"AGE\d+", i) for i in joined), joined)
+        self.assertEqual(le.jmri_kind(next(iter(joined))), "point")
+        self.assertTrue(le.GENERATED.fullmatch("AGE3"))
+        ends = sorted(int(re.sub(r"\D", "", k)) for k, p in P.points.items()
+                      if p["type"] == "END_BUMPER" or k in joined)
+        self.assertEqual(ends, list(range(1, len(ends) + 1)))        # one count for bumpers and joined ends
+
+
 class Names(unittest.TestCase):
     NAMES = {"Lower": {"turnouts": {"S1": "Turnout One"}, "os": {"S1": "OS One"}, "normal": {"S4": "C"},
                        "blocks": {"e1": ["Main West 1", "Main West 2"]}}}
@@ -581,8 +637,59 @@ class ReviewFixes(unittest.TestCase):
             self.assertLessEqual(box[3], P.size[1])
 
     def test_one_turnout_name_on_two_switches_stops(self):
-        with self.assertRaisesRegex(SchematicError, "two separate turnouts"):
+        with self.assertRaisesRegex(SchematicError, "given to 2 turnouts, but this band does not list it"):
             le.panel(bands(), {"Lower": {"turnouts": {"S1": "Switch X", "S2": "Switch X"}}})
+
+    def test_a_shared_turnout_name_is_one_turnout_drawn_twice(self):
+        # one band: two switches drawn as two turnouts, one JMRI turnout
+        P = le.panel(bands(), {"Lower": {"turnouts": {"S1": "Switch X", "S2": "Switch X"},
+                                         "shared_turnouts": ["Switch X"]}})
+        self.assertEqual(sum(t["name"] == "Switch X" for t in P.turnouts), 2)
+        self.assertEqual(sum(x.get("turnoutname") == "Switch X" for x in element(P).findall("layoutturnout")), 2)
+        # two bands: each lists it
+        P = le.panel(bands(), {"Lower": {"turnouts": {"S1": "Switch Y"}, "shared_turnouts": ["Switch Y"]},
+                               "Upper": {"turnouts": {"U1": "Switch Y"}, "shared_turnouts": ["Switch Y"]}})
+        self.assertEqual(sorted(t["band"] for t in P.turnouts if t["name"] == "Switch Y"), [0, 1])
+
+    def test_shared_turnout_names_are_checked(self):
+        cases = (
+            ({"Lower": {"turnouts": {"S1": "Switch Y"}, "shared_turnouts": ["Switch Y"]},
+              "Upper": {"turnouts": {"U1": "Switch Y"}}}, "does not list it in shared_turnouts"),
+            ({"Lower": {"turnouts": {"S1": "Switch Y"}}, "Upper": {"turnouts": {"U1": "Switch Y"},
+                                                                    "shared_turnouts": ["Switch Y"]}},
+             "Lower level: turnout name 'Switch Y' is given to 2 turnouts, but this band does not list it"),
+            ({"Lower": {"turnouts": {"S1": "Switch X"}, "shared_turnouts": ["Switch X"]}}, "it shares nothing"),
+            ({"Lower": {"turnouts": {"S1": "Switch X"}, "shared_turnouts": ["Switch Z"]}},
+             "no switch of the band is given"),
+            ({"Lower": {"turnouts": {"S1": "Switch X"}, "shared_turnouts": "Switch X"}}, "must be a list"),
+            ({"Lower": {"turnouts": {"S1": "Switch X"}, "shared_turnouts": ["Switch X", "Switch X"]}},
+             "must be a list of different"),
+        )
+        for names, why in cases:
+            with self.assertRaisesRegex(SchematicError, why, msg=names):
+                le.panel(bands(), names)
+
+    def test_shared_turnouts_are_checked_once_before_drawing(self):
+        lower = [b for b in bands() if b[0].startswith("Lower")]
+        page = dict(bands()[-1][2])                         # its band_order names Upper too
+        one = {"Lower": {"turnouts": {"S1": "Switch Y"}, "shared_turnouts": ["Switch Y"]}}
+        P = le.panel(lower, one, page=page)                 # the other half on Upper, not drawn: fine, and said
+        self.assertTrue(any("shared turnout 'Switch Y' is drawn once here" in line for line in P.log), P.log)
+        with self.assertRaisesRegex(SchematicError, "drawn as 1 turnout; it shares nothing"):
+            le.panel(bands(), one, page=page)                # both bands drawn, given once
+        three = {"Lower": {"turnouts": {"S1": "Switch Y", "S2": "Switch Y"}, "shared_turnouts": ["Switch Y"]},
+                 "Upper": {"turnouts": {"U1": "Switch Y"}, "shared_turnouts": ["Switch Y"]}}
+        with self.assertRaisesRegex(SchematicError, "given to 3 turnouts; one turnout is drawn at most twice"):
+            le.panel(bands(), three)
+        with mock.patch.object(le.Band, "build") as build, self.assertRaisesRegex(SchematicError, "shares nothing"):
+            le.panel(bands(), one, page=page)
+        build.assert_not_called()                           # stopped before anything was drawn
+
+    def test_the_drawn_turnouts_must_match_the_names_count(self):
+        P = le.Panel()
+        P.turnouts = [dict(name="Switch Y"), dict(name="Switch Y")]
+        with self.assertRaisesRegex(SchematicError, "Switch Y \\(2 drawn, 1 given\\)"):
+            le.check_shared(P, {"Switch Y": 1})
 
     def test_names_for_switches_or_tracks_that_are_not_there_stop(self):
         for bad in ({"blocks": {"nope": ["X"]}}, {"turnouts": {"e1": "X"}}, {"os": {"nope": "X"}},

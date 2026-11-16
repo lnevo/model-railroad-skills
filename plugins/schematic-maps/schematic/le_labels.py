@@ -74,7 +74,12 @@ of the track lines rather than reusing Layer's (it checks from scratch).
 Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-     "block_contents_short": "OCS-1"}
+     "block_contents_short": "OCS-1", "names_last": false}
+`names_last` (a band's): that band's track names are placed after every other item of the panel (block contents
+icons and caller's items included), and a name with no clean spot then is left out and logged (P.names_skipped)
+instead of stopping: for a crowded band where every block's icon matters more than its name. It is the band's own
+le_labels key only: the page's le_labels may not set it. Known limit: a name left out is not tried again in a later
+round (once every other item stands it takes what room is left).
 """
 import itertools
 import math
@@ -101,7 +106,7 @@ GRID = 64           # px per cell of the indexes
 
 DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-            "block_contents_short": "OCS-1"}
+            "block_contents_short": "OCS-1", "names_last": False}
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 
 
@@ -114,7 +119,7 @@ def _check(where, o):
     if unknown:
         raise SchematicError(f"{where}: le_labels: unknown key {', '.join(unknown)} (keys: {', '.join(DEFAULTS)})")
     for k, v in o.items():
-        if k in ("switch_bold", "block_contents"):
+        if k in ("switch_bold", "block_contents", "names_last"):
             if not isinstance(v, bool):
                 raise SchematicError(f"{where}: le_labels: {k} must be true or false, not {v!r}")
         elif k.endswith("_size"):
@@ -132,6 +137,10 @@ def options(bands, page):
     page = page or {}
     if "le_labels" in page:
         _check("page", page["le_labels"])
+        own = any(page is opts for _t, _b, opts in bands)       # the page is a band's own options: allowed there
+        if "names_last" in page["le_labels"] and not own:
+            raise SchematicError("page: le_labels: names_last is a band's own option (its track names go last); set "
+                                 "it in that band's le_labels, not the page's")
     out = []
     for title, _band, opts in bands:
         opts = opts or {}
@@ -139,6 +148,7 @@ def options(bands, page):
             _check(title, opts["le_labels"])
         stations.entries(opts)
         o = {**DEFAULTS, **page.get("le_labels", {}), **opts.get("le_labels", {})}
+        o["names_last"] = opts.get("le_labels", {}).get("names_last", False)     # the band's own, never the page's
         if jmri_text.width(o["block_contents_short"], o["block_contents_size"]) >= \
                 jmri_text.width(o["block_contents_text"], o["block_contents_size"]):
             raise SchematicError(f"{title}: le_labels: block_contents_short {o['block_contents_short']!r} must be "
@@ -472,14 +482,21 @@ def place(P, bands, opts, strict=True, extras=None):
     P.labels = [lb for lb in P.labels if lb["kind"] in FIXED]     # the rest only kept their room in the drawing
     L = Layer(P, bands, opts)
     items = specs(P, bands, opts, L, check_extras(extras, P.blocks))
+    # a band's names_last: its track names go after everything else and may be left out
+    optional = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
+    items = [it for it in items if it[0] not in optional] + [it for it in items if it[0] in optional]
     makers = dict(items)
+    skipped = []
 
     def attempt(first, short):
         """One round in that order; with `short`, the block contents icons in `first` (they found no spot at full
         size in an earlier round) take the short reserve in their turn, and each icon left without a spot then tries
-        it against everything placed."""
+        it against everything placed. An optional name (names_last) that finds no spot is set aside in `skipped`,
+        never put first in a later round."""
         L.reset()
         done, failed, state = place_round(L, items, first, set(first) if short else ())
+        skipped[:] = [(k, why) for k, why in failed if k in optional]
+        failed = [(k, why) for k, why in failed if k not in optional]
         still = []
         for key, why in failed:                     # only what failed at full size gets the short reserve
             got = makers[key](state, short=True) if short else None
@@ -513,7 +530,8 @@ def place(P, bands, opts, strict=True, extras=None):
     if failed and strict:
         raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
     P.labels_unplaced = [(k, msg) for k, msg in failed]
-    P.log += L.notes
+    P.names_skipped = [msg for _k, msg in skipped]
+    P.log += L.notes + [f"{msg} (names_last: left out)" for msg in P.names_skipped]
     P.bcis, P.extras = [], []
     for kind, d in done:
         {"bci": P.bcis, "extra": P.extras}.get(kind, P.labels).append(d)
