@@ -193,6 +193,27 @@ class SheetCache(unittest.TestCase):
         names = {f.name for f in cache.modules("le")}
         self.assertTrue({"le_masts.py", "le_labels.py", "slots.py", "layout.py"} <= names)   # le_masts: in a function
 
+    def test_a_module_the_key_cannot_follow_solves_without_the_cache(self):
+        with mock.patch.object(cache, "modules", side_effect=cache.Unfollowed("x.py imports this package oddly")), \
+                mock.patch("sys.stderr") as err:
+            self.assertIsNone(cache.key(self.inputs, self.data, True, False))
+            self.assertEqual(self.solves(), 1)
+            self.assertEqual(cache.memo("m", ("le",), 1, lambda: "computed"), "computed")
+        self.assertIn("working without the cache", "".join(c.args[0] for c in err.write.call_args_list))
+        self.assertFalse(list(self.where.glob("*.pickle")))
+
+    def test_an_import_the_key_cannot_follow_is_found(self):
+        pkg = self.tmp / "pkg"
+        pkg.mkdir()
+        (pkg / "a.py").write_text("def f():\n    from .. import b\n")
+        with mock.patch.object(cache, "PACKAGE", pkg):
+            cache.modules.cache_clear()
+            try:
+                with self.assertRaises(cache.Unfollowed):
+                    cache.modules("a")
+            finally:
+                cache.modules.cache_clear()
+
     def test_an_unknown_module_is_a_clear_error(self):
         with self.assertRaises(SchematicError) as e:
             cache.modules("no_such_module")
@@ -253,6 +274,26 @@ class PanelCache(unittest.TestCase):
         with mock.patch.dict(os.environ, {cache.ENV: ""}):
             cold = le.panel(self.bands, None, fit=self.fit, labels_by_band=True)
         self.assertEqual(xml(second), xml(cold))
+
+    def test_a_new_title_block_keeps_the_panel(self):
+        self.draws(fit=self.fit, page=dict(self.bands[-1][2]))
+        self.bands = [(t, b, dict(o, date="2030-01-01", revision=99, sheet="9 of 9")) for t, b, o in self.bands]
+        again, n = self.draws(fit=self.fit, page=dict(self.bands[-1][2]))
+        self.assertEqual(n, 0)
+        with mock.patch.dict(os.environ, {cache.ENV: ""}):
+            cold = le.panel(self.bands, None, fit=self.fit, page=dict(self.bands[-1][2]))
+        self.assertEqual(xml(again), xml(cold))
+
+    def test_a_kept_grid_that_no_longer_fits_as_searched_stops(self):
+        import pickle
+        self.draws(fit=self.fit)
+        where = Path(os.environ[cache.ENV])
+        grids = [f for f in where.glob("*.pickle") if isinstance(pickle.loads(f.read_bytes()), tuple)]
+        self.assertEqual(len(grids), 1)
+        grids[0].write_bytes(pickle.dumps((1.0, 1.0, True)))      # a grid the panel does not fit at
+        with self.assertRaises(SchematicError) as e:
+            le.panel(self.bands, None, fit=self.fit, labels_by_band=True)
+        self.assertIn("clear the cache folder", str(e.exception))
 
     def test_every_call_gets_its_own_copy(self):
         a = le.panel(self.bands, None)

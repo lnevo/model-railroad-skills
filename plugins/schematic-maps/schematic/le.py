@@ -655,10 +655,17 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     if fit is not None and crossover_run is not None:
         raise SchematicError("crossover_run is for a panel drawn at a given grid, not one fitted to a window")
     # with SCHEMATIC_CACHE set, a panel drawn before from the same arguments and the same code is read back
+    # (the key leaves out the title block's fields, which no panel draws: a new revision keeps the panels)
     args = dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit, extras=extras, gap=gap,
                 labels_by_band=labels_by_band, crossover_run=crossover_run, tight_crossovers=tight_crossovers,
                 split_crossovers=split_crossovers)
-    return cache.memo("le-panel", ["le"], args, lambda: _panel(**args))
+    keyed = dict(args, bands=untitled(bands), page=cache.untitled(page))
+    return cache.memo("le-panel", ("le",), keyed, lambda: _panel(**args))
+
+
+def untitled(bands):
+    """The bands for a cache key: each one's options without the title block's fields (cache.TITLE_FIELDS)."""
+    return [(t, b, cache.untitled(o)) for t, b, o in bands]
 
 
 def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, crossover_run, tight_crossovers,
@@ -719,14 +726,18 @@ def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, cros
             kx, ky = search(True)
             P = draw(kx, ky)
         drawn[kx, ky] = P
-        return kx, ky
+        return kx, ky, fits(P)
 
-    kx, ky = cache.memo("le-fit", ["le"], dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit,
-                                                  gap=gap, split_crossovers=split_crossovers), settle)
-    P = drawn.get((kx, ky)) or draw(kx, ky)
-    if not fits(P):             # the grid settle() returns always fits: a kept one that does not is a stale entry
-        raise SchematicError(f"the kept fit grid ({kx:g}, {ky:g}) gives a {P.size[0]}x{P.size[1]} px panel, past "
-                             f"the {fit[0]}x{fit[1]} px window; clear the cache folder ({cache.ENV})")
+    kx, ky, fitted = cache.memo("le-fit", ("le",), dict(bands=untitled(bands), names=names, cell=cell, row=row,
+                                                           page=cache.untitled(page), fit=fit, gap=gap,
+                                                           split_crossovers=split_crossovers), settle)
+    P = drawn.get((kx, ky))
+    if P is None:               # a kept grid: drawn at it, it must fit (or not) as it did when it was searched
+        P = draw(kx, ky)
+        if fits(P) != fitted:
+            raise SchematicError(f"the kept fit grid ({kx:g}, {ky:g}) gives a {P.size[0]}x{P.size[1]} px panel for a "
+                                 f"{fit[0]}x{fit[1]} px window, not as when it was searched; clear the cache folder "
+                                 f"({cache.ENV})")
     label_layer(P, bands, page, extras, labels_by_band)
     P.scale, P.fit = (kx, ky), tuple(fit)
     return P

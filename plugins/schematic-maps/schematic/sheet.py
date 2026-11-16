@@ -28,15 +28,14 @@ class Sheet:
 
     def svg(self):
         if self._svg is None:           # drawing is the slow part; the room check and write share one render
-            o = dict(self.opts, title=self.opts.get("system_title", self.opts["title"]), _folds=[])
-            self._svg = draw.page_svg(self.bands, o)
-            self.log.extend(o["_folds"])
+            self.log.extend(self.redraw())
         return self._svg
 
     def redraw(self):
-        """Draw the page again from the options as they are now; the log keeps the first drawing's fold lines."""
+        """Draw the page from the options as they are now; returns the fold lines (svg() logs the first drawing's)."""
         o = dict(self.opts, title=self.opts.get("system_title", self.opts["title"]), _folds=[])
         self._svg = draw.page_svg(self.bands, o)
+        return o["_folds"]
 
     def write(self, out):
         Path(out).write_text(self.svg())

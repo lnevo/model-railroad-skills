@@ -23,6 +23,7 @@ keyed are reported on stderr and the work goes on without the cache; only a fold
 since that is a wrong setting.
 """
 import ast
+import functools
 import hashlib
 import json
 import os
@@ -66,9 +67,16 @@ def read_files(inputs, data):
     return [d / f"{name}.{kind}.json" for _, name in inputs for kind in LAYER_KINDS] + [d / "sheet.preferences.json"]
 
 
+class Unfollowed(Exception):
+    """A module imports this package in a way modules() cannot follow."""
+
+
+@functools.lru_cache(maxsize=None)
 def modules(*roots):
     """Sorted paths of the package modules `roots` (names such as "sheet") run: each root and every module of this
-    package it imports, at the top of a file or inside a function, followed through the modules it reaches."""
+    package it imports, at the top of a file or inside a function, followed through the modules it reaches. Worked
+    out once per process: the source does not change while it runs. Raises Unfollowed for an import of the package
+    it cannot follow (a parent-relative or absolute one) and SchematicError for a root that is no module."""
     todo, seen = list(roots), set()
     while todo:
         name = todo.pop()
@@ -87,13 +95,20 @@ def modules(*roots):
             elif isinstance(node, ast.ImportFrom) and node.level > 1 or \
                     isinstance(node, (ast.Import, ast.ImportFrom)) and \
                     any((getattr(node, "module", None) or a.name).split(".")[0] == PACKAGE.name for a in node.names):
-                raise SchematicError(f"cache: {path.name} imports this package in a way the key cannot follow")
-    return sorted(PACKAGE / f"{n}.py" for n in seen)
+                raise Unfollowed(f"{path.name} imports this package in a way the key cannot follow")
+    return tuple(sorted(PACKAGE / f"{n}.py" for n in seen))
 
 
 def _sources(h, roots):
-    for f in modules(*roots):
+    """Hash the source of the modules `roots` run into h; False (and a warning) when they cannot be found."""
+    try:
+        files = modules(*roots)
+    except Unfollowed as exc:
+        warn(f"{exc}; working without the cache")
+        return False
+    for f in files:
         h.update(f.name.encode() + b"\0" + f.read_bytes() + b"\0")
+    return True
 
 
 def _layer_bytes(f):
@@ -112,10 +127,11 @@ def _layer_bytes(f):
 
 def key(inputs, data, preferences, hints):
     """A hex digest of everything sheet.build reads for these arguments but the title block's own fields, or None
-    (and a warning) when a graph given as a dict is not plain JSON."""
+    (and a warning) when a graph given as a dict is not plain JSON or the solve's modules cannot be followed."""
     h = hashlib.sha256(VERSION)
     h.update(sys.version.encode())                 # pickles are read back by the same Python only
-    _sources(h, ["sheet", "cache"])
+    if not _sources(h, ("sheet", "cache")):
+        return None
     for graph, name in inputs:
         if isinstance(graph, dict):
             try:
@@ -153,6 +169,11 @@ def _encode(obj, out):
     return out
 
 
+def untitled(opts):
+    """Options without the title block's fields (TITLE_FIELDS), for a key of something that does not draw them."""
+    return {k: v for k, v in opts.items() if k not in TITLE_FIELDS} if isinstance(opts, dict) else opts
+
+
 def digest(obj):
     """A hex digest of plain data (None, bool, int, float, str, and lists, tuples, sets and dicts of them), the same
     whatever the order of a dict or set. Raises TypeError for anything else."""
@@ -167,7 +188,8 @@ def memo(name, roots, args, compute):
     if where is None:
         return compute()
     h = hashlib.sha256(VERSION + b"\0" + name.encode() + b"\0" + sys.version.encode())
-    _sources(h, roots)
+    if not _sources(h, tuple(roots)):
+        return compute()
     try:
         h.update(digest(args).encode())
     except TypeError as exc:
