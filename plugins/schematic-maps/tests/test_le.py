@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 import helpers
-from schematic import le
+from schematic import le, le_labels
 from schematic.core import SchematicError
 
 
@@ -466,9 +466,10 @@ class Idents(unittest.TestCase):
             self.assertLess(math.dist(p[leg], t0["pts"][other]), 0.01)
         self.assertGreater(math.dist(t["cen"], t0["cen"]), 1)              # the centre moved...
         self.assertEqual(t["at"], t0["cen"])                                # ...not where the legs meet
-        label = next(lb for lb in P.labels if lb["text"] == "4")           # its number placed as without leg_b
-        label0 = next(lb for lb in plain.labels if lb["text"] == "4")
-        self.assertEqual(label["xy"], label0["xy"])
+        box = le_labels.box_of(*next(lb for lb in P.labels if lb["text"] == "4")["box"])   # its number goes by
+        gaps = sorted((le_labels.point_gap(box, o["at"]), o["ident"]) for o in P.turnouts)  # where the legs meet
+        self.assertEqual(gaps[0][1], ident, gaps[:2])
+        self.assertTrue(any(lb["text"] == "4" for lb in plain.labels))
         self.assertTrue(any("leg_b" in line for line in P.log))
         for bad in ({"S4": "D"}, {"DX": "B"}, {"nope": "B"}):
             with self.subTest(bad=bad), self.assertRaises(SchematicError):

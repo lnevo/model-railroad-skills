@@ -341,9 +341,9 @@ class Fit(unittest.TestCase):
                 # fits only where the two scales agree, so the axis by axis search never settles
                 self.size = (1000 * kx, 1000 * ky + (0 if abs(kx - ky) < 1e-9 else 10 ** 6))
 
-        def draw(bands_, names, cell, row, page, masts=True):
+        def draw(bands_, names, cell, row, page, masts=True, labels=True):
             return Fake(cell / le.CELL, row / le.ROW)
-        with mock.patch.object(le, "draw_panel", draw):
+        with mock.patch.object(le, "draw_panel", draw), mock.patch.object(le, "label_layer"):
             P = le.panel(bands(), None, fit=(500 + le.CHROME[0], 500 + le.CHROME[1]))
         self.assertEqual(P.scale, (le.FIT_MIN, le.FIT_MIN))
         self.assertLessEqual(P.size[1], 500)
@@ -374,6 +374,8 @@ class Fit(unittest.TestCase):
             self.assertLessEqual(int(root.get("panelwidth")), 900)
             self.assertLessEqual(int(root.get("panelheight")), 500)
             self.assertLessEqual(int(root.get("windowwidth")), 918)
+            self.assertEqual(len(root.findall("BlockContentsIcon")), len({e.get("blockname") for e in
+                                                                         root.iter() if e.get("blockname")}))
             bad = subprocess.run([sys.executable, "-m", "schematic", "le", str(out), "--data", str(f),
                                   f"{graph}:example", "--fit", "wide"],
                                  capture_output=True, text=True, cwd=helpers.PLUGIN, timeout=120)

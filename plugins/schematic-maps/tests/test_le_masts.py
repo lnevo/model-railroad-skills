@@ -8,7 +8,7 @@ from unittest import mock
 import helpers
 from schematic import le, le_masts, slots
 from schematic.core import SchematicError
-from test_le import bands
+import test_le
 from test_slots import boundaries
 
 # the double track between switches 2 and 6 and between 6 and 3, each track cut into two blocks: the cut on Main and
@@ -17,6 +17,12 @@ BLOCKS = {"e3": ["Main A", "Main B"], "e4+e5": ["Passing A", "Passing B"],
           "e7": ["Main C", "Main D"], "e8": ["Passing C", "Passing D"]}
 GANTRY_MASTS = [("East 6 main", "Main A", "Main B"), ("East 6 passing", "Passing A", "Passing B"),
                 ("West 6 main", "Main D", "Main C"), ("West 6 passing", "Passing D", "Passing C")]
+
+
+def bands():
+    """The example's bands without block contents icons: BLOCKS cuts the double track into eight blocks on a 36 px
+    grid, more icons than its rows have room for, and these tests are about the masts."""
+    return [(t, b, dict(o, le_labels={"block_contents": False})) for t, b, o in test_le.bands()]
 
 
 def lower():
@@ -417,8 +423,8 @@ class ReviewFixes(unittest.TestCase):
             if m["mast"] == lone["mast"] and self.boundary(m)[0] < x0 + 5:
                 return (got[0] + 10, *got[1:4], ["ink"], *got[5:])
             return got
-        with mock.patch.object(le_masts.Masts, "best", best):
-            P = le.panel(bands(), names)
+        with mock.patch.object(le_masts.Masts, "best", best):        # as the icons were scored: the drawing's labels
+            P = le.draw_panel(bands(), names, le.CELL, le.ROW, None, labels=False)
         self.assertIn(ident, P.anchors_from)
         self.assertEqual(sum(1 for a in P.anchors_moved if a[1] == ident), 1)       # recorded once
         M = masts_of(P)

@@ -37,7 +37,7 @@ from collections import defaultdict
 from . import slots
 from .core import SchematicError
 from .label_check import _pt_seg as pt_seg, seg_box_gap
-from .le import dot, mid, sub, text_width, to_xml
+from .le import dot, mid, room_width, sub, to_xml
 
 GANTRY_SHIFT = 3        # columns an anchor may slide along its track to line masts up (as cats.GANTRY_SHIFT)
 GANTRY_SPAN = 3         # columns from a gantry's first mast to its last, at most: as far as an anchor may move
@@ -87,7 +87,7 @@ class Rect:
 
 
 def label_rect(lb, x=None):
-    w = text_width(lb["text"], lb["size"])
+    w = room_width(lb["text"], lb["size"])
     x = lb["xy"][0] if x is None else x
     return Rect((x + w / 2, lb["xy"][1] + lb["size"] / 2), (1.0, 0.0), w / 2, lb["size"] / 2)
 
@@ -110,6 +110,21 @@ def icon_rect_of(m):
 
 
 # ---------------------------------------------------------------- the panel
+
+class PanelView:
+    """A panel's drawn railroad, indexed once: its segments and turnouts by ident, and where a track end is."""
+
+    def __init__(self, P):
+        self.P = P
+        self.turnouts = {t["ident"]: t for t in P.turnouts}
+        self.segs = {s["ident"]: s for s in P.segments}
+
+    def xy(self, end):
+        ident, typ = end
+        if typ == "POS_POINT":
+            return tuple(self.P.points[ident]["xy"])
+        return tuple(self.turnouts[ident]["pts"][typ[-1]])
+
 
 class World:
     """The drawn panel for scoring: track lines by segment (indexed by grid cell), turnout bodies, fixed labels and
@@ -221,13 +236,12 @@ def _way(d):
     return "south" if d[1] > 0 else "north"
 
 
-class Masts:
+class Masts(PanelView):
     """The masts of one panel being placed: the panel's indexes, built once, and the steps of `place`."""
 
     def __init__(self, P, bands, ix):
-        self.P, self.bands, self.ix = P, bands, ix
-        self.turnouts = {t["ident"]: t for t in P.turnouts}
-        self.segs = {s["ident"]: s for s in P.segments}
+        super().__init__(P)
+        self.bands, self.ix = bands, ix
         self.world = World(self)
         self.by_name = {m["mast"]: m for m in P.masts}
         self.before = {m["mast"]: ix.blocks(m["kind"], m["ident"], m["slot"]) for m in P.masts}
@@ -250,12 +264,6 @@ class Masts:
         self.gantry_anchors = set()  # anchors standing in a gantry's column: never slid again
 
     # ---- the drawn railroad
-    def xy(self, end):
-        ident, typ = end
-        if typ == "POS_POINT":
-            return tuple(self.P.points[ident]["xy"])
-        return tuple(self.turnouts[ident]["pts"][typ[-1]])
-
     def other_end(self, sid, here):
         e = self.segs[sid]["ends"]
         return e[1] if tuple(e[0]) == tuple(here) else e[0]
@@ -694,7 +702,7 @@ def names_yield(P, world):
         if not any(label_rect(lb).overlaps(i) for i in icons_):
             continue
         (ax, ay), (bx, _by) = lb["run"]
-        w = text_width(lb["text"], lb["size"])
+        w = room_width(lb["text"], lb["size"])
         lo, hi = min(ax, bx) + 2, max(ax, bx) - w - 2
         x0 = lb["xy"][0]
         track, bodies, _labels, _shapes = world.near((x0 + w / 2, ay), NEAR + w)
