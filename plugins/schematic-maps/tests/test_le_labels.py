@@ -289,6 +289,24 @@ class NamesLast(unittest.TestCase):
         self.assertEqual(sorted(b["block"] for b in P.bcis), sorted(P.blocks))
         le_labels.verify(P)
 
+    def test_names_last_is_a_bands_own_option(self):
+        b = with_opts(None)
+        with self.assertRaisesRegex(SchematicError, "names_last is a band's own option"):
+            le_labels.options(b, {"le_labels": {"names_last": True}})
+        b[0][2]["le_labels"] = {"names_last": True}
+        opts = le_labels.options(b, {"le_labels": {"switch_prefix": "P-"}})
+        self.assertEqual([o["names_last"] for o in opts], [True, False])         # never spread to another band
+        self.assertEqual(le_labels.options(b, b[0][2])[1]["names_last"], False)   # the band's own dict as the page
+
+    def test_names_skipped_name_objects_by_their_written_idents(self):
+        P = le.Panel()
+        P.idents_given = {"TOG3": "TO117"}
+        P.names_skipped = ["Lower level: track name Y-1: no clean spot near TOG3"]
+        P.labels_unplaced = [(("name", 1, "e1"), "near TOG3")]
+        P.final_text()
+        self.assertEqual(P.names_skipped, ["Lower level: track name Y-1: no clean spot near TO117"])
+        self.assertEqual(P.labels_unplaced[0][1], "near TO117")
+
     def test_names_last_places_the_icons_before_the_names(self):
         P = le.panel(with_opts({"names_last": True}))
         self.assertEqual(P.names_skipped, [])

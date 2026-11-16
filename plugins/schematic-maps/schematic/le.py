@@ -262,10 +262,13 @@ class Panel:
         return GENERATED_WORD.sub(lambda m: self.idents_given.get(m.group(0), m.group(0)), s)
 
     def final_text(self):
-        """Every message the panel keeps, in written idents: run once, when the panel is drawn."""
+        """Every message the panel keeps, in written idents: run when the panel is drawn and after its labels are
+        placed (a written ident is never a generated one, so running it twice changes nothing)."""
         self.log = [self.text(line) for line in self.log]
         self.unplaced = [(t, m, self.text(why)) for t, m, why in self.unplaced]
         self.moved = [(t, m, self.text(why)) for t, m, why in self.moved]
+        self.names_skipped = [self.text(why) for why in self.names_skipped]
+        self.labels_unplaced = [(k, self.text(why)) for k, why in self.labels_unplaced]
 
     def point(self, kind, xy, end=False):
         """A point's ident: AG<n> for an anchor, EBG<n> for an end bumper; a track's end joined to another band
@@ -608,8 +611,6 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
     beside their block's track (P.extras); the plugin writes nothing for them. `gap`: px between one band's lowest
     drawing and the next band's highest (BAND_GAP), say to keep room under a band for what the caller adds there."""
-    if isinstance(gap, bool) or not isinstance(gap, (int, float)) or not math.isfinite(gap) or gap < 0:
-        raise SchematicError(f"the gap between bands must be a number of px, 0 or more, not {gap!r}")
     if fit is None:
         return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap)
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
@@ -718,9 +719,13 @@ def label_layer(P, bands, page, extras=None):
 def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     if not bands:
         raise SchematicError("no band to draw")
+    if isinstance(gap, bool) or not isinstance(gap, (int, float)) or not math.isfinite(gap) or gap < 0:
+        raise SchematicError(f"the gap between bands must be a number of px, 0 or more, not {gap!r}")
     page = page if page is not None else bands[-1][2]
     names = names or {}
     check_names(bands, names)
+    align = check_band_align(bands, page)
+    shared = plan_shared(P, bands, names, page)
     joined = partners(bands)
     given = {b for g in names.values() for v in (g.get("blocks") or {}).values()
              for b in ([v] if isinstance(v, str) else v)} | \
@@ -753,14 +758,6 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     P.cur = None
     full = max(b[2] - b[0] for b in boxes)
     top = MARGIN + TITLE_GAP
-    align = page.get("band_align") or {}
-    keys = [band_key(t) for t, _, _ in bands]
-    bad = ["not an object"] if not isinstance(align, dict) else \
-        sorted(k for k in align if k not in keys) + sorted(f"{k}: {v!r}" for k, v in align.items()
-                                                           if v not in ("left", "centre", "right"))
-    if bad:
-        raise SchematicError(f"band_align must be an object of band: \"left\", \"centre\" or \"right\" "
-                             f"(bands: {', '.join(keys)}){': ' + ', '.join(bad) if bad else ''}")
     for bi, ((title, _, _), box) in enumerate(zip(bands, boxes)):
         room = full - (box[2] - box[0])
         left = {"left": 0, "right": room}.get(align.get(band_key(title), "centre"), room / 2)
@@ -779,7 +776,7 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
         P.joins.append(P.segment(a[0], b[0], block, a[4] and b[4], hidden=True))
         P.join_ends[(bi, a[0])] = a[3]
         P.join_ends[(bj, b[0])] = b[3]
-    check_shared(P, bands, names)
+    check_shared(P, shared)
     if any(g.get("idents") for g in names.values()):
         give_idents(P, bands, names)        # before the masts, so the alias is known for all they say
     if masts and any(g.get("masts") for g in names.values()):
@@ -788,23 +785,80 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
 
 
-def check_shared(P, bands, names):
-    """Stop unless each turnout name on more than one turnout is in `shared_turnouts` of every band that draws one
-    of them, and each shared name is on at least two turnouts (so a list entry that shares nothing is caught)."""
-    on = defaultdict(list)
+def page_bands(bands, page):
+    """The band keys the page knows: the bands drawn, and every band its `band_order` lists (so `--band` may draw
+    part of a page whose settings name all its bands)."""
+    order = page.get("band_order") or []
+    return [band_key(t) for t, _, _ in bands] + [k for k in order if isinstance(k, str)
+                                                 and k not in {band_key(t) for t, _, _ in bands}]
+
+
+def check_band_align(bands, page):
+    """The page's `band_align`, checked: {band key: "left", "centre" or "right"}, each a band the page knows (one not
+    drawn now is allowed and ignored)."""
+    align = page.get("band_align") or {}
+    known = page_bands(bands, page)
+    if not isinstance(align, dict):
+        raise SchematicError(f"band_align must be an object of band: \"left\", \"centre\" or \"right\", not {align!r}")
+    bad = sorted(f"{k} (no band; bands: {', '.join(known)})" for k in align if k not in known) + \
+        sorted(f"{k}: {v!r}" for k, v in align.items() if v not in ("left", "centre", "right"))
+    if bad:
+        raise SchematicError(f"band_align must be an object of band: \"left\", \"centre\" or \"right\": "
+                             f"{', '.join(bad)}")
+    return align
+
+
+def plan_shared(P, bands, names, page):
+    """{turnout name: how many turnouts carry it} from the names, checked before drawing (the one place the rule
+    lives): a name on more than one turnout must be in `shared_turnouts` of every band that gives it; a shared name
+    is on two turnouts, or on one when a band the page knows is not drawn (its other half may be there; logged), never
+    more than two. The two switches of one single crossover given one name are one turnout."""
+    count, bands_of = defaultdict(int), defaultdict(list)
+    for bi, (title, band, _) in enumerate(bands):
+        given = (names.get(band_key(title)) or {}).get("turnouts") or {}
+        partner = {}
+        for _sid, u, v in crossover_pairs(band):
+            if given.get(u) is not None and given.get(u) == given.get(v):
+                partner[u], partner[v] = v, u
+        done = set()
+        for n, name in sorted(given.items()):
+            if n in done:
+                continue
+            done |= {n, partner.get(n, n)}
+            count[name] += 1
+            bands_of[name].append(bi)
+    undrawn = [k for k in page_bands(bands, page) if k not in {band_key(t) for t, _, _ in bands}]
+    for bi, (title, _, _) in enumerate(bands):
+        listed = (names.get(band_key(title)) or {}).get("shared_turnouts") or []
+        for name in sorted(count):
+            if count[name] > 1 and bi in bands_of[name] and name not in listed:
+                raise SchematicError(f"{title}: turnout name {name!r} is given to {count[name]} turnouts, but this "
+                                     "band does not list it in shared_turnouts (list it in each band if they are one "
+                                     "turnout drawn twice)")
+        for name in listed:
+            if count[name] > 2:
+                raise SchematicError(f"{title}: shared_turnouts names {name!r}, which is given to {count[name]} "
+                                     "turnouts; one turnout is drawn at most twice")
+            if count[name] == 1:
+                if not undrawn:
+                    raise SchematicError(f"{title}: shared_turnouts names {name!r}, which is drawn as 1 turnout; it "
+                                         "shares nothing")
+                P.log.append(f"{title}: shared turnout {name!r} is drawn once here; its other half may be on a band "
+                             f"not drawn ({', '.join(undrawn)})")
+    return dict(count)
+
+
+def check_shared(P, planned):
+    """After drawing: each turnout name is on as many turnouts as plan_shared counted (a single crossover drawn as
+    two turnouts, when its switches are not on two level tracks, would not be)."""
+    drawn = defaultdict(int)
     for t in P.turnouts:
         if t["name"]:
-            on[t["name"]].append(t)
-    for bi, (title, _, _) in enumerate(bands):
-        shared = (names.get(band_key(title)) or {}).get("shared_turnouts") or []
-        for name in shared:
-            if len(on.get(name, ())) < 2:
-                raise SchematicError(f"{title}: shared_turnouts names {name!r}, which is drawn as "
-                                     f"{len(on.get(name, ()))} turnout; it shares nothing")
-        for name, ts in on.items():
-            if len(ts) > 1 and any(t["band"] == bi for t in ts) and name not in shared:
-                raise SchematicError(f"{title}: turnout name {name!r} is given to {len(ts)} turnouts, but this band "
-                                     "does not list it in shared_turnouts")
+            drawn[t["name"]] += 1
+    bad = sorted(n for n in set(drawn) | set(planned) if drawn.get(n, 0) != planned.get(n, 0))
+    if bad:
+        raise SchematicError("turnout names on a different number of turnouts than the names give: " +
+                             ", ".join(f"{n} ({drawn.get(n, 0)} drawn, {planned.get(n, 0)} given)" for n in bad))
 
 
 def give_idents(P, bands, names):
@@ -1201,11 +1255,7 @@ class Band:
                                  f"{sorted(names)}")
         if names:
             t["name"] = names.pop()
-            if t["name"] in P.turnout_names and t["name"] not in self.names.get("shared_turnouts", ()):
-                raise SchematicError(f"{self.title}: turnout name {t['name']!r} given to two separate turnouts "
-                                     f"(switch {self.nodes[nodes[0]].get('label') or nodes[0]}); list it in "
-                                     "shared_turnouts if they are one turnout drawn twice")
-            P.turnout_names.add(t["name"])
+            P.turnout_names.add(t["name"])     # how many carry each name: plan_shared, check_shared
         P.blocks.update(blocks.values())
         for (n, port), leg in conn_ports.items():
             self.conn[(n, port)] = (t, leg)
