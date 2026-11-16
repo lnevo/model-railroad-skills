@@ -86,10 +86,10 @@ class Rect:
         return True
 
 
-def label_rect(lb, x=None):
+def label_rect(lb):
+    """The room the drawing keeps for a label (le.room_width), as a Rect: what the icons are scored against."""
     w = room_width(lb["text"], lb["size"])
-    x = lb["xy"][0] if x is None else x
-    return Rect((x + w / 2, lb["xy"][1] + lb["size"] / 2), (1.0, 0.0), w / 2, lb["size"] / 2)
+    return Rect((lb["xy"][0] + w / 2, lb["xy"][1] + lb["size"] / 2), (1.0, 0.0), w / 2, lb["size"] / 2)
 
 
 def placed_rect(x, y, deg, size):
@@ -147,7 +147,7 @@ class World:
             else:
                 lines = [(cen, p[k]) for k in "ABC" if k in p]
             self.bodies[t["ident"]] = (cen, lines)
-        # a track's name is left out: it slides along its track out of the icons' way afterwards (names_yield)
+        # the room kept for a track's name is left out: le_labels places the names around the icons afterwards
         self.labels = [label_rect(lb) for lb in ctx.P.labels if "run" not in lb]
         self.shapes = [(tuple(sh["centre"]), sh["r"]) for sh in ctx.P.shapes]
 
@@ -674,8 +674,9 @@ class Masts(PanelView):
 
 
 def place(P, bands, ix):
-    """Gantries, icons, lone anchors as a last resort, the checks, then track names out of the icons' way (module
-    text). Sets P.gantries, P.anchors_moved, and each P.masts entry's icon, box and spot (back, across, reasons)."""
+    """Gantries, icons, lone anchors as a last resort, then the checks (module text); the labels are placed around
+    the icons afterwards (le_labels). Sets P.gantries, P.anchors_moved, and each P.masts entry's icon, box and spot
+    (back, across, reasons)."""
     for bi, (title, _, opts) in enumerate(bands):
         control_points(title, opts)                 # checked before any work
         if any(m["band"] == bi for m in P.masts) and not P.cellx.get(bi, 0) > 0:
@@ -687,42 +688,3 @@ def place(P, bands, ix):
     M.verify()
     P.anchors_from = {ident: was for ident, (was, _lens) in M.original.items()}
     M.finish()
-    names_yield(P, M.world)
-
-
-def names_yield(P, world):
-    """Slide each track's name along its level run, to the nearest place clear of every mast icon, other label,
-    turnout and other track, when an icon covers it where it was drawn (the middle of the run). A name with no such
-    place stays and is logged."""
-    icons_ = [icon_rect_of(m) for m in P.masts]
-    rects = [(lb, label_rect(lb)) for lb in P.labels]
-    for lb in P.labels:
-        if "run" not in lb:
-            continue
-        if not any(label_rect(lb).overlaps(i) for i in icons_):
-            continue
-        (ax, ay), (bx, _by) = lb["run"]
-        w = room_width(lb["text"], lb["size"])
-        lo, hi = min(ax, bx) + 2, max(ax, bx) - w - 2
-        x0 = lb["xy"][0]
-        track, bodies, _labels, _shapes = world.near((x0 + w / 2, ay), NEAR + w)
-        fixed = [r for o, r in rects if o is not lb]
-        own = [k for k, v in track.items() if any(abs(a[1] - ay) < 0.5 and abs(b[1] - ay) < 0.5 for a, b in v)]
-
-        def clear(x):
-            q = label_rect(lb, x)
-            if any(q.overlaps(i) for i in icons_) or any(q.overlaps(o) for o in fixed):
-                return False
-            if any(q.gap_point(c) < TURNOUT_R or any(q.gap_seg(a, b) < CLEAR[0] for a, b in lines)
-                   for c, lines in bodies.values()):
-                return False
-            return not any(q.gap_seg(a, b) < CLEAR[0] for k, v in track.items() if k not in own for a, b in v)
-        steps = sorted((x for k in range(int(hi - lo) + 2) for x in (x0 - k, x0 + k) if lo <= x <= hi),
-                       key=lambda x: (abs(x - x0), x))
-        x = next((x for x in steps if clear(x)), None)
-        if x is None:
-            P.log.append(f"track name {lb['text']}: a mast icon covers it and its track has no clear place for it")
-            continue
-        lb["xy"][0] = x
-        P.names_moved.append((lb["text"], round(x - x0, 1)))
-        P.log.append(f"track name {lb['text']}: moved {x - x0:+.0f} px along its track, clear of the mast icons")

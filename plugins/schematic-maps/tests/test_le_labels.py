@@ -269,5 +269,93 @@ class ShortReserve(unittest.TestCase):
                 le_labels.options(with_opts(o), None)
 
 
+class ReviewFixes(unittest.TestCase):
+    def test_a_bands_options_reach_only_that_band_with_or_without_fit(self):
+        b = [(t, band, dict(o, le_labels={"switch_prefix": "L-"}) if t.startswith("Lower") else
+              {k: v for k, v in o.items() if k != "le_labels"}) for t, band, o in bands()]
+        for P in (le.panel(b), le.panel(b, fit=(1300, 700))):
+            numbers = {lb["band"]: [] for lb in P.labels}
+            for lb in P.labels:
+                if lb["kind"] == "switch":
+                    numbers[lb["band"]].append(lb["text"])
+            lower = next(i for i, x in enumerate(b) if x[0].startswith("Lower"))
+            self.assertTrue(numbers[lower] and all(t.startswith("L-") for t in numbers[lower]))
+            self.assertTrue(all(not t.startswith("L-") for bi, ts in numbers.items() if bi != lower for t in ts))
+        self.assertEqual(le_labels.options(b, None)[0]["switch_prefix"], "")
+
+    def test_a_track_the_drawing_keeps_no_room_for_gets_no_name_and_says_so(self):
+        import test_le
+        band = test_le.turnback_band()
+        band[0][1]["strands"]["b"]["name"] = "A NAME FAR TOO LONG FOR ITS SHORT LEVEL RUN"
+        with mock.patch.object(le, "paths", lambda bd: bd["_drawn"]):
+            P = le.panel(band)
+        self.assertTrue(any("no name placed (its longest level run is too short for its name)" in line
+                            for line in P.log), P.log)
+        self.assertFalse(any(lb["text"].startswith("A NAME FAR") for lb in P.labels))
+
+    def test_the_check_covers_circles_and_keeps_every_label_inside_the_panel(self):
+        P = copy.deepcopy(panel())
+        sh = P.shapes[0]
+        b = P.bcis[0]
+        b["box"] = (round(sh["centre"][0]) - 3, round(sh["centre"][1]) - 3, 6, 6)
+        P.bcis = [b]
+        P.labels = [lb for lb in P.labels if lb["kind"] in le_labels.FIXED]
+        P.masts = []
+        with self.assertRaisesRegex(SchematicError, "over a circle"):
+            le_labels.verify(P)
+        P = copy.deepcopy(panel())
+        title = next(lb for lb in P.labels if lb["kind"] == "title")
+        title["box"] = (P.size[0] - 5, title["box"][1], *title["box"][2:])
+        with self.assertRaisesRegex(SchematicError, "outside the"):
+            le_labels.verify(P)
+
+    def test_the_panel_counts_every_label_as_jmri_draws_it(self):
+        P = panel()
+        box = le.extent(P)
+        for lb in P.labels:
+            x0, y0, x1, y1 = le_labels.label_box(lb)
+            self.assertTrue(box[0] <= x0 and x1 <= box[2] and box[1] <= y0 and y1 <= box[3], lb)
+        self.assertGreaterEqual(P.size[0], box[2])
+
+
+class Extras(unittest.TestCase):
+    EXTRAS = [{"id": "Passing cluster", "block": "Passing", "size": [82, 20]},
+              {"id": "OS 4 cluster", "block": "OS 4", "size": [40, 20]}]
+
+    def test_a_callers_items_stand_by_their_blocks_and_count_as_obstacles(self):
+        P = le.panel(bands(), extras=self.EXTRAS)
+        self.assertEqual([e["id"] for e in P.extras], ["Passing cluster", "OS 4 cluster"])
+        for e, want in zip(P.extras, self.EXTRAS):
+            self.assertEqual(e["box"][2:], tuple(want["size"]))
+            self.assertEqual(e["block"], want["block"])
+        self.assertEqual(sorted(b["block"] for b in P.bcis), sorted(P.blocks))
+        le_labels.verify(P)
+        boxes_ = [le_labels.box_of(*x["box"]) for x in P.labels + P.bcis]
+        for e in P.extras:
+            mine = le_labels.box_of(*e["box"])
+            self.assertFalse([b for b in boxes_ if le_labels.boxes_overlap(mine, b, -le_labels.OVERLAP)])
+        self.assertEqual(le.geometry(P), le.geometry(le.panel(bands())))      # no track moved
+        self.assertNotIn("extra", ET_tags(le.to_xml(P, "G")))                 # the caller writes them
+
+    def test_an_item_with_no_clean_spot_stops_naming_it(self):
+        with self.assertRaisesRegex(SchematicError, "item Huge \\(block Passing\\): no clean spot"):
+            le.panel(bands(), extras=[{"id": "Huge", "block": "Passing", "size": [5000, 400]}])
+
+    def test_bad_extras_stop_before_drawing(self):
+        good = {"id": "A", "block": "Passing", "size": [10, 10]}
+        for bad, msg in (("x", "must be a list"), (["x"], "must be an object"),
+                         ([dict(good, colour=1)], "exactly id, block and size"), ([dict(good, id="")], "id must"),
+                         ([good, good], "given twice"), ([dict(good, block=3)], "block must"),
+                         ([dict(good, size=[10])], "size must"), ([dict(good, size=[10, 0])], "size must"),
+                         ([dict(good, size=[True, 4])], "size must"),
+                         ([dict(good, block="Nowhere")], "block 'Nowhere' is not on the panel")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, msg):
+                le.panel(bands(), extras=bad)
+
+
+def ET_tags(el):
+    return {e.tag.lower() for e in el.iter()}
+
+
 if __name__ == "__main__":
     unittest.main()
