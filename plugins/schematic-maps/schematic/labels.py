@@ -25,6 +25,16 @@ def text_box(x, y, anchor, s, size, weight, spacing=0.0):
     return (x0, y - CAP * size, x0 + w, y + BELOW * size)
 
 
+def _line_hits(a, b, w, box, pad):
+    """Whether line ab of width w comes within w/2 + pad of the box. A line whose bounding box is that far away
+    on either axis is clear without the exact distance, which is never smaller than the axis gap."""
+    t = w / 2 + pad
+    if (min(a[0], b[0]) >= box[2] + t or max(a[0], b[0]) <= box[0] - t
+            or min(a[1], b[1]) >= box[3] + t or max(a[1], b[1]) <= box[1] - t):
+        return False
+    return seg_box_gap(a, b, box) < t
+
+
 class Placer:
     def __init__(self):
         self.lines = []       # (a, b, width)
@@ -40,12 +50,12 @@ class Placer:
         self.boxes.append(b)
 
     def clear(self, box, pad=PAD):
-        if any(seg_box_gap(a, b, box) < w / 2 + pad for a, b, w in self.lines):
+        if any(_line_hits(a, b, w, box, pad) for a, b, w in self.lines):
             return False
         return not any(boxes_overlap(box, o, pad) for o in self.boxes)
 
     def cost(self, box):
-        c = sum(1 for a, b, w in self.lines if seg_box_gap(a, b, box) < w / 2 + PAD)
+        c = sum(1 for a, b, w in self.lines if _line_hits(a, b, w, box, PAD))
         return c + sum(1 for o in self.boxes if boxes_overlap(box, o, PAD))
 
     def ask(self, what, s, size, cands, weight="normal", extra="", spacing=0.0, emit=None, room=(), reach=None):
