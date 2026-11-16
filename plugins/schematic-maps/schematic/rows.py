@@ -1,7 +1,7 @@
 """Rows: each switch keeps one leg level, and rows are chosen so the sloped legs are short."""
 import collections
 
-from .core import descend, dx_tracks
+from .core import SchematicError, dx_tracks
 
 
 
@@ -33,6 +33,102 @@ def find_cycle(classes, above):
     return None
 
 
+SPREAD = 0.3        # cost of each row the band spans, top to bottom
+
+
+def rows_cost(r, terms, bias):
+    """What an arrangement of rows costs: the weighted slope lengths, the bias, and the band's height."""
+    return (sum(w * abs(r[a] - r[b]) for a, b, w in terms) + bias
+            + SPREAD * (max(r.values()) - min(r.values())))
+
+
+def push_rows(r, c, step, above, below):
+    """The rows that change when class c moves one row (step +1 or -1), pushing what must stay above or below it.
+    Returns {class: new row} for the classes that move; r is not changed."""
+    new = {c: r[c] + step}
+    todo = [c]
+    if step > 0:
+        while todo:
+            k = todo.pop()
+            up = new[k] + 1
+            for d in above[k]:
+                if new.get(d, r[d]) < up:
+                    new[d] = up
+                    todo.append(d)
+    else:
+        while todo:
+            k = todo.pop()
+            down = new[k] - 1
+            for d in below[k]:
+                if new.get(d, r[d]) > down:
+                    new[d] = down
+                    todo.append(d)
+    return new
+
+
+def descend_rows(start, classes, above, below, terms, bias):
+    """core.descend for rows, with the cost worked out from the moved classes only.
+
+    The same moves are tried in the same order and kept on the same test (`c < best - 1e-9`) as core.descend with
+    rows_cost, and every cost is the same float: the weights are whole multiples of 0.5, so the slope sum is
+    exact whether it is added up in full or changed term by term; it is kept as a whole count of half rows and
+    turned into the same float the full sum gives. Returns (rows, cost)."""
+    halves = collections.defaultdict(int)      # (class, other class): weight in half rows, both ways round
+    for a, b, w in terms:
+        h = w * 2
+        if h != int(h):
+            raise SchematicError(f"rows: slope weight {w} between {a} and {b} is not a multiple of 0.5")
+        if a != b:                              # a slope within one class is always 0
+            halves[a, b] += int(h)
+            halves[b, a] += int(h)
+    links = collections.defaultdict(list)
+    for (a, b), h in halves.items():
+        links[a].append((b, h))
+    cur = dict(start)
+    total = sum(h * abs(cur[a] - cur[b]) for (a, b), h in halves.items()) // 2
+    count = collections.Counter(cur.values())
+    lo, hi = min(count), max(count)
+
+    def price(total, lo, hi):
+        return (total * 0.5 + bias) + SPREAD * (hi - lo)
+
+    best = price(total, lo, hi)
+    no_links = ()
+    improved = True
+    while improved:
+        improved = False
+        for it in classes:
+            for step in (1, -1):
+                moved = push_rows(cur, it, step, above, below)
+                twice = 0           # the change in half rows, twice over: a slope between two moved classes is seen
+                for k, nk in moved.items():                 # from both ends, one to an unmoved class from one end
+                    ok = cur[k]
+                    for o, h in links.get(k, no_links):
+                        oo = cur[o]
+                        no = moved.get(o)
+                        if no is None:
+                            twice += 2 * h * (abs(nk - oo) - abs(ok - oo))
+                        else:
+                            twice += h * (abs(nk - no) - abs(ok - oo))
+                for k, v in moved.items():
+                    count[cur[k]] -= 1
+                    count[v] += 1
+                vals = moved.values()
+                nlo, nhi = min(lo, min(vals)), max(hi, max(vals))
+                while not count[nlo]:
+                    nlo += 1
+                while not count[nhi]:
+                    nhi -= 1
+                c = price(total + twice // 2, nlo, nhi)
+                if c < best - 1e-9:
+                    cur.update(moved)
+                    total, lo, hi, best, improved = total + twice // 2, nlo, nhi, c, True
+                else:
+                    for k, v in moved.items():
+                        count[v] -= 1
+                        count[cur[k]] += 1
+    return cur, best
+
 class Rows:
     def __init__(self, nodes, strands, snaps, free=(), pins=None, close=(), rule_pins=None):
         self.nodes, self.strands, self.snaps, self.free = nodes, strands, snaps, set(free)
@@ -54,6 +150,8 @@ class Rows:
         self.tolerant = bool(free)
         self.spans = None       # R7: when set, two tracks keep their order only if their extents overlap
         self.dropped = 0
+        self.memo = None        # while optimise runs: {(level legs, tolerant, extra): (solve result, dropped)}
+        self.memo_keep = (None, {})     # the memo kept between optimise calls, and the inputs it was made from
 
     def frog(self, n):
         d = self.nodes[n]
@@ -68,6 +166,19 @@ class Rows:
         return self.nodes[n]["kind"] == "switch" and p in "BC" and self.flat[n] != p
 
     def solve(self):
+        """Rows for the current level legs. While optimise runs, an arrangement solved before is read back, with the
+        count of dropped rules it set. The key holds the level legs in their order (it decides the class names, and
+        so the order of the search), tolerant and the extra rules; optimise drops the memo if spans, free tracks, snaps
+        or close pairs change."""
+        if self.memo is None:
+            return self.solve_now()
+        key = (tuple(self.flat.items()), self.tolerant, frozenset(self.extra))
+        if key not in self.memo:
+            self.memo[key] = (self.solve_now(), self.dropped)
+        r, self.dropped = self.memo[key]
+        return r
+
+    def solve_now(self):
         st = self.strands
         parent = {s: s for s in st}
 
@@ -156,29 +267,7 @@ class Rows:
             other = st[self.frog(n)["C" if f == "B" else "B"]]["cm"]
             bias += (0.2 if other > 2 * level + 20 else 0.0) + (0.01 if f == "C" else 0.0)
 
-        def cost(r):
-            return (sum(w * abs(r[a] - r[b]) for a, b, w in terms) + bias
-                    + 0.3 * (max(r.values()) - min(r.values())))
-
-        def push(r, c, step):
-            new = dict(r)
-            new[c] += step
-            todo = [c]
-            while todo:
-                k = todo.pop()
-                if step > 0:
-                    for d in above[k]:
-                        if new[d] < new[k] + 1:
-                            new[d] = new[k] + 1
-                            todo.append(d)
-                else:
-                    for d in below[k]:
-                        if new[d] > new[k] - 1:
-                            new[d] = new[k] - 1
-                            todo.append(d)
-            return new
-
-        row, c = descend(row, classes, push, cost)
+        row, c = descend_rows(row, classes, above, below, terms, bias)
         lo = min(row.values())
         srow = {s: row[find(s)] - lo for s in st if s not in diag}
         nrow = {}
@@ -200,15 +289,24 @@ class Rows:
             st_.update(self.soft)
             st_.update(self.pins)
         best = None
-        for start in starts:
-            self.flat = dict(start)
-            r = self.optimise_from_here()
-            sc = (self.dropped, r["cost"] + self.broken())
-            if best is None or sc < best[0]:
-                best = (sc, r, dict(self.flat))
+        held, memo = self.memo_keep
+        ctx = (None if self.spans is None else dict(self.spans), frozenset(self.free),     # a copy, not the caller's
+               tuple(map(tuple, self.snaps)), tuple(self.close))
+        self.memo = memo if held == ctx else {}
+        self.memo_keep = (ctx, self.memo)
+        try:
+            for start in starts:
+                self.flat = dict(start)
+                r = self.optimise_from_here()
+                sc = (self.dropped, r["cost"] + self.broken())
+                if best is None or sc < best[0]:
+                    best = (sc, r, dict(self.flat))
+        finally:
+            self.memo = None
         self.flat = best[2]
         self.dropped = best[0][0]
-        return best[1]
+        r = best[1]             # a copy, so a caller that changes it cannot change what the memo hands back later
+        return dict(r, srow=dict(r["srow"]), nrow=dict(r["nrow"]), diag=set(r["diag"]))
 
     def broken(self):
         """The price of the R5 and R6 preferences the current choice breaks."""
