@@ -13,7 +13,7 @@ Positions are SVG text anchors: (x, baseline y, text-anchor).
 """
 import math
 
-from .label_check import BELOW, CAP, _pt_seg, boxes_overlap, seg_box_gap, text_width
+from .label_check import BELOW, CAP, _pt_seg, boxes_overlap, seg_box_within, text_width
 
 PAD = 1.2
 MARK_HALF = 3.5       # half the width of a mark (a milepost diamond) that stands between a label and its track
@@ -40,12 +40,12 @@ class Placer:
         self.boxes.append(b)
 
     def clear(self, box, pad=PAD):
-        if any(seg_box_gap(a, b, box) < w / 2 + pad for a, b, w in self.lines):
+        if any(seg_box_within(a, b, box, w / 2 + pad) for a, b, w in self.lines):
             return False
         return not any(boxes_overlap(box, o, pad) for o in self.boxes)
 
     def cost(self, box):
-        c = sum(1 for a, b, w in self.lines if seg_box_gap(a, b, box) < w / 2 + PAD)
+        c = sum(1 for a, b, w in self.lines if seg_box_within(a, b, box, w / 2 + PAD))
         return c + sum(1 for o in self.boxes if boxes_overlap(box, o, PAD))
 
     def ask(self, what, s, size, cands, weight="normal", extra="", spacing=0.0, emit=None, room=(), reach=None):

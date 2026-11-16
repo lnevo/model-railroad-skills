@@ -562,7 +562,7 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
                 blocked = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in P.boxes) or any(
                     abs(a[0] - ex) < 4 and abs(b[0] - a[0]) < 0.5 and min(a[1], b[1]) < bot and max(a[1], b[1]) > top
                     for a, b, _ in P.lines)            # not on a bumper or another upright line
-                hit = [[labels.seg_box_gap((ex, top), (ex, bot), bx) < 1.4 / 2 + labels.PAD for bx in ok] for ok in free]
+                hit = [[labels.seg_box_within((ex, top), (ex, bot), bx, 1.4 / 2 + labels.PAD) for bx in ok] for ok in free]
                 harm = (_unplaced(P, drawn_lines + _bracket_lines(ex, top, bot)), sum(map(sum, hit)))   # then places lost
                 onto = any(labels.boxes_overlap((ex - 0.7, top, ex + 0.7, bot), b, 1.0) for b in getattr(P, "arrows", ()))
                 key = (onto, blocked or harm[0] > 0, harm[0], blocked, harm[1])   # never on an arrow; then clean; then fewest faults
@@ -576,7 +576,7 @@ def draw_control_points(band, drawn, opts, X, Y, svg, label, P):
                                   if n in nrow else [i for i, _ in dx_tracks(nodes, n)])]
                 best = (None, edge + sign * 3, min(rows) - 9, max(rows) + 9, [])
             ex, top, bot, found = best[1:]
-            free = [[bx for bx in ok if labels.seg_box_gap((ex, top), (ex, bot), bx) >= 1.4 / 2 + labels.PAD]
+            free = [[bx for bx in ok if not labels.seg_box_within((ex, top), (ex, bot), bx, 1.4 / 2 + labels.PAD)]
                     for ok in free]
             free = [ok for ok in free if ok]
             ends.append((ex, top, bot, -SERIF * sign))

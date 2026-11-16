@@ -143,6 +143,25 @@ class Labels(unittest.TestCase):
         self.assertEqual(out["AB"], (20, -10, "middle"))
         self.assertEqual(p.unplaced, ["t CD"])
 
+    def test_seg_box_within_agrees_with_the_exact_distance(self):
+        """The bounding-box shortcut in label_check.seg_box_within never changes the answer of the exact gap."""
+        import random
+        rng = random.Random(3)
+        box = (10.0, 10.0, 30.0, 18.0)
+        for _ in range(20000):
+            a = (rng.uniform(-20, 60), rng.uniform(-20, 50))
+            b = (rng.uniform(-20, 60), rng.uniform(-20, 50)) if rng.random() < 0.9 else a
+            t = rng.choice((0.0, 0.7, 1.9, 4.2))
+            self.assertEqual(label_check.seg_box_within(a, b, box, t), label_check.seg_box_gap(a, b, box) < t, (a, b, t))
+        within = label_check.seg_box_within
+        for a, b in (((0, 14), (40, 14)), ((20, 0), (20, 30)), ((5, 5), (35, 23))):   # through the box
+            self.assertTrue(within(a, b, box, 1.9))
+        # exactly t away on one axis: the gap equals t, so not within; a hair closer is within
+        self.assertFalse(within((31.9, 0), (31.9, 30), box, 1.9))
+        self.assertFalse(within((0, 8.1), (40, 8.1), box, 1.9))
+        self.assertTrue(within((31.8, 0), (31.8, 30), box, 1.9))
+        self.assertFalse(within((0, 30), (40, 30), box, 1.9))                         # well below it
+
     def test_placer_places_the_hardest_label_first(self):
         p = labels.Placer()
         p.ask("t", "EASY", 8, [(0, 0, "middle"), (0, 20, "middle")])
