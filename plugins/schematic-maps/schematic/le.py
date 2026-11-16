@@ -78,7 +78,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-from . import le_labels, stations
+from . import cache, le_labels, stations
 from .core import SchematicError, node_ref, tidy
 from .draw import band_key
 from .layout import paths
@@ -652,12 +652,22 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
         stray = sorted(set(crossover_run) - set(keys))
         if stray:
             raise SchematicError(f"crossover_run names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
+    if fit is not None and crossover_run is not None:
+        raise SchematicError("crossover_run is for a panel drawn at a given grid, not one fitted to a window")
+    # with SCHEMATIC_CACHE set, a panel drawn before from the same arguments and the same code is read back
+    args = dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit, extras=extras, gap=gap,
+                labels_by_band=labels_by_band, crossover_run=crossover_run, tight_crossovers=tight_crossovers,
+                split_crossovers=split_crossovers)
+    return cache.memo("le-panel", ["le"], args, lambda: _panel(**args))
+
+
+def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, crossover_run, tight_crossovers,
+           split_crossovers):
+    """panel, its arguments checked, without the cache."""
     if fit is None:
         return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band,
                           crossover_run=crossover_run, tight_crossovers=tight_crossovers,
                           split_crossovers=split_crossovers)
-    if crossover_run is not None:
-        raise SchematicError("crossover_run is for a panel drawn at a given grid, not one fitted to a window")
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
@@ -696,12 +706,27 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     # search on the track and labels alone (masts are placed once at the end); masts sit beside the track, but if
     # their icons push the panel past the window, search again with them
     # (the label layer comes last, once the grid is settled: it changes nothing else and keeps inside the panel)
-    kx, ky = search(False)
-    P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False, gap=gap, split_crossovers=split_crossovers)
-    if not fits(P):
-        kx, ky = search(True)
-        P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False, gap=gap,
-                       split_crossovers=split_crossovers)
+    # The grid it settles on depends on neither the label layer's inputs (extras, labels_by_band) nor what it
+    # places, so it is kept apart from the panel (SCHEMATIC_CACHE): a change to those alone draws the panel once
+    draw = lambda kx, ky: draw_panel(bands, names, cell * kx, row * ky, page, labels=False, gap=gap,  # noqa: E731
+                                     split_crossovers=split_crossovers)
+    drawn = {}
+
+    def settle():
+        kx, ky = search(False)
+        P = draw(kx, ky)
+        if not fits(P):
+            kx, ky = search(True)
+            P = draw(kx, ky)
+        drawn[kx, ky] = P
+        return kx, ky
+
+    kx, ky = cache.memo("le-fit", ["le"], dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit,
+                                                  gap=gap, split_crossovers=split_crossovers), settle)
+    P = drawn.get((kx, ky)) or draw(kx, ky)
+    if not fits(P):             # the grid settle() returns always fits: a kept one that does not is a stale entry
+        raise SchematicError(f"the kept fit grid ({kx:g}, {ky:g}) gives a {P.size[0]}x{P.size[1]} px panel, past "
+                             f"the {fit[0]}x{fit[1]} px window; clear the cache folder ({cache.ENV})")
     label_layer(P, bands, page, extras, labels_by_band)
     P.scale, P.fit = (kx, ky), tuple(fit)
     return P

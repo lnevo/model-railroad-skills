@@ -3,11 +3,13 @@ import os
 import shutil
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
 import helpers
-from schematic import cache, sheet
+import test_le
+from schematic import cache, le, sheet
 from schematic.core import SchematicError
 
 
@@ -136,6 +138,140 @@ class SheetCache(unittest.TestCase):
             with self.assertRaises(SchematicError) as e:
                 sheet.build(self.inputs, self.data)
         self.assertIn("cannot make the cache folder", str(e.exception))
+
+    def set_prefs(self, **fields):
+        import json
+        prefs = self.data / "example.preferences.json"
+        d = json.loads(prefs.read_text())
+        d.update(fields)
+        prefs.write_text(json.dumps(d))
+
+    def test_the_title_block_fields_are_not_in_the_key_and_a_hit_takes_them_from_the_files(self):
+        self.set_prefs(date="2026-01-02", revision=3, sheet="1 of 2")
+        self.build()
+        self.set_prefs(date="2026-03-04", revision=4, sheet="2 of 2")
+        self.assertEqual(self.solves(), 0)
+        got = self.build()
+        self.assertIn("REV 4", got.svg())
+        self.assertIn("SHEET 2 OF 2", got.svg())
+        self.assertNotIn("REV 3", got.svg())
+        with mock.patch.dict(os.environ, {cache.ENV: ""}):
+            cold = sheet.build(self.inputs, self.data)
+        self.assertEqual(got.svg(), cold.svg())                # as a solve of the files as they are now
+        self.assertEqual(got.log, cold.log)
+
+    def test_a_title_field_taken_out_of_the_files_leaves_the_page(self):
+        self.set_prefs(revision=7)
+        self.build()
+        import json
+        prefs = self.data / "example.preferences.json"
+        d = json.loads(prefs.read_text())
+        del d["revision"]
+        prefs.write_text(json.dumps(d))
+        got = self.build()
+        self.assertNotIn("REV 7", got.svg())
+        with mock.patch.dict(os.environ, {cache.ENV: ""}):
+            self.assertEqual(got.svg(), sheet.build(self.inputs, self.data).svg())
+
+    def test_any_other_preference_is_still_in_the_key(self):
+        k = cache.key(self.inputs, self.data, True, False)
+        self.set_prefs(unused_test_key=2)
+        self.assertNotEqual(cache.key(self.inputs, self.data, True, False), k)
+
+    def test_the_solve_key_holds_only_the_code_the_solve_runs(self):
+        names = {f.name for f in cache.modules("sheet", "cache")}
+        self.assertTrue({"sheet.py", "rows.py", "layout.py", "draw.py", "cache.py"} <= names)
+        self.assertFalse({"le.py", "le_labels.py", "le_masts.py", "cats.py", "cli.py"} & names)
+        k = cache.key(self.inputs, self.data, True, False)
+        real = Path.read_bytes
+        with mock.patch.object(Path, "read_bytes", lambda f: real(f) + (b"# edited" if f.name == "le.py" else b"")):
+            self.assertEqual(cache.key(self.inputs, self.data, True, False), k)
+        with mock.patch.object(Path, "read_bytes", lambda f: real(f) + (b"# edited" if f.name == "rows.py" else b"")):
+            self.assertNotEqual(cache.key(self.inputs, self.data, True, False), k)
+
+    def test_imports_inside_functions_are_followed(self):
+        names = {f.name for f in cache.modules("le")}
+        self.assertTrue({"le_masts.py", "le_labels.py", "slots.py", "layout.py"} <= names)   # le_masts: in a function
+
+    def test_an_unknown_module_is_a_clear_error(self):
+        with self.assertRaises(SchematicError) as e:
+            cache.modules("no_such_module")
+        self.assertIn("no module no_such_module", str(e.exception))
+
+
+class Digest(unittest.TestCase):
+    def test_order_of_dicts_and_sets_does_not_matter(self):
+        self.assertEqual(cache.digest({"a": 1, "b": {2, 3}}), cache.digest({"b": {3, 2}, "a": 1}))
+
+    def test_types_and_values_are_told_apart(self):
+        values = [1, 1.0, True, "1", None, [1], (1,), {1}, {"1": 1}, {1: 1}, [1, 2], [[1], 2], ["a;", "b"], ["a", ";b"]]
+        self.assertEqual(len({cache.digest(v) for v in values}), len(values))
+
+    def test_anything_but_plain_data_is_refused(self):
+        with self.assertRaises(TypeError):
+            cache.digest({"x": object()})
+
+
+def xml(P):
+    return ET.tostring(le.to_xml(P, "p"))
+
+
+class PanelCache(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.env = mock.patch.dict(os.environ, {cache.ENV: str(Path(self._tmp.name) / "cache")})
+        self.env.start()
+        self.bands = test_le.bands()
+        full = le.panel(self.bands, None)
+        with mock.patch.dict(os.environ, {cache.ENV: ""}):
+            self.fit = (int(full.size[0] * 0.8) + le.CHROME[0], full.size[1] + le.CHROME[1])
+
+    def tearDown(self):
+        self.env.stop()
+        self._tmp.cleanup()
+
+    def draws(self, **kw):
+        with mock.patch.object(le, "draw_panel", wraps=le.draw_panel) as spy:
+            P = le.panel(self.bands, None, **kw)
+        return P, spy.call_count
+
+    def test_a_hit_draws_nothing_and_is_the_same_panel(self):
+        first, n = self.draws(fit=self.fit)
+        self.assertGreater(n, 1)
+        again, n = self.draws(fit=self.fit)
+        self.assertEqual(n, 0)
+        self.assertEqual(xml(again), xml(first))
+        with mock.patch.dict(os.environ, {cache.ENV: ""}):
+            self.assertEqual(xml(le.panel(self.bands, None, fit=self.fit)), xml(first))
+        self.assertEqual(again.scale, first.scale)
+
+    def test_a_label_layer_change_keeps_the_fit_grid(self):
+        first, _ = self.draws(fit=self.fit)
+        second, n = self.draws(fit=self.fit, labels_by_band=True)
+        self.assertEqual(n, 1)                                  # drawn once, at the kept grid: no search
+        self.assertEqual(second.scale, first.scale)
+        with mock.patch.dict(os.environ, {cache.ENV: ""}):
+            cold = le.panel(self.bands, None, fit=self.fit, labels_by_band=True)
+        self.assertEqual(xml(second), xml(cold))
+
+    def test_every_call_gets_its_own_copy(self):
+        a = le.panel(self.bands, None)
+        a.labels.clear()
+        self.assertTrue(le.panel(self.bands, None).labels)
+
+    def test_a_changed_argument_is_drawn_again(self):
+        self.draws()
+        _, n = self.draws(gap=le.BAND_GAP + 8)
+        self.assertEqual(n, 1)
+
+    def test_arguments_that_are_not_plain_data_are_drawn_without_the_cache(self):
+        odd = [(t, b, dict(o, odd=object())) for t, b, o in self.bands]
+        with mock.patch("sys.stderr") as err:
+            with mock.patch.object(le, "draw_panel", wraps=le.draw_panel) as spy:
+                le.panel(odd, None)
+                le.panel(odd, None)
+        self.assertEqual(spy.call_count, 2)
+        self.assertIn("not plain data", "".join(c.args[0] for c in err.write.call_args_list))
 
 
 if __name__ == "__main__":

@@ -33,6 +33,11 @@ class Sheet:
             self.log.extend(o["_folds"])
         return self._svg
 
+    def redraw(self):
+        """Draw the page again from the options as they are now; the log keeps the first drawing's fold lines."""
+        o = dict(self.opts, title=self.opts.get("system_title", self.opts["title"]), _folds=[])
+        self._svg = draw.page_svg(self.bands, o)
+
     def write(self, out):
         Path(out).write_text(self.svg())
 
@@ -151,21 +156,47 @@ def build(inputs, data, preferences=True, hints=False):
     if k is None:
         return solve(inputs, data, preferences, hints)
     sheet = cache.load(where, k)
-    if sheet is None:
-        sheet = solve(inputs, data, preferences, hints)    # solve renders the sheet, so the SVG is kept too
-        stored = cache.store(where, k, sheet)
-        if stored is not None:
-            sheet = pickle.loads(stored)                   # its own copy: the caller may change what it gets
+    if sheet is not None:
+        retitle(sheet, inputs, data, preferences, hints)
+        return sheet
+    sheet = solve(inputs, data, preferences, hints)    # solve renders the sheet, so the SVG is kept too
+    stored = cache.store(where, k, sheet)
+    if stored is not None:
+        sheet = pickle.loads(stored)                   # its own copy: the caller may change what it gets
     return sheet
 
 
-def solve(inputs, data, preferences=True, hints=False):
-    """build without the cache."""
+def page_options(inputs, data, preferences=True, hints=False):
+    """Each input's options as the solve starts from them: its layer files, sheet.preferences.json merged over."""
     optlist = [options(name, data, preferences, hints) for _, name in inputs]
     sheet_file = Path(data) / "sheet.preferences.json"
     if preferences and sheet_file.exists():        # the sheet's own look reaches every band, not just the last input
         sheet_prefs = json.load(open(sheet_file))
         optlist = [layers.merge(o, sheet_prefs) for o in optlist]
+    return optlist
+
+
+def retitle(sheet, inputs, data, preferences, hints):
+    """A cached sheet takes the title block's fields (cache.TITLE_FIELDS, left out of its key) from the files as
+    they are now, in every input's options, and its page is drawn again if one changed."""
+    if len(sheet.optlist) != len(inputs):
+        raise SchematicError(f"cached sheet has {len(sheet.optlist)} inputs' options for {len(inputs)} inputs")
+    changed = False
+    for have, now in zip(sheet.optlist, page_options(inputs, data, preferences, hints)):
+        for f in cache.TITLE_FIELDS:
+            if have.get(f, cache) != now.get(f, cache):     # cache: a marker for "not set"
+                changed = True
+                if f in now:
+                    have[f] = now[f]
+                else:
+                    del have[f]
+    if changed:
+        sheet.redraw()
+
+
+def solve(inputs, data, preferences=True, hints=False):
+    """build without the cache."""
+    optlist = page_options(inputs, data, preferences, hints)
     stations.check(optlist)
     for o in optlist[:-1]:
         o["helix_style"] = optlist[-1].get("helix_style", "box")
@@ -211,6 +242,7 @@ def solve(inputs, data, preferences=True, hints=False):
             logs[i] = []
             per[i] = build_input(inputs[i][0], inputs[i][1], optlist[i], tracks, logs[i], posts[i], prepared[i])
     left, sheet = best
+    sheet.optlist = optlist             # each input's options, which its bands hold: retitle updates them
     if left:
         sheet.log.append(f"R12: {left} labels still have no free position")
     return sheet
