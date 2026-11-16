@@ -13,7 +13,7 @@ import copy
 import json
 from pathlib import Path
 
-from . import columns, direction, draw, edits, layers, layout, mileposts, stations
+from . import cache, columns, direction, draw, edits, layers, layout, mileposts, stations
 from .core import SchematicError
 from .draw import DEFAULTS
 
@@ -143,7 +143,23 @@ def build_bands(inputs, optlist, log):
 
 
 def build(inputs, data, preferences=True, hints=False):
-    """Read and lay out every input. `inputs` is a list of (graph or path to its JSON, layer-file name)."""
+    """Read and lay out every input. `inputs` is a list of (graph or path to its JSON, layer-file name).
+    With SCHEMATIC_CACHE set, a sheet solved before from the same inputs is read back instead (cache.py)."""
+    where = cache.folder()
+    if where is None:
+        return solve(inputs, data, preferences, hints)
+    k = cache.key(inputs, data, preferences, hints)
+    sheet = cache.load(where, k)
+    if sheet is None:
+        sheet = solve(inputs, data, preferences, hints)
+        sheet.svg()                     # the render is kept too: every caller draws or reads it
+        cache.store(where, k, sheet)
+        sheet = cache.load(where, k) or sheet    # its own copy, the one the next caller will read
+    return sheet
+
+
+def solve(inputs, data, preferences=True, hints=False):
+    """build without the cache."""
     optlist = [options(name, data, preferences, hints) for _, name in inputs]
     sheet_file = Path(data) / "sheet.preferences.json"
     if preferences and sheet_file.exists():        # the sheet's own look reaches every band, not just the last input
