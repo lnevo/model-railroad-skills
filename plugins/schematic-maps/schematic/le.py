@@ -619,14 +619,22 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     `labels_by_band`: the label layer places each band's labels in rounds of their own, top band first, each band's
     standing for the next (le_labels.place), so a band's labels are the same whatever bands are drawn below it.
     `crossover_run`: px across that every single crossover's diagonal runs (its two halves' points that far apart
-    along the rows, about their middle), so all cross at one angle however each band is stretched; a crossover with
-    no room for it (its track beside each half keeps MIN_BLOCK px past its legs) takes what there is, and the log
-    gives its angle. None: as drawn."""
+    along the rows, about their middle), so all cross at one angle however each band is stretched; a double
+    crossover's diagonals run as far across. A crossover with no room for it (its track beside each half, or each leg,
+    keeps MIN_BLOCK px past its legs) takes what there is, and the log gives its angle. A number for every band, or
+    {band key: px} for the bands it names (the others as drawn). None: as drawn."""
     if not isinstance(labels_by_band, bool):
         raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
-    if crossover_run is not None and (isinstance(crossover_run, bool) or not isinstance(crossover_run, (int, float))
-                                      or not math.isfinite(crossover_run) or crossover_run <= 0):
-        raise SchematicError(f"crossover_run must be a number of px above zero, not {crossover_run!r}")
+    runs = crossover_run.values() if isinstance(crossover_run, dict) else [crossover_run]
+    if crossover_run is not None and any(isinstance(r, bool) or not isinstance(r, (int, float)) or
+                                         not math.isfinite(r) or r <= 0 for r in runs):
+        raise SchematicError(f"crossover_run must be a number of px above zero, or one per band key, not "
+                             f"{crossover_run!r}")
+    if isinstance(crossover_run, dict):
+        keys = [band_key(t) for t, _b, _o in bands]
+        stray = sorted(set(crossover_run) - set(keys))
+        if stray:
+            raise SchematicError(f"crossover_run names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
     if fit is None:
         return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band,
                           crossover_run=crossover_run)
@@ -1379,7 +1387,7 @@ class Band:
             if abs(tp[1] - bp[1]) < EPS:
                 continue
             h = min([1.5 * LEG] + [0.4 * self.first_len(n, p) for n in (u, v) for p in "AB"])
-            if self.P.crossover_run is not None:
+            if self.run() is not None:
                 tp, bp = self.crossover_points(du["label"], top, tp, bot, bp, h)
             pts = {"A": (tp[0] - h, tp[1]), "B": (tp[0] + h, tp[1]), "D": (bp[0] - h, bp[1]), "C": (bp[0] + h, bp[1])}
             conn = {}
@@ -1395,13 +1403,33 @@ class Band:
                 self.add_turnout([top, bot], ttype, mid(tp, bp), pts, conn, blocks)
                 self.internal.add(sid)
 
+    def run(self):
+        """px across this band's crossovers' diagonals run (P.crossover_run, by band key when a dict), or None."""
+        run = self.P.crossover_run
+        return run.get(band_key(self.title)) if isinstance(run, dict) else run
+
+    def room_toward(self, n, port, h):
+        """px a crossover half at node n may move along its row toward `port`: its first straight piece that way,
+        less its own leg (h), the far switch's leg when the piece runs straight to it, and MIN_BLOCK; shared half
+        and half when the far switch is a crossover half that may move toward it too."""
+        pts = self.away(n, port)
+        sid = self.port_strand(n, port)
+        s = self.strands[sid]
+        far = s["dst"][0] if tuple(s["src"]) == (n, port) else s["src"][0]
+        halves = {x for _sid, u, v in crossover_pairs(self.band) for x in (u, v)}
+        if len(pts) == 2 and self.nodes[far]["kind"] in ("switch", "dx"):
+            reserve, share = (1.5 * LEG, 0.5) if far in halves else (LEG, 1.0)
+        else:
+            reserve, share = 0.0, 1.0           # a bend first: its arc takes from the run beyond, not this piece
+        return max(0.0, (self.first_len(n, port) - h - reserve - MIN_BLOCK) * share)
+
     def crossover_points(self, label, top, tp, bot, bp, h):
         """(top point, bottom point) of a single crossover drawn P.crossover_run px across, about its middle: each
-        half moves along its own row, as far as its track on that side keeps MIN_BLOCK px past its legs; where that
-        leaves less than the run asked, the crossover takes what there is (logged with its angle)."""
+        half moves along its own row, as far as its track on that side has room (room_toward); where that leaves less
+        than the run asked, the crossover takes what there is (logged with its angle)."""
         dx0, dy = abs(bp[0] - tp[0]), abs(bp[1] - tp[1])
         way = 1 if bp[0] >= tp[0] else -1
-        move = (self.P.crossover_run - dx0) / 2          # px each half moves apart (negative: together)
+        move = (self.run() - dx0) / 2          # px each half moves apart (negative: together)
         if abs(move) < EPS:
             return tp, bp
         room = []
@@ -1410,13 +1438,13 @@ class Band:
             ports = [p for p in "AB" if self.direction(n, p)[0] * side > 0]
             if len(ports) != 1:
                 raise SchematicError(f"{self.title}: switch {label}: no one leg of the crossover leads that way")
-            room.append(max(0.0, self.first_len(n, ports[0]) - h - MIN_BLOCK))
+            room.append(self.room_toward(n, ports[0], h))
         step = math.copysign(min(abs(move), *room), move)
         if abs(step - move) > EPS:
             run = dx0 + 2 * step
             self.P.log.append(f"{self.title}: switch {label}: crossover drawn {run:.1f} px across, "
                               f"{math.degrees(math.atan2(dy, run)):.1f} degrees: no room for "
-                              f"{self.P.crossover_run:.1f} px")
+                              f"{self.run():.1f} px")
         mid_x = (tp[0] + bp[0]) / 2
         half = (dx0 + 2 * step) / 2
         return (mid_x - way * half, tp[1]), (mid_x + way * half, bp[1])
@@ -1442,6 +1470,15 @@ class Band:
             raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: its four legs "
                                  "do not start at one column")
         h = min([0.5 * (ys[1] - ys[0])] + [0.4 * self.first_len(n, p) for p in "ABCD"])
+        if self.run() is not None:      # its diagonals run as far across as a single crossover's, where there is room
+            room = min(self.first_len(n, p) for p in "ABCD") - MIN_BLOCK
+            want = self.run() / 2
+            got = max(h, min(want, room))
+            if got < want - EPS:
+                self.P.log.append(f"{self.title}: double crossover {self.nodes[n].get('label') or n} drawn "
+                                  f"{2 * got:.1f} px across, {math.degrees(math.atan2(ys[1] - ys[0], 2 * got)):.1f} "
+                                  f"degrees: no room for {self.run():.1f} px")
+            h = got
         corner = {(ys[0], "left"): "A", (ys[0], "right"): "B", (ys[1], "right"): "C", (ys[1], "left"): "D"}
         conn = {(n, p): corner[(round(e[0][1], 3), e[1])] for p, e in ends.items()}
         if sorted(conn.values()) != list("ABCD"):
