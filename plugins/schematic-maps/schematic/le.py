@@ -238,6 +238,7 @@ class Panel:
         self.extras = []            # dicts: id, block, xy, band, box, on_track: the caller's items (le_labels)
         self.labels_unplaced = []   # (item, reason): items le_labels left out (strict=False only)
         self.crossover_run = None   # px across every single crossover's diagonal runs (panel), None: as drawn
+        self.lamps = []             # the caller's lamp boxes the label layer kept clear (le_labels lamp_columns)
         self.band_boxes = []        # (x0, y0, x1, y1) each band was placed by: its drawing with the room for its labels
         self.names_skipped = []     # why each names_last track name was left out (le_labels)
         self.no_name = {}           # (band index, strand id) -> why the drawing keeps no room for its name
@@ -618,7 +619,9 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     `labels_by_band`: the label layer places each band's labels in rounds of their own, top band first, each band's
     standing for the next (le_labels.place), so a band's labels are the same whatever bands are drawn below it.
     `crossover_run`: px across that every single crossover's diagonal runs (its two halves' points that far apart
-    along the rows, about their middle), so all cross at one angle however each band is stretched; None: as drawn."""
+    along the rows, about their middle), so all cross at one angle however each band is stretched; a crossover with
+    no room for it (its track beside each half keeps MIN_BLOCK px past its legs) takes what there is, and the log
+    gives its angle. None: as drawn."""
     if not isinstance(labels_by_band, bool):
         raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
     if crossover_run is not None and (isinstance(crossover_run, bool) or not isinstance(crossover_run, (int, float))
@@ -1375,11 +1378,9 @@ class Band:
             (top, tp), (bot, bp) = sorted(((u, pu_), (v, pv_)), key=lambda t: t[1][1])
             if abs(tp[1] - bp[1]) < EPS:
                 continue
-            run = self.P.crossover_run
-            if run is not None and abs(abs(bp[0] - tp[0]) - run) > EPS:     # one angle for every crossover
-                way, mid_x = (1 if bp[0] >= tp[0] else -1), (tp[0] + bp[0]) / 2
-                tp, bp = (mid_x - way * run / 2, tp[1]), (mid_x + way * run / 2, bp[1])
             h = min([1.5 * LEG] + [0.4 * self.first_len(n, p) for n in (u, v) for p in "AB"])
+            if self.P.crossover_run is not None:
+                tp, bp = self.crossover_points(du["label"], top, tp, bot, bp, h)
             pts = {"A": (tp[0] - h, tp[1]), "B": (tp[0] + h, tp[1]), "D": (bp[0] - h, bp[1]), "C": (bp[0] + h, bp[1])}
             conn = {}
             for n, left, right in ((top, "A", "B"), (bot, "D", "C")):
@@ -1393,6 +1394,32 @@ class Band:
                 blocks = {"A": self.os_of(top), "B": self.os_of(top), "C": self.os_of(bot), "D": self.os_of(bot)}
                 self.add_turnout([top, bot], ttype, mid(tp, bp), pts, conn, blocks)
                 self.internal.add(sid)
+
+    def crossover_points(self, label, top, tp, bot, bp, h):
+        """(top point, bottom point) of a single crossover drawn P.crossover_run px across, about its middle: each
+        half moves along its own row, as far as its track on that side keeps MIN_BLOCK px past its legs; where that
+        leaves less than the run asked, the crossover takes what there is (logged with its angle)."""
+        dx0, dy = abs(bp[0] - tp[0]), abs(bp[1] - tp[1])
+        way = 1 if bp[0] >= tp[0] else -1
+        move = (self.P.crossover_run - dx0) / 2          # px each half moves apart (negative: together)
+        if abs(move) < EPS:
+            return tp, bp
+        room = []
+        for n, sign in ((top, -way), (bot, way)):        # the side each half moves toward
+            side = 1 if move * sign > 0 else -1
+            ports = [p for p in "AB" if self.direction(n, p)[0] * side > 0]
+            if len(ports) != 1:
+                raise SchematicError(f"{self.title}: switch {label}: no one leg of the crossover leads that way")
+            room.append(max(0.0, self.first_len(n, ports[0]) - h - MIN_BLOCK))
+        step = math.copysign(min(abs(move), *room), move)
+        if abs(step - move) > EPS:
+            run = dx0 + 2 * step
+            self.P.log.append(f"{self.title}: switch {label}: crossover drawn {run:.1f} px across, "
+                              f"{math.degrees(math.atan2(dy, run)):.1f} degrees: no room for "
+                              f"{self.P.crossover_run:.1f} px")
+        mid_x = (tp[0] + bp[0]) / 2
+        half = (dx0 + 2 * step) / 2
+        return (mid_x - way * half, tp[1]), (mid_x + way * half, bp[1])
 
     def double(self, n):
         ends = {}

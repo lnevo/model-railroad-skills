@@ -330,6 +330,37 @@ class NameColumns(unittest.TestCase):
             le.panel(with_opts({"name_columns": [["Nowhere", "Else"]]}))
 
 
+class LampColumns(unittest.TestCase):
+    def test_a_groups_lamps_are_kept_clear_on_one_x_on_their_tracks(self):
+        b = bands()
+        lower = next(i for i, (t, _b, _o) in enumerate(b) if t.startswith("Lower"))
+        P0 = le.panel(b)
+        level = [lb["text"] for lb in P0.labels if lb["kind"] == "name" and lb["band"] == lower]
+        P = None
+        for i, t1 in enumerate(level):
+            for t2 in level[i + 1:]:
+                try:
+                    P = le.panel([(t, band, dict(o, le_labels={"lamp_columns": [[t1, t2]]}) if k == lower else o)
+                                  for k, (t, band, o) in enumerate(b)])
+                except SchematicError:
+                    continue
+                break
+            if P is not None:
+                break
+        self.assertIsNotNone(P, "no pair of level tracks side by side in the example")
+        self.assertEqual(len(P.lamps), 2)
+        self.assertEqual(len({lp["box"][0] for lp in P.lamps}), 1)              # one x
+        boxes = [le_labels.box_of(*x["box"]) for x in P.labels + P.bcis]
+        for lp in P.lamps:
+            self.assertEqual(lp["box"][2:], (10, 10))
+            mine = le_labels.box_of(*lp["box"])
+            self.assertFalse([x for x in boxes if le_labels.boxes_overlap(mine, x, -le_labels.OVERLAP)])
+        le_labels.verify(P)
+        for bad in ({"lamp_size": [10]}, {"lamp_size": [0, 4]}, {"lamp_columns": [["A"]]}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "lamp_"):
+                le_labels.options(with_opts(bad), None)
+
+
 class CrossoverRun(unittest.TestCase):
     def test_every_single_crossover_runs_the_same_distance_across(self):
         from test_le import crossover_band
@@ -340,6 +371,11 @@ class CrossoverRun(unittest.TestCase):
         mid = lambda q, a, b: ((q[a][0] + q[b][0]) / 2)          # noqa: E731
         self.assertAlmostEqual(mid(t["pts"], "D", "C") - mid(t["pts"], "A", "B"), 20.0)
         self.assertAlmostEqual(t["cen"][0], t0["cen"][0])          # about its middle
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            wide = le.panel(crossover_band(), crossover_run=10000.0)          # no room for it: as much as there is
+        t = wide.turnouts[0]
+        self.assertLess(mid(t["pts"], "D", "C") - mid(t["pts"], "A", "B"), 10000.0)
+        self.assertTrue(any("crossover drawn" in line and "degrees: no room for" in line for line in wide.log))
         for bad in (0, -1, "9", True):
             with self.subTest(run=bad), self.assertRaisesRegex(SchematicError, "crossover_run"):
                 le.panel(bands(), crossover_run=bad)
