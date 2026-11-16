@@ -304,6 +304,71 @@ class JmriCrossovers(unittest.TestCase):
         self.assertNotAlmostEqual(jmri_xover.load(el)["A"][0], 1370.5)
 
 
+def three_way_band():
+    """Two single crossovers sharing the middle track: 7 (top half P on it) down to the bottom track, 8 (bottom half
+    S on it) up to the top track, like the two crossovers of one three-way switch."""
+    end = lambda s, io: dict(kind="end", sub="bumper", label="", ins={"E": s} if io else {}, outs={} if io else {"E": s})  # noqa: E731
+    nodes = {
+        "W0": end("a0", False), "E0": end("b0", True), "W1": end("a1", False), "E1": end("c1", True),
+        "W2": end("a2", False), "E2": end("b2", True),
+        "R": dict(kind="switch", label="8", hand=-1, ins={"A": "a0"}, outs={"B": "b0", "C": "y"}),
+        "S": dict(kind="switch", label="8", hand=-1, ins={"B": "mid", "C": "y"}, outs={"A": "c1"}),
+        "P": dict(kind="switch", label="7", hand=1, ins={"A": "a1"}, outs={"B": "mid", "C": "x"}),
+        "Q": dict(kind="switch", label="7", hand=1, ins={"B": "a2", "C": "x"}, outs={"A": "b2"}),
+    }
+    st = lambda a, b, name: dict(src=a, dst=b, name=name, main=False, hidden=False, link=False, edge="", cm=1.0)  # noqa: E731
+    strands = {"a0": st(("W0", "E"), ("R", "A"), "Top"), "b0": st(("R", "B"), ("E0", "E"), "Top"),
+               "y": st(("R", "C"), ("S", "C"), ""), "a1": st(("W1", "E"), ("P", "A"), "Middle"),
+               "mid": st(("P", "B"), ("S", "B"), "Shared"), "c1": st(("S", "A"), ("E1", "E"), "Middle"),
+               "x": st(("P", "C"), ("Q", "C"), ""), "a2": st(("W2", "E"), ("Q", "B"), "Bottom"),
+               "b2": st(("Q", "A"), ("E2", "E"), "Bottom")}
+    drawn = {"a0": [(0, 0), (5, 0)], "b0": [(5, 0), (10, 0)], "y": [(5, 0), (4, 1)], "a1": [(0, 1), (2, 1)],
+             "mid": [(2, 1), (4, 1)], "c1": [(4, 1), (10, 1)], "x": [(2, 1), (3, 2)], "a2": [(0, 2), (3, 2)],
+             "b2": [(3, 2), (10, 2)]}
+    return [("Test level", dict(nodes=nodes, strands=strands, _drawn=drawn), {})]
+
+
+class TightCrossovers(unittest.TestCase):
+    """tight_crossovers: two crossovers on one shared track drawn as close as their shapes allow."""
+
+    def draw(self, **kw):
+        names = {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 7", "R": "Switch 8", "S": "Switch 8"}}}
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            return le.panel(three_way_band(), names, crossover_run=48.0, **kw)
+
+    def gap(self, P):
+        t = {x["name"]: x for x in P.turnouts}
+        seven, eight = t["Switch 7"], t["Switch 8"]
+        self.assertEqual((seven["type"], eight["type"]), ("RH_XOVER", "LH_XOVER"))
+        for x in (seven, eight):        # both at the run asked: pieces twice the run, diagonals 48 across
+            self.assertAlmostEqual(x["pts"]["B"][0] - x["pts"]["A"][0], 96.0)
+        self.assertEqual(seven["pts"]["B"][1], eight["pts"]["D"][1])      # on the one shared track
+        return eight["pts"]["D"][0] - seven["pts"]["B"][0]
+
+    def test_the_shared_track_keeps_only_its_least_length(self):
+        P = self.draw(tight_crossovers={"Test": [["7", "8"]]})
+        self.assertFalse([line for line in P.log if "no room for" in line])
+        self.assertGreaterEqual(self.gap(P), le.MIN_BLOCK)
+        self.assertLessEqual(self.gap(P), le.MIN_BLOCK + 1)              # whole-pixel points
+        import jmri_xover
+        for t in le.to_xml(P, "G").findall("layoutturnout"):           # JMRI holds them as written
+            got = jmri_xover.load(t)
+            for leg in "ABCD":
+                self.assertAlmostEqual(got[leg][0], float(t.get("x" + leg.lower())), places=3)
+        # as usual the shared track is split half and half, and neither has room for its run
+        self.assertTrue([line for line in self.draw().log if "no room for 48.0 px" in line])
+
+    def test_bad_tight_crossovers_stop(self):
+        for bad, why in (({"Test": [["7", "9"]]}, "switch 9 is no single crossover"),
+                         ({"Other": [["7", "8"]]}, "Other, which is no band"),
+                         ({"Test": [["7"]]}, "is not two switch numbers"),
+                         ([["7", "8"]], "must be")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, why):
+                self.draw(tight_crossovers=bad)
+        with self.assertRaisesRegex(SchematicError, "needs crossover_run"):
+            le.panel(three_way_band(), tight_crossovers={"Test": [["7", "8"]]})
+
+
 class Crossover(unittest.TestCase):
     def test_two_switches_of_one_number_are_one_single_crossover(self):
         with mock.patch.object(le, "paths", lambda band: band["_drawn"]):

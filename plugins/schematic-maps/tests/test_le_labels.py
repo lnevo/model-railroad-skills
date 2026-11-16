@@ -361,6 +361,26 @@ class LampColumns(unittest.TestCase):
                 le_labels.options(with_opts(bad), None)
 
 
+class NumbersBelow(unittest.TestCase):
+    def test_a_switch_in_numbers_below_takes_a_spot_below_its_turnout_first(self):
+        from test_le import crossover_band
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            for below, side in (([], "above"), (["7"], "below")):
+                (t, b, o), = crossover_band()
+                P = le.panel([(t, b, dict(o, le_labels={"numbers_below": below}))])
+                x = P.turnouts[0]
+                number = next(lb for lb in P.labels if lb.get("kind") == "switch")
+                ys = [p[1] for p in x["pts"].values()]
+                with self.subTest(below=below):
+                    if side == "below":
+                        self.assertGreaterEqual(number["box"][1], max(ys))
+                    else:
+                        self.assertLessEqual(number["box"][1] + number["box"][3], min(ys))
+        for bad in ({"numbers_below": "7"}, {"numbers_below": [7]}, {"numbers_below": [" "]}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "numbers_below"):
+                le_labels.options(with_opts(bad), None)
+
+
 class CrossoverRun(unittest.TestCase):
     def test_every_single_crossover_runs_the_same_distance_across(self):
         from test_le import crossover_band

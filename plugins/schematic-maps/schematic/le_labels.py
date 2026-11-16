@@ -76,7 +76,9 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "lamp_columns": [],
-     "lamp_size": [10, 10]}
+     "lamp_size": [10, 10], "numbers_below": []}
+`numbers_below`: switch numbers (the switches' labels, no prefix) whose number tries the spots below its turnout
+first (a crossover's number tries above first, a plain switch's the side away from its diverging leg).
 `lamp_columns` (a band's): groups of track names whose caller's lamps (lamp_size) stand on one centre x, on each
 track there, the same x as name_columns would give; their boxes are kept clear before anything is placed, and
 P.lamps holds them ({band, track, box}) for the caller to put its lamps in.
@@ -116,7 +118,7 @@ GRID = 64           # px per cell of the indexes
 DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "lamp_columns": [],
-            "lamp_size": [10, 10]}
+            "lamp_size": [10, 10], "numbers_below": []}
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 
 
@@ -142,6 +144,10 @@ def _check(where, o):
             names = [n for g in v for n in g]
             if len(names) != len(set(names)):
                 raise SchematicError(f"{where}: le_labels: {k} names a track twice")
+        elif k == "numbers_below":
+            if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
+                raise SchematicError(f"{where}: le_labels: numbers_below must be a list of switch numbers, not "
+                                     f"{v!r}")
         elif k in ("switch_bold", "block_contents", "names_last"):
             if not isinstance(v, bool):
                 raise SchematicError(f"{where}: le_labels: {k} must be true or false, not {v!r}")
@@ -650,7 +656,8 @@ def specs(P, bands, opts, L, extras=()):
         o = opts[t["band"]]
         label = bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
         if label:
-            out.append((("switch", t["ident"]), _switch_number(L, t, o["switch_prefix"] + label, o)))
+            out.append((("switch", t["ident"]), _switch_number(L, t, o["switch_prefix"] + label, o,
+                                                               label in o["numbers_below"])))
     named = []
     for (bi, sid), idents in sorted(P.strand_segments.items()):
         name = bands[bi][1]["strands"][sid]["name"]
@@ -678,15 +685,16 @@ def _label_dict(it, box, kind, bi):
                          box=_boxed(box))
 
 
-def _switch_number(L, t, text, o):
+def _switch_number(L, t, text, o, below=False):
+    """`below`: the switch is in `numbers_below`, so its number is tried below its turnout first."""
     what = f"{L.bands[t['band']][0]}: switch number {text}"
     if "XOVER" in t["type"]:
         pts = list(t["pts"].values())
         region = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
-        up = True
+        up = not below
     else:
         region = (*t["at"], *t["at"])
-        up = diverges_down(t)               # the side away from the diverging leg first
+        up = not below and diverges_down(t)     # the side away from the diverging leg first
     marks = [(t["ident"], k) for k in L.halves(t)]
 
     def make(state, short=False):
