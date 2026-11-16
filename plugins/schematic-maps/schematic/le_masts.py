@@ -36,7 +36,7 @@ from collections import defaultdict
 
 from . import slots
 from .core import SchematicError
-from .label_check import _pt_seg as pt_seg, seg_box_gap, seg_box_within
+from .label_check import _pt_seg as pt_seg, seg_box_gap
 from .le import dot, mid, room_width, sub, to_xml
 
 GANTRY_SHIFT = 3        # columns an anchor may slide along its track to line masts up (as cats.GANTRY_SHIFT)
@@ -72,15 +72,13 @@ class Rect:
     def gap_seg(self, a, b):
         return seg_box_gap(self.local(a), self.local(b), (-self.ha, -self.hw, self.ha, self.hw))
 
-    def seg_within(self, a, b, t):
-        """gap_seg(a, b) < t, answered at once for a segment whose bounding box is further than t from the circle
-        around the rectangle (the gap is never smaller than that)."""
+    def far(self, a, b, t):
+        """True when segment ab's bounding box lies at least t outside the circle around the rectangle, so that
+        gap_seg(a, b) >= t without working it out. False says nothing: the exact gap decides."""
         r = math.hypot(self.ha, self.hw) + t
         cx, cy = self.c
-        if (min(a[0], b[0]) >= cx + r or max(a[0], b[0]) <= cx - r
-                or min(a[1], b[1]) >= cy + r or max(a[1], b[1]) <= cy - r):
-            return False
-        return seg_box_within(self.local(a), self.local(b), (-self.ha, -self.hw, self.ha, self.hw), t)
+        return (min(a[0], b[0]) >= cx + r or max(a[0], b[0]) <= cx - r
+                or min(a[1], b[1]) >= cy + r or max(a[1], b[1]) <= cy - r)
 
     def gap_point(self, p):
         x, y = self.local(p)
@@ -204,14 +202,15 @@ def spot_cost(rect, near, own_segs, own_turnouts, placed):
     graze = False
     own_d, other_d = [], []
     for sid, pieces in track.items():
-        if any(rect.seg_within(a, b, CLEAR[1]) for a, b in pieces):       # the nearest piece decides, as a min
-            if any(rect.seg_within(a, b, CLEAR[0]) for a, b in pieces):
-                why.append("ink")
-            else:
-                graze = True
+        # only the comparisons with CLEAR matter, so a piece far() beyond CLEAR[1] cannot change them
+        g = min((rect.gap_seg(a, b) for a, b in pieces if not rect.far(a, b, CLEAR[1])), default=math.inf)
+        if g < CLEAR[0]:
+            why.append("ink")
+        elif g < CLEAR[1]:
+            graze = True
         (own_d if sid in own_segs else other_d).append(min(pt_seg(rect.c, a, b) for a, b in pieces))
     for tid, (cen, lines) in bodies.items():
-        if rect.gap_point(cen) < TURNOUT_R or any(rect.seg_within(a, b, CLEAR[1]) for a, b in lines):
+        if rect.gap_point(cen) < TURNOUT_R or any(not rect.far(a, b, CLEAR[1]) and rect.gap_seg(a, b) < CLEAR[1] for a, b in lines):
             why.append("turnout")
         dist = min([math.dist(rect.c, cen)] + [pt_seg(rect.c, a, b) for a, b in lines])
         (own_d if tid in own_turnouts else other_d).append(dist)

@@ -557,16 +557,14 @@ class Spots(unittest.TestCase):
         self.assertFalse(turned.overlaps(le_masts.Rect((4, -4), (1, 0), 1, 1)))      # beside the diagonal
 
 
-if __name__ == "__main__":
-    unittest.main()
 
+class Far(unittest.TestCase):
+    """Rect.far(a, b, t) is True only where gap_seg(a, b) >= t, so spot_cost may skip those pieces."""
 
-class SegWithin(unittest.TestCase):
-    """Rect.seg_within(a, b, t) is gap_seg(a, b) < t, with a shortcut that never changes the answer."""
-
-    def test_agrees_with_the_exact_gap_on_turned_rectangles(self):
+    def test_never_true_where_the_gap_is_under_t(self):
         import random
         rng = random.Random(5)
+        skipped = 0
         for _ in range(4000):
             ang = rng.uniform(0, 2 * math.pi)
             rect = le_masts.Rect((rng.uniform(-5, 5), rng.uniform(-5, 5)), (math.cos(ang), math.sin(ang)),
@@ -575,9 +573,19 @@ class SegWithin(unittest.TestCase):
                 a = (rng.uniform(-30, 30), rng.uniform(-30, 30))
                 b = a if rng.random() < 0.1 else (rng.uniform(-30, 30), rng.uniform(-30, 30))
                 t = rng.choice((0.0, le_masts.CLEAR[0], le_masts.CLEAR[1], 7.5))
-                self.assertEqual(rect.seg_within(a, b, t), rect.gap_seg(a, b) < t, (rect.c, rect.u, a, b, t))
+                if rect.far(a, b, t):
+                    skipped += 1
+                    self.assertGreaterEqual(rect.gap_seg(a, b), t, (rect.c, rect.u, a, b, t))
+        self.assertGreater(skipped, 1000)        # the shortcut is really taken
 
-    def test_the_shortcut_boundary(self):
-        rect = le_masts.Rect((0, 0), (1, 0), 3, 4)            # circle radius 5
-        self.assertFalse(rect.seg_within((8, -20), (8, 20), 3))    # bounding box exactly r + t away: gap 5 >= 3
-        self.assertTrue(rect.seg_within((5.9, -20), (5.9, 20), 3))  # gap 2.9 to the long side
+    def test_the_boundary_on_a_turned_rectangle(self):
+        rect = le_masts.Rect((0, 0), (math.sqrt(0.5), math.sqrt(0.5)), 3, 4)   # circle radius 5, turned 45 degrees
+        self.assertTrue(rect.far((8, -20), (8, 20), 3))          # bounding box exactly r + t away
+        self.assertFalse(rect.far((7.9, -20), (7.9, 20), 3))
+        with mock.patch.object(le_masts, "seg_box_gap", side_effect=AssertionError("worked out")):
+            le_masts.spot_cost(rect, ({"far": [((8, -20), (8, 20))]}, {}, [], []), set(), set(), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
+
