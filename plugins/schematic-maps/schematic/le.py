@@ -54,7 +54,13 @@ of the train it governs, before the boundary, turned to the direction of travel;
 (default 12 x 17, a dwarf), `hidden` hides it as Layout Editor does. Then the CATS mast rules (le_masts): the anchors
 of one control point's masts slide along their own straight track into one column per direction (P.gantries,
 P.anchors_moved), each icon takes its clearest spot off turnouts, track, labels and other icons, and a track's name
-slides along its track clear of the icons (P.names_moved). No mast changes slot or blocks.
+No mast changes slot or blocks.
+
+Labels (le_labels). The drawing keeps room for switch numbers, track names and station names (room_width: part of
+the approved geometry, so it stays). Last, once the grid is settled (label_layer), those are replaced by labels placed
+in clean spots sized as JMRI draws them in the Dialog font (jmri_text), with one block contents icon per block; the
+layer changes nothing else (checked: geometry before and after), and no clean spot stops. Options: a band's or the
+page's `le_labels`. P.labels and P.bcis hold what was placed, each with its box.
 
 Fit. `fit` (width, height) is the window the panel opens in at 100% zoom. The panel must fit inside it less Layout
 Editor's own allowance for the frame (CHROME), so the grid is scaled down until the whole panel, margins, labels
@@ -67,7 +73,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-from . import stations
+from . import le_labels, stations
 from .core import SchematicError, node_ref, tidy
 from .draw import band_key
 from .layout import paths
@@ -104,6 +110,7 @@ CLASS = {
     "label": "jmri.jmrit.display.configurexml.PositionableLabelXml",
     "mast_icon": "jmri.jmrit.display.configurexml.SignalMastIconXml",
 }
+FONT = {"fontFamily": "Dialog", "fontname": "Dialog"}      # every label: the font jmri_text measures
 # Layout Editor's own defaults for a new panel; main track drawn twice as wide as the rest
 EDITOR = dict(sliders="no", scrollable="both", editable="no", positionable="yes", controlling="yes",
               animating="yes", showhelpbar="no", drawgrid="no", snaponadd="yes", snaponmove="no", antialiasing="yes",
@@ -222,7 +229,10 @@ class Panel:
         self.anchors_moved = []     # (mast, anchor ident, px) boundary anchors slid along their track into a gantry
         self.length_strands = {}    # block -> {(band index, strand id)} drawn at their given lengths
         self.anchors_from = {}      # anchor ident -> where it stood before it slid
-        self.names_moved = []       # (track name, px) track names slid along their track clear of mast icons
+        self.bcis = []              # dicts: block, kind (track, os), xy, size, band, box, on_track (le_labels)
+        self.extras = []            # dicts: id, block, xy, band, box, on_track: the caller's items (le_labels)
+        self.labels_unplaced = []   # (item, reason): items le_labels left out (strict=False only)
+        self.no_name = {}           # (band index, strand id) -> why the drawing keeps no room for its name
         self.cellx = {}             # band index -> px per grid column as drawn
         self.idents_given = {}      # generated ident -> the ident the names give it (give_idents): the alias layer
         self.log = []
@@ -273,14 +283,19 @@ class Panel:
         self.blocks.add(block)
         return ident
 
-    def label(self, text, xy, size=LABEL_SIZE, bold=False, anchor="centre"):
-        w = text_width(text, size)
+    def label(self, text, xy, size=LABEL_SIZE, bold=False, anchor="centre", kind="end"):
+        """A label drawn with the track: `kind` "title" or "end" stays; "switch", "name" and "station" keep the
+        room the drawing makes for them, and le_labels then places them for real."""
+        w = room_width(text, size)
         x = xy[0] - w / 2 if anchor == "centre" else xy[0] - w if anchor == "right" else xy[0]
-        self.labels.append(dict(text=text, xy=[x, xy[1]], size=size, bold=bold, band=self.cur))
+        self.labels.append(dict(text=text, xy=[x, xy[1]], size=size, bold=bold, band=self.cur, kind=kind))
 
 
-def text_width(text, size):
+def room_width(text, size):
+    """The room the drawing keeps for a label (0.6 of its size per character): part of the approved geometry (band
+    places, mast icon spots), so it stays. What JMRI really draws is jmri_text.width."""
     return 0.6 * size * len(text)
+
 
 
 def partners(bands):
@@ -566,20 +581,21 @@ def check_masts(key, masts, seen):
             raise SchematicError(f"{what}: icon must be [width, height] in pixels, both above zero")
 
 
-def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None):
+def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
-    text)."""
+    text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
+    beside their block's track (P.extras); the plugin writes nothing for them."""
     if fit is None:
-        return draw_panel(bands, names, cell, row, page)
+        return draw_panel(bands, names, cell, row, page, extras=extras)
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
     fits = lambda Q: Q.size[0] <= W and Q.size[1] <= H      # noqa: E731
 
     def search(masts):
-        draw = lambda kx, ky: draw_panel(bands, names, cell * kx, row * ky, page, masts)      # noqa: E731
+        draw = lambda kx, ky: draw_panel(bands, names, cell * kx, row * ky, page, masts, labels=False)  # noqa: E731
         lo = draw(FIT_MIN, FIT_MIN)
         if not fits(lo):
             raise SchematicError(f"the panel does not fit a {fit[0]}x{fit[1]} px window even with the grid at "
@@ -609,25 +625,70 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None):
 
     # search on the track and labels alone (masts are placed once at the end); masts sit beside the track, but if
     # their icons push the panel past the window, search again with them
+    # (the label layer comes last, once the grid is settled: it changes nothing else and keeps inside the panel)
     kx, ky = search(False)
-    P = draw_panel(bands, names, cell * kx, row * ky, page)
+    P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False)
     if not fits(P):
         kx, ky = search(True)
-        P = draw_panel(bands, names, cell * kx, row * ky, page)
+        P = draw_panel(bands, names, cell * kx, row * ky, page, labels=False)
+    label_layer(P, bands, page, extras)
     P.scale, P.fit = (kx, ky), tuple(fit)
     return P
 
 
-def draw_panel(bands, names, cell, row, page, masts=True):
+def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None):
     """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
-    idents (Panel.text)."""
+    idents (Panel.text). `labels`: then run the label layer (label_layer). `page` as given: the drawing takes the
+    last band's options when it is None (_draw), the labels take none (le_labels.options), so a band's le_labels
+    never reach another band, with or without `fit`."""
+    if bands:
+        le_labels.options(bands, page)      # checked before any drawing (page None: no page-wide label options)
+    le_labels.check_extras(extras)
     P = Panel()
     try:
         _draw(P, bands, names, cell, row, page, masts)
     except SchematicError as e:
         raise SchematicError(P.text(str(e))) from None
     P.final_text()
+    if labels:
+        label_layer(P, bands, page, extras)
     return P
+
+
+def geometry(P):
+    """{(kind, ident): what JMRI reads of it}: every turnout, track segment, anchor and end bumper, shape and mast
+    (its slot and icon), and the panel's size."""
+    out = {("panel", "size"): tuple(P.size)}
+    for t in P.turnouts:
+        out[("turnout", t["ident"])] = (t["type"], tuple(t["cen"]), tuple(sorted((k, tuple(v)) for k, v in
+                                                                                   t["pts"].items())))
+    for s in P.segments:
+        arc = s["arc"] and (s["arc"]["angle"], s["arc"]["flip"], tuple(map(tuple, s["arc"]["drawn"])))
+        out[("track segment", s["ident"])] = (tuple(map(tuple, s["ends"])), s["block"], arc, s["hidden"])
+    for k, p in P.points.items():
+        out[("point", k)] = (p["type"], tuple(p["xy"]), tuple(p["conn"]))
+    for sh in P.shapes:
+        out[("shape", sh["ident"])] = (tuple(sh["centre"]), sh["r"])
+    for m in P.masts:
+        out[("mast", m["mast"])] = (m["kind"], m["ident"], m["slot"], tuple(m.get("icon") or ()))
+    return out
+
+
+def label_layer(P, bands, page, extras=None):
+    """le_labels.place, then the check that it changed nothing of the drawing: every turnout, track segment, point,
+    shape and mast icon, and the panel's size, as before it ran (the labels adapt to the approved geometry, never
+    the reverse). Stops naming the first thing that differs."""
+    before = geometry(P)
+    try:
+        le_labels.place(P, bands, le_labels.options(bands, page), extras=extras)
+    except SchematicError as e:
+        raise SchematicError(P.text(str(e))) from None
+    P.final_text()
+    after = geometry(P)
+    for key in sorted(set(before) | set(after), key=str):
+        if before.get(key) != after.get(key):
+            raise SchematicError(P.text(f"the label layer changed the drawing: {key[0]} {key[1]} was "
+                                        f"{before.get(key)}, now {after.get(key)}"))
 
 
 def _draw(P, bands, names, cell, row, page, masts):
@@ -662,7 +723,7 @@ def _draw(P, bands, names, cell, row, page, masts):
         P.cellx[bi] = cellx
         Band(P, bi, title, band, names.get(key, {}), defaults, joined, cellx, row, turned, ends, opts,
              drawn[bi]).build()
-        boxes.append(extent(P, bi))
+        boxes.append(extent(P, bi, room=True))
     # move each band into place: its whole box (labels, circles and arcs too) centred on the widest box, each band
     # below the one before, so nothing lies left of or above the margin
     P.cur = None
@@ -670,7 +731,7 @@ def _draw(P, bands, names, cell, row, page, masts):
     top = MARGIN + TITLE_GAP
     for bi, ((title, _, _), box) in enumerate(zip(bands, boxes)):
         shift(P, bi, MARGIN + (full - (box[2] - box[0])) / 2 - box[0], top - box[1])
-        P.label(title.upper(), (MARGIN, top - TITLE_GAP + 4), TITLE_SIZE, True, anchor="left")
+        P.label(title.upper(), (MARGIN, top - TITLE_GAP + 4), TITLE_SIZE, True, anchor="left", kind="title")
         top += box[3] - box[1] + BAND_GAP
     for (bi, n), (bj, m) in sorted(joined.items()):
         if (bi, n) > (bj, m):
@@ -809,9 +870,14 @@ def check_connections(P):
         raise SchematicError("idents: these name nothing on the panel: " + "; ".join(bad[:8]))
 
 
-def extent(P, bi=None):
-    """(left, top, right, bottom) of everything drawn for band bi (all bands when None): track, arcs, circles and
-    labels."""
+ROOM = ("switch", "name", "station")     # the labels the drawing only keeps room for (le_labels places them)
+
+
+def extent(P, bi=None, room=False):
+    """(left, top, right, bottom) of everything drawn for band bi (all bands when None): track, arcs, circles,
+    labels, mast and block contents icons. A label counts as JMRI draws it (le_labels.label_box), or as placed;
+    the room kept for one not yet placed counts as that room. `room`: every label as its room (room_width), as the
+    bands were always placed by it (the approved geometry)."""
     mine = lambda o: bi is None or o["band"] == bi      # noqa: E731
     xs, ys = [], []
     for t in P.turnouts:
@@ -834,9 +900,14 @@ def extent(P, bi=None):
             ys += [sh["centre"][1] - sh["r"], sh["centre"][1] + sh["r"]]
     for lb in P.labels:
         if mine(lb):
-            xs += [lb["xy"][0], lb["xy"][0] + text_width(lb["text"], lb["size"])]
-            ys += [lb["xy"][1], lb["xy"][1] + lb["size"]]
-    for m in P.masts:
+            if room or ("box" not in lb and lb["kind"] in ROOM):    # the room the drawing keeps for it
+                xs += [lb["xy"][0], lb["xy"][0] + room_width(lb["text"], lb["size"])]
+                ys += [lb["xy"][1], lb["xy"][1] + lb["size"]]
+            else:                               # as JMRI draws it (or placed)
+                x0, y0, x1, y1 = le_labels.label_box(lb)
+                xs += [x0, x1]
+                ys += [y0, y1]
+    for m in P.masts + P.bcis:
         if mine(m):
             x, y, w, h = m["box"]
             xs += [x, x + w]
@@ -1306,24 +1377,26 @@ class Band:
             cen = t["at"]           # where the drawn legs meet (the centre moves with leg_b)
             if "XOVER" in t["type"]:
                 top = min(p[1] for p in t["pts"].values())
-                P.label(label, (cen[0], top - NUMBER_SIZE - 5), NUMBER_SIZE, True)
+                P.label(label, (cen[0], top - NUMBER_SIZE - 5), NUMBER_SIZE, True, kind="switch")
                 continue
             down = t["pts"]["C"][1] > cen[1] + EPS or t["pts"]["B"][1] > cen[1] + EPS
             y = cen[1] - NUMBER_SIZE - 6 if down else cen[1] + 5
-            P.label(label, (cen[0], y), NUMBER_SIZE, True)
+            P.label(label, (cen[0], y), NUMBER_SIZE, True, kind="switch")
         for sid, s in sorted(self.strands.items()):
             if not s["name"] or sid in self.internal:
                 continue
             pts = self.poly[sid]
             runs = [(a, b) for a, b in zip(pts, pts[1:]) if abs(a[1] - b[1]) < EPS]
             if not runs:
+                P.no_name[(self.bi, sid)] = "no level run to keep room for its name on"
                 continue
             a, b = max(runs, key=lambda r: (abs(r[1][0] - r[0][0]), -min(r[0][0], r[1][0])))
             text = tidy([s["name"]])[0]
-            if text_width(text, LABEL_SIZE) > abs(b[0] - a[0]) * 1.6:
+            if room_width(text, LABEL_SIZE) > abs(b[0] - a[0]) * 1.6:
+                P.no_name[(self.bi, sid)] = "its longest level run is too short for its name"
                 continue
-            P.label(text, ((a[0] + b[0]) / 2, a[1] - LABEL_SIZE - 5))
-            P.labels[-1]["run"] = [list(a), list(b)]        # a track's name may slide along this run (le_masts)
+            P.label(text, ((a[0] + b[0]) / 2, a[1] - LABEL_SIZE - 5), kind="name")
+            P.labels[-1]["run"] = [list(a), list(b)]        # the mast icons leave this room out (le_masts)
         # station names (the `stations` preference) under the band, or over it for a station on the top side
         ys = [p[1] for pts in self.poly.values() for p in pts]
         by_label = defaultdict(list)
@@ -1335,7 +1408,7 @@ class Band:
             if not xs:
                 continue
             y = max(ys) + 2 * LABEL_SIZE if e["side"] == "bottom" else min(ys) - 3 * LABEL_SIZE - 8
-            P.label(name.upper(), ((min(xs) + max(xs)) / 2, y), LABEL_SIZE, True)
+            P.label(name.upper(), ((min(xs) + max(xs)) / 2, y), LABEL_SIZE, True, kind="station")
 
 
 def rounded(pts):
@@ -1566,7 +1639,8 @@ def _xml(P, name, attrs, options, probe):
             "x": str(round(lb["xy"][0])), "y": str(round(lb["xy"][1])), "level": "4", "forcecontroloff": "false",
             "hidden": "no", "positionable": "true", "showtooltip": "false", "editable": "false", "text": lb["text"],
             "size": str(lb["size"]), "style": "1" if lb["bold"] else "0", "red": "0", "green": "0", "blue": "0",
-            "hasBackground": "no", "justification": "left", "class": CLASS["label"]}))
+            "hasBackground": "no", "justification": "left", **FONT, "class": CLASS["label"]}))
+    le.extend(le_labels.bci_elements(P))
     for m in P.masts:
         if probe:                       # slots only, while the masts are being placed
             continue
@@ -1599,7 +1673,7 @@ def summary(P):
             f"{len(P.segments)} track segments ({arcs} arcs, {len(P.joins)} hidden joins), "
             f"{sum(1 for p in P.points.values() if p['type'] == 'ANCHOR')} anchors, "
             f"{sum(1 for p in P.points.values() if p['type'] == 'END_BUMPER')} end bumpers, {len(P.blocks)} blocks, "
-            f"{len(P.labels)} labels"
+            f"{len(P.labels)} labels, {len(P.bcis)} block contents icons"
             + (f", {len(P.masts)} masts" + (f" ({len(P.unplaced)} not placed)" if P.unplaced else "")
                if P.masts or P.unplaced else "")
             + f"; {P.size[0]}x{P.size[1]} px"

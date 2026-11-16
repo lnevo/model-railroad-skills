@@ -37,7 +37,7 @@ from collections import defaultdict
 from . import slots
 from .core import SchematicError
 from .label_check import _pt_seg as pt_seg, seg_box_gap
-from .le import dot, mid, sub, text_width, to_xml
+from .le import dot, mid, room_width, sub, to_xml
 
 GANTRY_SHIFT = 3        # columns an anchor may slide along its track to line masts up (as cats.GANTRY_SHIFT)
 GANTRY_SPAN = 3         # columns from a gantry's first mast to its last, at most: as far as an anchor may move
@@ -86,10 +86,10 @@ class Rect:
         return True
 
 
-def label_rect(lb, x=None):
-    w = text_width(lb["text"], lb["size"])
-    x = lb["xy"][0] if x is None else x
-    return Rect((x + w / 2, lb["xy"][1] + lb["size"] / 2), (1.0, 0.0), w / 2, lb["size"] / 2)
+def label_rect(lb):
+    """The room the drawing keeps for a label (le.room_width), as a Rect: what the icons are scored against."""
+    w = room_width(lb["text"], lb["size"])
+    return Rect((lb["xy"][0] + w / 2, lb["xy"][1] + lb["size"] / 2), (1.0, 0.0), w / 2, lb["size"] / 2)
 
 
 def placed_rect(x, y, deg, size):
@@ -110,6 +110,21 @@ def icon_rect_of(m):
 
 
 # ---------------------------------------------------------------- the panel
+
+class PanelView:
+    """A panel's drawn railroad, indexed once: its segments and turnouts by ident, and where a track end is."""
+
+    def __init__(self, P):
+        self.P = P
+        self.turnouts = {t["ident"]: t for t in P.turnouts}
+        self.segs = {s["ident"]: s for s in P.segments}
+
+    def xy(self, end):
+        ident, typ = end
+        if typ == "POS_POINT":
+            return tuple(self.P.points[ident]["xy"])
+        return tuple(self.turnouts[ident]["pts"][typ[-1]])
+
 
 class World:
     """The drawn panel for scoring: track lines by segment (indexed by grid cell), turnout bodies, fixed labels and
@@ -132,7 +147,7 @@ class World:
             else:
                 lines = [(cen, p[k]) for k in "ABC" if k in p]
             self.bodies[t["ident"]] = (cen, lines)
-        # a track's name is left out: it slides along its track out of the icons' way afterwards (names_yield)
+        # the room kept for a track's name is left out: le_labels places the names around the icons afterwards
         self.labels = [label_rect(lb) for lb in ctx.P.labels if "run" not in lb]
         self.shapes = [(tuple(sh["centre"]), sh["r"]) for sh in ctx.P.shapes]
 
@@ -221,13 +236,12 @@ def _way(d):
     return "south" if d[1] > 0 else "north"
 
 
-class Masts:
+class Masts(PanelView):
     """The masts of one panel being placed: the panel's indexes, built once, and the steps of `place`."""
 
     def __init__(self, P, bands, ix):
-        self.P, self.bands, self.ix = P, bands, ix
-        self.turnouts = {t["ident"]: t for t in P.turnouts}
-        self.segs = {s["ident"]: s for s in P.segments}
+        super().__init__(P)
+        self.bands, self.ix = bands, ix
         self.world = World(self)
         self.by_name = {m["mast"]: m for m in P.masts}
         self.before = {m["mast"]: ix.blocks(m["kind"], m["ident"], m["slot"]) for m in P.masts}
@@ -250,12 +264,6 @@ class Masts:
         self.gantry_anchors = set()  # anchors standing in a gantry's column: never slid again
 
     # ---- the drawn railroad
-    def xy(self, end):
-        ident, typ = end
-        if typ == "POS_POINT":
-            return tuple(self.P.points[ident]["xy"])
-        return tuple(self.turnouts[ident]["pts"][typ[-1]])
-
     def other_end(self, sid, here):
         e = self.segs[sid]["ends"]
         return e[1] if tuple(e[0]) == tuple(here) else e[0]
@@ -666,8 +674,9 @@ class Masts:
 
 
 def place(P, bands, ix):
-    """Gantries, icons, lone anchors as a last resort, the checks, then track names out of the icons' way (module
-    text). Sets P.gantries, P.anchors_moved, and each P.masts entry's icon, box and spot (back, across, reasons)."""
+    """Gantries, icons, lone anchors as a last resort, then the checks (module text); the labels are placed around
+    the icons afterwards (le_labels). Sets P.gantries, P.anchors_moved, and each P.masts entry's icon, box and spot
+    (back, across, reasons)."""
     for bi, (title, _, opts) in enumerate(bands):
         control_points(title, opts)                 # checked before any work
         if any(m["band"] == bi for m in P.masts) and not P.cellx.get(bi, 0) > 0:
@@ -679,42 +688,3 @@ def place(P, bands, ix):
     M.verify()
     P.anchors_from = {ident: was for ident, (was, _lens) in M.original.items()}
     M.finish()
-    names_yield(P, M.world)
-
-
-def names_yield(P, world):
-    """Slide each track's name along its level run, to the nearest place clear of every mast icon, other label,
-    turnout and other track, when an icon covers it where it was drawn (the middle of the run). A name with no such
-    place stays and is logged."""
-    icons_ = [icon_rect_of(m) for m in P.masts]
-    rects = [(lb, label_rect(lb)) for lb in P.labels]
-    for lb in P.labels:
-        if "run" not in lb:
-            continue
-        if not any(label_rect(lb).overlaps(i) for i in icons_):
-            continue
-        (ax, ay), (bx, _by) = lb["run"]
-        w = text_width(lb["text"], lb["size"])
-        lo, hi = min(ax, bx) + 2, max(ax, bx) - w - 2
-        x0 = lb["xy"][0]
-        track, bodies, _labels, _shapes = world.near((x0 + w / 2, ay), NEAR + w)
-        fixed = [r for o, r in rects if o is not lb]
-        own = [k for k, v in track.items() if any(abs(a[1] - ay) < 0.5 and abs(b[1] - ay) < 0.5 for a, b in v)]
-
-        def clear(x):
-            q = label_rect(lb, x)
-            if any(q.overlaps(i) for i in icons_) or any(q.overlaps(o) for o in fixed):
-                return False
-            if any(q.gap_point(c) < TURNOUT_R or any(q.gap_seg(a, b) < CLEAR[0] for a, b in lines)
-                   for c, lines in bodies.values()):
-                return False
-            return not any(q.gap_seg(a, b) < CLEAR[0] for k, v in track.items() if k not in own for a, b in v)
-        steps = sorted((x for k in range(int(hi - lo) + 2) for x in (x0 - k, x0 + k) if lo <= x <= hi),
-                       key=lambda x: (abs(x - x0), x))
-        x = next((x for x in steps if clear(x)), None)
-        if x is None:
-            P.log.append(f"track name {lb['text']}: a mast icon covers it and its track has no clear place for it")
-            continue
-        lb["xy"][0] = x
-        P.names_moved.append((lb["text"], round(x - x0, 1)))
-        P.log.append(f"track name {lb['text']}: moved {x - x0:+.0f} px along its track, clear of the mast icons")
