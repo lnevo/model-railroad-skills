@@ -9,6 +9,12 @@ for p in (PLUGIN, PLUGIN / "tests"):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
+import os  # noqa: E402
+
+# Tests patch module values the cache key cannot see (sheet.ROOM_ROUNDS, say): a cache set in the shell stays off
+# here, and test_cache turns it on for itself.
+os.environ.pop("SCHEMATIC_CACHE", None)
+
 import example  # noqa: E402
 from schematic import panel_reader, plan_reader, sheet, signal_reader  # noqa: E402
 

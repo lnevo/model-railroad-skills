@@ -11,9 +11,10 @@ band per level. The options of the last input also set the page (title, band ord
 """
 import copy
 import json
+import pickle
 from pathlib import Path
 
-from . import columns, direction, draw, edits, layers, layout, mileposts, stations
+from . import cache, columns, direction, draw, edits, layers, layout, mileposts, stations
 from .core import SchematicError
 from .draw import DEFAULTS
 
@@ -143,7 +144,23 @@ def build_bands(inputs, optlist, log):
 
 
 def build(inputs, data, preferences=True, hints=False):
-    """Read and lay out every input. `inputs` is a list of (graph or path to its JSON, layer-file name)."""
+    """Read and lay out every input. `inputs` is a list of (graph or path to its JSON, layer-file name).
+    With SCHEMATIC_CACHE set, a sheet solved before from the same inputs is read back instead (cache.py)."""
+    where = cache.folder()
+    k = cache.key(inputs, data, preferences, hints) if where is not None else None
+    if k is None:
+        return solve(inputs, data, preferences, hints)
+    sheet = cache.load(where, k)
+    if sheet is None:
+        sheet = solve(inputs, data, preferences, hints)    # solve renders the sheet, so the SVG is kept too
+        stored = cache.store(where, k, sheet)
+        if stored is not None:
+            sheet = pickle.loads(stored)                   # its own copy: the caller may change what it gets
+    return sheet
+
+
+def solve(inputs, data, preferences=True, hints=False):
+    """build without the cache."""
     optlist = [options(name, data, preferences, hints) for _, name in inputs]
     sheet_file = Path(data) / "sheet.preferences.json"
     if preferences and sheet_file.exists():        # the sheet's own look reaches every band, not just the last input
