@@ -294,6 +294,30 @@ class JmriCrossovers(unittest.TestCase):
     def test_a_double_crossover_loads_as_written(self):
         self.check(panel(), None)
 
+    def test_every_crossover_is_drawn_at_the_run_asked(self):
+        """The diagonals JMRI draws (jmri_xover.diagonals, a port of draw1), not the corners, are at the angle the
+        run gives: a double crossover drawn with A-B twice the run had diagonals at 69 degrees for 45 asked."""
+        import jmri_xover
+        dy = None
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            single = le.panel(crossover_band(), crossover_run=24.0)
+        for P in (le.panel(bands(), crossover_run=24.0), single):
+            for t in le.to_xml(P, "G").findall("layoutturnout"):
+                if "XOVER" not in t.get("type"):
+                    continue
+                pts = jmri_xover.load(t)
+                ys = sorted({p[1] for p in pts.values()})
+                dy = ys[-1] - ys[0]
+                want = math.degrees(math.atan2(dy, 24.0))
+                for seg in jmri_xover.diagonals(t.get("type"), pts, (float(t.get("xcen")), float(t.get("ycen")))):
+                    with self.subTest(turnout=t.get("ident"), type=t.get("type")):
+                        self.assertAlmostEqual(jmri_xover.angle(seg), want, delta=0.8)
+        self.assertIsNotNone(dy)
+        # the 2026-11-16 candidate's 225: A-B twice the 48 px run asked for 45 degrees, drawn at 69
+        old = {"A": (-24.0, 0.0), "B": (24.0, 0.0), "C": (24.0, 48.0), "D": (-24.0, 48.0)}
+        self.assertAlmostEqual(jmri_xover.angle(jmri_xover.diagonals("DOUBLE_XOVER", old, (0.0, 24.0))[0]), 69.4,
+                               delta=0.1)
+
     def test_the_old_shape_is_what_jmri_mirrored(self):
         import jmri_xover
         import xml.etree.ElementTree as ET
@@ -333,8 +357,10 @@ class TightCrossovers(unittest.TestCase):
 
     def draw(self, **kw):
         names = {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 7", "R": "Switch 8", "S": "Switch 8"}}}
+        (t, b, o), = three_way_band()
+        bands_ = [(t, b, dict(o, le_labels={"block_contents": False}))]       # the small band has no room for them
         with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
-            return le.panel(three_way_band(), names, crossover_run=48.0, **kw)
+            return le.panel(bands_, names, crossover_run=48.0, **kw)
 
     def gap(self, P):
         t = {x["name"]: x for x in P.turnouts}
@@ -357,6 +383,27 @@ class TightCrossovers(unittest.TestCase):
                 self.assertAlmostEqual(got[leg][0], float(t.get("x" + leg.lower())), places=3)
         # as usual the shared track is split half and half, and neither has room for its run
         self.assertTrue([line for line in self.draw().log if "no room for 48.0 px" in line])
+
+    def test_split_crossovers_bring_the_throats_together(self):
+        P = self.draw(tight_crossovers={"Test": [["7", "8"]]}, split_crossovers={"Test": ["7", "8"]})
+        by = defaultdict(list)
+        for t in P.turnouts:
+            by[t["name"]].append(t)
+        self.assertEqual({k: len(v) for k, v in by.items()}, {"Switch 7": 2, "Switch 8": 2})
+        self.assertTrue(all(t["type"].endswith("H_TURNOUT") for t in P.turnouts))     # plain turnouts
+        self.assertEqual(P.split_names, {"Switch 7", "Switch 8"})
+        row = min(t["at"][1] for t in by["Switch 7"])                     # the shared track
+        throats = sorted(t["at"][0] for v in by.values() for t in v if abs(t["at"][1] - row) < 1e-6)
+        self.assertEqual(len(throats), 2)
+        self.assertAlmostEqual(throats[1] - throats[0], 2 * le.LEG + le.MIN_BLOCK)
+        for v in by.values():           # each diagonal runs the run asked across
+            self.assertAlmostEqual(abs(v[0]["at"][0] - v[1]["at"][0]), 48.0)
+        numbers = [lb["text"] for lb in P.labels if lb.get("kind") == "switch"]
+        self.assertEqual(sorted(numbers), ["7", "8"])                    # one number each
+        with self.assertRaisesRegex(SchematicError, "both or neither"):
+            self.draw(tight_crossovers={"Test": [["7", "8"]]}, split_crossovers={"Test": ["7"]})
+        with self.assertRaisesRegex(SchematicError, "switch 9 is no single crossover"):
+            self.draw(split_crossovers={"Test": ["9"]})
 
     def test_bad_tight_crossovers_stop(self):
         for bad, why in (({"Test": [["7", "9"]]}, "switch 9 is no single crossover"),

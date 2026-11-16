@@ -239,6 +239,7 @@ class Panel:
         self.labels_unplaced = []   # (item, reason): items le_labels left out (strict=False only)
         self.crossover_run = None   # px across every single crossover's diagonal runs (panel), None: as drawn
         self.tight_crossovers = {}  # band key -> [(label, label)]: crossovers drawn close on their shared track (panel)
+        self.split_crossovers = {}  # band key -> [label]: crossovers drawn as two plain turnouts on one name (panel)
         self.split_names = set()    # turnout names of crossovers with no room, drawn as two turnouts (crossovers)
         self.lamps = []             # the caller's lamp boxes the label layer kept clear (le_labels lamp_columns)
         self.band_boxes = []        # (x0, y0, x1, y1) each band was placed by: its drawing with the room for its labels
@@ -610,7 +611,7 @@ def check_masts(key, masts, seen):
 
 
 def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP,
-          labels_by_band=False, crossover_run=None, tight_crossovers=None):
+          labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
@@ -628,8 +629,14 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     `tight_crossovers`: {band key: [[switch, switch], ...]}: two single crossovers that share a track (one half of
     each on it, say the two crossovers of one three-way switch) drawn as close together on it as their shapes allow:
     that track keeps only its block's least length (MIN_BLOCK, or a facing mast's icon), the rest of their room
-    goes to the two crossovers, and each slides toward the other. Needs `crossover_run`."""
+    goes to the two crossovers, and each slides toward the other. Needs `crossover_run`.
+    `split_crossovers`: {band key: [switch, ...]}: single crossovers drawn as two plain turnouts on their one turnout
+    name, joined by their diagonal track, so each track's throat is one point (a JMRI crossover's pieces run a run
+    past its diagonal either way). The half on a track shared with a tight partner (tight_crossovers, which must be
+    split too), else the top half, stays; the other slides along its row so the diagonal runs `crossover_run` across.
+    Two split crossovers drawn tight have their throats on the shared track 2 LEG and the track's least length apart."""
     tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
+    split_crossovers = check_split(bands, split_crossovers, tight_crossovers)
     if not isinstance(labels_by_band, bool):
         raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
     runs = crossover_run.values() if isinstance(crossover_run, dict) else [crossover_run]
@@ -644,7 +651,8 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
             raise SchematicError(f"crossover_run names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
     if fit is None:
         return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band,
-                          crossover_run=crossover_run, tight_crossovers=tight_crossovers)
+                          crossover_run=crossover_run, tight_crossovers=tight_crossovers,
+                          split_crossovers=split_crossovers)
     if crossover_run is not None:
         raise SchematicError("crossover_run is for a panel drawn at a given grid, not one fitted to a window")
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
@@ -724,8 +732,36 @@ def check_tight(bands, tight, crossover_run):
     return out
 
 
+def check_split(bands, split, tight):
+    """{band key: set(label)} of panel's `split_crossovers` (None: {}), checked: band keys of the bands drawn, each a
+    label of a single crossover of that band; a tight pair (`tight`, checked) is split both or neither."""
+    if not split:
+        return {}
+    if not isinstance(split, dict):
+        raise SchematicError(f"split_crossovers must be {{band key: [switch, ...]}}, not {split!r}")
+    keys = {band_key(t): band for t, band, _o in bands}
+    out = {}
+    for key, labels in split.items():
+        if key not in keys:
+            raise SchematicError(f"split_crossovers names {key}, which is no band (bands: {', '.join(keys)})")
+        if not isinstance(labels, (list, tuple, set)) or not all(isinstance(x, str) for x in labels):
+            raise SchematicError(f"split_crossovers for {key}: {labels!r} is not a list of switch numbers")
+        have = {keys[key]["nodes"][u].get("label") for _sid, u, _v in crossover_pairs(keys[key])}
+        stray = sorted(set(labels) - have)
+        if stray:
+            raise SchematicError(f"split_crossovers for {key}: switch {', '.join(stray)} is no single crossover of "
+                                 "that band")
+        out[key] = set(labels)
+    for key, pairs in tight.items():
+        for pair in pairs:
+            if len(set(pair) & out.get(key, set())) == 1:
+                raise SchematicError(f"split_crossovers for {key}: crossovers {pair[0]} and {pair[1]} are drawn tight, "
+                                     "so both or neither are split")
+    return out
+
+
 def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None, gap=BAND_GAP,
-               labels_by_band=False, crossover_run=None, tight_crossovers=None):
+               labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None):
     """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
     idents (Panel.text). `labels`: then run the label layer (label_layer). `page` as given: the drawing takes the
     last band's options when it is None (_draw), the labels take none (le_labels.options), so a band's le_labels
@@ -736,6 +772,7 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
     P = Panel()
     P.crossover_run = crossover_run
     P.tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
+    P.split_crossovers = check_split(bands, split_crossovers, P.tight_crossovers)
     try:
         _draw(P, bands, names, cell, row, page, masts, gap)
     except SchematicError as e:
@@ -1419,6 +1456,9 @@ class Band:
 
     def crossovers(self):
         """Two switches of one number joined C to C by a track: one single crossover."""
+        split = self.P.split_crossovers.get(band_key(self.title), set())
+        if split:
+            self.split_moves(split)
         for sid, u, v in crossover_pairs(self.band):
             du = self.nodes[u]
             if (self.bi, u) in self.P.turnout_of or (self.bi, v) in self.P.turnout_of:
@@ -1430,6 +1470,11 @@ class Band:
                 continue
             top, tp, bot, bp = self.halves(u, v)
             if abs(tp[1] - bp[1]) < EPS:
+                continue
+            if du["label"] in split:        # two plain turnouts on its one name (turnout, later)
+                name = self.names.get("turnouts", {}).get(u)
+                if name:
+                    self.P.split_names.add(name)
                 continue
             try:
                 self.tight_first(top, bot)
@@ -1460,6 +1505,59 @@ class Band:
                 blocks = {"A": self.os_of(top), "B": self.os_of(top), "C": self.os_of(bot), "D": self.os_of(bot)}
                 self.add_turnout([top, bot], ttype, mid(tp, bp), pts, conn, blocks)
                 self.internal.add(sid)
+
+    def move_node(self, n, dx):
+        """Move node n dx px along its row: the end at n of each of its tracks' drawn lines."""
+        for p in self.ports(n):
+            sid = self.port_strand(n, p)
+            pts = list(self.poly[sid])
+            k = 0 if tuple(self.strands[sid]["src"]) == (n, p) else -1
+            pts[k] = (pts[k][0] + dx, pts[k][1])
+            self.poly[sid] = pts
+
+    def split_moves(self, split):
+        """Place the halves of the split crossovers (P.split_crossovers): a tight pair's halves on their shared track
+        2 LEG and the track's least length apart (about their middle); then each crossover's other half slid along
+        its row so its diagonal runs P.crossover_run across. Stops when a moved half's track is left shorter than a
+        leg and MIN_BLOCK."""
+        pairs = {}
+        for _sid, u, v in crossover_pairs(self.band):
+            if self.nodes[u].get("label") in split:
+                pairs[self.nodes[u]["label"]] = (u, v)
+        inner, moved = {}, set()
+        for a, b in self.P.tight_crossovers.get(band_key(self.title), []):
+            if a not in split:
+                continue
+            shared = [(n, p) for n in pairs[a] for p in "AB" if self.partner(n, p)]
+            if len(shared) != 1:
+                raise SchematicError(f"{self.title}: crossovers {a} and {b} share no one track")
+            n, p = shared[0]
+            far = self.partner(n, p)[0]
+            sid = self.port_strand(n, p)
+            least = max(self.least_of(blk) for blk in self.blocks_of(sid))
+            d = self.first_len(n, p)
+            way = 1 if self.direction(n, p)[0] > 0 else -1
+            pull = max(0.0, (d - (2 * LEG + least)) / 2)
+            self.move_node(n, way * pull)
+            self.move_node(far, -way * pull)
+            inner[a], inner[b] = n, far
+            moved |= {n, far}
+        run = self.run()
+        for label, (u, v) in sorted(pairs.items()):
+            top, _tp, bot, _bp = self.halves(u, v)
+            keep = inner.get(label, top)
+            other = bot if keep == top else top
+            if run is not None:
+                kx, ox = self.node_point(keep)[0], self.node_point(other)[0]
+                way = 1 if ox >= kx else -1
+                self.move_node(other, kx + way * run - ox)
+                moved.add(other)
+        for n in moved:
+            for p in self.ports(n):
+                pts = self.away(n, p)
+                if abs(pts[1][1] - pts[0][1]) < EPS and self.first_len(n, p) < LEG + MIN_BLOCK - EPS:
+                    raise SchematicError(f"{self.title}: switch {self.nodes[n].get('label')}: drawn as two turnouts, "
+                                         f"its track that way is left {self.first_len(n, p):.1f} px")
 
     def halves(self, u, v):
         """(top node, its point, bottom node, its point) of the crossover of switches u and v."""
@@ -1607,12 +1705,15 @@ class Band:
                                  "do not start at one column")
         h = min([0.5 * (ys[1] - ys[0])] + [0.4 * self.first_len(n, p) for p in "ABCD"])
         if self.run() is not None:      # its diagonals run as far across as a single crossover's, where there is room
+            # JMRI draws a double crossover's diagonals from 5/8 of the way along each half side (A to the middle of
+            # A-B, ...) to the centre, so they run 3/8 of h across per half its height: h = 4/3 of the run
             room = min(self.first_len(n, p) for p in "ABCD") - MIN_BLOCK
-            want = self.run() / 2
+            want = 4 * self.run() / 3
             got = max(h, min(want, room))
             if got < want - EPS:
                 self.P.log.append(f"{self.title}: double crossover {self.nodes[n].get('label') or n} drawn "
-                                  f"{2 * got:.1f} px across, {math.degrees(math.atan2(ys[1] - ys[0], 2 * got)):.1f} "
+                                  f"{0.75 * got:.1f} px across, "
+                                  f"{math.degrees(math.atan2(ys[1] - ys[0], 0.75 * got)):.1f} "
                                   f"degrees: no room for {self.run():.1f} px")
             h = got
         h, xc = round(h), round(xc * 2) / 2     # whole and half pixels: JMRI rebuilds the same four points

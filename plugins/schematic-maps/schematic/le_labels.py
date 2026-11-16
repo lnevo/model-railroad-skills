@@ -652,9 +652,21 @@ def specs(P, bands, opts, L, extras=()):
     make(state) gives (item, its spots, commit(box) -> ("label" or "bci", the dict P keeps)); `state` carries the
     side each number and name took, for the icons placed after them."""
     out = []
+    # a crossover drawn as two turnouts on its one name (P.split_names) has one number: by its lower turnout when
+    # the switch is in numbers_below, else by its upper one
+    numbered = {}
+    for t in P.turnouts:
+        if t["name"] in P.split_names:
+            below = (bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or "") in opts[t["band"]]["numbers_below"]
+            key = (t["band"], t["name"])
+            best = numbered.get(key)
+            if best is None or (t["at"][1] > best["at"][1] if below else t["at"][1] < best["at"][1]):
+                numbered[key] = t
     for t in P.turnouts:
         o = opts[t["band"]]
         label = bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
+        if t["name"] in P.split_names and numbered[(t["band"], t["name"])] is not t:
+            continue
         if label:
             out.append((("switch", t["ident"]), _switch_number(L, t, o["switch_prefix"] + label, o,
                                                                label in o["numbers_below"])))

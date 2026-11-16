@@ -5,7 +5,11 @@ configurexml.LayoutTurnoutViewXml.
 The view's own `version` field is never set from the XML (LayoutTurnoutView keeps 1 whatever `ver` says), so every
 crossover is held as a centre and two displacements (dispA, dispB), and each setter reshapes the parallelogram:
 A = c - dispA, B = c + dispB, C = c + dispA, D = c - dispB. The loader calls setCoordsA only when ver is 2, then
-setCoordsB and setCoordsC, then setCoordsD when ver is 2."""
+setCoordsB and setCoordsC, then setCoordsD when ver is 2.
+
+`diagonals` ports what draw1 draws for the crossed-over route: a single crossover's diagonal from the middle of
+A-B through the centre to the middle of C-D; a double crossover's four from 5/8 of the way from each end to the
+middle of its side (pAM, pBM, pCM, pDM: MathUtil.lerp(pA, pABM, 5.0 / 8.0)) to the centre, not from its corners."""
 import math
 
 L_DEFAULT, S_DEFAULT, W_DEFAULT = 30.0, 10.0, 10.0      # LayoutEditor's xOverLong, xOverShort, xOverHWid defaults
@@ -140,3 +144,19 @@ def slant(points):
     top = ((points["A"][0] + points["B"][0]) / 2, (points["A"][1] + points["B"][1]) / 2)
     bot = ((points["C"][0] + points["D"][0]) / 2, (points["C"][1] + points["D"][1]) / 2)
     return "\\" if (bot[0] - top[0]) * (bot[1] - top[1]) > 0 else "/"
+
+
+def diagonals(ttype, points, centre):
+    """[(from, to)] of the diagonal lines JMRI 5.16 draws (LayoutTurnoutView.draw1) for a loaded crossover."""
+    lerp = lambda p, q, t: (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)     # noqa: E731
+    ab = lerp(points["A"], points["B"], 0.5)
+    cd = lerp(points["C"], points["D"], 0.5)
+    if ttype == "DOUBLE_XOVER":
+        return [(lerp(points[k], ab if k in "AB" else cd, 5.0 / 8.0), centre) for k in "ABCD"]
+    return [(ab, centre), (centre, cd)]
+
+
+def angle(segment):
+    """Degrees from the horizontal of a drawn line."""
+    (x0, y0), (x1, y1) = segment
+    return math.degrees(math.atan2(abs(y1 - y0), abs(x1 - x0)))
