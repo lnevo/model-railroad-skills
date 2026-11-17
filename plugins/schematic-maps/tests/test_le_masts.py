@@ -664,12 +664,44 @@ class MastRoom(unittest.TestCase):
         self.assertEqual(le.moved_east(band, 1.5, rigid), {"b", "c", "d", "e", "f"})
         self.assertEqual(le.moved_east(band, 1.5, set()), {"c", "d", "e"})
 
+    def test_name_room_lets_a_short_named_track_out_within_the_spare_width(self):
+        b = bands()
+        bare = le.panel(b)
+        widths = [x[2] - x[0] for x in bare.band_boxes]
+        narrow, wide = widths.index(min(widths)), widths.index(max(widths))
+        for bi in (narrow, wide):       # a one-column track on each band named longer than its straight
+            band = b[bi][1]
+            sid = min((sid for sid, st in band["strands"].items() if st.get("name") and
+                       le.level_pieces(le.paths(band)[sid])),
+                      key=lambda sid: max(abs(p[1] - p[0]) for p in le.level_pieces(le.paths(band)[sid])))
+            b[bi] = (b[bi][0], dict(band, strands=dict(band["strands"], **{
+                sid: dict(band["strands"][sid], name=f"Long Track {sid}")})), b[bi][2])
+        bare = le.panel(b)
+        keys = [le.band_key(t) for t, _b, _o in b]
+        P = le.panel(b, name_room=keys)
+        grown = {k for k in P.widened}
+        self.assertTrue(grown)
+        self.assertTrue(all(k[0] == narrow for k in grown))           # the widest band has no width to spare
+        self.assertTrue(any(f"{b[wide][0]}:" in line and "name_room leaves it" in line for line in P.log)
+                        or not any(k[0] == wide for k in grown))
+        after = [b[2] - b[0] for b in P.band_boxes]
+        self.assertLessEqual(after[narrow], max(widths) + 1e-6)
+        self.assertEqual(P.size[0], bare.size[0])                      # the panel keeps its width
+        self.assertEqual(sorted(t["type"] for t in P.turnouts), sorted(t["type"] for t in bare.turnouts))
+        self.assertTrue(any("px longer for its name" in line for line in P.log))
+        self.assertLessEqual(len(P.names_skipped), len(bare.names_skipped))
+        for bad, msg in (("Lower", "name_room must be a list"), (["Nowhere"], "name_room names Nowhere")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, msg):
+                le.panel(bands(), name_room=bad)
+        with self.assertRaisesRegex(SchematicError, "name_room are for a panel drawn at a given grid"):
+            le.panel(bands(), name_room=[key()], fit=(1300, 700))
+
     def test_bad_mast_room_stops(self):
         for bad, msg in (("Lower", "must be a list of band keys"), ([3], "must be a list of band keys"),
                          (["Nowhere"], "mast_room names Nowhere, which is no band")):
             with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, msg):
                 le.panel(bands(), mast_room=bad)
-        with self.assertRaisesRegex(SchematicError, "mast_room is for a panel drawn at a given grid"):
+        with self.assertRaisesRegex(SchematicError, "for a panel drawn at a given grid"):
             le.panel(bands(), mast_room=[key()], fit=(1300, 700))
 
     def test_without_masts_or_the_option_nothing_is_let_in(self):
