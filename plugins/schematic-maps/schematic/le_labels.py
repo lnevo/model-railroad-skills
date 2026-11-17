@@ -76,7 +76,11 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "lamp_columns": [],
-     "lamp_size": [10, 10], "numbers_below": []}
+     "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": []}
+`optional_block_contents` (a band's: blocks that band draws): blocks whose block contents icon is left out (logged,
+P.bcis_skipped) when it finds no clean spot at either reserve, instead of stopping: for a block too short and
+crowded to read, say once the caller's masts stand around it. It is never put first in a later round nor counted
+when the best round is chosen. Every other icon still stops when it has no spot.
 `numbers_below`: switch numbers (the switches' labels, no prefix) whose number tries the spots below its turnout
 first (a crossover's number tries above first, a plain switch's the side away from its diverging leg).
 `lamp_columns` (a band's): groups of track names whose caller's lamps (lamp_size) stand on one centre x, on each
@@ -118,7 +122,7 @@ GRID = 64           # px per cell of the indexes
 DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "lamp_columns": [],
-            "lamp_size": [10, 10], "numbers_below": []}
+            "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": []}
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 
 
@@ -144,10 +148,10 @@ def _check(where, o):
             names = [n for g in v for n in g]
             if len(names) != len(set(names)):
                 raise SchematicError(f"{where}: le_labels: {k} names a track twice")
-        elif k == "numbers_below":
+        elif k in ("numbers_below", "optional_block_contents"):
             if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
-                raise SchematicError(f"{where}: le_labels: numbers_below must be a list of switch numbers, not "
-                                     f"{v!r}")
+                raise SchematicError(f"{where}: le_labels: {k} must be a list of "
+                                     f"{'switch numbers' if k == 'numbers_below' else 'block names'}, not {v!r}")
         elif k in ("switch_bold", "block_contents", "names_last"):
             if not isinstance(v, bool):
                 raise SchematicError(f"{where}: le_labels: {k} must be true or false, not {v!r}")
@@ -524,8 +528,9 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
     extras = check_extras(extras, P.blocks)
     items = specs(P, bands, opts, L, extras)
     # a band's names_last: its track names go after everything else and may be left out
-    optional = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
-    items = [it for it in items if it[0] not in optional] + [it for it in items if it[0] in optional]
+    skip_names = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
+    items = [it for it in items if it[0] not in skip_names] + [it for it in items if it[0] in skip_names]
+    skip_bcis = optional_icons(P, L, bands, opts)
     if by_band:
         band = item_bands(P, L, items, extras)
         groups = [[it for it in items if band[it[0]] == bi] for bi in sorted(set(band.values()))]
@@ -533,7 +538,7 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
         groups = [items]
     done, failed, skipped, notes = [], [], [], []
     for group in groups:
-        g_done, g_failed, g_skipped = place_items(L, group, optional)
+        g_done, g_failed, g_skipped = place_items(L, group, skip_names, skip_bcis)
         done += g_done
         failed += g_failed
         skipped += g_skipped
@@ -544,8 +549,10 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
         raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
     P.labels_unplaced = [(k, msg) for k, msg in failed]
     P.lamps = list(L.reserved)
-    P.names_skipped = [msg for _k, msg in skipped]
-    P.log += notes + [f"{msg} (names_last: left out)" for msg in P.names_skipped]
+    P.names_skipped = [msg for k, msg in skipped if k[0] == "name"]
+    P.bcis_skipped = [msg for k, msg in skipped if k[0] == "bci"]
+    P.log += notes + [f"{msg} (names_last: left out)" for msg in P.names_skipped] + \
+        [f"{msg} (optional_block_contents: left out)" for msg in P.bcis_skipped]
     P.bcis, P.extras = [], []
     for kind, d in done:
         {"bci": P.bcis, "extra": P.extras}.get(kind, P.labels).append(d)
@@ -555,6 +562,26 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
             lb["box"] = (x0, y0, x1 - x0, y1 - y0)
     if strict:              # not strict, items may be missing: the caller only looks at what does not fit
         verify(P)
+
+
+def optional_icons(P, L, bands, opts):
+    """{("bci", block)}: the block contents icons a band's `optional_block_contents` lets be left out, each only for
+    a block that band draws. A listed block drawn on another band is not that band's (logged, when its options are
+    the other band's too); one drawn nowhere here is logged and ignored, since a panel drawn with `--band` does not
+    draw every band the options were written for."""
+    places = block_places(P, L)
+    by_band = defaultdict(set)
+    for block in P.blocks:
+        by_band[block_band(L, places, block)].add(block)
+    out = set()
+    for bi, o in enumerate(opts):
+        for block in o["optional_block_contents"]:
+            if block in by_band[bi]:
+                out.add(("bci", block))
+            elif block not in P.blocks:
+                P.log.append(f"{bands[bi][0]}: optional_block_contents: block {block} is not drawn on this panel "
+                             "(ignored)")
+    return out
 
 
 def item_bands(P, L, items, extras):
@@ -579,9 +606,11 @@ def item_bands(P, L, items, extras):
     return out
 
 
-def place_items(L, items, optional):
+def place_items(L, items, skip_names, skip_bcis):
     """(done, failed, skipped) of placing `items` in rounds (place): every icon at full size if any order of rounds
-    allows it; only then the short reserve. `optional`: the names_last names, which may be left out (skipped)."""
+    allows it; only then the short reserve. `skip_names` (names_last) and `skip_bcis` (optional_block_contents) may
+    be left out (skipped): a name as soon as it has no spot, an icon once it has none at the short reserve either.
+    Neither is ever put first in a later round, nor counted when choosing the best round."""
     makers = dict(items)
     skipped = []
 
@@ -592,8 +621,8 @@ def place_items(L, items, optional):
         never put first in a later round."""
         L.reset()
         done, failed, state = place_round(L, items, first, set(first) if short else ())
-        skipped[:] = [(k, why) for k, why in failed if k in optional]
-        failed = [(k, why) for k, why in failed if k not in optional]
+        skipped[:] = [(k, why) for k, why in failed if k in skip_names]
+        failed = [(k, why) for k, why in failed if k not in skip_names]
         still = []
         for key, why in failed:                     # only what failed at full size gets the short reserve
             got = makers[key](state, short=True) if short else None
@@ -604,25 +633,29 @@ def place_items(L, items, optional):
                 done.append(got[2](box))
         return done, failed, still
 
+    def needed(still):
+        return [x for x in still if x[0] not in skip_bcis]
+
     for short in (False, True):
         first, tried, best = [], set(), None
         for _ in range(ROUNDS):
             done, failed, still = attempt(first, short)
-            if best is None or len(still) < best[0]:
-                best = (len(still), list(first))
-            if not still:
+            if best is None or len(needed(still)) < best[0]:
+                best = (len(needed(still)), list(first))
+            if not needed(still):
                 break
-            again = [k for k, _msg in failed]
+            again = [k for k, _msg in failed if k not in skip_bcis]
             order = tuple(again + [k for k in first if k not in again])
             if order in tried:                      # this order again: more rounds will not help
                 break
             tried.add(order)
             first = list(order)
-        if still and first != best[1]:              # the round that left the fewest, again
+        if needed(still) and first != best[1]:      # the round that left the fewest, again
             done, failed, still = attempt(best[1], short)
-        if not still:
+        if not still:                               # an optional icon left over still tries the short reserve
             break
-    return done, still, list(skipped)
+    # an optional block contents icon (optional_block_contents) left with no spot at either reserve is left out
+    return done, needed(still), list(skipped) + [x for x in still if x[0] in skip_bcis]
 
 
 def place_round(L, items, first, again=()):
