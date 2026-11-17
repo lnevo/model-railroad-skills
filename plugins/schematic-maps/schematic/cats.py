@@ -25,7 +25,8 @@ switches of the same number joined by a track), reaching one step past the point
 compact panel slides a mast's gap), so no block boundary falls on a points or crossing edge. Each switch's points carry two ROUTEINFO, normal being leg B (the
 straight leg as the band records it). No IOSPEC is written: binding sensors and turnouts is left to the Designer
 or a later pass. Link ends with the same letter, and helix ends of the same track, on two drawn bands are joined
-logically (SHARED); other ends get a label saying where they go. A turnback joining two tracks of different names
+logically (SHARED); a helix track joined so is one block, or with `helix_blocks="apart"` a block on each band, parted
+at the join. Other ends get a label saying where they go. A turnback joining two tracks of different names
 is two blocks, parted in the middle of its vertical run.
 
 Bindings (optional, `panel(bands, bindings=...)`, the command's --bindings FILE.json) tie the panel to the
@@ -41,7 +42,8 @@ layout's devices; every name in them must exist in the panel, or it is an error:
 IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "command": "close" or "throw"} (also
 JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
 is not a whole label splits at its last /, and labels and aliases compare as text);
-switches of one number given different `block`s keep apart. BLOCK is the panel's block name after the switches'
+switches of one number given different `block`s keep apart. A double crossover's binding moves all four of its
+points: route B along each through track, C into the X (normal B unless it says C). BLOCK is the panel's block name after the switches'
 `block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
 (field or planned; virtual masts are not drawn). It goes on the block boundary nearest where it stands on its run:
 on the edge of the block it protects (the side toward the switch or end its move is heading for), facing out of
@@ -299,9 +301,16 @@ def band_key_name(title):
     return title.split(",")[0].strip()
 
 
-def panel(bands, scale=SCALE, bindings=None, max_cols=None):
+HELIX_BLOCKS = ("one", "apart")
+
+
+def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
     """A Panel from [(title, band, options)], bands stacked top to bottom, bound to the layout by `bindings`.
-    `max_cols`: take out columns of plain level track until no track reaches past that column (trim_columns)."""
+    `max_cols`: take out columns of plain level track until no track reaches past that column (trim_columns).
+    `helix_blocks`: a helix track drawn on two bands is one block ("one"), or a block on each band ("apart": the
+    logical join between them is a block boundary, as where the layout parts its detection at the helix)."""
+    if helix_blocks not in HELIX_BLOCKS:
+        raise SchematicError(f"helix_blocks is one of {', '.join(HELIX_BLOCKS)}, not {helix_blocks!r}")
     if not isinstance(scale, int) or isinstance(scale, bool) or not (scale == 1 or (scale >= 2 and scale % 2 == 0)):
         raise SchematicError(f"the CATS scale is 1 or an even number of cells per grid unit, not {scale!r}")
     compact = scale == 1
@@ -484,11 +493,14 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None):
                 P.crossings |= {((a + h - 1, y1 + h), "RIGHT"), ((a + h, y1 + h), "LEFT")}
             else:
                 P.crossings |= {((a + h, y1 + h), "BOTTOM"), ((a + h, y1 + h + 1), "TOP")}
+            # each of its four points: route B along its through track, C into the X (one turnout moves all four)
+            normal = sw_bind.get((bi, n), {}).get("normal", "B")
             for yy, xp, frog in ((y1, a, "LEFT"), (y2, a, "LEFT"), (y1, b, "RIGHT"), (y2, b, "RIGHT")):
                 cell = (xp, yy) if frog == "LEFT" else (xp - 1, yy)
-                routes = [(ENDS[t][1] if ENDS[t][0] == frog else ENDS[t][0], t == "HORIZONTAL")
-                          for t in P.cells[cell] if frog in ENDS[t]]
-                P.points[(cell, frog)] = dict(switch=d.get("label") or n, routes=sorted(routes))
+                ports = {ENDS[t][1] if ENDS[t][0] == frog else ENDS[t][0]: "B" if t == "HORIZONTAL" else "C"
+                         for t in P.cells[cell] if frog in ENDS[t]}
+                P.points[(cell, frog)] = dict(switch=d.get("label") or n, node=(bi, n), ports=ports,
+                                              routes=sorted((far, port == normal) for far, port in ports.items()))
             if d.get("label"):
                 cands = [((xc, y1 - 1), "LOWCENT"), ((xc - 1, y1 - 1), "LOWCENT"), ((xc, y2 + 1), "UPCENT")]
                 if compact:                     # over the X, in its top through track's cells, else under it
@@ -581,12 +593,14 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None):
         elif d.get("sub") == "helix" and e[3]:
             by_helix[e[3]].append(e)
     joined = set()
+    helix_groups = {id(g) for g in by_helix.values()}
     for group in list(by_link.values()) + list(by_helix.values()):
         if len(group) == 2 and group[0][0] != group[1][0]:
             (ca, cb) = group[0][4], group[1][4]
             P.shared[ca], P.shared[cb] = cb, ca
             ka, kb = group[0][5], group[1][5]
-            if ka[0] == kb[0] == "track":       # one track drawn on two bands is one block
+            apart = helix_blocks == "apart" and id(group) in helix_groups
+            if ka[0] == kb[0] == "track" and not apart:     # one track drawn on two bands is one block
                 P.union(ka, kb)
             joined |= {id(group[0]), id(group[1])}
     end_labels = []                             # (title, edge, cell, text, candidates, sub, level run)
@@ -954,8 +968,6 @@ def switch_bindings(bands, switches):
         if not hits:
             raise SchematicError(f"bindings name switch {key}, which no drawn band has")
         for h in hits:
-            if bands[h[0]][1]["nodes"][h[1]]["kind"] == "dx" and (e.get("routes") or "normal" in e):
-                raise SchematicError(f"switch {key}: a double crossover takes a block binding only (no routes or normal)")
             if h in owner:
                 d = bands[h[0]][1]["nodes"][h[1]]
                 raise SchematicError(f"switch {d.get('label')}/{d.get('alias') or h[1]} is bound by both "
