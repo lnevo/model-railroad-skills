@@ -4,7 +4,7 @@ sheet, the detail sheets and the CATS panel are drawn as before.
     bands = le_prefs.drawn_bands(bands, page)    # le.panel, first: a band's le_shift and le_longer_straights
     clear = le_prefs.title_clear(page)           # le.panel: the page's le_title_clear (None: the gap as given)
     xs = le_prefs.extra_steps(P, opts, extras)   # le.panel, after the label layer: le_labels extra_steps/follow
-    le_prefs.stretched(scale, page)              # a caller's grid widened by the page's le_stretch factor
+    le_prefs.stretched(scale, page)              # (a caller's grid widened by le_stretch's factor, the factor)
     le_prefs.check_stretch(size, fit, chrome, page)  # ... and the panel it gives checked against the window's shape
 
 A band's preferences (keyed by band key, the first word of its title, as `band_width`; each band reads only its own
@@ -287,9 +287,10 @@ def check_page(page, bands=()):
 
 
 def stretched(scale, page):
-    """The grid `scale` (across, down) widened by the page's le_stretch factor: (across * factor, down)."""
+    """((across * factor, down), factor): the grid `scale` (across, down) widened by the page's le_stretch factor, and
+    the factor, so a caller reports what it used without reading the preference again."""
     factor, _t = stretch(page)
-    return (scale[0] * factor, scale[1])
+    return (scale[0] * factor, scale[1]), factor
 
 
 def check_stretch(size, fit, chrome, page):

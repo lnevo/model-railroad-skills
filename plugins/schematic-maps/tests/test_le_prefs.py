@@ -176,7 +176,7 @@ class Stretch(unittest.TestCase):
     PAGE = {"le_stretch": {"factor": 1.25, "tolerance": 0.03}}
 
     def test_the_grid_is_widened_and_the_shape_checked(self):
-        self.assertEqual(le.stretched((0.8, 1.0), self.PAGE), (0.8 * 1.25, 1.0))
+        self.assertEqual(le.stretched((0.8, 1.0), self.PAGE), ((0.8 * 1.25, 1.0), 1.25))
         want = (1900 - le.CHROME[0]) / (1140 - le.CHROME[1])
         le.check_stretch((round(1000 * want), 1000), (1900, 1140), self.PAGE)
         with self.assertRaisesRegex(SchematicError, r"set le_stretch's factor to about 1\.\d+ \(now 1\.25\)"):
@@ -209,6 +209,7 @@ class ExtraSteps(unittest.TestCase):
         given = [dict(e, x=5) if e["id"] == "C" else e for e in extras]       # an item given its x keeps it
         self.assertEqual(le_prefs.extra_steps(P, self.opts(extra_steps=[["A", "B", "C"]]), given), {})
         self.assertEqual(le_prefs.extra_steps(P, self.opts(extra_steps=[["A", "B", "C"]]), []), {})
+        self.assertEqual(le.with_x(extras, {"C": 7})[2], {"id": "C", "x": 7})
 
     def test_what_gives_no_slope_or_is_not_placed_stops(self):
         P = self.fake({"A": (100, 0, 10, 10), "B": (90, 0, 10, 10), "W": (50, 0, 10, 10), "V": (70, 48, 10, 10)})

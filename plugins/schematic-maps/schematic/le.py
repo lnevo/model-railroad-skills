@@ -736,8 +736,15 @@ def drawn_bands(bands, page=None):
 
 
 def stretched(scale, page):
-    """A grid `scale` (across, down), say a fit's, widened by the page's le_stretch factor (le_prefs.stretched)."""
+    """((across, down), factor): a grid `scale`, say a fit's, widened by the page's le_stretch factor, and the factor
+    (le_prefs.stretched)."""
     return le_prefs.stretched(scale, page)
+
+
+def with_x(extras, xs):
+    """`extras` (a list) with each item in `xs` ({id: x}) given that x: to draw a panel's items where another panel
+    stepped them (P.extra_x)."""
+    return le_prefs.with_x(extras, xs)
 
 
 def check_stretch(size, fit, page):
