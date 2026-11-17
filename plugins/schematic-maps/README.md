@@ -41,6 +41,8 @@ Solving a sheet is the slow part of every command. `SCHEMATIC_CACHE=<folder>` ke
 
 `schematic detail` draws one station, or a named group of switches, as its own larger sheet, cut from the same solved drawing as the overall sheet so the two agree: same order of tracks, same lengths, same capacity counts and masts. Tracks that leave the cut end in an arrow reading `TO <station>` or `TO SW <number>`. Sheets come from the `detail_sheets` preference (name to switch numbers, which may overlap stations) when present, else the `stations` preference, all of them by default. Stations may overlap; `station_tracks` (plan overrides) limits a station's car total to listed tracks and `station_side` (preferences) puts its bar above or below the band; the object form (`switches`, `tracks`, `side`) also reads. A sheet shows a bar and car total for each station that lies wholly inside it; `detail_max_scale` (default 2) sets how far a sheet is enlarged. One selection writes a file, several write a folder of `<station>.svg`.
 
+Since 0.1.33 the Layout Editor panel takes its drawing adjustments as preferences (`le_shift`, `le_longer_straights`, `le_crossover_angle`, `le_title_clear`, `le_stretch`, and `extra_steps`/`extra_follow` in `le_labels`), checked before drawing; see [`references/le-panel.md`](skills/schematic-maps/references/le-panel.md). The `cats` and `le` modules are split into smaller modules with the same public names.
+
 Since 0.1.32 each detail sheet's title block carries the date and revision of the sheet it is cut from (the `date` and `revision` of the last input, which sets the page), whichever input its band comes from, so a station sheet can be matched to its schematic. It has no sheet number.
 
 ## CATS panel
