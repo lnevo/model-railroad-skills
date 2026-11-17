@@ -44,7 +44,7 @@ class Shift(unittest.TestCase):
         self.assertNotEqual(le.geometry(P), le.geometry(le.panel(bands())))
 
     def test_a_shift_that_reverses_a_track_or_names_no_switch_stops(self):
-        for entry, why in (({"from": "3", "to": "5", "columns": -5}, "overlapped or reversed"),
+        for entry, why in (({"from": "3", "to": "5", "columns": -5}, "track Main would be turned round"),
                            ({"from": "5", "to": "3", "columns": -1}, "not drawn left to right"),
                            ({"from": "3", "to": "99", "columns": -1}, "no switch 99")):
             with self.subTest(entry=entry), self.assertRaisesRegex(SchematicError, why):
@@ -60,8 +60,28 @@ class Shift(unittest.TestCase):
                 le.panel(with_prefs("Lower", le_shift={"Lower": value}))
         with self.assertRaisesRegex(SchematicError, "names Nowhere, which is no band"):
             le.panel(with_prefs("Lower", le_shift={"Nowhere": []}))
+        with self.assertRaisesRegex(SchematicError, "le_shift for Upper is not in that band's own preferences"):
+            le.panel(with_prefs("Lower", le_shift={"Upper": []}))           # the page is Lower's own options here
+        page = dict(bands()[-1][2])
         with self.assertRaisesRegex(SchematicError, "le_shift for Upper is in another band's preferences"):
-            le.panel(with_prefs("Lower", le_shift={"Upper": []}))
+            le.panel(with_prefs("Lower", le_shift={"Upper": []}), page=page)
+
+    def test_a_shift_that_parts_a_diagonal_or_makes_lines_cross_stops(self):
+        # e16 runs from switch 12 (column 8, outside 3 to 5) to 13 (column 12, inside): as a diagonal it would tear
+        torn = [(t, dict(b, R=dict(b["R"], diag=set(b["R"]["diag"]) | {"e16"})),
+                 dict(o, le_shift={"Lower": [{"from": "3", "to": "5", "columns": -1}]}))
+                if t.startswith("Lower") else (t, b, o) for t, b, o in bands()]
+        with self.assertRaisesRegex(SchematicError, "moves one end of the diagonal track\\(s\\) "):
+            le.drawn_bands(torn)
+        with mock.patch("schematic.le.let_out_fault", return_value="lines e1 and e2 would cross"), \
+                self.assertRaisesRegex(SchematicError, "le_shift of -1 columns from switch 3 to 5: lines e1 and e2"):
+            le.drawn_bands(with_prefs("Lower", le_shift={"Lower": [{"from": "3", "to": "5", "columns": -1}]}))
+
+    def test_a_band_preference_on_an_explicit_page_that_no_band_reads_stops(self):
+        page = dict(bands()[-1][2], le_crossover_angle={"Lower": 45})
+        with self.assertRaisesRegex(SchematicError, "page: le_crossover_angle for Lower is not in that band's own"):
+            le.panel(bands(), page=page)
+        le.panel(bands(), page=dict(page, le_crossover_angle={"Elsewhere": 45}))     # a band not drawn: not read
         with self.assertRaisesRegex(SchematicError, "must be an object of band"):
             le.panel(with_prefs("Lower", le_shift=[1]))
 
@@ -72,6 +92,7 @@ class LongerStraights(unittest.TestCase):
         got = lower(le.drawn_bands(with_prefs("Lower", le_longer_straights={
             "Lower": [{"from": "1", "to": "11", "columns": 0.5}]})))
         changed = [sid for sid in raw["need"] if raw["need"][sid] != got["need"][sid]]
+        self.assertTrue(changed)
         self.assertEqual(len(changed), 1)
         self.assertAlmostEqual(raw["need"][changed[0]][0] - got["need"][changed[0]][0], 0.5)
         self.assertEqual(got["x"], raw["x"])                    # both switches stay
@@ -82,6 +103,10 @@ class LongerStraights(unittest.TestCase):
                            ({"from": "1", "to": "11", "columns": -1}, "above zero")):
             with self.subTest(entry=entry), self.assertRaisesRegex(SchematicError, why):
                 le.panel(with_prefs("Lower", le_longer_straights={"Lower": [entry]}))
+        bare = [(t, dict(b, need={}), dict(o, le_longer_straights={"Lower": [{"from": "1", "to": "11", "columns": 0.5}]}))
+                if t.startswith("Lower") else (t, b, o) for t, b, o in bands()]
+        with self.assertRaisesRegex(SchematicError, "has no climbs in the solved band"):
+            le.drawn_bands(bare)
 
 
 class CrossoverAngle(unittest.TestCase):
@@ -114,9 +139,23 @@ class TitleClear(unittest.TestCase):
 
     def test_a_callers_items_under_a_band_push_the_next_down(self):
         P = le.panel(bands(), page=self.page(le_title_clear=8))
-        low = le.extent(P, 0)[3] + 30
-        Q = le.panel(bands(), page=self.page(le_title_clear=8), band_bottoms={bands()[0][0].split()[0]: low})
+        below = le.extent(P, 0)[3] - P.band_boxes[0][3] + 30      # px under band 0's box
+        Q = le.panel(bands(), page=self.page(le_title_clear=8), band_bottoms={bands()[0][0].split()[0]: below})
         self.assertAlmostEqual(Q.gaps[0] - P.gaps[0], 30, delta=1.0)
+
+    def test_band_bottoms_of_a_band_that_moves_down(self):
+        """Three bands: band 1 moves down as the gap above it settles, and its band_bottoms moves with it."""
+        third = [(t.replace("Lower", "Third"), b, o) for t, b, o in bands() if t.startswith("Lower")]
+        three = list(bands()) + third
+        page = dict(self.page(le_title_clear=8), band_order=["Upper", "Lower", "Third"])
+        P = le.panel(three, page=page)
+        self.assertEqual(len(P.gaps), 2)
+        below = le.extent(P, 1)[3] - P.band_boxes[1][3] + 30
+        Q = le.panel(three, page=page, band_bottoms={"Lower": below})
+        self.assertEqual(Q.gaps[0], P.gaps[0])
+        self.assertAlmostEqual(Q.gaps[1] - P.gaps[1], 30, delta=1.0)
+        title = [lb for lb in Q.labels if lb.get("kind") == "title"][2]
+        self.assertAlmostEqual(title["box"][1] - (Q.band_boxes[1][3] + below), 8, delta=1.0)
         for bad, why in ({"Nowhere": 1}, "no band drawn"), ({"Upper": "1"}, "number of px"), ([1], "object"):
             with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, why):
                 le.panel(bands(), page=self.page(le_title_clear=8), band_bottoms=bad)
@@ -184,10 +223,29 @@ class ExtraSteps(unittest.TestCase):
             le_prefs.extra_steps(self.fake({"A": (0, 0, 1, 1), "B": (0, 9, 1, 1)}, band=1),
                                  self.opts(extra_steps=[["A", "B"]]), [{"id": "A"}, {"id": "B"}])
 
+    def test_a_second_drawing_that_moves_a_leader_stops(self):
+        before = self.fake({"A": (100, 0, 10, 10), "B": (90, 48, 10, 10), "C": (80, 96, 10, 10)})
+        extras = [{"id": i} for i in "ABC"]
+        opts = self.opts(extra_steps=[["A", "B", "C"]])
+        xs = le_prefs.extra_steps(before, opts, extras)
+        self.assertEqual(xs, {"C": 80})
+        le_prefs.check_steps(before, opts, extras, xs)
+        after = self.fake({"A": (104, 0, 10, 10), "B": (90, 48, 10, 10), "C": (80, 96, 10, 10)})
+        with self.assertRaisesRegex(SchematicError, "C at 80, its leaders now give 76"):
+            le_prefs.check_steps(after, opts, extras, xs)
+
+    def test_no_extras_is_logged(self):
+        P = mock.Mock(log=[], extras=[])
+        self.assertEqual(le_prefs.extra_steps(P, self.opts(extra_steps=[["A", "B", "C"]]) + self.opts(), []), {})
+        self.assertEqual(len(P.log), 1)
+        self.assertIn("band 1: the panel has no caller's items", P.log[0])
+
     def test_options_are_checked_and_are_a_bands_own(self):
         for bad, why in ({"extra_steps": [["A"]]}, "two or more"), ({"extra_steps": [["A", "B"], ["B", "C"]]}, "twice"), \
                         ({"extra_follow": [["A", "A"]]}, "leader, follower"), \
-                        ({"extra_steps": [["A", "B", "C"]], "extra_follow": [["A", "C"]]}, "places too"):
+                        ({"extra_steps": [["A", "B", "C"]], "extra_follow": [["A", "C"]]}, "places too"), \
+                        ({"extra_steps": [["A", "B", "C"]], "extra_follow": [["C", "D"]]}, "leader C is itself"), \
+                        ({"extra_steps": [["A", "B"]], "extra_follow": [["A", "D"], ["D", "E"]]}, "leader D is itself"):
             with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, why):
                 le.panel(with_prefs("Lower", le_labels=bad))
         page = dict(bands()[-1][2], le_labels={"extra_steps": [["A", "B"]]})
@@ -198,8 +256,10 @@ class ExtraSteps(unittest.TestCase):
         extras = [{"id": "Passing cluster", "block": "Passing", "size": [82, 20]}]
         first = le.panel(bands(), extras=extras)
         x = first.extras[0]["box"][0] - 16
-        with mock.patch.object(le_prefs, "extra_steps", return_value={"Passing cluster": x}) as steps:
+        with mock.patch.object(le_prefs, "extra_steps", return_value={"Passing cluster": x}) as steps, \
+                mock.patch.object(le_prefs, "check_steps") as check:
             P = le.panel(bands(), extras=extras)
+        self.assertEqual(check.call_args.args[3], {"Passing cluster": x})
         self.assertEqual(steps.call_count, 1)
         self.assertEqual(P.extra_x, {"Passing cluster": x})
         self.assertEqual(P.extras[0]["box"][0], x)

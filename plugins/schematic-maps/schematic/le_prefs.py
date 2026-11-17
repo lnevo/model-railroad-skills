@@ -28,7 +28,7 @@ Both apply to the Layout Editor drawing only, before anything is drawn, `le_shif
 The page's preferences:
   le_title_clear       px: the gaps between bands fit the drawing, each next band's title that many px below the
                        lowest thing drawn for the band above (track, labels, icons, masts; and a caller's own items
-                       under it, le.panel's `band_bottoms`). Settled by drawing again until the gaps hold (le's
+                       under it, le.panel's `band_bottoms`: px below that band's box, so it moves with the band). Settled by drawing again until the gaps hold (le's
                        TITLE_ROUNDS). For a panel at a given grid: a panel fitted to a window keeps `gap` (logged).
   le_stretch           {"factor": f, "tolerance": t}: for a caller that fits a panel to a window and draws it at
                        that grid widened by f (stretched), so a larger panel keeps the window's shape when zoomed to
@@ -42,7 +42,9 @@ A band's `le_labels` (its own, not the page's; le_labels checks the keys):
   extra_follow         [[leader, follower], ...]: the follower stands at the leader's x plus the band's slope times
                        how far below the leader it stands (needs an extra_steps group).
 An item the caller gives an `x` keeps it (a panel drawn again at another's places). The panel is drawn once more
-with the stepped items at their x; P.extra_x holds them ({id: x}). With no extras given there is nothing to step.
+with the stepped items at their x; P.extra_x holds them ({id: x}), and the run stops if that drawing moved what they
+step from (check_steps). A follower's leader may not itself be stepped or follow (le_labels checks). With no extras
+given there is nothing to step (logged).
 """
 import math
 
@@ -104,6 +106,25 @@ def band_entries(bands, page, pref):
     return out
 
 
+def check_page_band_prefs(bands, page):
+    """A page that holds a band preference (le_shift, le_longer_straights, le_crossover_angle) that no band drawn
+    holds as its own would be ignored (band preferences are read from each band's own options): stop, naming it. The
+    page is often the last input's own options, so a value one of the bands drawn also holds, or one for a band not
+    drawn now, is fine."""
+    drawn = {band_key(t): (o or {}) for t, _b, o in bands}
+    for pref in SHAPES:
+        given = (page or {}).get(pref)
+        if given is None:
+            continue
+        if not isinstance(given, dict):
+            raise SchematicError(f"page: {pref} must be an object of band: {SHAPES[pref]}, not {given!r}")
+        for key, value in given.items():
+            own = drawn.get(key, {}).get(pref)
+            if key in drawn and (not isinstance(own, dict) or own.get(key) != value):
+                raise SchematicError(f"page: {pref} for {key} is not in that band's own preferences, so it would not "
+                                     f"be read; set it in {key}'s preferences")
+
+
 def crossover_runs(bands, page, row):
     """{band key: px across} a crossover's diagonal runs at its band's le_crossover_angle, one row (`row` px) deep;
     {} when no band has one."""
@@ -159,7 +180,7 @@ def switch_column(title, band, label, pref):
     """The grid column switch `label` stands at on the band; stops when no switch has that label, or its switches
     (a crossover's two halves) stand on different columns."""
     cols = {band["x"][n] for n, d in band["nodes"].items()
-            if d["kind"] == "switch" and d.get("label") == label and n in band["x"]}
+            if d.get("kind") == "switch" and d.get("label") == label and n in band["x"]}
     if not cols:
         raise SchematicError(f"{title}: {pref}: no switch {label} is drawn on the band")
     if len(cols) > 1:
@@ -175,22 +196,21 @@ def shifted(title, band, e):
     if lo > hi:
         raise SchematicError(f"{title}: le_shift: switches {e['from']} and {e['to']} are not drawn left to right")
     n_cols = e["columns"]
-    x = {n: c + n_cols if lo <= c <= hi and not is_turnback(band, n) else c for n, c in band["x"].items()}
-    # a track with one end moved and one not keeps its ends in their order, as many columns apart as its climbs
-    # need (band "need"), so nothing outside the shift is overlapped or passed
-    bad = []
-    for sid, st in band["strands"].items():
-        u, v = st["src"][0], st["dst"][0]
-        if u not in x or v not in x or (x[u] == band["x"][u]) == (x[v] == band["x"][v]):
-            continue
-        old, new = band["x"][v] - band["x"][u], x[v] - x[u]
-        need = sum(band["need"].get(sid, (0, 0))[:2])
-        if old * new <= 0 or abs(new) < need:
-            bad.append(f"{st.get('name') or sid} ({old:g} -> {new:g} columns, needs {need:g})")
-    if bad:
-        raise SchematicError(f"{title}: le_shift of {n_cols} columns from switch {e['from']} to {e['to']} leaves "
-                             "tracks overlapped or reversed: " + ", ".join(bad))
-    return dict(band, x=x)
+    moved = {n for n, c in band["x"].items() if lo <= c <= hi and not is_turnback(band, n)}
+    # a diagonal (drawn node to node) with one end moved would change its slope: a crossover's two halves, or a
+    # ladder's step, part
+    torn = sorted(band["strands"][sid].get("name") or sid for sid in band.get("R", {}).get("diag", ())
+                  if sid in band["strands"] and
+                  (band["strands"][sid]["src"][0] in moved) != (band["strands"][sid]["dst"][0] in moved))
+    if torn:
+        raise SchematicError(f"{title}: le_shift from switch {e['from']} to {e['to']} moves one end of the diagonal "
+                             f"track(s) {', '.join(torn)} and not the other; widen or narrow the range")
+    from .le import let_out, let_out_fault       # le imports this module first
+    shifts = {n: float(n_cols) for n in moved}
+    why = let_out_fault(band, shifts)
+    if why:
+        raise SchematicError(f"{title}: le_shift of {n_cols} columns from switch {e['from']} to {e['to']}: {why}")
+    return let_out(band, shifts)
 
 
 def lengthened(title, band, e):
@@ -203,6 +223,9 @@ def lengthened(title, band, e):
         raise SchematicError(f"{title}: le_longer_straights: {len(found)} tracks join switches {e['from']} and "
                              f"{e['to']}, not one")
     sid, st = found[0]
+    if not isinstance(band.get("need", {}).get(sid), (list, tuple)) or len(band["need"][sid]) < 2:
+        raise SchematicError(f"{title}: le_longer_straights: track {st.get('name') or sid} has no climbs in the solved "
+                             "band (its \"need\"), so there is no bend to move")
     su, sv, *rest = band["need"][sid]
     at_src = label[st["src"][0]] == e["from"]
     climb = su if at_src else sv
@@ -224,7 +247,8 @@ def title_clear(page):
 
 
 def check_bottoms(bands, bottoms):
-    """le.panel's `band_bottoms` ({band key: px}, the lowest y of the caller's own items under a band), checked."""
+    """le.panel's `band_bottoms` ({band key: px}, how far below the band's box, P.band_boxes, the caller's own items
+    under it reach; negative: above its bottom), checked."""
     if bottoms is None:
         return {}
     if not isinstance(bottoms, dict):
@@ -253,9 +277,11 @@ def stretch(page):
     return f, t
 
 
-def check_page(page):
-    """The page's Layout Editor preferences checked up front (le_stretch only when given)."""
+def check_page(page, bands=()):
+    """The page's Layout Editor preferences checked up front (le_stretch only when given), and no band preference
+    in it that no band reads (check_page_band_prefs)."""
     title_clear(page)
+    check_page_band_prefs(bands, page)
     if (page or {}).get("le_stretch") is not None:
         stretch(page)
 
@@ -285,19 +311,15 @@ def check_stretch(size, fit, chrome, page):
 
 # ---------------------------------------------------------------- caller's items stepped (a band's le_labels)
 
-def extra_steps(P, opts, extras):
-    """{extra id: x} for the caller's items that step (module text), from the boxes the label layer placed (P.extras)
-    and each band's le_labels options `opts` (le_labels.options); {} with no extras. Stops on an id that is not one
-    of the extras placed on that band, or a group whose first two stand on one row (no slope)."""
-    if not extras:
-        return {}
-    given = {e["id"]: e for e in extras}
+def step_targets(P, opts, extras):
+    """{extra id: x} every stepped item's x as the boxes P.extras placed give it (module text), whether or not the
+    caller gave it one. Stops on an id that is not one of the extras placed on that band, or a group whose first two
+    stand on one row (no slope)."""
+    given = {e["id"] for e in extras}
     placed = {e["id"]: e for e in P.extras}
     out = {}
     for bi, o in enumerate(opts):
         groups, follow = o.get("extra_steps", []), o.get("extra_follow", [])
-        if not groups and not follow:
-            continue
 
         def box(i, bi=bi):
             if i not in given:
@@ -313,8 +335,7 @@ def extra_steps(P, opts, extras):
             step = x1 - x0
             for k, g in enumerate(group[2:], 2):
                 box(g)
-                if "x" not in given[g]:
-                    out[g] = round(x0 + k * step)
+                out[g] = round(x0 + k * step)
             if slope is None:
                 if y1 == y0:
                     raise SchematicError(f"le_labels extra_steps: {group[0]} and {group[1]} stand on one row, so "
@@ -325,9 +346,34 @@ def extra_steps(P, opts, extras):
             if slope is None:
                 raise SchematicError("le_labels extra_follow: an item follows another, but no extra_steps group gives "
                                      "the slope")
-            if "x" not in given[follower]:
-                out[follower] = round(lx + slope * (fy - ly))
+            out[follower] = round(lx + slope * (fy - ly))
     return out
+
+
+def extra_steps(P, opts, extras):
+    """{extra id: x} for the caller's items that step and were given no x (step_targets); {} with no extras (logged
+    for each band whose le_labels ask for steps)."""
+    if not extras:
+        for bi, o in enumerate(opts):
+            if o.get("extra_steps") or o.get("extra_follow"):
+                P.log.append(f"le_labels extra_steps/extra_follow of band {bi + 1}: the panel has no caller's items, "
+                             "so nothing is stepped")
+        return {}
+    given = {e["id"]: e for e in extras}
+    return {i: x for i, x in step_targets(P, opts, extras).items() if "x" not in given[i]}
+
+
+def check_steps(P, opts, extras, xs):
+    """After the panel is drawn again with the stepped items at their x (`xs`): stop unless every one stands where
+    the boxes now placed give it (step_targets), since an item that leads (the first two of a group, a follower's
+    leader) or a follower's row may move in the second drawing."""
+    if not xs:
+        return
+    now = step_targets(P, opts, extras)
+    bad = sorted(f"{i} at {xs[i]}, its leaders now give {now.get(i)}" for i in xs if now.get(i) != xs[i])
+    if bad:
+        raise SchematicError("le_labels extra_steps/extra_follow: drawn again with the stepped items at their x, "
+                             "the items they step from moved: " + "; ".join(bad))
 
 
 def with_x(extras, xs):

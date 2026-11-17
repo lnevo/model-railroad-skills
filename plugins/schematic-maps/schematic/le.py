@@ -681,11 +681,11 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     `name_room`: [band key, ...]: in the same rounds, on those bands a named track whose straight is shorter than its
     name's width and NAME_ROOM_PAD is let out the same way by the difference, west to east, while the band stays no
     wider than the widest band (so the panel keeps its width); a track past that is noted and left. Not with `fit`.
-    `band_bottoms`: {band key: px}, the lowest y of the caller's own items under a band, which the page's
-    le_title_clear counts as drawn for that band (P.gaps holds the gaps it settled on)."""
+    `band_bottoms`: {band key: px}, how far below the band's box (P.band_boxes) the caller's own items under it
+    reach, which the page's le_title_clear counts as drawn for that band (P.gaps holds the gaps it settled on)."""
     if not bands:
         raise SchematicError("no band to draw")
-    le_prefs.check_page(page if page is not None else bands[-1][2])
+    le_prefs.check_page(page if page is not None else bands[-1][2], bands)
     bands = drawn_bands(bands, page)
     band_bottoms = le_prefs.check_bottoms(bands, band_bottoms)
     runs = le_prefs.crossover_runs(bands, page if page is not None else bands[-1][2], row)
@@ -761,9 +761,12 @@ def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, cros
     else:
         draw = fit_drawer(bands, names, cell, row, page, fit, gap, labels_by_band, split_crossovers, unused)
     P = draw(extras)
-    xs = le_prefs.extra_steps(P, le_labels.options(bands, page), extras)
+    opts = le_labels.options(bands, page)
+    xs = le_prefs.extra_steps(P, opts, extras)
     if xs:
-        P = draw(le_prefs.with_x(extras, xs))
+        stepped = le_prefs.with_x(extras, xs)
+        P = draw(stepped)
+        le_prefs.check_steps(P, opts, stepped, xs)
     P.extra_x = xs
     return P
 
@@ -786,14 +789,14 @@ def grid_drawer(bands, names, cell, row, page, gap, labels_by_band, crossover_ru
 TITLE_ROUNDS = 4        # times the panel is drawn at most for the page's le_title_clear
 
 
-def title_gap(P, bi, clear, bottom=None):
+def title_gap(P, bi, clear, below=None):
     """The gap below band bi of P that puts the next band's title `clear` px below the lowest thing drawn for band bi
-    (extent), or `bottom` (a caller's items under it) when lower; the title stands TITLE_GAP less TITLE_DROP px
-    above its band's box. Whole px, rounded up."""
-    lowest = extent(P, bi)[3]
-    if bottom is not None:
-        lowest = max(lowest, bottom)
-    return math.ceil(max(0.0, lowest - P.band_boxes[bi][3]) + TITLE_GAP - TITLE_DROP + clear)
+    (extent), or `below` px under the band's box (a caller's items under it) when lower; the title stands TITLE_GAP
+    less TITLE_DROP px above its band's box. Whole px, rounded up."""
+    low = extent(P, bi)[3] - P.band_boxes[bi][3]
+    if below is not None:
+        low = max(low, below)
+    return math.ceil(max(0.0, low) + TITLE_GAP - TITLE_DROP + clear)
 
 
 def settle_gaps(draw, bands, gap, clear, bottoms):

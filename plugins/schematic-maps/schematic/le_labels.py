@@ -174,6 +174,10 @@ def _check(where, o):
             if len(followers) != len(set(followers)) or stepped & set(followers):
                 raise SchematicError(f"{where}: le_labels: extra_follow places an extra that another entry or "
                                      "extra_steps places too")
+            moving = sorted((stepped | set(followers)) & {g[0] for g in v})
+            if moving:
+                raise SchematicError(f"{where}: le_labels: extra_follow's leader {', '.join(moving)} is itself "
+                                     "stepped or follows; a leader must stand where the label layer puts it")
         elif k in ("numbers_below", "optional_block_contents"):
             if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
                 raise SchematicError(f"{where}: le_labels: {k} must be a list of "
