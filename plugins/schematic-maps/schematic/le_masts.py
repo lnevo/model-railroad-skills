@@ -633,6 +633,18 @@ class Masts(PanelView):
                                   "slid; it takes its own")
             self.put(m["mast"], self.best(m, self.others({m["mast"]})))
 
+    def straights(self):
+        """{mast: {band, seg, ident, kind, run, need}}: for each mast with a track before its boundary, that track's
+        segment, the straight px there and the px its icon needs (2 GAP and its length, as le's least block length):
+        what le's mast_room reads."""
+        out = {}
+        for m in self.P.masts:
+            if self.facing[m["mast"]] is None:
+                continue
+            out[m["mast"]] = dict(band=m["band"], seg=self.facing[m["mast"]], ident=m["ident"], kind=m["kind"],
+                                  run=self.run(m)[0], need=2 * slots.GAP + m["size"][1])
+        return out
+
     # ---- checks
     def verify(self):
         """Stop if a moved anchor changed what any mast means, or left its line, its order or a track too short."""
@@ -696,4 +708,5 @@ def place(P, bands, ix):
     M.lone_slides(in_gantry)
     M.verify()
     P.anchors_from = {ident: was for ident, (was, _lens) in M.original.items()}
+    P.mast_straights = M.straights()
     M.finish()

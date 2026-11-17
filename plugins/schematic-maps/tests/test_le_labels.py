@@ -445,7 +445,54 @@ class CrossoverRun(unittest.TestCase):
             le.panel(bands(), crossover_run=10.0, fit=(1300, 700))
 
 
+class Spots:
+    """A stand-in for le_labels.Layer in place_items: each item takes the first of its spots no one holds."""
+
+    def __init__(self):
+        self.held, self.notes, self.boxes = set(), [], None
+
+    def reset(self):
+        self.held, self.notes = set(), []
+
+    def take(self, item, spots):
+        for s in spots:
+            if s not in self.held:
+                self.held.add(s)
+                return s, None
+        return None, f"{item['what']}: no clean spot"
+
+
+def spot_items(want):
+    """[(key, make)]: one item per (key, spots), each placing at the first free spot of its list."""
+    def maker(key, spots):
+        def make(state, short=False):
+            return dict(what=str(key)), list(spots), lambda box: ("label", dict(key=key, box=box))
+        return make
+    return [(key, maker(key, spots)) for key, spots in want]
+
+
 class NamesLast(unittest.TestCase):
+    def test_a_name_left_out_is_tried_first_and_kept_when_everything_still_stands(self):
+        """The icon takes the name's only spot when the name goes last; tried first, the name has it and the icon
+        its second choice, so the name leads. A name whose lead would leave a needed item without a spot does not."""
+        name, icon, other = ("name", 1, "s1"), ("bci", "Block A"), ("name", 1, "s2")
+        items = spot_items([(icon, ["S", "T"]), (name, ["S"])])
+        done, failed, skipped = le_labels.place_items(Spots(), items, {name}, set())
+        self.assertEqual((failed, skipped), ([], []))
+        self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), [(icon, "T"), (name, "S")])
+        items = spot_items([(icon, ["S"]), (other, ["S"])])         # the icon has no other spot: the name stays out
+        done, failed, skipped = le_labels.place_items(Spots(), items, {other}, set())
+        self.assertEqual(failed, [])
+        self.assertEqual([k for k, _w in skipped], [other])
+        self.assertEqual([(d["key"], d["box"]) for _k, d in done], [(icon, "S")])
+
+    def test_an_optional_icon_left_out_is_tried_first_too(self):
+        opt, icon = ("bci", "Track 2"), ("bci", "Track 1")
+        items = spot_items([(icon, ["S", "T"]), (opt, ["S"])])
+        done, failed, skipped = le_labels.place_items(Spots(), items, set(), {opt})
+        self.assertEqual((failed, skipped), ([], []))
+        self.assertEqual(sorted(d["key"] for _k, d in done), sorted([icon, opt]))
+
     def test_a_names_last_band_leaves_out_a_name_with_no_room_and_logs_it(self):
         with mock.patch.object(le_labels, "_track_name", no_room_for_names):
             with self.assertRaisesRegex(SchematicError, "track name .*: no clean spot"):
