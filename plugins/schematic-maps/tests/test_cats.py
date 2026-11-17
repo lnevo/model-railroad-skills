@@ -329,6 +329,42 @@ class Bindings(unittest.TestCase):
         normal = next(e for e, n in pt["routes"] if n)
         self.assertEqual(pt["ports"][normal], "C")
 
+    def test_a_double_crossover_takes_routes_on_all_four_points(self):
+        """One turnout moves all four points of a double crossover: route B along each through track, C into the X."""
+        b = {"switches": {"6": {"routes": {"B": {"ROUTECOMMAND": io("close"), "SELECTEDREPORT": io("close")},
+                                           "C": {"ROUTECOMMAND": io("throw"), "SELECTEDREPORT": io("throw")}}}}}
+        P = cats.panel(helpers.build().bands, bindings=b)
+        pts = {k: v for k, v in P.points.items() if v["switch"] == "6"}
+        self.assertEqual(len(pts), 4)
+        root = cats.to_xml(P)
+        for (cell, edge), pt in pts.items():
+            sp = root.find(f"TRACKPLAN/SECTION[@X='{cell[0]}'][@Y='{cell[1]}']/SEC_EDGE[@EDGE='{edge}']/SWITCHPOINTS")
+            got = {ri.get("ROUTEID"): (ri.get("NORMAL"), sorted((c.tag, c.find("IOSPEC").text) for c in ri))
+                   for ri in sp.findall("ROUTEINFO")}
+            leg = {p: e for e, p in pt["ports"].items()}
+            self.assertEqual(sorted(pt["ports"].values()), ["B", "C"])
+            self.assertIn(leg["B"], ("LEFT", "RIGHT"))             # B is the level through track
+            self.assertEqual(got[leg["B"]], ("true", [("ROUTECOMMAND", "close"), ("SELECTEDREPORT", "close")]))
+            self.assertEqual(got[leg["C"]], (None, [("ROUTECOMMAND", "throw"), ("SELECTEDREPORT", "throw")]))
+        b["switches"]["6"]["normal"] = "C"                         # normal C: the crossing routes are NORMAL
+        P = cats.panel(helpers.build().bands, bindings=b)
+        for pt in (v for v in P.points.values() if v["switch"] == "6"):
+            self.assertEqual(pt["ports"][next(e for e, n in pt["routes"] if n)], "C")
+
+    def test_a_helix_track_can_be_a_block_on_each_band(self):
+        P = cats.panel(helpers.build().bands, helix_blocks="apart")
+        names = set(P.names.values())
+        self.assertTrue({"Summit", "Summit 2"} <= names, names)
+        self.assertEqual(len(P.shared), 4)                         # still joined: the train runs on
+        root = cats.to_xml(P)
+        joined = {se.find("BLOCK").get("NAME") for se in root.iter("SEC_EDGE")
+                  if se.find("SHARED") is not None and se.find("BLOCK") is not None}
+        self.assertEqual(joined, {"Summit", "Summit 2"})           # the helix join is the boundary; connector A is not
+        # one block (the default) is unchanged
+        self.assertNotIn("Summit 2", set(cats.panel(helpers.build().bands).names.values()))
+        with self.assertRaisesRegex(cats.SchematicError, "helix_blocks is one of one, apart"):
+            cats.panel(helpers.build().bands, helix_blocks="split")
+
     def test_blocks_are_renamed_and_bound_on_every_edge(self):
         b = {"blocks": {"Main West": {"name": "Track Main West", "station": "Main", "discipline": "ABS",
                                       "occupied": io("close"), "unoccupied": {"DECADDR": "7", "command": "throw"}}}}
@@ -455,9 +491,7 @@ class Bindings(unittest.TestCase):
         bands = helpers.build().bands
         for bad, msg in (({"switches": {"99": {}}}, "switch 99, which no drawn band has"),
                          ({"switches": {"1/T99": {}}}, "switch 1/T99"),
-                         ({"switches": {"6": {"routes": {"B": {"ROUTECOMMAND": io("close")}}}}}, "double crossover"),
                          ({"switches": {"1": {"normal": "A"}}}, "normal is leg B or C"),
-                         ({"switches": {"6": {"normal": "B"}}}, "double crossover takes a block binding only"),
                          ({"switches": {"1": {"routes": {"B": {"COMMAND": io("close")}}}}}, "unknown field COMMAND"),
                          ({"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": io("open")}}}}}, "close or throw"),
                          ({"switches": {"1": {"routes": {"B": {"ROUTECOMMAND": {"command": "close"}}}}}}, "DECADDR"),

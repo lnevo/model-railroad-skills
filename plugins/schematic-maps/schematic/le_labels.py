@@ -92,8 +92,11 @@ that x, above then below its track, and stops if it has none.
 `names_last` (a band's): that band's track names are placed after every other item of the panel (block contents
 icons and caller's items included), and a name with no clean spot then is left out and logged (P.names_skipped)
 instead of stopping: for a crowded band where every block's icon matters more than its name. It is the band's own
-le_labels key only: the page's le_labels may not set it. Known limit: a name left out is not tried again in a later
-round (once every other item stands it takes what room is left).
+le_labels key only: the page's le_labels may not set it. A name left out is then tried again first (LEAD_TRIES):
+one at a time, in the order they were left out, each put before every other item, and kept there when every item
+that must be placed still finds a spot (a block contents icon perhaps at the short reserve, logged) and fewer items
+are left out than before; else it stays left out. An optional block contents icon left out
+(`optional_block_contents`) is tried again the same way.
 """
 import copy
 import itertools
@@ -607,10 +610,41 @@ def item_bands(P, L, items, extras):
 
 
 def place_items(L, items, skip_names, skip_bcis):
+    """(done, failed, skipped) of placing `items` in rounds (place_rounds); then each item left out (skipped) tried
+    again first, one at a time (module text, names_last): it leads when every item that must be placed still finds a
+    spot and fewer are left out. An item with no clean spot even with nothing else placed (against the drawing, the
+    mast icons and what stands already) is not tried. The panel's labels stand as in the outcome returned."""
+    got = place_rounds(L, items, skip_names, skip_bcis, [])
+    if got[1] or not got[2]:
+        return got
+    makers = dict(items)
+
+    def free(key):
+        """Whether the item has a clean spot with no other item placed (at the short reserve, for an icon)."""
+        L.reset()
+        made = makers[key](dict(number_side={}, name_side={}), short=key[0] == "bci")
+        return bool(made) and L.take(made[0], made[1])[0] is not None
+
+    lead, last = [], None
+    for key in [k for k, _why in got[2] if free(k)][:LEAD_TRIES]:
+        trial = place_rounds(L, items, skip_names, skip_bcis, lead + [key])
+        last = lead + [key]
+        if not trial[1] and len(trial[2]) < len(got[2]):
+            lead, got = last, trial
+    if last != lead:                    # the labels as in the outcome kept (L.reset above too): its round, again
+        got = place_rounds(L, items, skip_names, skip_bcis, lead)
+    return got
+
+
+LEAD_TRIES = 24     # items left out tried again first, at most
+
+
+def place_rounds(L, items, skip_names, skip_bcis, lead):
     """(done, failed, skipped) of placing `items` in rounds (place): every icon at full size if any order of rounds
     allows it; only then the short reserve. `skip_names` (names_last) and `skip_bcis` (optional_block_contents) may
     be left out (skipped): a name as soon as it has no spot, an icon once it has none at the short reserve either.
-    Neither is ever put first in a later round, nor counted when choosing the best round."""
+    Neither is ever put first in a later round, nor counted when choosing the best round, except those in `lead`,
+    which every round places first (place_items)."""
     makers = dict(items)
     skipped = []
 
@@ -637,15 +671,15 @@ def place_items(L, items, skip_names, skip_bcis):
         return [x for x in still if x[0] not in skip_bcis]
 
     for short in (False, True):
-        first, tried, best = [], set(), None
+        first, tried, best = list(lead), set(), None
         for _ in range(ROUNDS):
             done, failed, still = attempt(first, short)
             if best is None or len(needed(still)) < best[0]:
                 best = (len(needed(still)), list(first))
             if not needed(still):
                 break
-            again = [k for k, _msg in failed if k not in skip_bcis]
-            order = tuple(again + [k for k in first if k not in again])
+            again = [k for k, _msg in failed if k not in skip_bcis and k not in lead]
+            order = tuple(list(lead) + again + [k for k in first if k not in again and k not in lead])
             if order in tried:                      # this order again: more rounds will not help
                 break
             tried.add(order)

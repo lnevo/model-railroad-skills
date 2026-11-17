@@ -105,6 +105,8 @@ def run(argv=None):
                         "name; 1 is half the size each way, with names placed on the track, to fit a smaller screen")
     p.add_argument("--window", metavar="WIDTHxHEIGHT",
                    help="the window CATS opens the panel in, in pixels (default: CATS's own); CATS has no zoom")
+    p.add_argument("--helix-blocks", default="one", choices=cats.HELIX_BLOCKS,
+                   help="a helix track drawn on two bands: one block (default), or a block on each band")
     p.add_argument("--fit", metavar="COLSxROWS",
                    help="fail if the panel shows more cells than this (CATS draws 30 pixel cells: 1900x1200 is 63x36)")
     p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
@@ -189,7 +191,7 @@ def run(argv=None):
             header = cats.header_from(a.templates_from) if a.templates_from else ()
             fit = cats.parse_fit(a.fit) if a.fit else None
             window = cats.parse_window(a.window) if a.window else None
-            pnl = cats.panel(bands, scale=a.cells_per_unit, bindings=bindings)
+            pnl = cats.panel(bands, scale=a.cells_per_unit, bindings=bindings, helix_blocks=a.helix_blocks)
             if fit:
                 cats.check_fit(pnl, *fit)
             cats.write(pnl, a.out, a.discipline, header, window)

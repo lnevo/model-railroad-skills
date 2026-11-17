@@ -29,6 +29,7 @@ Names (optional, by band key, the first word of the band title):
               "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
                          "icon": [w, h], "or_join": ..., "leg": "normal" or "diverging"}],
               "joins": "own", "other" or "none", "leg_b": {node: "B" or "C"}, "shared_turnouts": [turnout name, ...],
+              "xover_blocks": {node: {"A": block, "B": block, "C": block, "D": block}},
               "idents": {"turnouts": {node: ident}, "boundaries": [{"blocks": [block, block], "ident": ident}],
                          "ends": {block: ident}, "segments": {block: ident}}}}
 A strand with several blocks is cut for them in order from its first end to its second: in proportion to their
@@ -36,7 +37,13 @@ real lengths when `lengths` gives one for each (so a short throat block sits at 
 equal lengths; no block is drawn shorter than MIN_BLOCK px, and no cut falls inside an arc. Without names
 a strand's block is its track name (or the two switch numbers it joins, made unique), a turnback and a joined helix
 or connector track share the block of the track they continue, an OS block is "OS <switch number>", and no turnout
-is named. Sensors are not placed. `leg_b` names the band leg that is Layout Editor leg B (default: the drawn
+is named. Sensors are not placed. `xover_blocks` gives a double crossover a block per corner, keyed by the band's
+legs A to D (each leg's corner takes its block), in place of its one OS block; the four must differ. With one block,
+or two, JMRI 5.16 records a through path between the two tracks on one side (LayoutBlock.addThroughPath keeps a
+pair whose turnout lists match both ways, and both ways give the crossover the same state: with one block every
+search ends at the crossover with nothing found, with two blocks both boundaries between them carry one state), so
+routing and Signal Mast Logic discovery would run a train from leg A to leg D, which no double crossover can. With a
+block per corner the A-B and B-D boundaries of corner B carry CLOSED and THROWN, so no corner joins A to D. `leg_b` names the band leg that is Layout Editor leg B (default: the drawn
 straight one); a drawn diverging leg B puts the centre midway between legs A and B, where Layout Editor finds point
 A. `idents` gives drawn objects an older panel's idents once the track is drawn (give_idents): a switch's
 turnout, the one anchor between two blocks, the one end bumper of a block, the one segment of a block; the rest keep
@@ -175,6 +182,33 @@ def clean(pts):
     return out
 
 
+def double_corners(band, n, turned=False, drawn=None):
+    """{band leg: Layout Editor corner} of double crossover `n` as the panel draws it: A top left, B top right, C
+    bottom right, D bottom left, from where each leg's drawn track leaves (`turned`: the band is in rotate_bands;
+    `drawn`: its paths, default layout.paths). A caller naming `xover_blocks` by corner reads the legs here."""
+    drawn = drawn if drawn is not None else paths(band)
+    k = -1 if turned else 1
+    d = band["nodes"][n]
+    ends = {}
+    for p in "ABCD":
+        sid = d["ins"].get(p) or d["outs"].get(p)
+        if sid is None:
+            raise SchematicError(f"double crossover {d.get('label') or n}: no track on leg {p}")
+        pts = clean([(k * x, k * y) for x, y in drawn[sid]])
+        if tuple(band["strands"][sid]["src"]) != (n, p):
+            pts = pts[::-1]
+        if len(pts) < 2 or abs(pts[1][0] - pts[0][0]) < 1e-3:
+            raise SchematicError(f"double crossover {d.get('label') or n}: leg {p} leaves straight up or down, so it "
+                                 "is on neither side of the crossover")
+        ends[p] = (round(pts[0][1], 3), "left" if pts[1][0] < pts[0][0] else "right")
+    ys = sorted({y for y, _ in ends.values()})
+    corner = {(ys[0], "left"): "A", (ys[0], "right"): "B", (ys[-1], "right"): "C", (ys[-1], "left"): "D"}
+    got = {p: corner.get(e) for p, e in ends.items()}
+    if len(ys) != 2 or sorted(got.values(), key=str) != list("ABCD"):
+        raise SchematicError(f"double crossover {d.get('label') or n}: its legs do not reach four corners")
+    return got
+
+
 def jmri_arc(p1, p2, angle, flip):
     """Layout Editor's circle arc from connect1 at p1 to connect2 at p2 (TrackSegmentView.calculateTrackSegmentAngle):
     (centre, radius, start, extent), angles in radians measured as Java's Arc2D does (y up), the arc running from
@@ -248,6 +282,8 @@ class Panel:
         self.names_skipped = []     # why each names_last track name was left out (le_labels)
         self.bcis_skipped = []      # why each optional_block_contents icon was left out (le_labels)
         self.no_name = {}           # (band index, strand id) -> why the drawing keeps no room for its name
+        self.mast_straights = {}    # mast -> dict: band, seg, ident, kind, run, need (le_masts; mast_room)
+        self.widened = {}           # (band index, strand id) -> px let in for mast icons (mast_room)
         self.cellx = {}             # band index -> px per grid column as drawn
         self.idents_given = {}      # generated ident -> the ident the names give it (give_idents): the alias layer
         self.log = []
@@ -396,7 +432,8 @@ def default_names(bands, joined, taken=()):
     return out
 
 
-NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents", "shared_turnouts")
+NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents", "shared_turnouts",
+             "xover_blocks")
 MAST_KINDS = ("anchor", "end bumper", "turnout")
 MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join", "leg")
 MAST_LEGS = ("normal", "diverging")
@@ -494,6 +531,7 @@ def check_names(bands, names):
         if halves:
             raise SchematicError(f"names for {key}: leg_b names {', '.join(halves)}, half of a single crossover, "
                                  "whose legs are the crossover's (A to D), not a plain turnout's")
+        check_xover_blocks(key, given.get("xover_blocks"), band)
         shared = given.get("shared_turnouts", [])
         if not isinstance(shared, list) or not all(text(v) for v in shared) or len(set(shared)) != len(shared):
             raise SchematicError(f"names for {key}: shared_turnouts must be a list of different turnout names")
@@ -502,7 +540,8 @@ def check_names(bands, names):
             raise SchematicError(f"names for {key}: shared_turnouts names {', '.join(stray)}, which no switch of the "
                                  "band is given as its turnout")
         named = {b for v in (given.get("blocks") or {}).values() for b in ([v] if isinstance(v, str) else v)} | \
-            set((given.get("os") or {}).values())
+            set((given.get("os") or {}).values()) | \
+            {b for v in (given.get("xover_blocks") or {}).values() for b in v.values()}
         check_idents(key, given.get("idents"), band, switches, named, seen_idents)
         for section in NAME_KEYS[:4]:
             ids = set(given.get(section) or {})
@@ -512,6 +551,25 @@ def check_names(bands, names):
                 what = "track" if section == "blocks" else "switch"
                 raise SchematicError(f"names for {key}: {section} names {', '.join(missing)}, which is no {what} "
                                      "of the band")
+
+
+def check_xover_blocks(key, given, band):
+    """Stop on an `xover_blocks` section that is not an object of double crossover id: {A, B, C, D: four different
+    block names} (see the module text for why they must differ)."""
+    if given is None:
+        return
+    what = f"names for {key}: xover_blocks"
+    if not isinstance(given, dict):
+        raise SchematicError(f"{what} must be an object of double crossover id: corner blocks")
+    for n, corners in given.items():
+        if band["nodes"].get(n, {}).get("kind") != "dx":
+            raise SchematicError(f"{what} names {n}, which is no double crossover of the band")
+        if not isinstance(corners, dict) or set(corners) != set("ABCD") or \
+                not all(isinstance(b, str) and b.strip() for b in corners.values()):
+            raise SchematicError(f"{what} {n}: an object of its legs A, B, C and D: block name, not {corners!r}")
+        if len(set(corners.values())) != 4:
+            raise SchematicError(f"{what} {n}: its four corners share a block ({corners}); JMRI would then route "
+                                 "between the two legs on one side, so each corner needs its own block")
 
 
 def check_idents(key, idents, band, switches, named, seen):
@@ -620,7 +678,8 @@ def check_masts(key, masts, seen):
 
 
 def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP,
-          labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None):
+          labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None, mast_room=None,
+          name_room=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
@@ -645,8 +704,19 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     name, joined by their diagonal track, so each track's throat is one point (a JMRI crossover's pieces run a run
     past its diagonal either way). The half on a track shared with a tight partner (tight_crossovers, which must be
     split too), else the top half, stays; the other slides along its row so the diagonal runs `crossover_run` across.
-    Two split crossovers drawn tight have their throats on the shared track 2 LEG and the track's least length apart."""
+    Two split crossovers drawn tight have their throats on the shared track 2 LEG and the track's least length apart.
+    `mast_room`: [band key, ...]: on those bands a mast whose straight track before its boundary is shorter than its
+    icon needs (2 GAP and the icon's length, as a block's least length), or whose icon has no clean spot there for a
+    reason a longer track can clear, gets room: the band is let out along its rows at that track and the panel drawn
+    again (let_in_mast_room, mast_track). The track and the lines across that place grow longer; a sloped line through
+    a switch's straight leg keeps its slope (its far end moves too), so no switch changes shape. A track that cannot be
+    let out that way keeps its length (logged). P.widened holds the px let in by track. Not with `fit`.
+    `name_room`: [band key, ...]: in the same rounds, on those bands a named track whose straight is shorter than its
+    name's width and NAME_ROOM_PAD is let out the same way by the difference, west to east, while the band stays no
+    wider than the widest band (so the panel keeps its width); a track past that is noted and left. Not with `fit`."""
     tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
+    check_mast_room(bands, mast_room)
+    check_mast_room(bands, name_room, "name_room")
     split_crossovers = check_split(bands, split_crossovers, tight_crossovers)
     if not isinstance(labels_by_band, bool):
         raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
@@ -662,11 +732,14 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
             raise SchematicError(f"crossover_run names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
     if fit is not None and crossover_run is not None:
         raise SchematicError("crossover_run is for a panel drawn at a given grid, not one fitted to a window")
+    if fit is not None and (mast_room or name_room):
+        raise SchematicError("mast_room and name_room are for a panel drawn at a given grid, not one fitted to a "
+                             "window")
     # with SCHEMATIC_CACHE set, a panel drawn before from the same arguments and the same code is read back
     # (the key leaves out the title block's fields, which no panel draws: a new revision keeps the panels)
     args = dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit, extras=extras, gap=gap,
                 labels_by_band=labels_by_band, crossover_run=crossover_run, tight_crossovers=tight_crossovers,
-                split_crossovers=split_crossovers)
+                split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room)
     keyed = dict(args, bands=untitled(bands), page=cache.untitled(page))
     return cache.memo("le-panel", ("le",), keyed, lambda: _panel(**args))
 
@@ -677,12 +750,12 @@ def untitled(bands):
 
 
 def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, crossover_run, tight_crossovers,
-           split_crossovers):
+           split_crossovers, mast_room=None, name_room=None):
     """panel, its arguments checked, without the cache."""
     if fit is None:
         return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band,
                           crossover_run=crossover_run, tight_crossovers=tight_crossovers,
-                          split_crossovers=split_crossovers)
+                          split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room)
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
@@ -809,7 +882,8 @@ def check_split(bands, split, tight):
 
 
 def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None, gap=BAND_GAP,
-               labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None):
+               labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None,
+               mast_room=None, name_room=None):
     """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
     idents (Panel.text). `labels`: then run the label layer (label_layer). `page` as given: the drawing takes the
     last band's options when it is None (_draw), the labels take none (le_labels.options), so a band's le_labels
@@ -817,14 +891,23 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
     if bands:
         le_labels.options(bands, page)      # checked before any drawing (page None: no page-wide label options)
     le_labels.check_extras(extras)
-    P = Panel()
-    P.crossover_run = crossover_run
-    P.tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
-    P.split_crossovers = check_split(bands, split_crossovers, P.tight_crossovers)
-    try:
-        _draw(P, bands, names, cell, row, page, masts, gap)
-    except SchematicError as e:
-        raise SchematicError(P.text(str(e))) from None
+    mast_room = check_mast_room(bands, mast_room)
+    name_room = check_mast_room(bands, name_room, "name_room")
+
+    def drawn(widen):
+        P = Panel()
+        P.crossover_run = crossover_run
+        P.tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
+        P.split_crossovers = check_split(bands, split_crossovers, P.tight_crossovers)
+        try:
+            _draw(P, bands, names, cell, row, page, masts, gap, widen)
+        except SchematicError as e:
+            raise SchematicError(P.text(str(e))) from None
+        return P
+
+    P = drawn({})
+    if masts and (mast_room or name_room):
+        P = let_in_mast_room(P, bands, mast_room, drawn, name_room)
     P.final_text()
     if labels:
         label_layer(P, bands, page, extras, labels_by_band)
@@ -881,7 +964,322 @@ def band_gaps(gap, n):
     return [gap] * max(n - 1, 0)
 
 
-def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
+MAST_ROOM_ROUNDS = 4    # times the panel is drawn again for mast_room, at most
+MAST_ROOM_SPARE = 1.0   # px let in past a mast's shortfall, for the icon's whole-pixel place
+
+
+def check_mast_room(bands, mast_room, what="mast_room"):
+    """`mast_room` (or `what`: name_room) checked: a list of band keys, each a band drawn; [] when None."""
+    if mast_room is None:
+        return []
+    keys = [band_key(t) for t, _b, _o in bands]
+    if not isinstance(mast_room, (list, tuple)) or not all(isinstance(k, str) for k in mast_room):
+        raise SchematicError(f"{what} must be a list of band keys, not {mast_room!r}")
+    stray = sorted(set(mast_room) - set(keys))
+    if stray:
+        raise SchematicError(f"{what} names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
+    return list(mast_room)
+
+
+def level_pieces(line):
+    """[(column, column)] of a drawn line's level pieces (grid units), in its order."""
+    return [(a[0], b[0]) for a, b in zip(line, line[1:]) if abs(a[1] - b[1]) < EPS and abs(a[0] - b[0]) > EPS]
+
+
+MAST_ROOM_STEP = 4      # px let in at a time for an icon whose straight is long enough but still not clean
+MAST_ROOM_MAX = 2       # columns of room let in at most for one track
+MAST_ROOM_STALL = 3     # steps with no cheaper icon spot after which a track gets no more (back to its best)
+GEOMETRY = {"ink", "turnout", "other", "graze"}     # what a longer track can clear from an icon spot (le_masts)
+
+
+def let_in_mast_room(P, bands, keys, drawn, name_keys=()):
+    """The panel drawn again with room let in for mast icons on the `keys` bands (panel's mast_room) and for track
+    names on the `name_keys` bands (name_room), until it settles. First each mast whose straight is too short gets its
+    shortfall and MAST_ROOM_SPARE; then a mast whose icon still has no clean spot for a reason a longer track can clear
+    (GEOMETRY: track or a turnout through it, or nearer another track) gets MAST_ROOM_STEP px more at a time while its
+    cheapest spot gets cheaper, up to MAST_ROOM_MAX columns; a track whose last steps (MAST_ROOM_STALL) bought nothing
+    goes back to its best. Each track is let out where mast_track finds it may be. In the same rounds a named track
+    whose straight is shorter than its name and a STEP gets the difference (name_room_wanted), while its band stays
+    no wider than the widest band. P.widened, and the log, hold what was let in."""
+    grow, moved, notes = {}, {}, []
+    why_grown = defaultdict(set)        # (band index, strand id) -> "its mast icons", "its name"
+    named = defaultdict(int)            # (band index, strand id) -> rounds it was let out for its name
+    best = {}                   # (band index, strand id) -> (cost, px) of its unclean mast's cheapest spot
+    stalls = defaultdict(int)
+    done = set()
+    for _ in range(MAST_ROOM_ROUNDS + int(MAST_ROOM_MAX * max(P.cellx.values()) / MAST_ROOM_STEP) + 1):
+        want = {}
+        for m in P.masts:
+            st = P.mast_straights.get(m["mast"])
+            if st is None or band_key(bands[st["band"]][0]) not in keys:
+                continue
+            short = st["need"] - st["run"]
+            unclean = GEOMETRY & set(m["spot"][2])
+            if short <= EPS and not unclean:
+                continue
+            got = mast_track(P, bands, m, st, notes)
+            if got is None:
+                continue
+            k, nodes = got
+            if k in done:
+                continue
+            moved[k] = nodes
+            cap = MAST_ROOM_MAX * P.cellx[k[0]]
+            if short > EPS:
+                want[k] = max(want.get(k, 0.0), short + MAST_ROOM_SPARE)
+                why_grown[k].add("its mast icons")
+                continue
+            cost = icon_cost(m)
+            was = best.get(k)
+            if was is None or cost < was[0] - EPS:
+                best[k], stalls[k] = (cost, grow.get(k, 0.0)), 0
+            else:
+                stalls[k] += 1
+            if stalls[k] >= MAST_ROOM_STALL or grow.get(k, 0.0) + MAST_ROOM_STEP > cap + EPS:
+                done.add(k)
+                if best[k][1] != grow.get(k, 0.0):
+                    want[k] = best[k][1] - grow.get(k, 0.0)        # back to its best
+                notes.append(f"{bands[k[0]][0]}: mast {m['mast']}: no clean icon spot after "
+                             f"{grow.get(k, 0.0):.1f} px let in; its track keeps {best[k][1]:.1f} px")
+                continue
+            want[k] = max(want.get(k, 0.0), MAST_ROOM_STEP)
+            why_grown[k].add("its mast icons")
+        for k, (px, nodes) in name_room_wanted(P, bands, name_keys, want, moved, notes).items():
+            if named[k] >= NAME_ROOM_ROUNDS:     # once: its straight may be measured on another piece
+                continue
+            named[k] += 1
+            moved.setdefault(k, nodes)
+            want[k] = max(want.get(k, 0.0), px)
+            why_grown[k].add("its name")
+        if not want:
+            break
+        trial = dict(grow)
+        for k, px in want.items():
+            trial[k] = trial.get(k, 0.0) + px
+        for bi in {k[0] for k in want}:         # together, as each was checked alone
+            why = let_out_fault(bands[bi][1], shifts_of(trial, moved, P.cellx, bi))
+            if why:
+                raise SchematicError(f"{bands[bi][0]}: mast_room: the room let in for several masts together: {why}")
+        grow = trial
+        P = drawn(grow_shifts(grow, moved, P.cellx))
+    else:
+        raise SchematicError(P.text("mast_room: the room for the mast icons does not settle"))
+    P.widened = {k: round(px, 1) for k, px in sorted(grow.items()) if abs(px) > EPS}
+    for (bi, sid), px in P.widened.items():
+        s = bands[bi][1]["strands"][sid]
+        notes.append(f"{bands[bi][0]}: track {s.get('name') or sid}: drawn {px:.1f} px longer for "
+                     f"{' and '.join(sorted(why_grown[(bi, sid)]))} (the band let out east of its middle, "
+                     f"{len(moved[(bi, sid)])} switches and ends moved)")
+    P.log += list(dict.fromkeys(notes))         # each noted once
+    return P
+
+
+NAME_ROOM_PAD = 8       # px of straight a named track keeps past its name's width (le_labels.STEP)
+NAME_ROOM_ROUNDS = 1    # rounds a track is let out for its name, at most
+
+
+def name_room_wanted(P, bands, keys, want, moved, notes):
+    """{(band index, strand id): (px, nodes)}: on the `keys` bands, each named track whose longest straight (its
+    level, unhidden, uncurved segments in a row) is shorter than its name's width and NAME_ROOM_PAD, by how much, and
+    the nodes that move to let it out at the middle of its longest level piece (let_out_at), in the order the band
+    draws them west to east, while what the band is let out (with `want`, this round's room for masts) leaves it no
+    wider than the widest band. A track the drawing keeps no name room for (P.no_name), one that cannot be let out,
+    or one past the band's spare width is noted and left."""
+    if not keys:
+        return {}
+    from . import jmri_text
+    from .le_masts import PanelView
+    view = PanelView(P)
+    segs = {sg["ident"]: sg for sg in P.segments}
+    widest = max(b[2] - b[0] for b in P.band_boxes)
+    out = {}
+    for bi, (title, band, _opts) in enumerate(bands):
+        if band_key(title) not in keys:
+            continue
+        spare = widest - (P.band_boxes[bi][2] - P.band_boxes[bi][0]) - \
+            sum(px for (b, _sid), px in want.items() if b == bi)
+        named = []
+        for (b, sid), idents in P.strand_segments.items():
+            st = band["strands"][sid] if b == bi else None
+            if st is None or not st.get("name") or (bi, sid) in P.no_name:
+                continue
+            run = best = 0.0
+            for i in idents:            # the longest run of level straight segments, end to end
+                sg = segs[i]
+                a, c = (view.xy(e) for e in sg["ends"])
+                if sg["arc"] or sg["hidden"] or abs(a[1] - c[1]) > EPS:
+                    run = 0.0
+                    continue
+                run += abs(c[0] - a[0])
+                best = max(best, run)
+            need = jmri_text.width(tidy([st["name"]])[0], LABEL_SIZE) + NAME_ROOM_PAD
+            if best < need - EPS:
+                x = min(view.xy(e)[0] for i in idents for e in segs[i]["ends"])
+                named.append((x, sid, tidy([st["name"]])[0], need - best))
+        no_room = []
+        for _x, sid, name, px in sorted(named):
+            pieces = level_pieces(paths(band)[sid])
+            if not pieces:
+                continue
+            if px > spare + EPS:
+                no_room.append(name)
+                continue
+            nodes, why = (moved[(bi, sid)], None) if (bi, sid) in moved else \
+                let_out_at(P, bi, band, sid, max(pieces, key=lambda pc: abs(pc[1] - pc[0])))
+            if why:
+                notes.append(f"{title}: track {name}: not let out for its name ({why}; name_room leaves it)")
+                continue
+            spare -= px
+            out[(bi, sid)] = (px, nodes)
+        if no_room:
+            notes.append(f"{title}: tracks {', '.join(sorted(no_room))}: not let out for their names (the band "
+                         "would be wider than the widest band; name_room leaves them)")
+    return out
+
+
+def icon_cost(m):
+    """The cost le_masts gave a mast's spot, from its reasons (le_masts.ICON_COST)."""
+    from .le_masts import ICON_COST
+    return sum(ICON_COST[w] for w in m["spot"][2])
+
+
+def grow_shifts(grow, moved, cellx):
+    """{band index: {node: columns}} from the px let in per track and the nodes each moves."""
+    out = {}
+    for bi in {k[0] for k in grow}:
+        out[bi] = shifts_of(grow, moved, cellx, bi)
+    return out
+
+
+def shifts_of(grow, moved, cellx, bi):
+    got = defaultdict(float)
+    for k, px in grow.items():
+        if k[0] == bi:
+            for n in moved[k]:
+                got[n] += px / cellx[bi]
+    return dict(got)
+
+
+def mast_track(P, bands, m, st, notes):
+    """((band index, strand id), nodes to move) for a mast's track that room may be let into, or None (noted): the
+    strand of the segment before its boundary, level where it leaves the mast's turnout, split at the middle of that
+    level piece: the nodes east of it move, and with them every node a rigid diagonal joins to one that moves
+    (rigid_diagonals: it keeps its slope, so its switches keep their through legs straight; a diagonal that is a plain
+    switch's diverging leg at each end lies a little flatter instead). None when the track's west end would move too,
+    or when the move would turn a track round, leave one too short for its climbs, or make lines cross or lie on each
+    other that did not (let_out_fault, tried at one column)."""
+    bi = st["band"]
+    title, band, _opts = bands[bi]
+    key = next((k for k, segs in P.strand_segments.items() if st["seg"] in segs), None)
+    if key is None:
+        notes.append(f"{title}: mast {m['mast']}: its track is no drawn strand (mast_room leaves it)")
+        return None
+    sid = key[1]
+    s = band["strands"][sid]
+    name = s.get("name") or sid
+    line = paths(band)[sid]
+    pieces = level_pieces(line)
+    mine = {n for (b, n), (ident, _l) in P.turnout_of.items() if b == bi and ident == st["ident"]} \
+        if st["kind"] == "turnout" else set()
+    at_src, at_dst = s["src"][0] in mine, s["dst"][0] in mine
+    # at a turnout's leg the track must leave it level, or no room let in reaches the mast's straight
+    if not pieces or (at_src and pieces[0][0] != line[0][0]) or (at_dst and pieces[-1][1] != line[-1][0]):
+        notes.append(f"{title}: mast {m['mast']}: its track {name} leaves no level piece at the mast to let room "
+                     "into (mast_room leaves it)")
+        return None
+    piece = pieces[0] if at_src and not at_dst else pieces[-1] if at_dst and not at_src else \
+        max(pieces, key=lambda pc: abs(pc[1] - pc[0]))
+    nodes, why = let_out_at(P, bi, band, sid, piece)
+    if why:
+        notes.append(f"{title}: mast {m['mast']}: its track {name} is not let out ({why}; mast_room leaves it)")
+        return None
+    return key, nodes
+
+
+def let_out_at(P, bi, band, sid, piece):
+    """(nodes to move, None) to let a track out at the middle of its level `piece` (columns): the nodes east of it,
+    and every node a rigid diagonal joins to one that moves (rigid_diagonals); (None, why) when the track's west end
+    would move too, or when the move would turn a track round, leave one too short for its climbs, or make lines
+    cross or lie on each other that did not (let_out_fault, tried at one column)."""
+    s = band["strands"][sid]
+    nodes = moved_east(band, (piece[0] + piece[1]) / 2, rigid_diagonals(P, bi, band))
+    ends = sorted((s["src"][0], s["dst"][0]), key=lambda n: band["x"][n])
+    if ends[0] in nodes or ends[1] not in nodes:
+        return None, "a rigid diagonal line ties its west end to the nodes east of it"
+    why = let_out_fault(band, {n: 1.0 for n in nodes})
+    return (None, why) if why else (nodes, None)
+
+
+def rigid_diagonals(P, bi, band):
+    """The band's sloped lines that must keep their slope: the diagonals (layout.paths draws them node to node) and the
+    tracks that climb their whole way (no level piece; let out, one would gain a level piece and its switches change
+    which leg is straight), every one but those that are a plain switch's diverging leg (Layout Editor leg C) or a
+    track end at both their ends."""
+    types = {t["ident"]: t["type"] for t in P.turnouts}
+    drawn = paths(band)
+    sloped = set(band["R"]["diag"]) | {sid for sid, line in drawn.items() if sid in band["strands"] and
+                                       len(line) > 1 and not level_pieces(line)}
+    out = set()
+    for sid in sorted(sloped):
+        st = band["strands"].get(sid)
+        if st is None:
+            continue
+        for n, port in (st["src"], st["dst"]):
+            got = P.turnout_of.get((bi, n))
+            if got and not (types.get(got[0]) in ("RH_TURNOUT", "LH_TURNOUT") and got[1].get(port) == "C"):
+                out.add(sid)
+    return out
+
+
+def moved_east(band, col, rigid):
+    """The nodes east of column `col`, and every node a `rigid` diagonal line joins to one of them (the closure)."""
+    x = band["x"]
+    moved = {n for n in x if x[n] > col + EPS}
+    diag = [(band["strands"][sid]["src"][0], band["strands"][sid]["dst"][0]) for sid in rigid]
+    grown = True
+    while grown:
+        grown = False
+        for u, v in diag:
+            if (u in moved) != (v in moved):
+                moved |= {u, v}
+                grown = True
+    return moved
+
+
+def let_out_fault(band, shifts):
+    """Why moving these nodes east ({node: columns}) would spoil the band's drawing, or None: a track turned round
+    or too short for its climbs, or lines that cross or lie on each other and did not before (layout.faults)."""
+    from .layout import faults
+    after = let_out(band, shifts)
+    x0, x1 = band["x"], after["x"]
+    for sid, st in band["strands"].items():
+        u, v = st["src"][0], st["dst"][0]
+        if u not in x0 or v not in x0:
+            continue
+        old, new = x0[v] - x0[u], x1[v] - x1[u]
+        if old * new < -EPS or (abs(old) > EPS) != (abs(new) > EPS):
+            return f"track {st.get('name') or sid} would be turned round"
+        if sid not in band["R"]["diag"]:
+            su, sv = band["need"][sid][:2]
+            if abs(new) < su + sv - EPS:
+                return f"track {st.get('name') or sid} would be too short for its climbs"
+    seen = lambda f: (f[0], f[1], f[3])     # noqa: E731
+    before = {seen(f) for f in faults(band)}
+    new = sorted({seen(f) for f in faults(after)} - before)
+    if new:
+        return f"lines {new[0][1]} and {new[0][2]} would {'cross' if new[0][0] == 'cross' else 'lie on each other'}"
+    return None
+
+
+def let_out(band, shifts):
+    """The band with each node in `shifts` ({node: columns}) moved that many columns east (a copy; as given when
+    there are none)."""
+    if not shifts:
+        return band
+    return dict(band, x={n: x + shifts.get(n, 0.0) for n, x in band["x"].items()})
+
+
+def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP, widen=None):
     if not bands:
         raise SchematicError("no band to draw")
     gaps = band_gaps(gap, len(bands))
@@ -900,12 +1298,14 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     joined = {a: b for a, b in pairs.items() if a[0] not in unjoined and b[0] not in unjoined}
     given = {b for g in names.values() for v in (g.get("blocks") or {}).values()
              for b in ([v] if isinstance(v, str) else v)} | \
-        {b for g in names.values() for b in (g.get("os") or {}).values()}
+        {b for g in names.values() for b in (g.get("os") or {}).values()} | \
+        {b for g in names.values() for v in (g.get("xover_blocks") or {}).values() for b in v.values()}
     os_defaults = {f"OS {d.get('label') or n}" for _, band, _ in bands for n, d in band["nodes"].items()
                    if d["kind"] in ("switch", "dx")}
     # a helix or connector track keeps one default block name on both bands even when drawn unjoined (joins none)
     defaults = default_names(bands, pairs, given | os_defaults)
-    drawn = [paths(band) for _, band, _ in bands]
+    # mast_room: a band let out along its rows (let_in_mast_room)
+    drawn = [paths(let_out(band, (widen or {}).get(bi, {}))) for bi, (_, band, _) in enumerate(bands)]
     widths = []
     for d in drawn:
         xs = [p[0] for v in d.values() for p in v]
@@ -1334,6 +1734,7 @@ class Band:
         x0 = min(p[0] for v in drawn.values() for p in v)
         y0 = min(p[1] for v in drawn.values() for p in v)
         k = -1 if turned else 1
+        self.turned = turned
         self.px = lambda p: (k * (p[0] - x0) * cellx, k * (p[1] - y0) * row)    # noqa: E731
         self.drawn = drawn
         self.poly = {sid: clean([self.px(p) for p in drawn[sid]]) for sid in self.strands}
@@ -1855,8 +2256,14 @@ class Band:
             raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: its legs do not "
                                  "reach four corners")
         pts = {"A": (xc - h, ys[0]), "B": (xc + h, ys[0]), "C": (xc + h, ys[1]), "D": (xc - h, ys[1])}
+        if {p: leg for (_n, p), leg in conn.items()} != double_corners(self.band, n, self.turned, self.drawn):
+            raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: its corners "
+                                 "differ from double_corners'")     # an invariant: callers name blocks by it
+        corners = self.names.get("xover_blocks", {}).get(n)
         b = self.os_of(n)
-        self.add_turnout([n], "DOUBLE_XOVER", (xc, (ys[0] + ys[1]) / 2), pts, conn, {k: b for k in "ABCD"})
+        self.add_turnout([n], "DOUBLE_XOVER", (xc, (ys[0] + ys[1]) / 2), pts, conn,
+                         {corner: corners[port] for (_n, port), corner in conn.items()} if corners else
+                         {k: b for k in "ABCD"})
 
     # ---- ends
     def end(self, n):
