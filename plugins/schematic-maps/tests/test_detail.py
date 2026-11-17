@@ -132,6 +132,21 @@ class Cut(unittest.TestCase):
         self.assertTrue(sub["precomputed"]["totals"]["Yard"])
         self.assertEqual(sub["precomputed"]["totals"], {"Yard": capacity.station_totals(band, opts, band["x"])["Yard"]})
 
+    def test_a_detail_sheet_carries_the_sheets_date_and_revision(self):
+        """Every detail sheet shows the date and revision of the sheet it is cut from (the page's options, the last
+        input's), whichever input its band comes from, so a station map can be matched to its schematic."""
+        _, _, s = sheet_of("Yard")
+        bands = [(t, b, dict(o)) for t, b, o in s.bands]
+        bands[-1][2].update(date="2026-11-16", revision=10)
+        self.assertEqual(detail.page_fields(bands), {"date": "2026-11-16", "revision": 10})
+        title, band, _ = next(b for b in bands if b[0] == "Lower level")
+        allo = [o for _, _, o in bands]
+        svg, _ = detail.sheet_svg(bands, STATIONS["Yard"], "Yard", detail.owners(allo))
+        self.assertIn(">REV 10<", svg)
+        self.assertIn(">NOV 16, 2026<", svg)
+        self.assertNotIn("SHEET 1 OF", svg)                       # a detail sheet is not a numbered sheet of the set
+        self.assertEqual(detail.page_fields([(t, b, {}) for t, b, _ in bands]), {})
+
     def test_drawn_larger_with_a_station_bar_and_its_own_title_block(self):
         svg, _, _ = sheet_of("Yard")
         self.assertGreater(float(re.search(r"scale\(([\d.]+)\)", svg).group(1)), 1.0)    # enlarged, never shrunk to nothing
