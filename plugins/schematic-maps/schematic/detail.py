@@ -190,8 +190,19 @@ def cut_signals(opts, sub):
     return out
 
 
-def detail_options(opts, title, name, inside, sub, pre):
-    """The options of one detail sheet: the band's own look, its title block, and only this band's settings."""
+PAGE_FIELDS = ("date", "revision")      # the sheet's title block fields every detail sheet carries
+
+
+def page_fields(bands):
+    """{date, revision} of the drawn sheet, from the options of its last input (the one that sets the page), so each
+    detail sheet shows the revision of the sheet it is cut from."""
+    page = bands[-1][2] if bands else {}
+    return {k: page[k] for k in PAGE_FIELDS if page.get(k) not in (None, "")}
+
+
+def detail_options(opts, title, name, inside, sub, pre, page=None):
+    """The options of one detail sheet: the band's own look, its title block (with the sheet's date and revision,
+    `page`), and only this band's settings."""
     key = draw.band_key(title)
     out = dict(opts)
     for k in draw.BAND_SETTINGS:
@@ -201,6 +212,7 @@ def detail_options(opts, title, name, inside, sub, pre):
         elif isinstance(v, (list, tuple)):
             out[k] = [b for b in v if b == key] if k in KEEP_SETTINGS else []
     out.pop("system_title", None)
+    out.update(page or {})
     out.update(stations=inside, station_side={}, station_tracks={}, equal_width=False, show_limits=True, sheet=None, fold=False, _folds=[], centre=True,
                title=[name, "Station detail sheet", title],
                max_scale=opts.get("detail_max_scale", DETAIL_SCALE), precomputed=pre,
@@ -208,7 +220,7 @@ def detail_options(opts, title, name, inside, sub, pre):
     return out
 
 
-def sheet_svg(bands, members, name, owner):
+def sheet_svg(bands, members, name, owner, page=None):
     """(SVG, cut band) of one detail sheet, cut from the solved `bands` ([(title, band, options)]). `owner` is
     `owners(...)` of every input's options."""
     title, band, opts = find_band(bands, members)
@@ -217,7 +229,7 @@ def sheet_svg(bands, members, name, owner):
     inside = inside_stations(opts, members, name)
     pre = precomputed(band, opts, sub.pop("take"), inside, turned)
     sub["precomputed"] = pre
-    o = detail_options(opts, title, name, inside, sub, pre)
+    o = detail_options(opts, title, name, inside, sub, pre, page_fields(bands) if page is None else page)
     return draw.page_svg([(title, sub, o)], o), sub
 
 
