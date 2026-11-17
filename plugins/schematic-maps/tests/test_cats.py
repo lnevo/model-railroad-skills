@@ -580,6 +580,47 @@ class Compact(unittest.TestCase):
         x = [se for sec in root.iter("SECTION") for se in sec.findall("SEC_EDGE") if se.find("CROSSINGEDGE") is not None]
         self.assertEqual([se.find("CROSSINGEDGE").attrib for se in x], [{"LEFT": "NO_BLOCK", "RIGHT": "NO_BLOCK"}] * 2)
 
+    def test_a_double_crossover_with_corners_is_a_block_per_corner(self):
+        """corners: the X opens to two rows deep, each corner holds its points, half of each through track and the
+        first piece of its diagonal, the middle of the X is a block of its own, and no block parts on points or a
+        crossing; the track stays one piece."""
+        names = {"A": "C-A", "B": "C-B", "C": "C-C", "D": "C-D", "X": "C-X"}
+        P = cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": {"corners": names}}})
+        self.assertLessEqual(set(names.values()), set(P.names.values()))
+        (a, ea), (b, eb) = sorted(P.crossings)
+        self.assertEqual((ea, eb), ("RIGHT", "LEFT"))          # two rows deep: the crossing is on a column edge
+        bounds = cats.boundaries(P)                             # raises on a boundary at points or a crossing
+        name_at = lambda cell, t: P.names[P.find(P.cells[cell][t])]
+        self.assertEqual({name_at(a, t) for t in P.cells[a]} | {name_at(b, t) for t in P.cells[b]}, {"C-X"})
+        corner_points = defaultdict(set)
+        for (cell, edge), pt in P.points.items():
+            if pt["switch"] == "6":
+                corner_points[{name_at(cell, t) for t in P.cells[cell] if edge in cats.ENDS[t]}.pop()].add(cell)
+        self.assertEqual(sorted(corner_points), ["C-A", "C-B", "C-C", "C-D"])
+        self.assertTrue(all(len(v) == 1 for v in corner_points.values()))
+        self.assertTrue(any(P.names[r] == "C-X" for r in bounds.values()))
+        pieces = set((c, t) for c, ts in P.cells.items() for t in ts)
+        self.assertEqual(component(links(P), next(iter(sorted(pieces)))), pieces)
+        self.assertTrue(any("row(s) opened" in m for m in P.log), P.log)
+        cats.to_xml(P)
+
+    def test_corners_must_name_four_different_blocks(self):
+        for bad in ({"A": "a", "B": "b", "C": "c"}, {"A": "a", "B": "a", "C": "c", "D": "d"}):
+            with self.subTest(corners=bad), self.assertRaises(cats.SchematicError):
+                cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": {"corners": bad}}})
+        with self.assertRaises(cats.SchematicError):
+            cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": {
+                "corners": {"A": "a", "B": "b", "C": "c", "D": "d"}, "block": "OS 6"}}})
+
+    def test_a_slope_across_an_opened_row_jogs_there(self):
+        self.assertEqual(cats.unit_steps([(0, 0), (2, 3)], opened={2}), [((0, 0), (1, 1)), ((1, 1), (2, 3))])
+        self.assertEqual(cats.step_pieces((1, 1), (2, 3)),
+                         [((1, 1), "LOWERBACKSLASH"), ((1, 2), "VERTICAL"), ((1, 3), "UPPERBACKSLASH")])
+        self.assertEqual(cats.step_pieces((0, 3), (1, 1)),
+                         [((0, 3), "UPPERSLASH"), ((0, 2), "VERTICAL"), ((0, 1), "LOWERSLASH")])
+        with self.assertRaises(cats.SchematicError):            # steeper, with no opened row to take it
+            cats.unit_steps([(0, 0), (2, 3)])
+
     def test_masts_keep_their_blocks_and_stand_on_level_edges(self):
         P, wide = compact(), cats.panel(helpers.build().bands, bindings=MASTS)
         protects = lambda Q: {s["mast"]: Q.names[cats.boundaries(Q)[k]] for k, s in Q.signals.items()}

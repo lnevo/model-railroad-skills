@@ -33,6 +33,7 @@ Bindings (optional, `panel(bands, bindings=...)`, the command's --bindings FILE.
 layout's devices; every name in them must exist in the panel, or it is an error:
 
     {"switches": {"LABEL" or "LABEL/ALIAS": {"block": "OS name", "normal": "B" or "C", "label": "shown text",
+                                              "corners": {"A": block, "B": .., "C": .., "D": .., "X": middle},
                                               "routes": {"B": {"ROUTECOMMAND": IO, "SELECTEDREPORT": IO}, "C": {..}}}},
      "blocks":   {"BLOCK": {"name": "layout name", "station": "..", "discipline": "CTC", "occupied": IO, "unoccupied": IO}},
      "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2",
@@ -43,7 +44,7 @@ IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "comma
 JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
 is not a whole label splits at its last /, and labels and aliases compare as text);
 switches of one number given different `block`s keep apart. A double crossover's binding moves all four of its
-points: route B along each through track, C into the X (normal B unless it says C). BLOCK is the panel's block name after the switches'
+points: route B along each through track, C into the X (normal B unless it says C). Its `corners` (in place of `block`) give it a block per band leg and one for the middle of the X; the X is then drawn two cells deep (a compact panel opens a row between its tracks, other slopes jogging across it) so each corner parts from the middle on a plain edge. BLOCK is the panel's block name after the switches'
 `block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
 (field or planned; virtual masts are not drawn). It goes on the block boundary nearest where it stands on its run:
 on the edge of the block it protects (the side toward the switch or end its move is heading for), facing out of
@@ -89,29 +90,49 @@ def neighbour(cell, edge):
 
 
 def step_pieces(a, b):
-    """The (cell, track) pieces of one unit step between CATS points a and b (either order)."""
+    """The (cell, track) pieces of one unit step between CATS points a and b (either order). A jog step (one cell
+    wide, two rows deep: a 45 degree step across a row opened for a double crossover, opened_rows) has a VERTICAL
+    piece in the opened row between its two halves."""
     (x0, y0), (x1, y1) = sorted((a, b))
     d = y1 - y0
-    if x1 - x0 != 1 or abs(d) > 1:
+    if x1 - x0 != 1 or abs(d) > 2:
         raise SchematicError(f"step {a} to {b} is not one cell wide at 45 degrees or level")
     if d == 0:
         return [((x0, y0), "HORIZONTAL")]
     if d == -1:
         return [((x0, y0), "UPPERSLASH"), ((x0, y0 - 1), "LOWERSLASH")]
-    return [((x0, y0), "LOWERBACKSLASH"), ((x0, y0 + 1), "UPPERBACKSLASH")]
+    if d == 1:
+        return [((x0, y0), "LOWERBACKSLASH"), ((x0, y0 + 1), "UPPERBACKSLASH")]
+    if d == -2:
+        return [((x0, y0), "UPPERSLASH"), ((x0, y0 - 1), "VERTICAL"), ((x0, y0 - 2), "LOWERSLASH")]
+    return [((x0, y0), "LOWERBACKSLASH"), ((x0, y0 + 1), "VERTICAL"), ((x0, y0 + 2), "UPPERBACKSLASH")]
 
 
-def unit_steps(pts):
-    """[(from, to)] unit steps along a polyline of CATS points."""
+def unit_steps(pts, opened=frozenset()):
+    """[(from, to)] unit steps along a polyline of CATS points. `opened`: cell rows opened between two drawn rows
+    (opened_rows); a slope one row steeper than 45 degrees for each opened row it crosses takes a jog step there."""
     out = []
     for (xa, ya), (xb, yb) in zip(pts, pts[1:]):
         dx, dy = xb - xa, yb - ya
         if dx == 0 and dy == 0:
             continue
-        if dx == 0 or (dy and abs(dx) != abs(dy)):
+        sx, sy = (1 if dx > 0 else -1), (1 if dy > 0 else -1)
+        jogs = abs(dy) - abs(dx) if dy else 0
+        crossed = sum(1 for r in opened if min(ya, yb) < r < max(ya, yb))
+        if dx == 0 or (dy and jogs != 0 and not (0 < jogs <= crossed)):
             raise SchematicError(f"segment {(xa, ya)} to {(xb, yb)} is neither level nor at 45 degrees")
-        n, sx, sy = abs(dx), (1 if dx > 0 else -1), (dy // abs(dx) if dy else 0)
-        out += [((xa + i * sx, ya + i * sy), (xa + (i + 1) * sx, ya + (i + 1) * sy)) for i in range(n)]
+        if not dy:
+            out += [((xa + i * sx, ya), (xa + (i + 1) * sx, ya)) for i in range(abs(dx))]
+            continue
+        x, y = xa, ya
+        while x != xb:
+            jog = jogs > 0 and (y + sy) in opened
+            ny = y + (2 if jog else 1) * sy
+            jogs -= jog
+            out.append(((x, y), (x + sx, ny)))
+            x, y = x + sx, ny
+        if (x, y) != (xb, yb):
+            raise SchematicError(f"segment {(xa, ya)} to {(xb, yb)}: its jogs do not fall on the opened rows")
     return out
 
 
@@ -360,17 +381,49 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
         # OS blocks: a switch's own, or shared by switches of one number joined by a track
         def os_key(n):
             return ("os", tag + n)
+        # a double crossover bound with `corners`: a block per corner (keyed by its band leg) and one for the
+        # middle of its X, in place of its one OS block
+        corners = {n: sw_bind[(bi, n)]["corners"] for n in nodes if sw_bind.get((bi, n), {}).get("corners")}
+        for n in corners:
+            if nodes[n]["kind"] != "dx":
+                raise SchematicError(f"switch {nodes[n].get('label') or n}: corners are for a double crossover")
+
+        def okey(n, port):
+            """The block key a strand's end at node n, leg `port`, takes inside the switch's OS reach."""
+            return ("corner", tag + n, port) if n in corners else os_key(n)
         for n, d in nodes.items():
-            if d["kind"] in ("switch", "dx"):
+            if n in corners:
+                for port in "ABCD":
+                    P.blocks[okey(n, port)] = None
+                P.blocks[("xmid", tag + n)] = None
+            elif d["kind"] in ("switch", "dx"):
                 P.blocks[os_key(n)] = None
         for sid, s in strands.items():
             u, v = s["src"][0], s["dst"][0]
             du, dv = nodes[u], nodes[v]
+            if u in corners or v in corners:
+                continue
             if du["kind"] in ("switch", "dx") and dv["kind"] in ("switch", "dx") and du.get("label") and \
                     du.get("label") == dv.get("label"):
                 bu, bv = (sw_bind.get((bi, n), {}).get("block") for n in (u, v))
                 if not (bu and bv and bu != bv):        # bound to two blocks: they stay apart
                     P.union(os_key(u), os_key(v))
+
+        # rows opened for double crossovers with corners: their X must be two cells deep, so that each corner's
+        # diagonal piece parts from the middle on an edge of its own (CATS parts a block neither at points nor
+        # where two blocks meet one side of a crossing); the drawn rows below move down, and slopes across an
+        # opened row take a jog step there
+        opened = {}
+        for n in corners:
+            (iu, _), (il, _) = dx_tracks(nodes, n)
+            r1, r2 = sorted((band["R"]["srow"][iu], band["R"]["srow"][il]))
+            if at(r2 - r1) < 2:
+                opened[r1] = max(opened.get(r1, 0), 2 - at(r2 - r1))
+        rshift = lambda gy: sum(k for r, k in opened.items() if gy > r)
+        open_rows = frozenset(oy + at(r) + rshift(r) + i for r, k in opened.items() for i in range(1, k + 1))
+        for r in opened:
+            P.log.append(f"{title}: {sum(opened.values())} row(s) opened below grid row {r:g} for a double "
+                         "crossover's corner blocks")
 
         # how far each switch's OS reaches along its tracks: in steps, or on a compact panel in cells (half a
         # 45 degree step), so that a one-unit slope between two switches can still part their OS blocks
@@ -381,12 +434,13 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
             elif d["kind"] == "dx":
                 (iu, _), (il, _) = dx_tracks(nodes, n)
                 r1, r2 = sorted((band["R"]["srow"][iu], band["R"]["srow"][il]))
-                reach[n] = (at(r2 - r1) + 1) // 2 + OS_REACH     # the X, then past its points
+                depth = at(r2 - r1) + rshift(r2) - rshift(r1)
+                reach[n] = (depth + 1) // 2 + OS_REACH     # the X, then past its points
 
         # a compact panel widens the grid columns of level tracks too short to part the OS blocks at their ends
         widen = widened_columns(title, band, drawn, reach, P.log) if compact else {}
         extra = column_shift(widen)
-        pt = lambda p: (ox + at(p[0]) + extra(p[0]), oy + at(p[1]))
+        pt = lambda p: (ox + at(p[0]) + extra(p[0]), oy + at(p[1]) + rshift(p[1]))
 
         # strands
         turn_of, info = {}, {}
@@ -399,7 +453,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
             if pts is None:         # widened_columns keeps such columns narrow; a guard, not a fallback
                 raise SchematicError(f"{title}: track {s['name'] or sid} crosses a widened column with no place "
                                      "for its extra cell")
-            steps = unit_steps(pts)
+            steps = unit_steps(pts, open_rows)
             if not steps:
                 raise SchematicError(f"{title}: track {s['name'] or sid} is drawn as a single point")
             pieces = strand_pieces(steps)
@@ -418,13 +472,14 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
                             ru = min(ru, reach.get(u, 0))
                         else:
                             rv = min(rv, reach.get(v, 0))
+            ku, kv = okey(u, s["src"][1]), okey(v, s["dst"][1])
             for i in range(min(ru, len(pieces))):
-                owner[i] = os_key(u)
+                owner[i] = ku
             for i in range(min(rv, len(pieces))):
                 j = len(pieces) - 1 - i
-                if owner[j] != track_key and owner[j] != os_key(v):
-                    P.union(owner[j], os_key(v))
-                owner[j] = os_key(v)
+                if owner[j] != track_key and owner[j] != kv:
+                    P.union(owner[j], kv)
+                owner[j] = kv
             if track_key not in owner:
                 del P.blocks[track_key]
             for (cell, track, _, _), key in zip(pieces, owner):
@@ -476,18 +531,38 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
             depth = y2 - y1
             a, b = xc - (depth + 1) // 2, xc - (depth + 1) // 2 + depth     # the X runs from point a to point b
             # its points need one level step beyond the X on each through track
+            mine = (lambda k: k[0] == "corner" and k[1] == tag + n) if n in corners else \
+                (lambda k: P.find(k) == P.find(os_key(n)))
             for yy in (y1, y2):
                 for xx in range(a - OS_REACH, b + OS_REACH):
                     here = P.cells.get((xx, yy), {}).get("HORIZONTAL")
-                    if here is None or P.find(here) != P.find(os_key(n)):
+                    if here is None or not mine(here):
                         raise SchematicError(
                             f"double crossover {d.get('label') or n}: its through tracks must run level for "
                             f"{((depth + 1) // 2 + OS_REACH) / scale:g} grid units each side of it "
                             f"(rows {r1} and {r2}, column {x[n]:g})")
+            if n in corners:
+                # each point's corner is the leg whose through track leaves it: the X's first piece from a point
+                # is that corner's, the pieces at the crossing are the middle's
+                corner_at = {(xp, yy): P.cells[(xp - 1 if xp == a else xp, yy)]["HORIZONTAL"]
+                             for xp in (a, b) for yy in (y1, y2)}
+                if len({k[2] for k in corner_at.values()}) != 4:
+                    raise SchematicError(f"double crossover {d.get('label') or n}: its four points are not on four "
+                                         "legs")
             for p, q in (((a, y1), (b, y2)), ((a, y2), (b, y1))):
-                for st in unit_steps([p, q]):
-                    for cell, track in step_pieces(*st):
-                        P.add(cell, track, os_key(n), f"double crossover {d.get('label')}")
+                pieces = [pc for st in unit_steps([p, q]) for pc in step_pieces(*st)]
+                if pieces[0][0][0] != p[0]:
+                    pieces = pieces[::-1]
+                for i, (cell, track) in enumerate(pieces):
+                    if n not in corners:
+                        key = os_key(n)
+                    elif i == 0:
+                        key = corner_at[p]
+                    elif i == len(pieces) - 1:
+                        key = corner_at[q]
+                    else:
+                        key = ("xmid", tag + n)
+                    P.add(cell, track, key, f"double crossover {d.get('label')}")
             h = depth // 2      # the middle of the X: a column edge when the X is an even number of rows deep,
             if depth % 2 == 0:  # else the edge between two rows
                 P.crossings |= {((a + h - 1, y1 + h), "RIGHT"), ((a + h, y1 + h), "LEFT")}
@@ -663,6 +738,15 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
         groups[P.find(key)].append(key)
     for root in sorted(groups, key=lambda r: (r[0] != "track", r)):
         keys = groups[root]
+        cornered = {sw_bind[node_of(k)]["corners"][k[2]] if k[0] == "corner" else
+                    sw_bind[node_of(k)]["corners"].get("X") or f"OS {label_of(bands, ('os', k[1])) or 'X'} X"
+                    for k in keys if k[0] in ("corner", "xmid")}
+        if cornered:
+            if len(cornered) > 1 or any(k[0] == "os" for k in keys):
+                raise SchematicError(f"double crossover blocks {', '.join(sorted(cornered))} run into each other or "
+                                     "into another switch's OS block: the tracks between them are too short")
+            P.names[root] = cornered.pop()
+            continue
         labels = sorted({label_of(bands, k) for k in keys if k[0] == "os"} - {""}, key=number_order)
         bound = sorted({sw_bind[node_of(k)]["block"] for k in keys
                         if k[0] == "os" and sw_bind.get(node_of(k), {}).get("block")})
@@ -922,7 +1006,16 @@ def check_bindings(b):
     out = {"switches": {}, "blocks": {}, "masts": {}}
     section = lambda name: fields(b.get(name) or {}, [k for k in (b.get(name) or {})], f"bindings {name}")
     for key, e in section("switches").items():
-        e = fields(e, ("block", "normal", "routes", "label"), f"switch {key}")
+        e = fields(e, ("block", "normal", "routes", "label", "corners"), f"switch {key}")
+        if "corners" in e:
+            c = fields(e["corners"], ("A", "B", "C", "D", "X"), f"switch {key} corners")
+            if set("ABCD") - set(c) or not all(isinstance(v, str) and v.strip() for v in c.values()) or \
+                    len(set(c.values())) != len(c):
+                raise SchematicError(f"switch {key}: corners names a block for each leg A to D (and X, the middle of "
+                                     "the X, if wanted), all different")
+            if "block" in e:
+                raise SchematicError(f"switch {key}: give corners or block, not both")
+            e["corners"] = c
         if "label" in e and (not isinstance(e["label"], str) or not e["label"].strip()):
             raise SchematicError(f"switch {key}: label is the text shown at its points, a non-empty string")
         if e.get("normal", "B") not in ("B", "C"):
