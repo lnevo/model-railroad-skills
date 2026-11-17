@@ -1,10 +1,37 @@
-"""Binding a CATS panel to the layout's devices: checks on the bindings file, and the blocks, routes and switch names it ties."""
+"""Binding a CATS panel to the layout's devices: checks on the bindings file, and the blocks, routes and switch names it ties.
+
+Bindings (optional, `panel(bands, bindings=...)`, the command's --bindings FILE.json) tie the panel to the
+layout's devices; every name in them must exist in the panel, or it is an error:
+
+    {"switches": {"LABEL" or "LABEL/ALIAS": {"block": "OS name", "normal": "B" or "C", "label": "shown text",
+                                              "corners": {"A": block, "B": .., "C": .., "D": .., "X": middle},
+                                              "routes": {"B": {"ROUTECOMMAND": IO, "SELECTEDREPORT": IO}, "C": {..}}}},
+     "blocks":   {"BLOCK": {"name": "layout name", "station": "..", "discipline": "CTC", "occupied": IO, "unoccupied": IO}},
+     "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2",
+                           "orient": "LEFT", "RIGHT", "TOP" or "BOTTOM" (optional: the way the lamps point),
+                           "location": a SIGLOCATION such as "LEFTLOW" (optional: where in its cell)}}}
+
+IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "command": "close" or "throw"} (also
+JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
+is not a whole label splits at its last /, and labels and aliases compare as text);
+switches of one number given different `block`s keep apart. A double crossover's binding moves all four of its
+points: route B along each through track, C into the X (normal B unless it says C). Its `corners` (in place of `block`) give it a block per band leg and one for the middle of the X; the X is then drawn two cells deep (a compact panel opens a row between its tracks, other slopes jogging across it) so each corner parts from the middle on a plain edge. BLOCK is the panel's block name after the switches'
+`block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
+(field or planned; virtual masts are not drawn). It goes on the block boundary nearest where it stands on its run:
+on the edge of the block it protects (the side toward the switch or end its move is heading for), facing out of
+that block, on the right-hand side of the move.
+"""
 
 from collections import defaultdict
 
 from .cats_grid import OPPOSITE
 from .cats_px import LOC_XY
 from .core import SchematicError
+
+__all__ = [
+    "DISCIPLINES", "SIG_PANTYPES", "IOSPEC_KEYS", "ROUTE_TAGS", "node_of", "check_io", "check_bindings",
+    "switch_bindings", "bind_blocks", "bind_routes", "number_order", "label_of"
+]
 
 
 DISCIPLINES = ("CTC", "ABS", "APB-2", "APB-3", "DTC", "Unknown")    # the values CATS reads (cats/layout/Discipline.java)

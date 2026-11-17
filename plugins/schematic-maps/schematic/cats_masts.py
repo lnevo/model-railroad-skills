@@ -8,6 +8,12 @@ from .cats_px import GRID_PX, LOC_XY, SIG_PX, frill_box, overlaps, track_lines
 from .core import SchematicError
 from .draw import mast_piece
 
+__all__ = [
+    "SIG_LOCATION", "bind_masts", "gantry_look", "mast_gap", "INK_CLEAR", "POINT_ZONE", "SPOT_COST",
+    "SPOT_PER_PX", "GANTRY_SHIFT", "GANTRY_SPAN", "mast_size", "move_of", "lamp_way", "box_gap",
+    "points_zones", "spot_costs", "place_mast", "shift_gaps", "move_gap"
+]
+
 
 # a signal on a boundary edge: where it sits in its cell, on the right-hand side of a move entering by that edge
 SIG_LOCATION = {"RIGHT": "UPRIGHT", "LEFT": "LOWLEFT", "TOP": "LEFTUP", "BOTTOM": "RIGHTLOW"}

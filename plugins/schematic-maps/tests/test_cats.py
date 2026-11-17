@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 import helpers
-from schematic import cats, cats_masts
+from schematic import cats, cats_grid, cats_masts
 from schematic.layout import paths
 
 
@@ -911,7 +911,8 @@ class Compact(unittest.TestCase):
     def test_a_slope_with_no_place_for_a_widened_cell_is_an_error_not_a_crash(self):
         bands = helpers.build().bands
         real = cats.widened_columns
-        with mock.patch.object(cats, "stretched", lambda pts, free=(False, False): None), \
+        none = lambda pts, free=(False, False): None
+        with mock.patch.object(cats, "stretched", none), mock.patch.object(cats_grid, "stretched", none), \
                 mock.patch.object(cats, "widened_columns", lambda *a: real(*a) or {0: 1}):
             with self.assertRaisesRegex(cats.SchematicError, "no place for its extra cell"):
                 cats.panel(bands, scale=1)
@@ -947,6 +948,32 @@ class Compact(unittest.TestCase):
             r = run("--fit", "10x10")
             self.assertEqual(r.returncode, 2)
             self.assertIn("more than the 10 x 10", r.stderr)
+
+
+class Split(unittest.TestCase):
+    """cats.py re-exports every public name of the modules it was split into, so schematic.cats stays the one import."""
+
+    MODULES = ("cats_grid", "cats_px", "cats_labels", "cats_fit", "cats_bind", "cats_masts", "cats_xml")
+
+    def test_every_public_name_of_the_submodules_is_reachable_from_cats(self):
+        import importlib
+        for name in self.MODULES:
+            mod = importlib.import_module(f"schematic.{name}")
+            for public in mod.__all__:
+                self.assertIs(getattr(cats, public, None), getattr(mod, public), f"cats.{public} from {name}")
+
+    def test_all_lists_every_public_name_a_submodule_defines(self):
+        import ast
+        import importlib
+        for name in self.MODULES:
+            mod = importlib.import_module(f"schematic.{name}")
+            defined = set()
+            for node in ast.parse(Path(mod.__file__).read_text()).body:
+                if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                    defined.add(node.name)
+                elif isinstance(node, ast.Assign):
+                    defined.update(t.id for t in node.targets if isinstance(t, ast.Name))
+            self.assertEqual({n for n in defined if not n.startswith("_")}, set(mod.__all__), name)
 
 
 if __name__ == "__main__":

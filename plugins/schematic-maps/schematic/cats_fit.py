@@ -5,6 +5,10 @@ import math
 from .cats_px import GRID_PX, text_box
 from .core import SchematicError
 
+__all__ = [
+    "shown", "check_fit", "parse_size", "parse_fit", "parse_window", "summary"
+]
+
 
 def shown(P):
     """(columns, rows) of cells CATS lays out on screen: every column from 1 to the rightmost one with track or a

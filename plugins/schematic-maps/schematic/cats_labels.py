@@ -2,7 +2,15 @@
 
 from .cats_px import GRID_PX, crosses, overlaps, signal_boxes, text_box, track_lines
 
+__all__ = [
+    "SPILL_RANKS", "place_labels"
+]
 
+
+# Label placement on a compact panel, where names share cells with track. CATS draws a label as a JLabel at its
+# cell's LOC_NAME spot (cats/gui/frills/FrillLoc.java) and lets it spill over the cells beside it, so each label is
+# measured at the default 30 pixel grid and put at the first candidate spot where it covers no track line, signal
+# or other label. Text widths are estimates of the CATS fonts (11 point labels, 13 point bold titles).
 SPILL_RANKS = (0, 2)    # band titles and end labels may run past the last track column; shown() counts them
 
 

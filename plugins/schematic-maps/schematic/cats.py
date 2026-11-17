@@ -3,12 +3,7 @@
     panel = cats.panel(sheet.bands)        # a Panel: cells, blocks, switches, joins, labels
     cats.write(panel, "OUT.xml")
 
-Grid. A schematic grid point (column c, row r) becomes the CATS point (SCALE * c, SCALE * r) plus a margin; a
-CATS point (X, Y) is the middle of the LEFT edge of cell (X, Y). One step from (X, Y) to (X + 1, Y + d) is
-d = 0: cell (X, Y) HORIZONTAL; d = -1: cell (X, Y) UPPERSLASH and (X, Y - 1) LOWERSLASH; d = +1: cell (X, Y)
-LOWERBACKSLASH and (X, Y + 1) UPPERBACKSLASH. So every 45 degree leg lands on whole cells, a switch's legs meet on
-one cell edge (its points), and SCALE = 2 leaves a free row under every track for its name. A double crossover is
-drawn as its X with a crossing edge in the middle; a turnback is a vertical run in one column.
+The grid is described in cats_grid.py, and the bindings file in cats_bind.py.
 
 Compact: `panel(bands, scale=1)` (the command's --cells-per-unit 1) is one cell per grid unit, to fit a screen at
 CATS's fixed 30 pixel grid. There is no free row, so labels share cells with track and are placed together at the
@@ -28,27 +23,6 @@ or a later pass. Link ends with the same letter, and helix ends of the same trac
 logically (SHARED); a helix track joined so is one block, or with `helix_blocks="apart"` a block on each band, parted
 at the join. Other ends get a label saying where they go. A turnback joining two tracks of different names
 is two blocks, parted in the middle of its vertical run.
-
-Bindings (optional, `panel(bands, bindings=...)`, the command's --bindings FILE.json) tie the panel to the
-layout's devices; every name in them must exist in the panel, or it is an error:
-
-    {"switches": {"LABEL" or "LABEL/ALIAS": {"block": "OS name", "normal": "B" or "C", "label": "shown text",
-                                              "corners": {"A": block, "B": .., "C": .., "D": .., "X": middle},
-                                              "routes": {"B": {"ROUTECOMMAND": IO, "SELECTEDREPORT": IO}, "C": {..}}}},
-     "blocks":   {"BLOCK": {"name": "layout name", "station": "..", "discipline": "CTC", "occupied": IO, "unoccupied": IO}},
-     "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2",
-                           "orient": "LEFT", "RIGHT", "TOP" or "BOTTOM" (optional: the way the lamps point),
-                           "location": a SIGLOCATION such as "LEFTLOW" (optional: where in its cell)}}}
-
-IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "command": "close" or "throw"} (also
-JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
-is not a whole label splits at its last /, and labels and aliases compare as text);
-switches of one number given different `block`s keep apart. A double crossover's binding moves all four of its
-points: route B along each through track, C into the X (normal B unless it says C). Its `corners` (in place of `block`) give it a block per band leg and one for the middle of the X; the X is then drawn two cells deep (a compact panel opens a row between its tracks, other slopes jogging across it) so each corner parts from the middle on a plain edge. BLOCK is the panel's block name after the switches'
-`block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
-(field or planned; virtual masts are not drawn). It goes on the block boundary nearest where it stands on its run:
-on the edge of the block it protects (the side toward the switch or end its move is heading for), facing out of
-that block, on the right-hand side of the move.
 """
 import math
 from collections import defaultdict

@@ -7,6 +7,10 @@ from .cats_bind import DISCIPLINES
 from .cats_grid import EDGE_ORDER, ENDS, neighbour
 from .core import SchematicError
 
+__all__ = [
+    "boundaries", "dangling", "lone_blocks", "HEADER_FONTS", "header_from", "set_io", "to_xml", "write"
+]
+
 
 def boundaries(P):
     """{(cell, edge): block root} of every edge where one block ends and another (or a joined end) begins."""

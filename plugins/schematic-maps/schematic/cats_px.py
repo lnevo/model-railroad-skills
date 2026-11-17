@@ -4,11 +4,14 @@ import math
 
 from .cats_grid import ENDS
 
+__all__ = [
+    "GRID_PX", "TEXT_PX", "SIG_PX", "LOC_XY", "frill_box", "text_box", "track_lines", "signal_boxes",
+    "crosses", "overlaps"
+]
 
-# Label placement on a compact panel, where names share cells with track. CATS draws a label as a JLabel at its
-# cell's LOC_NAME spot (cats/gui/frills/FrillLoc.java) and lets it spill over the cells beside it, so each label is
-# measured at the default 30 pixel grid and put at the first candidate spot where it covers no track line, signal
-# or other label. Text widths are estimates of the CATS fonts (11 point labels, 13 point bold titles).
+
+# CATS lays out labels at its default 30 pixel grid; text widths are estimates of the CATS fonts (11 point
+# labels, 13 point bold titles).
 GRID_PX = 30
 TEXT_PX = {"FONT_LABEL": (8, 14), "FONT_TITLE": (10, 17)}     # pixels per character, line height
 SIG_PX = 8                                                        # CATS SignalFrill radius

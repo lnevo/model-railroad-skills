@@ -1,9 +1,23 @@
-"""CATS panel grid: cells, edges and steps, the Panel record, and column edits."""
+"""CATS panel grid: cells, edges and steps, the Panel record, and column edits.
+
+Grid. A schematic grid point (column c, row r) becomes the CATS point (SCALE * c, SCALE * r) plus a margin; a
+CATS point (X, Y) is the middle of the LEFT edge of cell (X, Y). One step from (X, Y) to (X + 1, Y + d) is
+d = 0: cell (X, Y) HORIZONTAL; d = -1: cell (X, Y) UPPERSLASH and (X, Y - 1) LOWERSLASH; d = +1: cell (X, Y)
+LOWERBACKSLASH and (X, Y + 1) UPPERBACKSLASH. So every 45 degree leg lands on whole cells, a switch's legs meet on
+one cell edge (its points), and SCALE = 2 leaves a free row under every track for its name. A double crossover is
+drawn as its X with a crossing edge in the middle; a turnback is a vertical run in one column.
+"""
 
 import math
 from collections import defaultdict
 
 from .core import SchematicError
+
+__all__ = [
+    "MARGIN", "BAND_GAP", "COMPACT_GAP", "ENDS", "OPPOSITE", "STEP", "EDGE_ORDER", "neighbour", "step_pieces",
+    "unit_steps", "strand_pieces", "parallel_runs", "stacked_runs", "free_ends", "stretched", "column_shift",
+    "widened_columns", "touching", "Panel", "band_key_name", "trim_columns", "column_plain", "drop_column"
+]
 
 
 MARGIN = 2              # cells left of and above the drawing, for labels
