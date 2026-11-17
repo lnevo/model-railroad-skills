@@ -27,7 +27,7 @@ Names (optional, by band key, the first word of the band title):
     {"Main": {"turnouts": {node: turnout name}, "os": {node: OS block}, "normal": {node: "B" or "C"},
               "blocks": {strand id: [block, ...]}, "lengths": {block: real length, any one unit},
               "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
-                         "icon": [w, h], "or_join": ...}],
+                         "icon": [w, h], "or_join": ..., "leg": "normal" or "diverging"}],
               "joins": "own" or "other", "leg_b": {node: "B" or "C"}, "shared_turnouts": [turnout name, ...],
               "idents": {"turnouts": {node: ident}, "boundaries": [{"blocks": [block, block], "ident": ident}],
                          "ends": {block: ident}, "segments": {block: ident}}}}
@@ -245,6 +245,7 @@ class Panel:
         self.lamps = []             # the caller's lamp boxes the label layer kept clear (le_labels lamp_columns)
         self.band_boxes = []        # (x0, y0, x1, y1) each band was placed by: its drawing with the room for its labels
         self.names_skipped = []     # why each names_last track name was left out (le_labels)
+        self.bcis_skipped = []      # why each optional_block_contents icon was left out (le_labels)
         self.no_name = {}           # (band index, strand id) -> why the drawing keeps no room for its name
         self.cellx = {}             # band index -> px per grid column as drawn
         self.idents_given = {}      # generated ident -> the ident the names give it (give_idents): the alias layer
@@ -275,6 +276,7 @@ class Panel:
         self.unplaced = [(t, m, self.text(why)) for t, m, why in self.unplaced]
         self.moved = [(t, m, self.text(why)) for t, m, why in self.moved]
         self.names_skipped = [self.text(why) for why in self.names_skipped]
+        self.bcis_skipped = [self.text(why) for why in self.bcis_skipped]
         self.labels_unplaced = [(k, self.text(why)) for k, why in self.labels_unplaced]
 
     def point(self, kind, xy, end=False):
@@ -395,7 +397,8 @@ def default_names(bands, joined, taken=()):
 
 NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents", "shared_turnouts")
 MAST_KINDS = ("anchor", "end bumper", "turnout")
-MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join")
+MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join", "leg")
+MAST_LEGS = ("normal", "diverging")
 IDENT_KEYS = ("turnouts", "boundaries", "ends", "segments")
 # the kind of object each section's idents must be found as by JMRI (jmri_kind)
 IDENT_KIND = {"turnouts": "turnout", "boundaries": "point", "ends": "point", "segments": "segment"}
@@ -605,6 +608,9 @@ def check_masts(key, masts, seen):
                 raise SchematicError(f"{what}: {flag} must be true or false")
         if m.get("or_join") and (protects or m.get("kind") not in (None, "end bumper")):
             raise SchematicError(f"{what}: or_join is for a buffer-stop mast (no protects, kind end bumper)")
+        if m.get("leg") is not None and (m["leg"] not in MAST_LEGS or m.get("kind") not in (None, "turnout")):
+            raise SchematicError(f"{what}: leg must be one of {', '.join(MAST_LEGS)}, on a turnout mast (to tell "
+                                 "apart two masts with one facing and protected block, as at a balloon loop's ends)")
         icon = m.get("icon", [1, 1])
         if not (isinstance(icon, (list, tuple)) and len(icon) == 2 and
                 all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 for v in icon)):
@@ -1191,6 +1197,16 @@ def place_masts(P, bands, names):
     """Each named mast into the slot of its band that JMRI resolves to its facing and protected blocks."""
     from . import slots
     ix = slots.Index(to_xml(P, "probe", probe=True))
+    by_name = {P.name(t["ident"]): t for t in P.turnouts}
+
+    def on_leg(c, leg):
+        """Whether candidate c is the turnout leg (B or C) its turnout's continuing route makes `leg`."""
+        t = by_name.get(c[1])
+        if c[0] != "turnout" or t is None or c[2] not in ("B", "C"):
+            return False
+        normal = "B" if t["continuing"] == "2" else "C"
+        return (c[2] == normal) == (leg == "normal")
+
     taken = set()
     for bi, (title, _, _) in enumerate(bands):
         want = names.get(band_key(title), {}).get("masts") or []
@@ -1215,6 +1231,9 @@ def place_masts(P, bands, names):
                 cands = [c for c in cands if c[0] == m["kind"]]
             else:
                 other = []
+            if m.get("leg"):            # one of two masts with this facing and protected block: by the leg it is on
+                other += [c for c in cands if not on_leg(c, m["leg"])]
+                cands = [c for c in cands if on_leg(c, m["leg"])]
             moved = join_why = None
             if not cands and not other and m.get("or_join"):
                 # a buffer stop asked for, with no bumper slot on its track: the track runs on through a join, so
@@ -1236,6 +1255,9 @@ def place_masts(P, bands, names):
             if not cands:
                 if join_why:
                     why = f"no buffer stop for {m['facing']}, and {join_why}"
+                elif other and m.get("leg"):
+                    why = (f"no {m['leg']} turnout leg faces {m['facing']} and protects {list(protects)} (slots: "
+                           f"{', '.join(f'{c[1]} {c[2]}' for c in other)})")
                 elif other:
                     why = f"only {other[0][0]} slots face {m['facing']} and protect {list(protects)}"
                 elif facing.get(m["facing"]):

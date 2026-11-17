@@ -138,6 +138,21 @@ class Errors(unittest.TestCase):
         with self.assertRaisesRegex(SchematicError, r"block contents of .*: no clean spot for it among \d+ tried \("):
             le.panel(with_opts({"block_contents_text": "W" * 60, "block_contents_size": 28}))
 
+    def test_an_optional_block_contents_icon_is_left_out(self):
+        """optional_block_contents: an icon with no clean spot at either reserve is left out and logged; every other
+        icon still stops."""
+        big = {"block_contents_text": "W" * 60, "block_contents_short": "W" * 50, "block_contents_size": 28}
+        P = le.panel(with_opts(dict(big, optional_block_contents=sorted(panel().blocks))))
+        self.assertTrue(P.bcis_skipped)
+        self.assertEqual(len(P.bcis) + len(P.bcis_skipped), len(panel().blocks))
+        self.assertTrue(all("optional_block_contents: left out" in line for line in P.log
+                            if "optional_block_contents" in line))
+        for bad in ({"optional_block_contents": "Main"}, {"optional_block_contents": [3]}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "optional_block_contents"):
+                le_labels.options(with_opts(bad), None)
+        with self.assertRaisesRegex(SchematicError, "names Nowhere, which no band draws"):
+            le.panel(with_opts({"optional_block_contents": ["Nowhere"]}))
+
     def test_not_strict_an_item_with_no_spot_is_listed_not_raised(self):
         b = with_opts({"block_contents_text": "W" * 60, "block_contents_size": 28})
         P = le.draw_panel(b, None, le.CELL, le.ROW, None, labels=False)

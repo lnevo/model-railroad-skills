@@ -1002,3 +1002,49 @@ class ReviewFixes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def balloon_band():
+    """A balloon loop: switch 7's legs B and C both lead into the one Loop track, so two masts face it and protect
+    OS 7, one on each leg."""
+    nodes = {"W": dict(kind="end", sub="bumper", label="", ins={}, outs={"E": "a"}),
+             "S": dict(kind="switch", label="7", hand=1, ins={"A": "a", "C": "loop"}, outs={"B": "loop"})}
+    st = lambda a, b, n: dict(src=a, dst=b, name=n, main=True, hidden=False, link=False, edge="", cm=1.0)  # noqa: E731
+    strands = {"a": st(("W", "E"), ("S", "A"), "Lead"), "loop": st(("S", "B"), ("S", "C"), "Loop")}
+    drawn = {"a": [(0, 0), (3, 0)], "loop": [(3, 0), (8, 0), (9, 1), (8, 2), (5, 2), (4, 1), (3, 0)]}
+    return [("Test level", dict(nodes=nodes, strands=strands, _drawn=drawn),
+             {"le_labels": {"block_contents": False}})]
+
+
+class MastLeg(unittest.TestCase):
+    """A turnout mast's `leg`: which of two slots with one facing and protected block it takes."""
+
+    def draw(self, masts):
+        names = {"Test": {"os": {"S": "OS 7"}, "masts": masts}}
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            return le.panel(balloon_band(), names)
+
+    def test_each_mast_on_its_leg(self):
+        for first, second in (("normal", "diverging"), ("diverging", "normal")):
+            P = self.draw([{"mast": "M A", "facing": "Loop", "protects": ["OS 7"], "leg": first},
+                           {"mast": "M B", "facing": "Loop", "protects": ["OS 7"], "leg": second}])
+            normal = "B" if P.turnouts[0]["continuing"] == "2" else "C"
+            got = {m["mast"]: m["slot"] for m in P.masts}
+            with self.subTest(first=first):
+                self.assertEqual(got["M A"], normal if first == "normal" else "BC".replace(normal, ""))
+                self.assertEqual(sorted(got.values()), ["B", "C"])
+                self.assertFalse(P.unplaced)
+        # without it the first takes the first slot that fits, and the log says so
+        P = self.draw([{"mast": "M A", "facing": "Loop", "protects": ["OS 7"]}])
+        self.assertTrue(any("2 slots fit" in line for line in P.log))
+
+    def test_a_leg_with_no_slot_is_left_unplaced(self):
+        P = self.draw([{"mast": "M A", "facing": "Loop", "protects": ["OS 7"], "leg": "normal"},
+                       {"mast": "M B", "facing": "Loop", "protects": ["OS 7"], "leg": "normal"}])
+        self.assertEqual([u[1] for u in P.unplaced], ["M B"])
+        self.assertIn("no normal turnout leg faces Loop", P.unplaced[0][2])
+
+    def test_bad_legs_stop(self):
+        for bad in ({"leg": "left"}, {"leg": "normal", "kind": "anchor"}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "leg must be one of normal, diverging"):
+                self.draw([dict({"mast": "M", "facing": "Loop", "protects": ["OS 7"]}, **bad)])
