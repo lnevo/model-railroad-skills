@@ -678,7 +678,8 @@ def check_masts(key, masts, seen):
 
 
 def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP,
-          labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None, mast_room=None):
+          labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None, mast_room=None,
+          name_room=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
@@ -709,9 +710,13 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     reason a longer track can clear, gets room: the band is let out along its rows at that track and the panel drawn
     again (let_in_mast_room, mast_track). The track and the lines across that place grow longer; a sloped line through
     a switch's straight leg keeps its slope (its far end moves too), so no switch changes shape. A track that cannot be
-    let out that way keeps its length (logged). P.widened holds the px let in by track. Not with `fit`."""
+    let out that way keeps its length (logged). P.widened holds the px let in by track. Not with `fit`.
+    `name_room`: [band key, ...]: in the same rounds, on those bands a named track whose straight is shorter than its
+    name's width and NAME_ROOM_PAD is let out the same way by the difference, west to east, while the band stays no
+    wider than the widest band (so the panel keeps its width); a track past that is noted and left. Not with `fit`."""
     tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
     check_mast_room(bands, mast_room)
+    check_mast_room(bands, name_room, "name_room")
     split_crossovers = check_split(bands, split_crossovers, tight_crossovers)
     if not isinstance(labels_by_band, bool):
         raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
@@ -727,13 +732,14 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
             raise SchematicError(f"crossover_run names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
     if fit is not None and crossover_run is not None:
         raise SchematicError("crossover_run is for a panel drawn at a given grid, not one fitted to a window")
-    if fit is not None and mast_room:
-        raise SchematicError("mast_room is for a panel drawn at a given grid, not one fitted to a window")
+    if fit is not None and (mast_room or name_room):
+        raise SchematicError("mast_room and name_room are for a panel drawn at a given grid, not one fitted to a "
+                             "window")
     # with SCHEMATIC_CACHE set, a panel drawn before from the same arguments and the same code is read back
     # (the key leaves out the title block's fields, which no panel draws: a new revision keeps the panels)
     args = dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit, extras=extras, gap=gap,
                 labels_by_band=labels_by_band, crossover_run=crossover_run, tight_crossovers=tight_crossovers,
-                split_crossovers=split_crossovers, mast_room=mast_room)
+                split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room)
     keyed = dict(args, bands=untitled(bands), page=cache.untitled(page))
     return cache.memo("le-panel", ("le",), keyed, lambda: _panel(**args))
 
@@ -744,12 +750,12 @@ def untitled(bands):
 
 
 def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, crossover_run, tight_crossovers,
-           split_crossovers, mast_room=None):
+           split_crossovers, mast_room=None, name_room=None):
     """panel, its arguments checked, without the cache."""
     if fit is None:
         return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band,
                           crossover_run=crossover_run, tight_crossovers=tight_crossovers,
-                          split_crossovers=split_crossovers, mast_room=mast_room)
+                          split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room)
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
@@ -877,7 +883,7 @@ def check_split(bands, split, tight):
 
 def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=None, gap=BAND_GAP,
                labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None,
-               mast_room=None):
+               mast_room=None, name_room=None):
     """The panel drawn at this grid (see panel). Every message it keeps or stops with names objects by their written
     idents (Panel.text). `labels`: then run the label layer (label_layer). `page` as given: the drawing takes the
     last band's options when it is None (_draw), the labels take none (le_labels.options), so a band's le_labels
@@ -886,6 +892,7 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
         le_labels.options(bands, page)      # checked before any drawing (page None: no page-wide label options)
     le_labels.check_extras(extras)
     mast_room = check_mast_room(bands, mast_room)
+    name_room = check_mast_room(bands, name_room, "name_room")
 
     def drawn(widen):
         P = Panel()
@@ -899,8 +906,8 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
         return P
 
     P = drawn({})
-    if masts and mast_room:
-        P = let_in_mast_room(P, bands, mast_room, drawn)
+    if masts and (mast_room or name_room):
+        P = let_in_mast_room(P, bands, mast_room, drawn, name_room)
     P.final_text()
     if labels:
         label_layer(P, bands, page, extras, labels_by_band)
@@ -961,16 +968,16 @@ MAST_ROOM_ROUNDS = 4    # times the panel is drawn again for mast_room, at most
 MAST_ROOM_SPARE = 1.0   # px let in past a mast's shortfall, for the icon's whole-pixel place
 
 
-def check_mast_room(bands, mast_room):
-    """`mast_room` checked: a list of band keys, each a band drawn; [] when None."""
+def check_mast_room(bands, mast_room, what="mast_room"):
+    """`mast_room` (or `what`: name_room) checked: a list of band keys, each a band drawn; [] when None."""
     if mast_room is None:
         return []
     keys = [band_key(t) for t, _b, _o in bands]
     if not isinstance(mast_room, (list, tuple)) or not all(isinstance(k, str) for k in mast_room):
-        raise SchematicError(f"mast_room must be a list of band keys, not {mast_room!r}")
+        raise SchematicError(f"{what} must be a list of band keys, not {mast_room!r}")
     stray = sorted(set(mast_room) - set(keys))
     if stray:
-        raise SchematicError(f"mast_room names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
+        raise SchematicError(f"{what} names {', '.join(stray)}, which is no band (bands: {', '.join(keys)})")
     return list(mast_room)
 
 
@@ -985,14 +992,18 @@ MAST_ROOM_STALL = 3     # steps with no cheaper icon spot after which a track ge
 GEOMETRY = {"ink", "turnout", "other", "graze"}     # what a longer track can clear from an icon spot (le_masts)
 
 
-def let_in_mast_room(P, bands, keys, drawn):
-    """The panel drawn again with room let in for mast icons on the `keys` bands (panel's mast_room), until it
-    settles. First each mast whose straight is too short gets its shortfall and MAST_ROOM_SPARE; then a mast whose
-    icon still has no clean spot for a reason a longer track can clear (GEOMETRY: track or a turnout through it, or
-    nearer another track) gets MAST_ROOM_STEP px more at a time while its cheapest spot gets cheaper, up to
-    MAST_ROOM_MAX columns; a track whose last steps (MAST_ROOM_STALL) bought nothing goes back to its best. Each track
-    is let out where mast_track finds it may be; P.widened, and the log, hold what was let in."""
+def let_in_mast_room(P, bands, keys, drawn, name_keys=()):
+    """The panel drawn again with room let in for mast icons on the `keys` bands (panel's mast_room) and for track
+    names on the `name_keys` bands (name_room), until it settles. First each mast whose straight is too short gets its
+    shortfall and MAST_ROOM_SPARE; then a mast whose icon still has no clean spot for a reason a longer track can clear
+    (GEOMETRY: track or a turnout through it, or nearer another track) gets MAST_ROOM_STEP px more at a time while its
+    cheapest spot gets cheaper, up to MAST_ROOM_MAX columns; a track whose last steps (MAST_ROOM_STALL) bought nothing
+    goes back to its best. Each track is let out where mast_track finds it may be. In the same rounds a named track
+    whose straight is shorter than its name and a STEP gets the difference (name_room_wanted), while its band stays
+    no wider than the widest band. P.widened, and the log, hold what was let in."""
     grow, moved, notes = {}, {}, []
+    why_grown = defaultdict(set)        # (band index, strand id) -> "its mast icons", "its name"
+    named = defaultdict(int)            # (band index, strand id) -> rounds it was let out for its name
     best = {}                   # (band index, strand id) -> (cost, px) of its unclean mast's cheapest spot
     stalls = defaultdict(int)
     done = set()
@@ -1016,6 +1027,7 @@ def let_in_mast_room(P, bands, keys, drawn):
             cap = MAST_ROOM_MAX * P.cellx[k[0]]
             if short > EPS:
                 want[k] = max(want.get(k, 0.0), short + MAST_ROOM_SPARE)
+                why_grown[k].add("its mast icons")
                 continue
             cost = icon_cost(m)
             was = best.get(k)
@@ -1031,6 +1043,14 @@ def let_in_mast_room(P, bands, keys, drawn):
                              f"{grow.get(k, 0.0):.1f} px let in; its track keeps {best[k][1]:.1f} px")
                 continue
             want[k] = max(want.get(k, 0.0), MAST_ROOM_STEP)
+            why_grown[k].add("its mast icons")
+        for k, (px, nodes) in name_room_wanted(P, bands, name_keys, want, moved, notes).items():
+            if named[k] >= NAME_ROOM_ROUNDS:     # once: its straight may be measured on another piece
+                continue
+            named[k] += 1
+            moved.setdefault(k, nodes)
+            want[k] = max(want.get(k, 0.0), px)
+            why_grown[k].add("its name")
         if not want:
             break
         trial = dict(grow)
@@ -1047,10 +1067,74 @@ def let_in_mast_room(P, bands, keys, drawn):
     P.widened = {k: round(px, 1) for k, px in sorted(grow.items()) if abs(px) > EPS}
     for (bi, sid), px in P.widened.items():
         s = bands[bi][1]["strands"][sid]
-        notes.append(f"{bands[bi][0]}: track {s.get('name') or sid}: drawn {px:.1f} px longer for its mast icons "
-                     f"(the band let out east of its middle, {len(moved[(bi, sid)])} switches and ends moved)")
+        notes.append(f"{bands[bi][0]}: track {s.get('name') or sid}: drawn {px:.1f} px longer for "
+                     f"{' and '.join(sorted(why_grown[(bi, sid)]))} (the band let out east of its middle, "
+                     f"{len(moved[(bi, sid)])} switches and ends moved)")
     P.log += list(dict.fromkeys(notes))         # each noted once
     return P
+
+
+NAME_ROOM_PAD = 8       # px of straight a named track keeps past its name's width (le_labels.STEP)
+NAME_ROOM_ROUNDS = 1    # rounds a track is let out for its name, at most
+
+
+def name_room_wanted(P, bands, keys, want, moved, notes):
+    """{(band index, strand id): (px, nodes)}: on the `keys` bands, each named track whose longest straight (its
+    level, unhidden, uncurved segments in a row) is shorter than its name's width and NAME_ROOM_PAD, by how much, and
+    the nodes that move to let it out at the middle of its longest level piece (let_out_at), in the order the band
+    draws them west to east, while what the band is let out (with `want`, this round's room for masts) leaves it no
+    wider than the widest band. A track the drawing keeps no name room for (P.no_name), one that cannot be let out,
+    or one past the band's spare width is noted and left."""
+    if not keys:
+        return {}
+    from . import jmri_text
+    from .le_masts import PanelView
+    view = PanelView(P)
+    segs = {sg["ident"]: sg for sg in P.segments}
+    widest = max(b[2] - b[0] for b in P.band_boxes)
+    out = {}
+    for bi, (title, band, _opts) in enumerate(bands):
+        if band_key(title) not in keys:
+            continue
+        spare = widest - (P.band_boxes[bi][2] - P.band_boxes[bi][0]) - \
+            sum(px for (b, _sid), px in want.items() if b == bi)
+        named = []
+        for (b, sid), idents in P.strand_segments.items():
+            st = band["strands"][sid] if b == bi else None
+            if st is None or not st.get("name") or (bi, sid) in P.no_name:
+                continue
+            run = best = 0.0
+            for i in idents:            # the longest run of level straight segments, end to end
+                sg = segs[i]
+                a, c = (view.xy(e) for e in sg["ends"])
+                if sg["arc"] or sg["hidden"] or abs(a[1] - c[1]) > EPS:
+                    run = 0.0
+                    continue
+                run += abs(c[0] - a[0])
+                best = max(best, run)
+            need = jmri_text.width(tidy([st["name"]])[0], LABEL_SIZE) + NAME_ROOM_PAD
+            if best < need - EPS:
+                x = min(view.xy(e)[0] for i in idents for e in segs[i]["ends"])
+                named.append((x, sid, tidy([st["name"]])[0], need - best))
+        no_room = []
+        for _x, sid, name, px in sorted(named):
+            pieces = level_pieces(paths(band)[sid])
+            if not pieces:
+                continue
+            if px > spare + EPS:
+                no_room.append(name)
+                continue
+            nodes, why = (moved[(bi, sid)], None) if (bi, sid) in moved else \
+                let_out_at(P, bi, band, sid, max(pieces, key=lambda pc: abs(pc[1] - pc[0])))
+            if why:
+                notes.append(f"{title}: track {name}: not let out for its name ({why}; name_room leaves it)")
+                continue
+            spare -= px
+            out[(bi, sid)] = (px, nodes)
+        if no_room:
+            notes.append(f"{title}: tracks {', '.join(sorted(no_room))}: not let out for their names (the band "
+                         "would be wider than the widest band; name_room leaves them)")
+    return out
 
 
 def icon_cost(m):
