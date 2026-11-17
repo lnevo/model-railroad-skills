@@ -586,6 +586,106 @@ class Far(unittest.TestCase):
             le_masts.spot_cost(rect, ({"far": [((8, -20), (8, 20))]}, {}, [], []), set(), set(), [])
 
 
+def roomy():
+    """(Panel without mast_room, Panel with it on the lower band): the dense masts, built once per test run."""
+    if "mast_room" not in helpers._cache:
+        names, _found, _masts = names_for(True)
+        helpers._cache["mast_room"] = (built(True)[0], le.panel(bands(), names, mast_room=[key()]))
+    return helpers._cache["mast_room"]
+
+
+def shapes(P, bi):
+    """Each of a band's turnouts by its nodes: (type, its points less the band's top left corner), rounded."""
+    x0, y0 = P.band_boxes[bi][:2]
+    return {tuple(t["nodes"]): (t["type"], tuple(sorted((k, round(v[0] - x0, 3), round(v[1] - y0, 3))
+                                                        for k, v in t["pts"].items())))
+            for t in P.turnouts if t["band"] == bi}
+
+
+class MastRoom(unittest.TestCase):
+    def test_every_mast_gets_its_straight_or_is_noted(self):
+        bare, P = roomy()
+        short = [n for n, s in bare.mast_straights.items() if s["band"] == lower() and s["run"] < s["need"] - 1e-6]
+        self.assertTrue(short)                  # the example needs it
+        self.assertTrue(P.widened)
+        left = [line for line in P.log if "mast_room leaves it" in line]
+        for name, s in P.mast_straights.items():
+            if s["band"] == lower() and s["run"] < s["need"] - 1e-6:
+                self.assertTrue(any(f"mast {name}:" in line for line in left), name)
+        self.assertLess(sum(s["run"] < s["need"] - 1e-6 for s in P.mast_straights.values()), len(short))
+        self.assertTrue(any("px longer for its mast icons" in line for line in P.log))
+
+    def test_only_its_band_changes_and_no_switch_changes_shape(self):
+        bare, P = roomy()
+        upper = 1 - lower()
+        self.assertEqual(shapes(bare, upper), shapes(P, upper))
+        types = lambda Q: sorted(t["type"] for t in Q.turnouts)     # noqa: E731
+        self.assertEqual(types(bare), types(P))       # no through leg bent: no switch turns into a wye
+        self.assertEqual(len(bare.segments), len(P.segments))
+        for t in P.turnouts:                          # each switch's legs as long as before, only moved
+            b = next(u for u in bare.turnouts if u["nodes"] == t["nodes"])
+            for leg, p in t["pts"].items():
+                self.assertAlmostEqual(math.dist(p, t["cen"]), math.dist(b["pts"][leg], b["cen"]), 3)
+        self.assertEqual([m["slot"] for m in bare.masts], [m["slot"] for m in P.masts])
+
+    def test_a_sloped_line_through_a_switch_keeps_its_slope(self):
+        bare, P = roomy()
+        b = bands()[lower()][1]
+        rigid = le.rigid_diagonals(P, lower(), b)
+        by_mast = {m["mast"]: m for m in P.masts}
+        for (_bi, wsid), _px in P.widened.items():     # each track let out moves both ends of a rigid line, or none
+            m = next(by_mast[n] for n, s in P.mast_straights.items()
+                     if s["band"] == lower() and any(s["seg"] in segs for k, segs in P.strand_segments.items()
+                                                     if k == (lower(), wsid)))
+            got = le.mast_track(P, bands(), m, P.mast_straights[m["mast"]], [])
+            self.assertIsNotNone(got)
+            for sid in rigid:
+                ends = (b["strands"][sid]["src"][0], b["strands"][sid]["dst"][0])
+                self.assertEqual(ends[0] in got[1], ends[1] in got[1], (sid, wsid))
+
+    def test_which_sloped_lines_are_rigid_and_what_moves_with_them(self):
+        """A diagonal that is a plain switch's diverging leg at both ends may lie flatter; one through a switch's
+        straight leg (or a crossover's) keeps its slope, so its far end moves with the near one; a track that climbs
+        its whole way counts as a diagonal."""
+        band = {"x": {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 1},
+                "strands": {"flat": {"src": ("a", "p"), "dst": ("c", "q")},
+                            "through": {"src": ("b", "p"), "dst": ("d", "q")},
+                            "climb": {"src": ("f", "p"), "dst": ("e", "q")}},
+                "R": {"diag": ["flat", "through"]}}
+        P = le.Panel()
+        P.turnouts = [dict(ident=i, type=t) for i, t in (("TA", "RH_TURNOUT"), ("TB", "LH_TURNOUT"), ("TC", "RH_TURNOUT"),
+                                                          ("TD", "RH_XOVER"), ("TE", "RH_TURNOUT"), ("TF", "RH_TURNOUT"))]
+        P.turnout_of = {(0, "a"): ("TA", {"p": "C"}), (0, "b"): ("TB", {"p": "B"}), (0, "c"): ("TC", {"q": "C"}),
+                        (0, "d"): ("TD", {"q": "C"}), (0, "e"): ("TE", {"q": "A"}), (0, "f"): ("TF", {"p": "C"})}
+        drawn = {"flat": [(0, 0), (2, 1)], "through": [(1, 0), (3, 1)], "climb": [(1, 0), (2, 0.5), (4, 1)]}
+        with mock.patch.object(le, "paths", return_value=drawn):
+            rigid = le.rigid_diagonals(P, 0, band)
+        self.assertEqual(rigid, {"through", "climb"})
+        self.assertEqual(le.moved_east(band, 1.5, rigid), {"b", "c", "d", "e", "f"})
+        self.assertEqual(le.moved_east(band, 1.5, set()), {"c", "d", "e"})
+
+    def test_bad_mast_room_stops(self):
+        for bad, msg in (("Lower", "must be a list of band keys"), ([3], "must be a list of band keys"),
+                         (["Nowhere"], "mast_room names Nowhere, which is no band")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, msg):
+                le.panel(bands(), mast_room=bad)
+        with self.assertRaisesRegex(SchematicError, "mast_room is for a panel drawn at a given grid"):
+            le.panel(bands(), mast_room=[key()], fit=(1300, 700))
+
+    def test_without_masts_or_the_option_nothing_is_let_in(self):
+        P = le.panel(bands(), {key(): {"blocks": BLOCKS}}, mast_room=[key()])
+        self.assertEqual(P.widened, {})
+        self.assertEqual(built(True)[0].widened, {})
+
+    def test_a_let_out_that_would_spoil_the_drawing_is_refused(self):
+        b = bands()[lower()][1]
+        everything = {n: 1.0 for n in b["x"]}
+        self.assertIsNone(le.let_out_fault(b, everything))           # the whole band moved: nothing changes
+        west = min(b["x"], key=lambda n: b["x"][n])
+        why = le.let_out_fault(b, {n: -50.0 for n in b["x"] if n != west})    # all but one pulled far west
+        self.assertIsNotNone(why)
+
+
 if __name__ == "__main__":
     unittest.main()
 
