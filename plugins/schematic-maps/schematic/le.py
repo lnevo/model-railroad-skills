@@ -891,13 +891,20 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     align = check_band_align(bands, page)
     shared = plan_shared(P, bands, names, page)
     unjoined = {bi for bi, (t, _b, _o) in enumerate(bands) if names.get(band_key(t), {}).get("joins") == "none"}
-    joined = {a: b for a, b in partners(bands).items() if a[0] not in unjoined and b[0] not in unjoined}
+    pairs = partners(bands)
+    for (bi, _n), (bj, _m) in sorted(pairs.items()):
+        if bi in unjoined and bj not in unjoined and names.get(band_key(bands[bj][0]), {}).get("joins") == "other":
+            raise SchematicError(f"{bands[bi][0]} draws its ends unjoined (joins \"none\") but {bands[bj][0]} asks "
+                                 "for the other band's block on their joins (joins \"other\"): there is no join; set "
+                                 "both to \"none\", or neither")
+    joined = {a: b for a, b in pairs.items() if a[0] not in unjoined and b[0] not in unjoined}
     given = {b for g in names.values() for v in (g.get("blocks") or {}).values()
              for b in ([v] if isinstance(v, str) else v)} | \
         {b for g in names.values() for b in (g.get("os") or {}).values()}
     os_defaults = {f"OS {d.get('label') or n}" for _, band, _ in bands for n, d in band["nodes"].items()
                    if d["kind"] in ("switch", "dx")}
-    defaults = default_names(bands, joined, given | os_defaults)
+    # a helix or connector track keeps one default block name on both bands even when drawn unjoined (joins none)
+    defaults = default_names(bands, pairs, given | os_defaults)
     drawn = [paths(band) for _, band, _ in bands]
     widths = []
     for d in drawn:
@@ -1200,11 +1207,11 @@ def place_masts(P, bands, names):
     """Each named mast into the slot of its band that JMRI resolves to its facing and protected blocks."""
     from . import slots
     ix = slots.Index(to_xml(P, "probe", probe=True))
-    by_name = {P.name(t["ident"]): t for t in P.turnouts}
+    by_ident = {t["ident"]: t for t in P.turnouts}      # the probe holds generated idents, as `mine` below
 
     def on_leg(c, leg):
         """Whether candidate c is the turnout leg (B or C) its turnout's continuing route makes `leg`."""
-        t = by_name.get(c[1])
+        t = by_ident.get(c[1])
         if c[0] != "turnout" or t is None or c[2] not in ("B", "C"):
             return False
         normal = "B" if t["continuing"] == "2" else "C"
@@ -1235,6 +1242,12 @@ def place_masts(P, bands, names):
             else:
                 other = []
             if m.get("leg"):            # one of two masts with this facing and protected block: by the leg it is on
+                xover = sorted(P.name(c[1]) for c in cands if c[0] == "turnout" and c[1] in by_ident
+                               and "XOVER" in by_ident[c[1]]["type"])
+                if xover:
+                    raise SchematicError(f"{title}: mast {m['mast']}: leg is for a plain turnout's B or C leg; its "
+                                         f"slot is on crossover {', '.join(xover)}, whose legs A to D have no "
+                                         "normal or diverging leg (leave leg out)")
                 other += [c for c in cands if not on_leg(c, m["leg"])]
                 cands = [c for c in cands if on_leg(c, m["leg"])]
             moved = join_why = None

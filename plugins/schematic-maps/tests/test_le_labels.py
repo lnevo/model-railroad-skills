@@ -150,8 +150,35 @@ class Errors(unittest.TestCase):
         for bad in ({"optional_block_contents": "Main"}, {"optional_block_contents": [3]}):
             with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "optional_block_contents"):
                 le_labels.options(with_opts(bad), None)
-        with self.assertRaisesRegex(SchematicError, "names Nowhere, which no band draws"):
-            le.panel(with_opts({"optional_block_contents": ["Nowhere"]}))
+        P = le.panel(with_opts({"optional_block_contents": ["Nowhere"]}))     # not drawn here (--band): logged
+        self.assertTrue(any("optional_block_contents: block Nowhere is not drawn on this panel (ignored)" in line
+                            for line in P.log))
+
+    def test_optional_icons_are_a_bands_own(self):
+        P = le.draw_panel(bands(), None, le.CELL, le.ROW, None, labels=False)
+        L = le_labels.Layer(P, bands(), le_labels.options(bands(), None))
+        places = le_labels.block_places(P, L)
+        of = {b: le_labels.block_band(L, places, b) for b in P.blocks}
+        upper = next(b for b, bi in of.items() if bi == 0)
+        lower = next(b for b, bi in of.items() if bi == 1)
+        b = with_opts(None)
+        b[0][2]["le_labels"] = {"optional_block_contents": [upper, lower]}      # Upper lists one of Lower's too
+        got = le_labels.optional_icons(P, L, b, le_labels.options(b, None))
+        self.assertEqual(got, {("bci", upper)})
+
+    def test_an_optional_icon_is_never_put_first_nor_chooses_the_round(self):
+        big = {"block_contents_text": "W" * 60, "block_contents_short": "W" * 50, "block_contents_size": 28}
+        firsts = []
+        real = le_labels.place_round
+
+        def watch(L, items, first, again=()):
+            firsts.append(list(first))
+            return real(L, items, first, again)
+        with mock.patch.object(le_labels, "place_round", watch):
+            P = le.panel(with_opts(dict(big, optional_block_contents=sorted(panel().blocks))))
+        self.assertTrue(P.bcis_skipped)
+        self.assertFalse([k for f in firsts for k in f if k[0] == "bci"])
+        self.assertLessEqual(len(firsts), 4)            # only optional icons failing: no reordering rounds
 
     def test_not_strict_an_item_with_no_spot_is_listed_not_raised(self):
         b = with_opts({"block_contents_text": "W" * 60, "block_contents_size": 28})

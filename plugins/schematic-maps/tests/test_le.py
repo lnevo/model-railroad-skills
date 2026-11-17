@@ -1000,9 +1000,6 @@ class ReviewFixes(unittest.TestCase):
             self.assertNotIn("Traceback", r.stderr)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 def balloon_band():
     """A balloon loop: switch 7's legs B and C both lead into the one Loop track, so two masts face it and protect
@@ -1064,3 +1061,51 @@ class Unjoined(unittest.TestCase):
         self.assertGreater(bumpers(P), bumpers(joined))                       # its ends are ends again
         with self.assertRaisesRegex(SchematicError, 'joins must be "own", "other" or "none"'):
             le.panel(bands(), {key: {"joins": "neither"}})
+
+
+class MastLegReview(unittest.TestCase):
+    """The 0.1.27 review fixes: leg with given idents, leg on a crossover, and joins none against joins other."""
+
+    def test_legs_place_with_given_idents(self):
+        masts = [{"mast": "M A", "facing": "Loop", "protects": ["OS 7"], "leg": "normal"},
+                 {"mast": "M B", "facing": "Loop", "protects": ["OS 7"], "leg": "diverging"}]
+        names = {"Test": {"os": {"S": "OS 7"}, "masts": masts, "idents": {"turnouts": {"S": "TO117"}}}}
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            P = le.panel(balloon_band(), names)
+        self.assertFalse(P.unplaced, P.unplaced)
+        self.assertEqual(sorted(m["slot"] for m in P.masts), ["B", "C"])
+        self.assertEqual({P.name(m["ident"]) for m in P.masts}, {"TO117"})
+
+    def test_leg_on_a_crossover_stops(self):
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            bare = le.panel(crossover_band(), {"Test": {"os": {"P": "OS 7", "Q": "OS 7b"}}})
+            xover = next(t for t in bare.turnouts if "XOVER" in t["type"])
+            from schematic import slots
+            ix = slots.Index(le.to_xml(bare, "p", probe=True))
+            facing, protects = next(b for b in (ix.blocks("turnout", xover["ident"], leg) for leg in "ABCD") if b[0])
+            names = {"Test": {"os": {"P": "OS 7", "Q": "OS 7b"},
+                              "masts": [{"mast": "M", "facing": facing, "protects": protects, "leg": "normal"}]}}
+            with self.assertRaisesRegex(SchematicError, "mast M: leg is for a plain turnout's B or C leg; its slot "
+                                                        "is on crossover"):
+                le.panel(crossover_band(), names)
+
+    def test_joins_none_with_a_partner_asking_other_stops(self):
+        keys = [le.band_key(t) for t, _b, _o in bands()]
+        with self.assertRaisesRegex(SchematicError, f"{bands()[0][0]} draws its ends unjoined .* "
+                                                    f"{bands()[1][0]} asks for the other band's block"):
+            le.panel(bands(), {keys[0]: {"joins": "none"}, keys[1]: {"joins": "other"}})
+        both = le.panel(bands(), {keys[0]: {"joins": "none"}, keys[1]: {"joins": "none"}})
+        self.assertFalse(both.joins)
+
+    def test_joins_none_keeps_a_helix_tracks_one_block_name(self):
+        joined = le.panel(bands())
+        key = le.band_key(bands()[0][0])
+        P = le.panel(bands(), {key: {"joins": "none"}})
+        helix = {s["block"] for s in joined.segments if s["block"].startswith("Summit")}
+        self.assertTrue(helix)
+        self.assertEqual({s["block"] for s in P.segments if s["block"].startswith("Summit")}, helix)
+        self.assertFalse([b for b in P.blocks if "Summit 2" in b or b.endswith(" 2") and b.startswith("Summit")])
+
+
+if __name__ == "__main__":
+    unittest.main()
