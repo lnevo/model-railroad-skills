@@ -60,6 +60,8 @@ from .draw import mast_piece
 from .layout import paths
 from .cats_grid import MARGIN, BAND_GAP, COMPACT_GAP, ENDS, OPPOSITE, STEP, EDGE_ORDER, neighbour, step_pieces, unit_steps, strand_pieces, parallel_runs, stacked_runs, free_ends, stretched, column_shift, widened_columns, touching, Panel, band_key_name, trim_columns, column_plain, drop_column
 from .cats_px import GRID_PX, TEXT_PX, SIG_PX, LOC_XY, frill_box, text_box, track_lines, signal_boxes, crosses, overlaps
+from .cats_labels import SPILL_RANKS, place_labels
+from .cats_fit import shown, check_fit, parse_size, parse_fit, parse_window, summary
 
 SCALE = 2
 OS_REACH = 1            # steps an OS block reaches past a switch's points on each leg
@@ -523,71 +525,6 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
     if compact:
         place_labels(P)
     return P
-
-
-SPILL_RANKS = (0, 2)    # band titles and end labels may run past the last track column; shown() counts them
-
-
-def place_labels(P):
-    """Place a compact panel's pending labels, lower rank first: each at its first candidate that stays inside the
-    drawing and covers no track, signal or placed label; else at the candidate with the fewest such clashes,
-    inside the drawing if any is (logged). Band titles and end labels may run past the last track column."""
-    lines, signals = track_lines(P), signal_boxes(P)
-    right = (max(c[0] for c in P.cells) + 1) * GRID_PX
-    placed = []
-    def clashes(box):
-        return sum(crosses(box, ln) for ln in lines) + sum(overlaps(box, sb, 0) for sb in signals) + \
-            sum(overlaps(box, pb) for pb in placed)
-
-    queue = sorted(P.pending, key=lambda r: r[:2])
-    while queue:
-        rank, seq, cands, text, font = queue.pop(0)
-        if isinstance(text, list):      # a group of names [(row, text, own candidates)]: one common column and
-            for col in cands:           # spot, a column (over or under the track) or (column, spots)
-                even = len({len(t) for _, t, _ in text}) == 1     # names of unequal length start in one line
-                col, locs = (col, ("UPCENT", "LOWCENT") if even else ("UPLEFT", "LOWLEFT", "UPCENT", "LOWCENT")) \
-                    if isinstance(col, int) else col
-                for loc in locs:
-                    spots = [((col, y), text_box((col, y), loc, t, font)) for y, t, _ in text]
-                    if all(c not in P.labels for c, _ in spots) and \
-                            all(b[0] >= GRID_PX and (b[2] <= right or rank in SPILL_RANKS) for _, b in spots) and \
-                            not any(clashes(b) for _, b in spots) and \
-                            not any(overlaps(a[1], b[1]) for i, a in enumerate(spots) for b in spots[i + 1:]):
-                        for (c, b), (_, t, _) in zip(spots, text):
-                            P.labels[c] = (t, loc, font)
-                            placed.append(b)
-                        break
-                else:
-                    continue
-                break
-            else:                       # no common column: each on its own
-                queue[:0] = [(rank, seq, own, t, font) for _, t, own in text]
-            continue
-        best = None
-        spill = rank in SPILL_RANKS
-        for cell, loc in cands:
-            if cell in P.labels or cell[0] < 1 or cell[1] < 1:
-                continue
-            box = text_box(cell, loc, text, font)
-            if box[0] < GRID_PX:
-                continue
-            past = box[2] > right and not spill      # past the last track column: only if nothing else will do
-            clash = clashes(box)
-            if best is None or (past, clash) < best[0]:
-                best = ((past, clash), cell, loc, box)
-            if (past, clash) == (False, 0):
-                break
-        if best is None:
-            P.log.append(f"no room for label {text!r}")
-            continue
-        (past, clash), cell, loc, box = best
-        if clash:
-            P.log.append(f"label {text!r} at {cell} {loc} crosses {clash} track lines, signals or labels")
-        if past:
-            P.log.append(f"label {text!r} at {cell} {loc} runs past the last track column")
-        P.labels[cell] = (text, loc, font)
-        placed.append(box)
-    P.pending = None
 
 
 def node_of(key):
@@ -1297,52 +1234,3 @@ def write(P, out, discipline="CTC", header=(), window=None):
         f.write(text)
     return text
 
-
-def shown(P):
-    """(columns, rows) of cells CATS lays out on screen: every column from 1 to the rightmost one with track or a
-    label (column 0 is never used), and the rows from the top to the bottom one with track or a label
-    (cats/gui/Screen.java findBounds); plus any columns a label's text runs into past the last one, since CATS
-    cuts text off there and a fit must leave room for it."""
-    cells = list(P.cells) + list(P.labels)
-    reach = [math.ceil(text_box(c, loc, t, f)[2] / GRID_PX) - 1 for c, (t, loc, f) in P.labels.items()]
-    return max([c[0] for c in cells] + reach), max(c[1] for c in cells) - min(c[1] for c in cells) + 1
-
-
-def check_fit(P, cols, rows):
-    """An error when the panel shows more than cols x rows cells (the screen at CATS's fixed grid size)."""
-    have = shown(P)
-    if have[0] > cols or have[1] > rows:
-        raise SchematicError(f"the panel shows {have[0]} x {have[1]} cells, more than the {cols} x {rows} it must "
-                             f"fit ({max(0, have[0] - cols)} columns and {max(0, have[1] - rows)} rows over)")
-    return have
-
-
-def parse_size(text, option="--fit", form="COLSxROWS", example="63x36"):
-    """'AxB' as (a, b), both whole numbers of at least 1; an error naming the option otherwise."""
-    try:
-        a, b = (int(v) for v in text.lower().split("x"))
-    except ValueError:
-        raise SchematicError(f"{option} is {form}, such as {example}, not {text!r}") from None
-    if a < 1 or b < 1:
-        raise SchematicError(f"{option} is {form} with both at least 1, not {text!r}")
-    return a, b
-
-
-def parse_fit(text):
-    """'COLSxROWS' as (cols, rows)."""
-    return parse_size(text)
-
-
-def parse_window(text):
-    """'WIDTHxHEIGHT' in pixels as (width, height)."""
-    return parse_size(text, "--window", "WIDTHxHEIGHT in pixels", "1900x1100")
-
-
-def summary(P):
-    blocks = len(set(P.names.values()))
-    text = (f"{len(P.cells)} track cells, {len(P.points)} switch points, {len(P.crossings) // 2} crossings, "
-            f"{blocks} blocks, {len(P.shared) // 2} logical joins, {len(P.labels)} labels")
-    if P.block_info or P.route_io or P.signals:
-        occupied = sum(1 for b in P.block_info.values() if b.get("occupied"))
-        text += (f"; bound: {occupied} block sensors, {len(P.route_io)} switch points, {len(P.signals)} masts")
-    return text
