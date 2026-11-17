@@ -50,21 +50,28 @@ points: route B along each through track, C into the X (normal B unless it says 
 on the edge of the block it protects (the side toward the switch or end its move is heading for), facing out of
 that block, on the right-hand side of the move.
 """
-import copy
 import math
-import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 from .core import SchematicError, dx_tracks, node_ref
-from .draw import mast_piece
 from .layout import paths
-from .cats_grid import MARGIN, BAND_GAP, COMPACT_GAP, ENDS, OPPOSITE, STEP, EDGE_ORDER, neighbour, step_pieces, unit_steps, strand_pieces, parallel_runs, stacked_runs, free_ends, stretched, column_shift, widened_columns, touching, Panel, band_key_name, trim_columns, column_plain, drop_column
-from .cats_px import GRID_PX, TEXT_PX, SIG_PX, LOC_XY, frill_box, text_box, track_lines, signal_boxes, crosses, overlaps
+
+# The work is split by what it touches; this module keeps panel() and re-exports every name the one-file module had,
+# so `schematic.cats.X` is unchanged for the command, hart's build scripts and the tests.
+from .cats_grid import (                                    # cells, edges, the Panel record, column edits
+    MARGIN, BAND_GAP, COMPACT_GAP, ENDS, OPPOSITE, STEP, EDGE_ORDER, Panel, band_key_name, column_plain,
+    column_shift, drop_column, free_ends, neighbour, parallel_runs, stacked_runs, step_pieces, strand_pieces,
+    stretched, touching, trim_columns, unit_steps, widened_columns)
+from .cats_px import GRID_PX, TEXT_PX, SIG_PX, LOC_XY, crosses, frill_box, overlaps, signal_boxes, text_box, track_lines
 from .cats_labels import SPILL_RANKS, place_labels
-from .cats_fit import shown, check_fit, parse_size, parse_fit, parse_window, summary
-from .cats_bind import DISCIPLINES, SIG_PANTYPES, IOSPEC_KEYS, ROUTE_TAGS, node_of, check_io, check_bindings, switch_bindings, bind_blocks, bind_routes, number_order, label_of
-from .cats_masts import SIG_LOCATION, bind_masts, gantry_look, mast_gap, INK_CLEAR, POINT_ZONE, SPOT_COST, SPOT_PER_PX, GANTRY_SHIFT, GANTRY_SPAN, mast_size, move_of, lamp_way, box_gap, points_zones, spot_costs, place_mast, shift_gaps, move_gap
-from .cats_xml import boundaries, dangling, lone_blocks, HEADER_FONTS, header_from, set_io, to_xml, write
+from .cats_fit import check_fit, parse_fit, parse_size, parse_window, shown, summary
+from .cats_bind import (                                    # bindings file checks; blocks, routes and names
+    DISCIPLINES, SIG_PANTYPES, IOSPEC_KEYS, ROUTE_TAGS, bind_blocks, bind_routes, check_bindings, check_io, label_of,
+    node_of, number_order, switch_bindings)
+from .cats_masts import (                                   # masts: binding, gantries, spot choice
+    SIG_LOCATION, INK_CLEAR, POINT_ZONE, SPOT_COST, SPOT_PER_PX, GANTRY_SHIFT, GANTRY_SPAN, bind_masts, box_gap,
+    gantry_look, lamp_way, mast_gap, mast_size, move_gap, move_of, place_mast, points_zones, shift_gaps, spot_costs)
+from .cats_xml import HEADER_FONTS, boundaries, dangling, header_from, lone_blocks, set_io, to_xml, write
 
 SCALE = 2
 OS_REACH = 1            # steps an OS block reaches past a switch's points on each leg

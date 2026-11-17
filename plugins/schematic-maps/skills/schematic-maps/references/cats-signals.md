@@ -1,6 +1,6 @@
 # Where masts read best on a compact CATS panel
 
-On a compact panel (`schematic cats --cells-per-unit 1`) a mast shares a 30 pixel cell with track, switch points and names. This note says where `schematic cats` puts each bound mast's lamps and why, and how it lines up the masts of one control point in a column, like signals on a gantry. The rules came from rendering every turnout and crossover case the way CATS 3.2 draws it and scoring each spot. The code is `spot_costs`, `place_mast` and `shift_gaps` in `schematic/cats.py`.
+On a compact panel (`schematic cats --cells-per-unit 1`) a mast shares a 30 pixel cell with track, switch points and names. This note says where `schematic cats` puts each bound mast's lamps and why, and how it lines up the masts of one control point in a column, like signals on a gantry. The rules came from rendering every turnout and crossover case the way CATS 3.2 draws it and scoring each spot. The code is `spot_costs`, `place_mast` and `shift_gaps` in `schematic/cats_masts.py`.
 
 ## What CATS draws
 
