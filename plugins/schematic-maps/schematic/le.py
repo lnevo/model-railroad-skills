@@ -29,6 +29,7 @@ Names (optional, by band key, the first word of the band title):
               "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
                          "icon": [w, h], "or_join": ..., "leg": "normal" or "diverging"}],
               "joins": "own", "other" or "none", "leg_b": {node: "B" or "C"}, "shared_turnouts": [turnout name, ...],
+              "xover_blocks": {node: {"A": block, "B": block, "C": block, "D": block}},
               "idents": {"turnouts": {node: ident}, "boundaries": [{"blocks": [block, block], "ident": ident}],
                          "ends": {block: ident}, "segments": {block: ident}}}}
 A strand with several blocks is cut for them in order from its first end to its second: in proportion to their
@@ -36,7 +37,13 @@ real lengths when `lengths` gives one for each (so a short throat block sits at 
 equal lengths; no block is drawn shorter than MIN_BLOCK px, and no cut falls inside an arc. Without names
 a strand's block is its track name (or the two switch numbers it joins, made unique), a turnback and a joined helix
 or connector track share the block of the track they continue, an OS block is "OS <switch number>", and no turnout
-is named. Sensors are not placed. `leg_b` names the band leg that is Layout Editor leg B (default: the drawn
+is named. Sensors are not placed. `xover_blocks` gives a double crossover a block per corner, keyed by the band's
+legs A to D (each leg's corner takes its block), in place of its one OS block; the four must differ. With one block,
+or two, JMRI 5.16 records a through path between the two tracks on one side (LayoutBlock.addThroughPath keeps a
+pair whose turnout lists match both ways, and both ways give the crossover the same state: with one block every
+search ends at the crossover with nothing found, with two blocks both boundaries between them carry one state), so
+routing and Signal Mast Logic discovery would run a train from leg A to leg D, which no double crossover can. With a
+block per corner the A-B and B-D boundaries of corner B carry CLOSED and THROWN, so no corner joins A to D. `leg_b` names the band leg that is Layout Editor leg B (default: the drawn
 straight one); a drawn diverging leg B puts the centre midway between legs A and B, where Layout Editor finds point
 A. `idents` gives drawn objects an older panel's idents once the track is drawn (give_idents): a switch's
 turnout, the one anchor between two blocks, the one end bumper of a block, the one segment of a block; the rest keep
@@ -173,6 +180,33 @@ def clean(pts):
         if not out or math.dist(out[-1], p) > 0.01:
             out.append(p)
     return out
+
+
+def double_corners(band, n, turned=False, drawn=None):
+    """{band leg: Layout Editor corner} of double crossover `n` as the panel draws it: A top left, B top right, C
+    bottom right, D bottom left, from where each leg's drawn track leaves (`turned`: the band is in rotate_bands;
+    `drawn`: its paths, default layout.paths). A caller naming `xover_blocks` by corner reads the legs here."""
+    drawn = drawn if drawn is not None else paths(band)
+    k = -1 if turned else 1
+    d = band["nodes"][n]
+    ends = {}
+    for p in "ABCD":
+        sid = d["ins"].get(p) or d["outs"].get(p)
+        if sid is None:
+            raise SchematicError(f"double crossover {d.get('label') or n}: no track on leg {p}")
+        pts = clean([(k * x, k * y) for x, y in drawn[sid]])
+        if tuple(band["strands"][sid]["src"]) != (n, p):
+            pts = pts[::-1]
+        if len(pts) < 2 or abs(pts[1][0] - pts[0][0]) < 1e-3:
+            raise SchematicError(f"double crossover {d.get('label') or n}: leg {p} leaves straight up or down, so it "
+                                 "is on neither side of the crossover")
+        ends[p] = (round(pts[0][1], 3), "left" if pts[1][0] < pts[0][0] else "right")
+    ys = sorted({y for y, _ in ends.values()})
+    corner = {(ys[0], "left"): "A", (ys[0], "right"): "B", (ys[-1], "right"): "C", (ys[-1], "left"): "D"}
+    got = {p: corner.get(e) for p, e in ends.items()}
+    if len(ys) != 2 or sorted(got.values(), key=str) != list("ABCD"):
+        raise SchematicError(f"double crossover {d.get('label') or n}: its legs do not reach four corners")
+    return got
 
 
 def jmri_arc(p1, p2, angle, flip):
@@ -396,7 +430,8 @@ def default_names(bands, joined, taken=()):
     return out
 
 
-NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents", "shared_turnouts")
+NAME_KEYS = ("turnouts", "os", "normal", "blocks", "masts", "joins", "lengths", "leg_b", "idents", "shared_turnouts",
+             "xover_blocks")
 MAST_KINDS = ("anchor", "end bumper", "turnout")
 MAST_FIELDS = ("mast", "facing", "protects", "kind", "hidden", "icon", "or_join", "leg")
 MAST_LEGS = ("normal", "diverging")
@@ -494,6 +529,7 @@ def check_names(bands, names):
         if halves:
             raise SchematicError(f"names for {key}: leg_b names {', '.join(halves)}, half of a single crossover, "
                                  "whose legs are the crossover's (A to D), not a plain turnout's")
+        check_xover_blocks(key, given.get("xover_blocks"), band)
         shared = given.get("shared_turnouts", [])
         if not isinstance(shared, list) or not all(text(v) for v in shared) or len(set(shared)) != len(shared):
             raise SchematicError(f"names for {key}: shared_turnouts must be a list of different turnout names")
@@ -502,7 +538,8 @@ def check_names(bands, names):
             raise SchematicError(f"names for {key}: shared_turnouts names {', '.join(stray)}, which no switch of the "
                                  "band is given as its turnout")
         named = {b for v in (given.get("blocks") or {}).values() for b in ([v] if isinstance(v, str) else v)} | \
-            set((given.get("os") or {}).values())
+            set((given.get("os") or {}).values()) | \
+            {b for v in (given.get("xover_blocks") or {}).values() for b in v.values()}
         check_idents(key, given.get("idents"), band, switches, named, seen_idents)
         for section in NAME_KEYS[:4]:
             ids = set(given.get(section) or {})
@@ -512,6 +549,25 @@ def check_names(bands, names):
                 what = "track" if section == "blocks" else "switch"
                 raise SchematicError(f"names for {key}: {section} names {', '.join(missing)}, which is no {what} "
                                      "of the band")
+
+
+def check_xover_blocks(key, given, band):
+    """Stop on an `xover_blocks` section that is not an object of double crossover id: {A, B, C, D: four different
+    block names} (see the module text for why they must differ)."""
+    if given is None:
+        return
+    what = f"names for {key}: xover_blocks"
+    if not isinstance(given, dict):
+        raise SchematicError(f"{what} must be an object of double crossover id: corner blocks")
+    for n, corners in given.items():
+        if band["nodes"].get(n, {}).get("kind") != "dx":
+            raise SchematicError(f"{what} names {n}, which is no double crossover of the band")
+        if not isinstance(corners, dict) or set(corners) != set("ABCD") or \
+                not all(isinstance(b, str) and b.strip() for b in corners.values()):
+            raise SchematicError(f"{what} {n}: an object of its legs A, B, C and D: block name, not {corners!r}")
+        if len(set(corners.values())) != 4:
+            raise SchematicError(f"{what} {n}: its four corners share a block ({corners}); JMRI would then route "
+                                 "between the two legs on one side, so each corner needs its own block")
 
 
 def check_idents(key, idents, band, switches, named, seen):
@@ -900,7 +956,8 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     joined = {a: b for a, b in pairs.items() if a[0] not in unjoined and b[0] not in unjoined}
     given = {b for g in names.values() for v in (g.get("blocks") or {}).values()
              for b in ([v] if isinstance(v, str) else v)} | \
-        {b for g in names.values() for b in (g.get("os") or {}).values()}
+        {b for g in names.values() for b in (g.get("os") or {}).values()} | \
+        {b for g in names.values() for v in (g.get("xover_blocks") or {}).values() for b in v.values()}
     os_defaults = {f"OS {d.get('label') or n}" for _, band, _ in bands for n, d in band["nodes"].items()
                    if d["kind"] in ("switch", "dx")}
     # a helix or connector track keeps one default block name on both bands even when drawn unjoined (joins none)
@@ -1334,6 +1391,7 @@ class Band:
         x0 = min(p[0] for v in drawn.values() for p in v)
         y0 = min(p[1] for v in drawn.values() for p in v)
         k = -1 if turned else 1
+        self.turned = turned
         self.px = lambda p: (k * (p[0] - x0) * cellx, k * (p[1] - y0) * row)    # noqa: E731
         self.drawn = drawn
         self.poly = {sid: clean([self.px(p) for p in drawn[sid]]) for sid in self.strands}
@@ -1855,8 +1913,14 @@ class Band:
             raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: its legs do not "
                                  "reach four corners")
         pts = {"A": (xc - h, ys[0]), "B": (xc + h, ys[0]), "C": (xc + h, ys[1]), "D": (xc - h, ys[1])}
+        if {p: leg for (_n, p), leg in conn.items()} != double_corners(self.band, n, self.turned, self.drawn):
+            raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: its corners "
+                                 "differ from double_corners'")     # an invariant: callers name blocks by it
+        corners = self.names.get("xover_blocks", {}).get(n)
         b = self.os_of(n)
-        self.add_turnout([n], "DOUBLE_XOVER", (xc, (ys[0] + ys[1]) / 2), pts, conn, {k: b for k in "ABCD"})
+        self.add_turnout([n], "DOUBLE_XOVER", (xc, (ys[0] + ys[1]) / 2), pts, conn,
+                         {corner: corners[port] for (_n, port), corner in conn.items()} if corners else
+                         {k: b for k in "ABCD"})
 
     # ---- ends
     def end(self, n):

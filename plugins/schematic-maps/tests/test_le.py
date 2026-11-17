@@ -228,6 +228,28 @@ class Switches(unittest.TestCase):
         self.assertLess(p["A"][1], p["D"][1])
         self.assertEqual(set(dx[0]["blocks"].values()), {"OS 6"})
 
+    def test_double_crossover_corner_blocks(self):
+        """`xover_blocks` puts each band leg's corner in its own block, written as JMRI's four block names, so no
+        corner joins the two legs on one side (A-D or B-C): JMRI 5.16's LayoutBlock.addThroughPath would otherwise
+        record a through path between them (see the module text)."""
+        given = {"A": "OS 6a", "B": "OS 6b", "C": "OS 6c", "D": "OS 6d"}
+        P = panel({"Lower": {"xover_blocks": {"DX": given}}})
+        t = next(t for t in P.turnouts if t["type"] == "DOUBLE_XOVER")
+        n, legs = P.turnout_of[(t["band"], "DX")]
+        self.assertEqual({legs[port]: block for port, block in given.items()}, t["blocks"])
+        band = next(b for title, b, _ in bands() if title.startswith("Lower"))
+        self.assertEqual(le.double_corners(band, "DX"), legs)      # what a caller reads to name blocks by corner
+        for side in ("AD", "BC"):          # the two corners on each side of the drawing
+            self.assertNotEqual(t["blocks"][side[0]], t["blocks"][side[1]])
+        el = next(e for e in element(P).iter("layoutturnout") if e.get("type") == "DOUBLE_XOVER")
+        self.assertEqual([el.get(f"block{k}name") for k in ("", "b", "c", "d")],
+                         [t["blocks"][k] for k in "ABCD"])
+        for bad, why in (({**given, "D": "OS 6a"}, "share a block"), ({"A": "OS 6a"}, "legs A, B, C and D")):
+            with self.assertRaisesRegex(SchematicError, why):
+                le.panel(bands(), {"Lower": {"xover_blocks": {"DX": bad}}})
+        with self.assertRaisesRegex(SchematicError, "no double crossover"):
+            le.panel(bands(), {"Lower": {"xover_blocks": {"W1": given}}})
+
 
 def crossover_band():
     """Two switches numbered 7, joined C to C: a single crossover between two level tracks."""
