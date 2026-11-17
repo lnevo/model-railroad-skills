@@ -86,7 +86,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-from . import cache, le_labels, stations
+from . import cache, le_labels, le_prefs, stations
 from .core import SchematicError, node_ref, tidy
 from .draw import band_key
 from .layout import paths
@@ -101,6 +101,7 @@ HELIX_R = 9         # radius of the circle that marks a helix end, px
 MARGIN = 60         # px left of and above the drawing
 BAND_GAP = 96       # px between one band's lowest track and the next band's highest
 TITLE_GAP = 40      # px from a band's title to its highest track
+TITLE_DROP = 4      # px the title's top stands below TITLE_GAP above its band
 STRETCH_MAX = 2.5   # as the sheet: a band is never stretched more than this
 LABEL_SIZE, NUMBER_SIZE, TITLE_SIZE = 10, 9, 13
 EPS = 1e-6
@@ -679,8 +680,10 @@ def check_masts(key, masts, seen):
 
 def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=None, gap=BAND_GAP,
           labels_by_band=False, crossover_run=None, tight_crossovers=None, split_crossovers=None, mast_room=None,
-          name_room=None):
-    """A Panel from [(title, band, options)], bands stacked top to bottom. `page` is the options that set the page
+          name_room=None, band_bottoms=None):
+    """A Panel from [(title, band, options)], bands stacked top to bottom. The Layout Editor preferences (le_prefs:
+    a band's le_shift and le_longer_straights, the page's le_title_clear, a band's le_labels extra_steps and
+    extra_follow) are checked first and applied here. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
     text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
@@ -713,7 +716,22 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     let out that way keeps its length (logged). P.widened holds the px let in by track. Not with `fit`.
     `name_room`: [band key, ...]: in the same rounds, on those bands a named track whose straight is shorter than its
     name's width and NAME_ROOM_PAD is let out the same way by the difference, west to east, while the band stays no
-    wider than the widest band (so the panel keeps its width); a track past that is noted and left. Not with `fit`."""
+    wider than the widest band (so the panel keeps its width); a track past that is noted and left. Not with `fit`.
+    `band_bottoms`: {band key: px}, the lowest y of the caller's own items under a band, which the page's
+    le_title_clear counts as drawn for that band (P.gaps holds the gaps it settled on)."""
+    if not bands:
+        raise SchematicError("no band to draw")
+    le_prefs.check_page(page if page is not None else bands[-1][2])
+    bands = drawn_bands(bands, page)
+    band_bottoms = le_prefs.check_bottoms(bands, band_bottoms)
+    runs = le_prefs.crossover_runs(bands, page if page is not None else bands[-1][2], row)
+    if runs and crossover_run is not None:
+        raise SchematicError("crossover_run is given and the preferences hold le_crossover_angle: give one of them")
+    if runs and fit is None:
+        crossover_run = runs
+    clear = le_prefs.title_clear(page if page is not None else bands[-1][2])
+    unused = [] if fit is None else [p for p, on in (("le_title_clear", clear is not None and len(bands) > 1),
+                                                     ("le_crossover_angle", bool(runs))) if on]
     tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
     check_mast_room(bands, mast_room)
     check_mast_room(bands, name_room, "name_room")
@@ -739,9 +757,29 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     # (the key leaves out the title block's fields, which no panel draws: a new revision keeps the panels)
     args = dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit, extras=extras, gap=gap,
                 labels_by_band=labels_by_band, crossover_run=crossover_run, tight_crossovers=tight_crossovers,
-                split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room)
+                split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room, band_bottoms=band_bottoms,
+                unused=unused)
     keyed = dict(args, bands=untitled(bands), page=cache.untitled(page))
     return cache.memo("le-panel", ("le",), keyed, lambda: _panel(**args))
+
+
+def drawn_bands(bands, page=None):
+    """The bands as the panel draws them (le_prefs.drawn_bands): each band's le_shift and le_longer_straights applied
+    once. `page` as panel's (None: the last band's options)."""
+    if not bands:
+        raise SchematicError("no band to draw")
+    return le_prefs.drawn_bands(bands, page if page is not None else bands[-1][2])
+
+
+def stretched(scale, page):
+    """A grid `scale` (across, down), say a fit's, widened by the page's le_stretch factor (le_prefs.stretched)."""
+    return le_prefs.stretched(scale, page)
+
+
+def check_stretch(size, fit, page):
+    """Stop unless a panel of `size` has the shape of the `fit` window's panel area (less CHROME) within the page's
+    le_stretch tolerance (le_prefs.check_stretch)."""
+    le_prefs.check_stretch(size, fit, CHROME, page)
 
 
 def untitled(bands):
@@ -750,12 +788,70 @@ def untitled(bands):
 
 
 def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, crossover_run, tight_crossovers,
-           split_crossovers, mast_room=None, name_room=None):
-    """panel, its arguments checked, without the cache."""
+           split_crossovers, mast_room=None, name_room=None, band_bottoms=None, unused=()):
+    """panel, its arguments checked, without the cache: drawn (at the grid, or fitted), then drawn once more with the
+    caller's items that step at their x (le_prefs.extra_steps; P.extra_x)."""
     if fit is None:
-        return draw_panel(bands, names, cell, row, page, extras=extras, gap=gap, labels_by_band=labels_by_band,
+        draw = grid_drawer(bands, names, cell, row, page, gap, labels_by_band, crossover_run, tight_crossovers,
+                           split_crossovers, mast_room, name_room, band_bottoms or {})
+    else:
+        draw = fit_drawer(bands, names, cell, row, page, fit, gap, labels_by_band, split_crossovers, unused)
+    P = draw(extras)
+    xs = le_prefs.extra_steps(P, le_labels.options(bands, page), extras)
+    if xs:
+        P = draw(le_prefs.with_x(extras, xs))
+    P.extra_x = xs
+    return P
+
+
+def grid_drawer(bands, names, cell, row, page, gap, labels_by_band, crossover_run, tight_crossovers,
+                split_crossovers, mast_room, name_room, band_bottoms):
+    """draw(extras): the panel at this grid; with the page's le_title_clear, its gaps settled (settle_gaps)."""
+    clear = le_prefs.title_clear(page if page is not None else bands[-1][2])
+
+    def draw(extras, gaps=gap):
+        return draw_panel(bands, names, cell, row, page, extras=extras, gap=gaps, labels_by_band=labels_by_band,
                           crossover_run=crossover_run, tight_crossovers=tight_crossovers,
                           split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room)
+
+    if clear is None or len(bands) < 2:
+        return draw
+    return lambda extras: settle_gaps(lambda g: draw(extras, g), bands, gap, clear, band_bottoms)
+
+
+TITLE_ROUNDS = 4        # times the panel is drawn at most for the page's le_title_clear
+
+
+def title_gap(P, bi, clear, bottom=None):
+    """The gap below band bi of P that puts the next band's title `clear` px below the lowest thing drawn for band bi
+    (extent), or `bottom` (a caller's items under it) when lower; the title stands TITLE_GAP less TITLE_DROP px
+    above its band's box. Whole px, rounded up."""
+    lowest = extent(P, bi)[3]
+    if bottom is not None:
+        lowest = max(lowest, bottom)
+    return math.ceil(max(0.0, lowest - P.band_boxes[bi][3]) + TITLE_GAP - TITLE_DROP + clear)
+
+
+def settle_gaps(draw, bands, gap, clear, bottoms):
+    """draw(gaps) again until every gap is title_gap of the panel it gives (the first drawing at `gap`); P.gaps
+    holds them. Stops when they do not settle in TITLE_ROUNDS drawings."""
+    gaps = band_gaps(gap, len(bands))
+    tried = []
+    for _ in range(TITLE_ROUNDS):
+        P = draw(gaps)
+        want = [title_gap(P, bi, clear, bottoms.get(band_key(bands[bi][0]))) for bi in range(len(bands) - 1)]
+        if want == gaps:
+            P.gaps = gaps
+            return P
+        tried.append(gaps)
+        gaps = want
+    raise SchematicError(f"le_title_clear: the gaps between bands do not settle in {TITLE_ROUNDS} drawings "
+                         f"(tried {tried}, then {gaps})")
+
+
+def fit_drawer(bands, names, cell, row, page, fit, gap, labels_by_band, split_crossovers, unused=()):
+    """draw(extras): the panel fitted to the `fit` window (see the module text); the grid is searched once. `unused`:
+    the preferences for a panel at a given grid that this one has (logged)."""
     W, H = fit[0] - CHROME[0], fit[1] - CHROME[1]           # the panel inside the window's frame
     if W <= 0 or H <= 0:
         raise SchematicError(f"a {fit[0]}x{fit[1]} px window leaves no room for a panel inside its frame")
@@ -812,16 +908,22 @@ def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, cros
     kx, ky, fitted = cache.memo("le-fit", ("le",), dict(bands=untitled(bands), names=names, cell=cell, row=row,
                                                            page=cache.untitled(page), fit=fit, gap=gap,
                                                            split_crossovers=split_crossovers), settle)
-    P = drawn.get((kx, ky))
-    if P is None:               # a kept grid: drawn at it, it must fit (or not) as it did when it was searched
-        P = draw(kx, ky)
-        if fits(P) != fitted:
-            raise SchematicError(f"the kept fit grid ({kx:g}, {ky:g}) gives a {P.size[0]}x{P.size[1]} px panel for a "
-                                 f"{fit[0]}x{fit[1]} px window, not as when it was searched; clear the cache folder "
-                                 f"({cache.ENV})")
-    label_layer(P, bands, page, extras, labels_by_band)
-    P.scale, P.fit = (kx, ky), tuple(fit)
-    return P
+    def finish(extras):
+        P = drawn.pop((kx, ky), None)
+        if P is None:           # a kept grid, or a second drawing: drawn at it, it must fit (or not) as when searched
+            P = draw(kx, ky)
+            if fits(P) != fitted:
+                raise SchematicError(f"the kept fit grid ({kx:g}, {ky:g}) gives a {P.size[0]}x{P.size[1]} px panel "
+                                     f"for a {fit[0]}x{fit[1]} px window, not as when it was searched; clear the "
+                                     f"cache folder ({cache.ENV})")
+        label_layer(P, bands, page, extras, labels_by_band)
+        P.scale, P.fit = (kx, ky), tuple(fit)
+        for pref in unused:
+            P.log.append(f"{pref} is for a panel drawn at a given grid: this one is fitted to a window, so it is not "
+                         "used")
+        return P
+
+    return finish
 
 
 def check_tight(bands, tight, crossover_run):
@@ -1335,7 +1437,7 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP, widen=None):
         left = {"left": 0, "right": room}.get(align.get(band_key(title), "centre"), room / 2)
         shift(P, bi, MARGIN + left - box[0], top - box[1])
         P.band_boxes.append((MARGIN + left, top, MARGIN + left + box[2] - box[0], top + box[3] - box[1]))
-        P.label(title.upper(), (MARGIN, top - TITLE_GAP + 4), TITLE_SIZE, True, anchor="left", kind="title")
+        P.label(title.upper(), (MARGIN, top - TITLE_GAP + TITLE_DROP), TITLE_SIZE, True, anchor="left", kind="title")
         top += box[3] - box[1] + (gaps[bi] if bi < len(gaps) else 0)
     for (bi, n), (bj, m) in sorted(joined.items()):
         if (bi, n) > (bj, m):
@@ -1358,19 +1460,11 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP, widen=None):
     P.size = (math.ceil(box[2] + MARGIN), math.ceil(box[3] + MARGIN))
 
 
-def page_bands(bands, page):
-    """The band keys the page knows: the bands drawn, and every band its `band_order` lists (so `--band` may draw
-    part of a page whose settings name all its bands)."""
-    order = page.get("band_order") or []
-    return [band_key(t) for t, _, _ in bands] + [k for k in order if isinstance(k, str)
-                                                 and k not in {band_key(t) for t, _, _ in bands}]
-
-
 def check_band_align(bands, page):
     """The page's `band_align`, checked: {band key: "left", "centre" or "right"}, each a band the page knows (one not
     drawn now is allowed and ignored)."""
     align = page.get("band_align") or {}
-    known = page_bands(bands, page)
+    known = le_prefs.known_bands(bands, page)
     if not isinstance(align, dict):
         raise SchematicError(f"band_align must be an object of band: \"left\", \"centre\" or \"right\", not {align!r}")
     bad = sorted(f"{k} (no band; bands: {', '.join(known)})" for k in align if k not in known) + \
@@ -1404,7 +1498,7 @@ def plan_shared(P, bands, names, page):
             done |= {n, partner.get(n, n)}
             count[name] += 1
             bands_of[name].append(bi)
-    undrawn = [k for k in page_bands(bands, page) if k not in {band_key(t) for t, _, _ in bands}]
+    undrawn = [k for k in le_prefs.known_bands(bands, page) if k not in {band_key(t) for t, _, _ in bands}]
     for bi, (title, _, _) in enumerate(bands):
         listed = (names.get(band_key(title)) or {}).get("shared_turnouts") or []
         for name in sorted(count):

@@ -76,7 +76,10 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "lamp_columns": [],
-     "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": []}
+     "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
+     "extra_follow": []}
+`extra_steps` and `extra_follow` (a band's own, like names_last): caller's items that step along one slope, which le
+places through le_prefs.extra_steps (see there); this module only checks them.
 `optional_block_contents` (a band's: blocks that band draws): blocks whose block contents icon is left out (logged,
 P.bcis_skipped) when it finds no clean spot at either reserve, instead of stopping: for a block too short and
 crowded to read, say once the caller's masts stand around it. It is never put first in a later round nor counted
@@ -125,7 +128,9 @@ GRID = 64           # px per cell of the indexes
 DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "lamp_columns": [],
-            "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": []}
+            "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
+            "extra_follow": []}
+BAND_ONLY = ("names_last", "extra_steps", "extra_follow")     # a band's own le_labels keys: the page's may not set them
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 
 
@@ -151,6 +156,24 @@ def _check(where, o):
             names = [n for g in v for n in g]
             if len(names) != len(set(names)):
                 raise SchematicError(f"{where}: le_labels: {k} names a track twice")
+        elif k == "extra_steps":
+            if not isinstance(v, list) or not all(isinstance(g, list) and len(g) > 1 and
+                                                  all(isinstance(n, str) and n.strip() for n in g) for g in v):
+                raise SchematicError(f"{where}: le_labels: extra_steps must be a list of lists of two or more extra "
+                                     f"ids, not {v!r}")
+            ids = [n for g in v for n in g]
+            if len(ids) != len(set(ids)):
+                raise SchematicError(f"{where}: le_labels: extra_steps names an extra twice")
+        elif k == "extra_follow":
+            if not isinstance(v, list) or not all(isinstance(g, list) and len(g) == 2 and g[0] != g[1] and
+                                                  all(isinstance(n, str) and n.strip() for n in g) for g in v):
+                raise SchematicError(f"{where}: le_labels: extra_follow must be a list of [leader, follower] extra "
+                                     f"ids, not {v!r}")
+            stepped = {n for g in o.get("extra_steps", []) if isinstance(g, list) for n in g[2:]}
+            followers = [g[1] for g in v]
+            if len(followers) != len(set(followers)) or stepped & set(followers):
+                raise SchematicError(f"{where}: le_labels: extra_follow places an extra that another entry or "
+                                     "extra_steps places too")
         elif k in ("numbers_below", "optional_block_contents"):
             if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
                 raise SchematicError(f"{where}: le_labels: {k} must be a list of "
@@ -174,9 +197,10 @@ def options(bands, page):
     if "le_labels" in page:
         _check("page", page["le_labels"])
         own = any(page is opts for _t, _b, opts in bands)       # the page is a band's own options: allowed there
-        if "names_last" in page["le_labels"] and not own:
-            raise SchematicError("page: le_labels: names_last is a band's own option (its track names go last); set "
-                                 "it in that band's le_labels, not the page's")
+        for k in BAND_ONLY:
+            if k in page["le_labels"] and not own:
+                raise SchematicError(f"page: le_labels: {k} is a band's own option; set it in that band's "
+                                     "le_labels, not the page's")
     out = []
     for title, _band, opts in bands:
         opts = opts or {}
@@ -184,7 +208,8 @@ def options(bands, page):
             _check(title, opts["le_labels"])
         stations.entries(opts)
         o = {**DEFAULTS, **page.get("le_labels", {}), **opts.get("le_labels", {})}
-        o["names_last"] = opts.get("le_labels", {}).get("names_last", False)     # the band's own, never the page's
+        for k in BAND_ONLY:                                     # the band's own, never the page's
+            o[k] = opts.get("le_labels", {}).get(k, DEFAULTS[k])
         if jmri_text.width(o["block_contents_short"], o["block_contents_size"]) >= \
                 jmri_text.width(o["block_contents_text"], o["block_contents_size"]):
             raise SchematicError(f"{title}: le_labels: block_contents_short {o['block_contents_short']!r} must be "
