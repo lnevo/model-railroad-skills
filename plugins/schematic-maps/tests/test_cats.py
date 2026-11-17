@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 import helpers
-from schematic import cats
+from schematic import cats, cats_masts
 from schematic.layout import paths
 
 
@@ -464,7 +464,7 @@ class Bindings(unittest.TestCase):
         if start is None:
             return cats.panel(bands, bindings={"masts": {"X5": {}}})
         piece = lambda sg, strands: ("e12.0", 5.0, 261.8, start) if "e12.0" in strands else None
-        with mock.patch.object(cats, "mast_piece", piece):
+        with mock.patch.object(cats_masts, "mast_piece", piece):
             return cats.panel(bands, bindings={"masts": {"X5": {}}})
 
     def test_a_turnback_merged_by_the_bindings_is_no_boundary_for_a_mast(self):
