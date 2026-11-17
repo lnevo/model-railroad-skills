@@ -28,7 +28,7 @@ Names (optional, by band key, the first word of the band title):
               "blocks": {strand id: [block, ...]}, "lengths": {block: real length, any one unit},
               "masts": [{"mast": name, "facing": block, "protects": [block, ...], "kind": ..., "hidden": ...,
                          "icon": [w, h], "or_join": ..., "leg": "normal" or "diverging"}],
-              "joins": "own" or "other", "leg_b": {node: "B" or "C"}, "shared_turnouts": [turnout name, ...],
+              "joins": "own", "other" or "none", "leg_b": {node: "B" or "C"}, "shared_turnouts": [turnout name, ...],
               "idents": {"turnouts": {node: ident}, "boundaries": [{"blocks": [block, block], "ident": ident}],
                          "ends": {block: ident}, "segments": {block: ident}}}}
 A strand with several blocks is cut for them in order from its first end to its second: in proportion to their
@@ -53,7 +53,8 @@ bumper. `kind` ("anchor", "end bumper" or "turnout"), when given, must match too
 empty) with `"or_join": true`, whose track has no bumper slot because the panel joins it to another band, goes on
 that join's anchor instead, facing the same block and protecting the hidden join's block (an anchor, not an end
 bumper: listed in P.moved). That anchor is a block boundary only when the join carries the other band's block:
-`"joins": "other"` on a band gives its hidden joins the other band's block (on one band of a pair, not both). A
+`"joins": "other"` on a band gives its hidden joins the other band's block (on one band of a pair, not both);
+`"joins": "none"` draws that band's connector and helix ends unjoined, as ends, so no hidden join reaches it. A
 mast with no slot is not placed and is listed in P.unplaced with the reason. Each placed mast gets a signal mast icon on the right-hand side
 of the train it governs, before the boundary, turned to the direction of travel; `icon` is its upright size in pixels
 (default 12 x 17, a dwarf), `hidden` hides it as Layout Editor does. Then the CATS mast rules (le_masts): the anchors
@@ -479,8 +480,9 @@ def check_names(bands, names):
         stray = sorted(set(lengths) - named)
         if stray:
             raise SchematicError(f"names for {key}: lengths given for {', '.join(stray)}, which no track's blocks name")
-        if given.get("joins", "own") not in ("own", "other"):
-            raise SchematicError(f"names for {key}: joins must be \"own\" or \"other\", not {given['joins']!r}")
+        if given.get("joins", "own") not in ("own", "other", "none"):
+            raise SchematicError(f"names for {key}: joins must be \"own\", \"other\" or \"none\", not "
+                                 f"{given['joins']!r}")
         leg_b = given.get("leg_b", {})
         if not isinstance(leg_b, dict) or any(v not in ("B", "C") for v in leg_b.values()):
             raise SchematicError(f"names for {key}: leg_b must be an object of switch id: \"B\" or \"C\"")
@@ -888,7 +890,8 @@ def _draw(P, bands, names, cell, row, page, masts, gap=BAND_GAP):
     check_names(bands, names)
     align = check_band_align(bands, page)
     shared = plan_shared(P, bands, names, page)
-    joined = partners(bands)
+    unjoined = {bi for bi, (t, _b, _o) in enumerate(bands) if names.get(band_key(t), {}).get("joins") == "none"}
+    joined = {a: b for a, b in partners(bands).items() if a[0] not in unjoined and b[0] not in unjoined}
     given = {b for g in names.values() for v in (g.get("blocks") or {}).values()
              for b in ([v] if isinstance(v, str) else v)} | \
         {b for g in names.values() for b in (g.get("os") or {}).values()}

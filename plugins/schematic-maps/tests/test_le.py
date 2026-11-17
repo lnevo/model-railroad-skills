@@ -1048,3 +1048,19 @@ class MastLeg(unittest.TestCase):
         for bad in ({"leg": "left"}, {"leg": "normal", "kind": "anchor"}):
             with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "leg must be one of normal, diverging"):
                 self.draw([dict({"mast": "M", "facing": "Loop", "protects": ["OS 7"]}, **bad)])
+
+
+class Unjoined(unittest.TestCase):
+    def test_joins_none_leaves_a_bands_ends_unjoined(self):
+        joined = le.panel(bands())
+        self.assertTrue(joined.joins)
+        key = le.band_key(bands()[0][0])
+        P = le.panel(bands(), {key: {"joins": "none"}})
+        touching = {b for (b, _i) in joined.join_ends}
+        self.assertIn(0, touching)
+        self.assertFalse([1 for (b, _i) in P.join_ends if b == 0])          # nothing reaches that band
+        self.assertLess(len(P.joins), len(joined.joins))
+        bumpers = lambda Q: sum(1 for p in Q.points.values() if p["type"] == "END_BUMPER")     # noqa: E731
+        self.assertGreater(bumpers(P), bumpers(joined))                       # its ends are ends again
+        with self.assertRaisesRegex(SchematicError, 'joins must be "own", "other" or "none"'):
+            le.panel(bands(), {key: {"joins": "neither"}})
