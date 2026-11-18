@@ -297,11 +297,11 @@ class GridOptions(unittest.TestCase):
     def test_mast_room_and_name_room_from_the_preferences(self):
         got = le_prefs.grid_options(with_prefs("Lower", le_mast_room={"Lower": True}, le_name_room={"Lower": False}),
                                     None)
-        self.assertEqual(got, {"mast_room": ["Lower"]})                # false: the band is not let out
+        self.assertEqual(got, ({"mast_room": ["Lower"]}, ["mast_room", "name_room"]))  # false: not let out, but set
         keys = [le.band_key(t) for t, _b, _o in bands()]
         both = [(t, b, dict(o, le_name_room={k: True for k in keys})) for t, b, o in bands()]
-        self.assertEqual(le_prefs.grid_options(both, None), {"name_room": keys})     # in the bands' order
-        self.assertEqual(le_prefs.grid_options(bands(), None), {})
+        self.assertEqual(le_prefs.grid_options(both, None), ({"name_room": keys}, ["name_room"]))  # bands' order
+        self.assertEqual(le_prefs.grid_options(bands(), None), ({}, []))
         P = le.panel(both)
         self.assertEqual(le.geometry(P), le.geometry(le.panel(bands(), name_room=keys)))
 
@@ -313,6 +313,9 @@ class GridOptions(unittest.TestCase):
         for pref in ("le_tight_crossovers", "le_split_crossovers"):
             self.assertTrue(any(line.startswith(f"{pref} is for a panel drawn at a given grid") for line in P.log),
                             pref)
+        # the preference is not used there, so the argument (split_crossovers works with fit) may stand beside it
+        Q = self.three_way({"le_split_crossovers": {"Test": ["7"]}}, split_crossovers={"Test": ["7"]}, fit=(1300, 700))
+        self.assertIn("Switch 7", Q.split_names)
 
     def test_bad_values_and_both_ways_stop(self):
         for prefs, why in (({"le_mast_room": {"Lower": "yes"}}, "le_mast_room for Lower must be true or false"),
@@ -326,6 +329,9 @@ class GridOptions(unittest.TestCase):
                 le.panel(with_prefs("Lower", **prefs))
         with self.assertRaisesRegex(SchematicError, "mast_room given and the preferences hold le_mast_room"):
             le.panel(with_prefs("Lower", le_mast_room={"Lower": True}), mast_room=["Lower"])
+        with self.assertRaisesRegex(SchematicError, "mast_room given and the preferences hold le_mast_room"):
+            le.panel(with_prefs("Lower", le_mast_room={"Lower": False}), mast_room=["Lower"])     # false is set too
+        le.panel(with_prefs("Lower", le_mast_room={"Lower": True}), mast_room=[])      # an empty argument asks nothing
         with self.assertRaisesRegex(SchematicError, "or the band's le_crossover_angle"):
             self.three_way({"le_tight_crossovers": {"Test": [["7", "8"]]}})
         with self.assertRaisesRegex(SchematicError, "switch 9 is no single crossover"):

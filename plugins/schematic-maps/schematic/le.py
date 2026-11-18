@@ -648,8 +648,9 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     """A Panel from [(title, band, options)], bands stacked top to bottom. The Layout Editor preferences (le_prefs:
     a band's le_shift and le_longer_straights, the page's le_title_clear, a band's le_labels extra_steps and
     extra_follow; and at a given grid a band's le_crossover_angle, le_tight_crossovers, le_split_crossovers,
-    le_mast_room and le_name_room, which give the arguments of those names) are checked first and applied here. `page` is the options that set the page
-    (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
+    le_mast_room and le_name_room, which give the arguments of those names) are checked first and applied here.
+    `page` is the options that set the page (equal_width, band_width, rotate_bands); the last band's by default, as
+    the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
     text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
     beside their block's track (P.extras); the plugin writes nothing for them. `gap`: px between one band's lowest
@@ -686,26 +687,27 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     reach, which the page's le_title_clear counts as drawn for that band (P.gaps holds the gaps it settled on)."""
     if not bands:
         raise SchematicError("no band to draw")
-    le_prefs.check_page(page if page is not None else bands[-1][2], bands)
+    pg = page if page is not None else bands[-1][2]        # the page's options, for the preferences
+    le_prefs.check_page(pg, bands)
     bands = drawn_bands(bands, page)
     band_bottoms = le_prefs.check_bottoms(bands, band_bottoms)
-    runs = le_prefs.crossover_runs(bands, page if page is not None else bands[-1][2], row)
+    runs = le_prefs.crossover_runs(bands, pg, row)
     if runs and crossover_run is not None:
         raise SchematicError("crossover_run is given and the preferences hold le_crossover_angle: give one of them")
     if runs and fit is None:
         crossover_run = runs
-    clear = le_prefs.title_clear(page if page is not None else bands[-1][2])
+    clear = le_prefs.title_clear(pg)
     unused = [] if fit is None else [p for p, on in (("le_title_clear", clear is not None and len(bands) > 1),
                                                      ("le_crossover_angle", bool(runs))) if on]
     # a band's le_tight_crossovers, le_split_crossovers, le_mast_room and le_name_room: these arguments, at a grid
     given = dict(tight_crossovers=tight_crossovers, split_crossovers=split_crossovers, mast_room=mast_room,
                  name_room=name_room)
-    prefs = le_prefs.grid_options(bands, page if page is not None else bands[-1][2])
-    both = [arg for arg in prefs if given[arg] is not None]
-    if both:
-        raise SchematicError(f"{', '.join(both)} given and the preferences hold le_{', le_'.join(both)}: give one of "
-                             "them")
-    if fit is None:
+    prefs, held = le_prefs.grid_options(bands, pg)
+    if fit is None:             # a fitted panel draws without them (logged), so only here may the two meet
+        both = [arg for arg in held if given[arg]]
+        if both:
+            raise SchematicError(f"{', '.join(both)} given and the preferences hold le_{', le_'.join(both)}: give one "
+                                 "of them")
         given.update(prefs)
     else:
         unused += [f"le_{arg}" for arg in prefs]

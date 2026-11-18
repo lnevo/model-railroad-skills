@@ -93,7 +93,8 @@ GRID_PREFS = {"le_tight_crossovers": "tight_crossovers", "le_split_crossovers": 
 
 def band_entries(bands, page, pref):
     """{band index: value} of the band preference `pref` (SHAPES), checked: an object of band key to its value (a
-    list of {from, to, columns} entries, or an angle), each band key one the page knows, and the value for a drawn
+    list of {from, to, columns} entries, an angle, or a GRID_PREFS value: _check_grid), each band key one the page
+    knows, and the value for a drawn
     band set in that band's own preferences (another input's preferences naming it would be read by no band)."""
     known = known_bands(bands, page)
     drawn = {band_key(t): (bi, o or {}) for bi, (t, _b, o) in enumerate(bands)}
@@ -129,9 +130,9 @@ def band_entries(bands, page, pref):
 
 
 def check_page_band_prefs(bands, page):
-    """A page that holds a band preference (le_shift, le_longer_straights, le_crossover_angle) that no band drawn
-    holds as its own would be ignored (band preferences are read from each band's own options): stop, naming it. The
-    page is often the last input's own options, so a value one of the bands drawn also holds, or one for a band not
+    """A page that holds a band preference (SHAPES: le_shift, le_longer_straights, le_crossover_angle and the
+    GRID_PREFS) that no band drawn holds as its own would be ignored (band preferences are read from each band's own
+    options): stop, naming it. The page is often the last input's own options, so a value one of the bands drawn also holds, or one for a band not
     drawn now, is fine."""
     drawn = {band_key(t): (o or {}) for t, _b, o in bands}
     for pref in SHAPES:
@@ -171,22 +172,24 @@ def _check_grid(title, pref, key, value):
 
 
 def grid_options(bands, page):
-    """{le.panel argument: value} of the band preferences that are le.panel arguments for a panel at a given grid
-    (GRID_PREFS), for the bands drawn that set them, in the bands' order: tight_crossovers and split_crossovers as
-    {band key: value}, mast_room and name_room as the band keys whose value is true. An argument no drawn band sets
-    is left out."""
-    out = {}
+    """({le.panel argument: value}, [argument, ...]) of the band preferences that are le.panel arguments for a panel
+    at a given grid (GRID_PREFS): the values, for the bands drawn that set them, in the bands' order (tight_crossovers
+    and split_crossovers as {band key: value}, mast_room and name_room as the band keys whose value is true; an
+    argument that would ask for nothing is left out), and every argument some drawn band's preferences set, false
+    included (a caller's argument beside it stops: le.panel)."""
+    out, held = {}, []
     for pref, arg in GRID_PREFS.items():
         entries = band_entries(bands, page, pref)
         if not entries:
             continue
+        held.append(arg)
         if pref in ("le_mast_room", "le_name_room"):
             keys = [band_key(bands[bi][0]) for bi, on in sorted(entries.items()) if on]
             if keys:
                 out[arg] = keys
         else:
             out[arg] = {band_key(bands[bi][0]): value for bi, value in sorted(entries.items())}
-    return out
+    return out, held
 
 
 def crossover_runs(bands, page, row):
