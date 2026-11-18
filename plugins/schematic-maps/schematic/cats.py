@@ -51,6 +51,20 @@ from .cats_prefs import SCALE, HELIX_BLOCKS, CHROME, check_helix_blocks, check_r
 OS_REACH = 1            # steps an OS block reaches past a switch's points on each leg
 
 
+def check_gaps(scale, band_gap=None, title_gap=None, names=("band_gap", "title_gap", "scale")):
+    """(band_gap, title_gap) with panel()'s defaults for None, checked for `scale`: fewer rows than the defaults
+    only on a compact panel (scale 1). `names` are what the errors call the gaps and the scale, so a caller that
+    read them from preferences or options can name those."""
+    default_gap = (COMPACT_GAP if scale == 1 else BAND_GAP) - 1
+    band_gap = check_rows(default_gap if band_gap is None else band_gap, names[0])
+    title_gap = check_rows(1 if title_gap is None else title_gap, names[1])
+    if scale != 1 and (band_gap < default_gap or title_gap < 1):
+        raise SchematicError(f"fewer rows between bands ({names[0]} {band_gap}, default {default_gap}) or under a "
+                             f"title ({names[1]} {title_gap}, default 1) need a compact panel ({names[2]} 1), whose "
+                             "labels are placed around them and their clashes logged")
+    return band_gap, title_gap
+
+
 def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", band_gap=None, title_gap=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom, bound to the layout by `bindings`.
     `max_cols`: take out columns of plain level track until no track reaches past that column (trim_columns).
@@ -63,13 +77,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
     check_helix_blocks(helix_blocks)
     check_scale(scale)
     compact = scale == 1
-    default_gap = (COMPACT_GAP if compact else BAND_GAP) - 1
-    band_gap = check_rows(default_gap if band_gap is None else band_gap, "band_gap")
-    title_gap = check_rows(1 if title_gap is None else title_gap, "title_gap")
-    if not compact and (band_gap < default_gap or title_gap < 1):
-        raise SchematicError(f"fewer rows between bands ({band_gap}, default {default_gap}) or under a title "
-                             f"({title_gap}, default 1) need a compact panel (scale 1), whose labels are placed "
-                             "around them and their clashes logged")
+    band_gap, title_gap = check_gaps(scale, band_gap, title_gap)
     at = lambda v: math.floor(scale * v + 0.5)          # one rounding everywhere: half up
     bindings = check_bindings(bindings or {})
     sw_bind = switch_bindings(bands, bindings["switches"])

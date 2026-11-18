@@ -947,7 +947,7 @@ class Compact(unittest.TestCase):
             self.assertRegex(r.stdout, r"shows \d+ x \d+ cells \(fit 63 x 36\)")
             r = run("--fit", "10x10")
             self.assertEqual(r.returncode, 2)
-            self.assertIn("more than the 10 x 10", r.stderr)
+            self.assertIn("past 10, and no column of plain level track is left to take out", r.stderr)
 
 
 class Split(unittest.TestCase):
@@ -977,7 +977,8 @@ class Split(unittest.TestCase):
 
 
 class Preferences(unittest.TestCase):
-    """The page's CATS preferences (cats_prefs): cats_cells_per_unit, cats_helix_blocks, cats_window."""
+    """The page's CATS preferences (cats_prefs): cats_cells_per_unit, cats_helix_blocks, cats_band_gap, cats_title_gap,
+    cats_window."""
 
     def test_defaults_when_not_set(self):
         self.assertEqual(cats.options({}), {"scale": cats.SCALE, "helix_blocks": "one", "band_gap": None,
@@ -1040,6 +1041,40 @@ class Preferences(unittest.TestCase):
             cats.panel(bands, scale=1, band_gap=-1)
         with self.assertRaisesRegex(cats.SchematicError, "need a compact panel"):
             cats.panel(bands, scale=2, title_gap=0)
+        for kw, words in (({"band_gap": -1}, "band_gap is a whole number of rows"),
+                          ({"title_gap": 0.5}, "title_gap is a whole number of rows")):
+            with self.subTest(kw=kw), self.assertRaisesRegex(cats.SchematicError, words):
+                cats.panel(bands, scale=1, **kw)       # direct callers get the same checks
+
+    def test_command_fit_trims_and_scale_error_names_the_gap_preferences(self):
+        import contextlib
+        import io
+        import json
+        import shutil
+        from schematic import cli
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "data"
+            shutil.copytree(helpers.data_with_signals(), f)
+            graph = Path(tmp) / "graph.json"
+            graph.write_text(json.dumps(helpers.graph()))
+            out = Path(tmp) / "panel.xml"
+            args = ["cats", str(out), "--data", str(f), f"{graph}:example"]
+
+            def run(*extra):
+                err = io.StringIO()
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                    return cli.run(args + list(extra)), err.getvalue()
+            with mock.patch.object(cats, "panel", wraps=cats.panel) as made:
+                code, err = run("--cells-per-unit", "1", "--fit", "63x36")
+                self.assertEqual(code, 0, err)
+                self.assertEqual(made.call_args.kwargs["max_cols"], 63)      # --fit trims, not only checks
+            prefs = f / "example.preferences.json"
+            page = json.loads(prefs.read_text()) if prefs.exists() else {}
+            prefs.write_text(json.dumps(dict(page, cats_band_gap=1)))
+            code, err = run("--cells-per-unit", "2")
+            self.assertEqual(code, 2)
+            self.assertIn("cats_band_gap 1", err)
+            self.assertIn("--cells-per-unit 1", err)
 
     def test_command_reads_them(self):
         import json

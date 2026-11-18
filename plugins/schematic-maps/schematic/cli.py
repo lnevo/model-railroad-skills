@@ -107,12 +107,13 @@ def run(argv=None):
                         "(preference cats_cells_per_unit)")
     p.add_argument("--window", metavar="WIDTHxHEIGHT",
                    help="the window CATS opens the panel in, in pixels (default: CATS's own); CATS has no zoom "
-                        "(preference cats_window, which also trims level columns to the window and checks the fit)")
+                        "(preference cats_window, which also trims level columns to the window and checks the fit, as --fit does)")
     p.add_argument("--helix-blocks", choices=cats.HELIX_BLOCKS,
                    help="a helix track drawn on two bands: one block (default), or a block on each band "
                         "(preference cats_helix_blocks)")
     p.add_argument("--fit", metavar="COLSxROWS",
-                   help="fail if the panel shows more cells than this (CATS draws 30 pixel cells: 1900x1200 is 63x36)")
+                   help="take out level columns past this many, then fail if the panel still shows more cells than this "
+                        "(CATS draws 30 pixel cells: 1900x1200 is 63x36; preference cats_window)")
     p.add_argument("--no-preferences", action="store_true", help="draw from layers 1 and 2 only")
     p.add_argument("--with-hints", action="store_true", help="comparison runs only: also read NAME.hints.json")
 
@@ -205,9 +206,12 @@ def run(argv=None):
             helix = a.helix_blocks if a.helix_blocks is not None else o["helix_blocks"]
             window = cats.parse_window(a.window) if a.window else o["window"]
             fit = cats.parse_fit(a.fit) if a.fit else o["fit"]
+            cats.check_gaps(scale, o["band_gap"], o["title_gap"],
+                            ("cats_band_gap", "cats_title_gap",
+                             "--cells-per-unit" if a.cells_per_unit is not None else "cats_cells_per_unit"))
             pnl = cats.panel(bands, scale=scale, bindings=bindings, helix_blocks=helix, band_gap=o["band_gap"],
                              title_gap=o["title_gap"],
-                             max_cols=o["fit"] and o["fit"][0])
+                             max_cols=fit and fit[0])
             if fit:
                 cats.check_fit(pnl, *fit)
             cats.write(pnl, a.out, a.discipline, header, window)
