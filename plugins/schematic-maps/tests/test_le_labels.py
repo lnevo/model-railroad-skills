@@ -412,12 +412,20 @@ class NameSteps(unittest.TestCase):
                 self.assertAlmostEqual(lb["box"][0] + lb["box"][2] / 2, runs[lb["text"]][0] + inset, delta=1.0)
         le_labels.verify(P)
 
+    def test_the_west_level_run_stops_at_a_climb(self):
+        lines = [((0, 5), (10, 5)), ((10, 5), (20, 5)), ((20, 5), (30, 0)), ((30, 0), (50, 0))]
+        self.assertEqual(le_labels.west_level_run(lines), (0, 20))
+        self.assertIsNone(le_labels.west_level_run([((0, 0), (5, 5))]))
+
     def test_name_steps_are_checked(self):
         for bad in ("S-1", [["S-1"]], [["S-1", ""]], [["A", "B"], ["B", "C"]]):
             with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "name_steps"):
                 le_labels.options(with_opts({"name_steps": bad}), None)
         with self.assertRaisesRegex(SchematicError, "A in both name_columns and name_steps"):
             le_labels.options(with_opts({"name_steps": [["A", "B"]], "name_columns": [["A", "C"]]}), None)
+        with self.assertRaisesRegex(SchematicError, "A in both name_columns and name_steps \\(from the page's"):
+            le_labels.name_step_x(None, [("Lower", {}, {})], [{"name_steps": [["A", "B"]],
+                                                               "name_columns": [["A", "C"]]}], [])
         with self.assertRaisesRegex(SchematicError, "name_steps names Nowhere"):
             le.panel(with_opts({"name_steps": [["Nowhere", "Else"]]}))
 

@@ -463,6 +463,25 @@ class CrossoverPairs(unittest.TestCase):
                 self.assertRaisesRegex(SchematicError, "switch 7 is half of a single crossover"):
             le.panel([(t, b, o)], crossover_run=self.RUN, crossover_pairs={"Test": [["7", "8"]]})
 
+    def test_a_pair_whose_track_is_not_one_diagonal_stops(self):
+        (t, b, o), = pair_band()
+        b["R"]["diag"] = {"s"}
+        b["R"]["srow"]["d"], b["need"]["d"] = 2, (0, 0, 0)
+        with self.assertRaisesRegex(SchematicError, "not drawn as one diagonal"):
+            le.panel([(t, b, o)], crossover_run=self.RUN, crossover_pairs=self.PAIRS)
+
+    def test_an_east_switch_at_the_band_edge_stops(self):
+        P = le.panel(pair_band(), crossover_run=self.RUN)
+        (_t, b, _o), = pair_band()
+        b["x"]["Q"] = max(b["x"].values())
+        with self.assertRaisesRegex(SchematicError, "east switch stands at the band's east edge"):
+            le.pair_nodes(P, 0, b, "P", "Q", "d", "1/3")
+
+    def test_the_slide_moves_everything_east_but_the_edge_and_the_west_switch(self):
+        P = le.panel(pair_band(), crossover_run=self.RUN)
+        (_t, b, _o), = pair_band()
+        self.assertEqual(le.pair_nodes(P, 0, b, "P", "Q", "d", "1/3"), ["ES", "Q", "R"])
+
     def test_a_track_on_one_row_stops(self):
         (t, b, o), = pair_band()
         b["R"]["nrow"]["Q"] = 0

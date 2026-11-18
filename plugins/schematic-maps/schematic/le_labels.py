@@ -918,20 +918,41 @@ def name_column_x(L, bands, opts, named, key="name_columns"):
     return out
 
 
+def west_level_run(lines):
+    """(x0, x1) of a track's westmost level run (its level pieces joined end to end on one row, from the westmost),
+    or None when none is level."""
+    pieces = sorted((min(a[0], b[0]), max(a[0], b[0]), a[1]) for a, b in lines
+                    if abs(a[1] - b[1]) < 1e-6 and abs(a[0] - b[0]) > 1e-6)
+    if not pieces:
+        return None
+    lo, hi, y = pieces[0]
+    for p0, p1, py in pieces[1:]:
+        if abs(py - y) < 1e-6 and p0 <= hi + 1e-6:
+            hi = max(hi, p1)
+        else:
+            break
+    return lo, hi
+
+
 def name_step_x(L, bands, opts, named):
-    """{(band, name): centre x} for each name of a band's `name_steps`: the west end of its track's level run plus
-    half the shortest level run of its group. Stops on a name that is no named track of the band, or one that runs
-    level nowhere."""
+    """{(band, name): centre x} for each name of a band's `name_steps`: the west end of its track's westmost level
+    run plus half the shortest such run of its group. Stops on a name that is no named track of the band, one that
+    runs level nowhere, or one the band's merged options also put in name_columns."""
     out = {}
     by = {(bi, text): mine for bi, _sid, text, mine in named}
     for bi, (title, _band, _opts) in enumerate(bands):
+        both = sorted({n for g in opts[bi]["name_steps"] for n in g} &
+                      {n for g in opts[bi]["name_columns"] for n in g})
+        if both:
+            raise SchematicError(f"{title}: le_labels: {', '.join(both)} in both name_columns and name_steps (from "
+                                 "the page's and the band's options together)")
         for group in opts[bi]["name_steps"]:
             spans = {}
             for text in group:
                 if (bi, text) not in by:
                     raise SchematicError(f"{title}: le_labels: name_steps names {text}, which is no named track "
                                          "with a name placed on the band")
-                span = level_span([pc for i in by[(bi, text)] for pc in L.pieces.get(("seg", i), [])])
+                span = west_level_run([pc for i in by[(bi, text)] for pc in L.pieces.get(("seg", i), [])])
                 if span is None:
                     raise SchematicError(f"{title}: le_labels: name_steps: track {text} runs level nowhere")
                 spans[text] = span

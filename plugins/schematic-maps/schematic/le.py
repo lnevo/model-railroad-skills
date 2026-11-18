@@ -1042,6 +1042,9 @@ def check_pairs(bands, pairs, crossover_run):
             joined = [sid for sid, s in band["strands"].items() if {s["src"][0], s["dst"][0]} == {u, v}]
             if len(joined) != 1:
                 raise SchematicError(f"{what}: {len(joined)} tracks join them, not one")
+            if joined[0] not in band.get("R", {}).get("diag", ()):
+                raise SchematicError(f"{what}: the track between them is not drawn as one diagonal (it has level "
+                                     "pieces), so sliding a switch would not change its slope")
             out.append((bi, u, v, joined[0], f"{a}/{b}", run))
     return out
 
@@ -1168,12 +1171,15 @@ def pair_shortfall(P, bands, bi, u, v, sid, slope, name):
     leaves one switch by to the leg it reaches the other by, negative when it runs further; the east node; its angle
     in degrees) as P draws it. Stops when its two ends are drawn on one row."""
     s = bands[bi][1]["strands"][sid]
+    turnouts = {x["ident"]: x for x in P.turnouts}
 
     def leg(n):
-        ident, legs = P.turnout_of[(bi, n)]
+        got = P.turnout_of.get((bi, n))
         port = s["src"][1] if s["src"][0] == n else s["dst"][1]
-        t = next(x for x in P.turnouts if x["ident"] == ident)
-        return t["pts"][legs[port]]
+        if got is None or got[0] not in turnouts or port not in got[1]:
+            raise SchematicError(f"crossover pair {name}: switch {bands[bi][1]['nodes'][n].get('label') or n} is "
+                                 "not drawn as a plain turnout with a leg on the track between them")
+        return turnouts[got[0]]["pts"][got[1][port]]
     (ux, uy), (vx, vy) = leg(u), leg(v)
     deep = abs(vy - uy)
     if deep < EPS:
@@ -1183,15 +1189,33 @@ def pair_shortfall(P, bands, bi, u, v, sid, slope, name):
     return deep * slope - across, (v if vx >= ux else u), math.degrees(math.atan2(deep, across))
 
 
-def pair_nodes(band, west, east):
+def pair_nodes(P, bi, band, west, east, sid, name):
     """The nodes a crossover pair's east switch slides with: itself and every switch and end at or east of its
     column, but its west partner, turnbacks (as le_shift) and whatever stands at the band's east edge, so the band
     keeps its width (a narrower band would be stretched back to the widest band's, moving everything west of the
-    pair too) and the tracks into that edge take up the slide."""
+    pair too) and the tracks into that edge take up the slide; then every node a rigid diagonal line joins to one
+    that moves (rigid_diagonals, moved_east's closure), so no other diagonal changes its slope. Stops when the east
+    switch would not move (it stands at the band's edge) or a rigid diagonal ties the west switch to it."""
     x = band["x"]
     edge = max(x.values())
-    return [n for n in x if n != west and x[n] >= x[east] - EPS and x[n] < edge - EPS
-            and not le_prefs.is_turnback(band, n)]
+    moved = {n for n in x if n != west and x[n] >= x[east] - EPS and x[n] < edge - EPS
+             and not le_prefs.is_turnback(band, n)}
+    if east not in moved:
+        raise SchematicError(f"crossover pair {name}: its east switch stands at the band's east edge, which keeps "
+                             "its place, so it cannot slide")
+    rigid = [(band["strands"][d]["src"][0], band["strands"][d]["dst"][0])
+             for d in rigid_diagonals(P, bi, band) if d != sid]
+    grown = True
+    while grown:
+        grown = False
+        for u, v in rigid:
+            if (u in moved) != (v in moved):
+                moved |= {u, v}
+                grown = True
+    if west in moved:
+        raise SchematicError(f"crossover pair {name}: a rigid diagonal line ties its west switch to the nodes east of "
+                             "its east switch, so the two cannot be slid apart or together")
+    return sorted(moved, key=str)
 
 
 def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=()):
@@ -1258,10 +1282,13 @@ def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=()):
             why_grown[k].add("its name")
         for bi, u, v, sid, name, slope in pairs:
             short, east, _deg = pair_shortfall(P, bands, bi, u, v, sid, slope, name)
+            k = (bi, sid)
+            if why_grown[k] - {f"crossover pair {name}'s angle"}:
+                raise SchematicError(f"{bands[bi][0]}: crossover pair {name}: its track is also let out for "
+                                     f"{' and '.join(sorted(why_grown[k]))}; a pair's track takes only its angle")
             if abs(short) <= PAIR_TOLERANCE:
                 continue
-            k = (bi, sid)
-            moved[k] = pair_nodes(bands[bi][1], u if east == v else v, east)
+            moved[k] = pair_nodes(P, bi, bands[bi][1], u if east == v else v, east, sid, name)
             want[k] = want.get(k, 0.0) + short
             why_grown[k].add(f"crossover pair {name}'s angle")
         if not want:
@@ -1272,12 +1299,13 @@ def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=()):
         for bi in {k[0] for k in want}:         # together, as each was checked alone
             why = let_out_fault(bands[bi][1], shifts_of(trial, moved, P.cellx, bi))
             if why:
-                raise SchematicError(f"{bands[bi][0]}: mast_room: the room let in for several masts (and crossover "
-                                     f"pairs) together: {why}")
+                raise SchematicError(f"{bands[bi][0]}: the room let in for masts and names and the slides for "
+                                     f"crossover pairs, together: {why}")
         grow = trial
         P = drawn(grow_shifts(grow, moved, P.cellx))
     else:
-        raise SchematicError(P.text("mast_room: the room for the mast icons and crossover pairs does not settle"))
+        raise SchematicError(P.text("the room for the mast icons and names and the crossover pairs' slides do not "
+                                    "settle"))
     P.widened = {k: round(px, 1) for k, px in sorted(grow.items()) if abs(px) > EPS}
     for (bi, sid), px in P.widened.items():
         s = bands[bi][1]["strands"][sid]
