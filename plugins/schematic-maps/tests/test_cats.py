@@ -980,11 +980,13 @@ class Preferences(unittest.TestCase):
     """The page's CATS preferences (cats_prefs): cats_cells_per_unit, cats_helix_blocks, cats_window."""
 
     def test_defaults_when_not_set(self):
-        self.assertEqual(cats.options({}), {"scale": cats.SCALE, "helix_blocks": "one", "window": None, "fit": None})
+        self.assertEqual(cats.options({}), {"scale": cats.SCALE, "helix_blocks": "one", "band_gap": None,
+                                            "title_gap": None, "window": None, "fit": None})
 
     def test_window_gives_the_fit(self):
         o = cats.options({"cats_window": [1900, 1150], "cats_cells_per_unit": 1, "cats_helix_blocks": "apart"})
-        self.assertEqual(o, {"scale": 1, "helix_blocks": "apart", "window": (1900, 1150), "fit": (62, 35)})
+        self.assertEqual(o, {"scale": 1, "helix_blocks": "apart", "band_gap": None, "title_gap": None,
+                             "window": (1900, 1150), "fit": (62, 35)})
 
     def test_bad_values_stop(self):
         for page, words in (({"cats_cells_per_unit": 3}, "cats_cells_per_unit is 1 or an even number"),
@@ -992,7 +994,9 @@ class Preferences(unittest.TestCase):
                             ({"cats_helix_blocks": "two"}, "cats_helix_blocks is one of one, apart"),
                             ({"cats_window": [1900]}, "cats_window must be [width, height]"),
                             ({"cats_window": [40, 1150]}, "cats_window must be [width, height]"),
-                            ({"cats_windw": [1900, 1150]}, "cats_windw, which no CATS panel reads")):
+                            ({"cats_windw": [1900, 1150]}, "cats_windw, which no CATS panel reads"),
+                            ({"cats_band_gap": -1}, "cats_band_gap is a whole number of rows"),
+                            ({"cats_title_gap": 0.5}, "cats_title_gap is a whole number of rows")):
             with self.subTest(page=page), self.assertRaises(cats.SchematicError) as e:
                 cats.options(page)
             self.assertIn(words, str(e.exception))
@@ -1009,8 +1013,29 @@ class Preferences(unittest.TestCase):
         self.assertIn("Lower level: cats_windw, which no CATS panel reads", str(e.exception))
 
     def test_null_is_not_set(self):
-        self.assertEqual(cats.options({"cats_cells_per_unit": None, "cats_helix_blocks": None, "cats_window": None}),
-                         cats.options({}))
+        self.assertEqual(cats.options({"cats_cells_per_unit": None, "cats_helix_blocks": None, "cats_window": None,
+                                       "cats_band_gap": None, "cats_title_gap": None}), cats.options({}))
+
+    def test_row_gaps(self):
+        """band_gap and title_gap: the defaults draw as before; fewer rows move each band up by the rows taken out
+        (a title on the row above its track, one empty row between bands) and keep every label."""
+        bands = helpers.build().bands
+        rows = lambda P: sorted({c[1] for c in P.cells})
+        titles = lambda P: sorted(c[1] for c, (t, _l, _f) in P.labels.items() if "LEVEL" in t and "<-" in t)
+        base = cats.panel(bands, scale=1)
+        self.assertEqual(cats.panel(bands, scale=1, band_gap=cats.COMPACT_GAP - 1, title_gap=1).cells, base.cells)
+        tight = cats.panel(bands, scale=1, band_gap=1, title_gap=0)
+        self.assertEqual(len(tight.labels), len(base.labels))
+        bt, tt = titles(base), titles(tight)
+        self.assertEqual(len(tt), len(bands))
+        for t in tt:
+            self.assertIn(t + 1, rows(tight))                  # the band's track starts under its title
+        for t in tt[1:]:
+            above = max(r for r in rows(tight) if r < t)
+            self.assertEqual(t - above, 2)                     # one empty row between bands
+        self.assertEqual(cats.shown(base)[1] - cats.shown(tight)[1], 2 * len(bands) - 1)
+        with self.assertRaises(cats.SchematicError):
+            cats.panel(bands, scale=1, band_gap=-1)
 
     def test_command_reads_them(self):
         import json

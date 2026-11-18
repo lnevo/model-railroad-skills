@@ -205,7 +205,8 @@ def run(argv=None):
             helix = a.helix_blocks if a.helix_blocks is not None else o["helix_blocks"]
             window = cats.parse_window(a.window) if a.window else o["window"]
             fit = cats.parse_fit(a.fit) if a.fit else o["fit"]
-            pnl = cats.panel(bands, scale=scale, bindings=bindings, helix_blocks=helix,
+            pnl = cats.panel(bands, scale=scale, bindings=bindings, helix_blocks=helix, band_gap=o["band_gap"],
+                             title_gap=o["title_gap"],
                              max_cols=o["fit"] and o["fit"][0])
             if fit:
                 cats.check_fit(pnl, *fit)

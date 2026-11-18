@@ -46,19 +46,24 @@ from .cats_masts import (                                   # masts: binding, ga
     SIG_LOCATION, INK_CLEAR, POINT_ZONE, SPOT_COST, SPOT_PER_PX, GANTRY_SHIFT, GANTRY_SPAN, bind_masts, box_gap,
     gantry_look, lamp_way, mast_gap, mast_size, move_gap, move_of, place_mast, points_zones, shift_gaps, spot_costs)
 from .cats_xml import HEADER_FONTS, boundaries, dangling, header_from, lone_blocks, set_io, to_xml, write
-from .cats_prefs import SCALE, HELIX_BLOCKS, CHROME, check_helix_blocks, check_scale, options   # page preferences
+from .cats_prefs import SCALE, HELIX_BLOCKS, CHROME, check_helix_blocks, check_rows, check_scale, options   # page preferences
 
 OS_REACH = 1            # steps an OS block reaches past a switch's points on each leg
 
 
-def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
+def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", band_gap=None, title_gap=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom, bound to the layout by `bindings`.
     `max_cols`: take out columns of plain level track until no track reaches past that column (trim_columns).
     `helix_blocks`: a helix track drawn on two bands is one block ("one"), or a block on each band ("apart": the
-    logical join between them is a block boundary, as where the layout parts its detection at the helix)."""
+    logical join between them is a block boundary, as where the layout parts its detection at the helix).
+    `band_gap`: empty rows between a band's lowest cell and the next band's title (default COMPACT_GAP - 1 on a
+    compact panel, BAND_GAP - 1 else); `title_gap`: empty rows between a band's title and its top track (default 1).
+    Labels still find room (place_labels), or the run says which has none."""
     check_helix_blocks(helix_blocks)
     check_scale(scale)
     compact = scale == 1
+    band_gap = check_rows((COMPACT_GAP if compact else BAND_GAP) - 1 if band_gap is None else band_gap, "band_gap")
+    title_gap = check_rows(1 if title_gap is None else title_gap, "title_gap")
     at = lambda v: math.floor(scale * v + 0.5)          # one rounding everywhere: half up
     bindings = check_bindings(bindings or {})
     sw_bind = switch_bindings(bands, bindings["switches"])
@@ -93,7 +98,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
         x0 = min(p[0] for v in drawn.values() for p in v)
         r0 = min(p[1] for v in drawn.values() for p in v)
         ox = left_col - math.floor(scale * x0)
-        oy = top + 2 - math.floor(scale * r0)
+        oy = top + 1 + title_gap - math.floor(scale * r0)
         tag = f"b{bi}:"
 
         # the band title and which way is east
@@ -381,7 +386,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
             P.label(sorted(range(lo, hi), key=lambda c: (abs(c - mid), c)),
                     [(g[2], g[3], g[4]) for g in group], rank=3)
 
-        top = max(c[1] for c in P.cells) + (COMPACT_GAP if compact else BAND_GAP)
+        top = max(c[1] for c in P.cells) + 1 + band_gap
 
     # end joins and end labels
     by_link, by_helix = defaultdict(list), defaultdict(list)
