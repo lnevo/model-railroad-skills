@@ -647,7 +647,8 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
           name_room=None, band_bottoms=None):
     """A Panel from [(title, band, options)], bands stacked top to bottom. The Layout Editor preferences (le_prefs:
     a band's le_shift and le_longer_straights, the page's le_title_clear, a band's le_labels extra_steps and
-    extra_follow) are checked first and applied here. `page` is the options that set the page
+    extra_follow; and at a given grid a band's le_crossover_angle, le_tight_crossovers, le_split_crossovers,
+    le_mast_room and le_name_room, which give the arguments of those names) are checked first and applied here. `page` is the options that set the page
     (equal_width, band_width, rotate_bands); the last band's by default, as the sheet. `fit` (width, height): the
     window the panel must open in at 100% zoom; the grid shrinks until the panel and its frame fit (see the module
     text). `extras`: the caller's items tied to blocks, [{"id", "block", "size": [w, h]}], placed by the label layer
@@ -696,6 +697,20 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     clear = le_prefs.title_clear(page if page is not None else bands[-1][2])
     unused = [] if fit is None else [p for p, on in (("le_title_clear", clear is not None and len(bands) > 1),
                                                      ("le_crossover_angle", bool(runs))) if on]
+    # a band's le_tight_crossovers, le_split_crossovers, le_mast_room and le_name_room: these arguments, at a grid
+    given = dict(tight_crossovers=tight_crossovers, split_crossovers=split_crossovers, mast_room=mast_room,
+                 name_room=name_room)
+    prefs = le_prefs.grid_options(bands, page if page is not None else bands[-1][2])
+    both = [arg for arg in prefs if given[arg] is not None]
+    if both:
+        raise SchematicError(f"{', '.join(both)} given and the preferences hold le_{', le_'.join(both)}: give one of "
+                             "them")
+    if fit is None:
+        given.update(prefs)
+    else:
+        unused += [f"le_{arg}" for arg in prefs]
+    tight_crossovers, split_crossovers = given["tight_crossovers"], given["split_crossovers"]
+    mast_room, name_room = given["mast_room"], given["name_room"]
     tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
     check_mast_room(bands, mast_room)
     check_mast_room(bands, name_room, "name_room")
@@ -745,6 +760,17 @@ def with_x(extras, xs):
     """`extras` (a list) with each item in `xs` ({id: x}) given that x: to draw a panel's items where another panel
     stepped them (P.extra_x)."""
     return le_prefs.with_x(extras, xs)
+
+
+def window(page):
+    """(width, height) of the page's le_window, the window a caller's panel opens in (le_prefs.window); stops when
+    the page has none."""
+    return le_prefs.window(page)
+
+
+def row(page):
+    """The page's le_row in px, the rows a caller draws its panel at (le_prefs.row); ROW when not set."""
+    return le_prefs.row(page, ROW)
 
 
 def check_stretch(size, fit, page):
@@ -906,7 +932,8 @@ def check_tight(bands, tight, crossover_run):
     if tight is None or tight == {}:
         return {}
     if crossover_run is None:
-        raise SchematicError("tight_crossovers needs crossover_run (the run their diagonals are drawn at)")
+        raise SchematicError("tight_crossovers needs crossover_run (the run their diagonals are drawn at; or the "
+                             "band's le_crossover_angle)")
     if not isinstance(tight, dict):
         raise SchematicError(f"tight_crossovers must be {{band key: [[switch, switch], ...]}}, not {tight!r}")
     keys = {band_key(t): band for t, band, _o in bands}

@@ -1,5 +1,6 @@
 """The Layout Editor preferences (schematic/le_prefs.py): le_shift, le_longer_straights, le_crossover_angle,
-le_title_clear, le_stretch and a band's le_labels extra_steps and extra_follow."""
+le_tight_crossovers, le_split_crossovers, le_mast_room, le_name_room, le_title_clear, le_stretch, le_window, le_row
+and a band's le_labels extra_steps and extra_follow."""
 import math
 import unittest
 from unittest import mock
@@ -266,6 +267,90 @@ class ExtraSteps(unittest.TestCase):
         self.assertEqual(P.extras[0]["box"][0], x)
         self.assertEqual(le.panel(bands(), extras=extras).extra_x, {})
         le_labels.verify(P)
+
+
+class GridOptions(unittest.TestCase):
+    """le_tight_crossovers, le_split_crossovers, le_mast_room and le_name_room: le.panel's arguments of those names,
+    from a band's own preferences, at a given grid."""
+
+    def three_way(self, prefs=None, **kw):
+        from test_le import three_way_band
+        names = {"Test": {"turnouts": {"P": "Switch 7", "Q": "Switch 7", "R": "Switch 8", "S": "Switch 8"}}}
+        (t, b, o), = three_way_band()
+        bands_ = [(t, b, dict(o, le_labels={"block_contents": False}, **(prefs or {})))]
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            return le.panel(bands_, names, **kw)
+
+    def test_the_preferences_draw_as_the_arguments(self):
+        tight, split = {"Test": [["7", "8"]]}, {"Test": ["7", "8"]}
+        by_args = self.three_way(crossover_run=48.0, tight_crossovers=tight, split_crossovers=split)
+        by_prefs = self.three_way({"le_tight_crossovers": tight, "le_split_crossovers": split}, crossover_run=48.0)
+        self.assertEqual(le.geometry(by_prefs), le.geometry(by_args))
+        self.assertEqual(by_prefs.split_names, {"Switch 7", "Switch 8"})
+        self.assertNotEqual(le.geometry(by_prefs), le.geometry(self.three_way(crossover_run=48.0)))
+        # the band's le_crossover_angle gives the run they need
+        angle = math.degrees(math.atan(le.ROW / 48.0))
+        by_angle = self.three_way({"le_tight_crossovers": tight, "le_split_crossovers": split,
+                                   "le_crossover_angle": {"Test": angle}})
+        self.assertEqual(le.geometry(by_angle), le.geometry(by_args))
+
+    def test_mast_room_and_name_room_from_the_preferences(self):
+        got = le_prefs.grid_options(with_prefs("Lower", le_mast_room={"Lower": True}, le_name_room={"Lower": False}),
+                                    None)
+        self.assertEqual(got, {"mast_room": ["Lower"]})                # false: the band is not let out
+        keys = [le.band_key(t) for t, _b, _o in bands()]
+        both = [(t, b, dict(o, le_name_room={k: True for k in keys})) for t, b, o in bands()]
+        self.assertEqual(le_prefs.grid_options(both, None), {"name_room": keys})     # in the bands' order
+        self.assertEqual(le_prefs.grid_options(bands(), None), {})
+        P = le.panel(both)
+        self.assertEqual(le.geometry(P), le.geometry(le.panel(bands(), name_room=keys)))
+
+    def test_a_fitted_panel_draws_without_them_and_logs_it(self):
+        tight = {"Test": [["7", "8"]]}
+        P = self.three_way({"le_tight_crossovers": tight, "le_split_crossovers": {"Test": ["7", "8"]}},
+                           fit=(1300, 700))
+        self.assertEqual(le.geometry(P), le.geometry(self.three_way(fit=(1300, 700))))
+        for pref in ("le_tight_crossovers", "le_split_crossovers"):
+            self.assertTrue(any(line.startswith(f"{pref} is for a panel drawn at a given grid") for line in P.log),
+                            pref)
+
+    def test_bad_values_and_both_ways_stop(self):
+        for prefs, why in (({"le_mast_room": {"Lower": "yes"}}, "le_mast_room for Lower must be true or false"),
+                           ({"le_name_room": ["Lower"]}, "le_name_room must be an object of band"),
+                           ({"le_split_crossovers": {"Lower": "3"}}, "must be a list of switch numbers"),
+                           ({"le_split_crossovers": {"Lower": ["3", "3"]}}, "names a switch twice"),
+                           ({"le_tight_crossovers": {"Lower": [["3"]]}}, "pairs of two different switch numbers"),
+                           ({"le_tight_crossovers": {"Lower": [["3", "3"]]}}, "pairs of two different switch"),
+                           ({"le_mast_room": {"Nowhere": True}}, "names Nowhere, which is no band")):
+            with self.subTest(prefs=prefs), self.assertRaisesRegex(SchematicError, why):
+                le.panel(with_prefs("Lower", **prefs))
+        with self.assertRaisesRegex(SchematicError, "mast_room given and the preferences hold le_mast_room"):
+            le.panel(with_prefs("Lower", le_mast_room={"Lower": True}), mast_room=["Lower"])
+        with self.assertRaisesRegex(SchematicError, "or the band's le_crossover_angle"):
+            self.three_way({"le_tight_crossovers": {"Test": [["7", "8"]]}})
+        with self.assertRaisesRegex(SchematicError, "switch 9 is no single crossover"):
+            self.three_way({"le_split_crossovers": {"Test": ["9"]}})
+
+
+class WindowAndRow(unittest.TestCase):
+    def test_the_page_gives_them(self):
+        self.assertEqual(le.window({"le_window": [1900, 1140]}), (1900, 1140))
+        self.assertEqual(le.row({"le_row": 48}), 48)
+        self.assertEqual(le.row({}), le.ROW)                            # the plugin's rows when not set
+        self.assertEqual(le.row(None), le.ROW)
+
+    def test_bad_values_stop(self):
+        for bad, why in ((None, "hold no le_window"), ([1900], "whole px above zero"), ([1900.5, 1140], "whole px"),
+                         ([0, 1140], "above zero"), ([True, 1140], "whole px"), ("1900x1140", "whole px")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, why):
+                le.window({"le_window": bad} if bad is not None else {})
+        for bad in (0, -4, "48", True, float("nan")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "le_row must be a number of px"):
+                le.row({"le_row": bad})
+        with self.assertRaisesRegex(SchematicError, "le_window must be"):            # checked before drawing
+            le.panel(bands(), page=dict(bands()[-1][2], le_window=[10]))
+        with self.assertRaisesRegex(SchematicError, "le_row must be"):
+            le.panel(bands(), page=dict(bands()[-1][2], le_row=0))
 
 
 if __name__ == "__main__":

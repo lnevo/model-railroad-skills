@@ -22,8 +22,19 @@ entry from its own preferences, and a key naming a band the page does not know s
   le_crossover_angle   {band: degrees}: every crossover of that band crosses at this angle, one row deep (le.panel's
                        crossover_run of row / tan(angle) px for it; not with that argument given too). For a panel
                        at a given grid: a panel fitted to a window draws its crossovers as they fall (logged).
-Both apply to the Layout Editor drawing only, before anything is drawn, `le_shift` first, once per band
-(drawn_bands marks the bands it returns).
+  le_tight_crossovers  {band: [[switch, switch], ...]}: le.panel's `tight_crossovers` for that band (two single
+                       crossovers sharing a track drawn as close on it as their shapes allow; needs a crossover run,
+                       le_crossover_angle).
+  le_split_crossovers  {band: [switch, ...]}: le.panel's `split_crossovers` for that band (single crossovers drawn as
+                       two plain turnouts on their one turnout name).
+  le_mast_room         {band: true or false}: le.panel's `mast_room` takes that band (its tracks let out for mast
+                       icons that have no room).
+  le_name_room         {band: true or false}: le.panel's `name_room` takes that band (its named tracks let out to
+                       their names' width, the band no wider than the widest).
+`le_shift` and `le_longer_straights` apply to the Layout Editor drawing only, before anything is drawn, `le_shift`
+first, once per band (drawn_bands marks the bands it returns). The last four are for a panel at a given grid, as
+le_crossover_angle (grid_options): a panel fitted to a window draws without them (logged), and giving le.panel the
+argument too stops.
 
 The page's preferences:
   le_title_clear       px: the gaps between bands fit the drawing, each next band's title that many px below the
@@ -34,6 +45,11 @@ The page's preferences:
                        that grid widened by f (stretched), so a larger panel keeps the window's shape when zoomed to
                        fit; check_stretch stops when the panel drawn is more than t (a share) off that shape, naming
                        the factor that would give it.
+  le_window            [width, height] whole px: the window the caller's panel opens in at 100% zoom, frame
+                       included (window(page): for le.panel's `fit`, le.check_stretch and the caller's own use). No
+                       default: the run stops when a caller asks for it and the page has none.
+  le_row               px above zero: the rows a caller draws its panel at (row(page): for le.panel's `row`, which
+                       the caller may scale with its grid); le.ROW when not set.
 
 A band's `le_labels` (its own, not the page's; le_labels checks the keys):
   extra_steps          [[id, id, id, ...], ...]: caller's items (le.panel's `extras`) that step along one slope: each
@@ -68,7 +84,11 @@ def known_bands(bands, page):
 
 
 SHAPES = {"le_shift": "[{from, to, columns}, ...]", "le_longer_straights": "[{from, to, columns}, ...]",
-          "le_crossover_angle": "degrees"}
+          "le_crossover_angle": "degrees", "le_tight_crossovers": "[[switch, switch], ...]",
+          "le_split_crossovers": "[switch, ...]", "le_mast_room": "true or false", "le_name_room": "true or false"}
+# the band preferences that are le.panel arguments for a panel at a given grid (grid_options): preference: argument
+GRID_PREFS = {"le_tight_crossovers": "tight_crossovers", "le_split_crossovers": "split_crossovers",
+              "le_mast_room": "mast_room", "le_name_room": "name_room"}
 
 
 def band_entries(bands, page, pref):
@@ -95,6 +115,8 @@ def band_entries(bands, page, pref):
                 if not _number(value) or not 0 < value < 90:
                     raise SchematicError(f"{title}: le_crossover_angle for {key} must be degrees above 0 and below "
                                          f"90, not {value!r}")
+            elif pref in GRID_PREFS:
+                _check_grid(title, pref, key, value)
             else:
                 if not isinstance(value, list):
                     raise SchematicError(f"{title}: {pref} for {key} must be a list of {{from, to, columns}}, not "
@@ -123,6 +145,48 @@ def check_page_band_prefs(bands, page):
             if key in drawn and (not isinstance(own, dict) or own.get(key) != value):
                 raise SchematicError(f"page: {pref} for {key} is not in that band's own preferences, so it would not "
                                      f"be read; set it in {key}'s preferences")
+
+
+def _switch(v):
+    return isinstance(v, str) and bool(v.strip())
+
+
+def _check_grid(title, pref, key, value):
+    """One band's value of a GRID_PREFS preference, its shape checked (the switches are checked against the band
+    when le.panel draws it: check_tight, check_split)."""
+    where = f"{title}: {pref} for {key}"
+    if pref in ("le_mast_room", "le_name_room"):
+        if not isinstance(value, bool):
+            raise SchematicError(f"{where} must be true or false, not {value!r}")
+    elif pref == "le_split_crossovers":
+        if not isinstance(value, list) or not all(_switch(x) for x in value):
+            raise SchematicError(f"{where} must be a list of switch numbers (text), not {value!r}")
+        if len(set(value)) != len(value):
+            raise SchematicError(f"{where} names a switch twice: {value!r}")
+    else:
+        if not isinstance(value, list) or not all(isinstance(p, list) and len(p) == 2 and all(_switch(x) for x in p)
+                                                  and p[0] != p[1] for p in value):
+            raise SchematicError(f"{where} must be a list of [switch, switch] pairs of two different switch numbers "
+                                 f"(text), not {value!r}")
+
+
+def grid_options(bands, page):
+    """{le.panel argument: value} of the band preferences that are le.panel arguments for a panel at a given grid
+    (GRID_PREFS), for the bands drawn that set them, in the bands' order: tight_crossovers and split_crossovers as
+    {band key: value}, mast_room and name_room as the band keys whose value is true. An argument no drawn band sets
+    is left out."""
+    out = {}
+    for pref, arg in GRID_PREFS.items():
+        entries = band_entries(bands, page, pref)
+        if not entries:
+            continue
+        if pref in ("le_mast_room", "le_name_room"):
+            keys = [band_key(bands[bi][0]) for bi, on in sorted(entries.items()) if on]
+            if keys:
+                out[arg] = keys
+        else:
+            out[arg] = {band_key(bands[bi][0]): value for bi, value in sorted(entries.items())}
+    return out
 
 
 def crossover_runs(bands, page, row):
@@ -277,13 +341,37 @@ def stretch(page):
     return f, t
 
 
+def window(page):
+    """(width, height) of the page's le_window, checked; stops when the page has none."""
+    v = (page or {}).get("le_window")
+    if v is None:
+        raise SchematicError("the page's preferences hold no le_window ([width, height] in px)")
+    if not (isinstance(v, list) and len(v) == 2 and all(isinstance(n, int) and not isinstance(n, bool) and n > 0
+                                                         for n in v)):
+        raise SchematicError(f"le_window must be [width, height] in whole px above zero, not {v!r}")
+    return tuple(v)
+
+
+def row(page, default):
+    """The page's le_row in px, checked; `default` (le.ROW) when not set."""
+    v = (page or {}).get("le_row")
+    if v is None:
+        return default
+    if not _number(v) or v <= 0:
+        raise SchematicError(f"le_row must be a number of px above zero, not {v!r}")
+    return v
+
+
 def check_page(page, bands=()):
-    """The page's Layout Editor preferences checked up front (le_stretch only when given), and no band preference
-    in it that no band reads (check_page_band_prefs)."""
+    """The page's Layout Editor preferences checked up front (le_stretch and le_window only when given), and no
+    band preference in it that no band reads (check_page_band_prefs)."""
     title_clear(page)
+    row(page, None)
     check_page_band_prefs(bands, page)
     if (page or {}).get("le_stretch") is not None:
         stretch(page)
+    if (page or {}).get("le_window") is not None:
+        window(page)
 
 
 def stretched(scale, page):
