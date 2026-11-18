@@ -978,3 +978,60 @@ class Split(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Preferences(unittest.TestCase):
+    """The page's CATS preferences (cats_prefs): cats_cells_per_unit, cats_helix_blocks, cats_window."""
+
+    def test_defaults_when_not_set(self):
+        self.assertEqual(cats.options({}), {"scale": cats.SCALE, "helix_blocks": "one", "window": None, "fit": None})
+
+    def test_window_gives_the_fit(self):
+        o = cats.options({"cats_window": [1900, 1150], "cats_cells_per_unit": 1, "cats_helix_blocks": "apart"})
+        self.assertEqual(o, {"scale": 1, "helix_blocks": "apart", "window": (1900, 1150), "fit": (62, 35)})
+
+    def test_bad_values_stop(self):
+        for page, words in (({"cats_cells_per_unit": 3}, "cats_cells_per_unit is 1 or an even number"),
+                            ({"cats_cells_per_unit": True}, "cats_cells_per_unit is 1 or an even number"),
+                            ({"cats_helix_blocks": "two"}, "cats_helix_blocks is one of one, apart"),
+                            ({"cats_window": [1900]}, "cats_window must be [width, height]"),
+                            ({"cats_window": [40, 1150]}, "cats_window must be [width, height]"),
+                            ({"cats_windw": [1900, 1150]}, "cats_windw, which no CATS panel reads")):
+            with self.subTest(page=page), self.assertRaises(cats.SchematicError) as e:
+                cats.options(page)
+            self.assertIn(words, str(e.exception))
+
+    def test_a_band_file_with_another_value_stops(self):
+        bands = [("Lower level", None, {"cats_window": [800, 600]}), ("Upper level", None, {})]
+        with self.assertRaises(cats.SchematicError) as e:
+            cats.options({"cats_window": [1900, 1150]}, bands)
+        self.assertIn("Lower level: cats_window is a page preference", str(e.exception))
+        page = {"cats_window": [1900, 1150]}
+        self.assertEqual(cats.options(page, [("Upper level", None, page)])["fit"], (62, 35))
+
+    def test_command_reads_them(self):
+        import json
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "data"
+            shutil.copytree(helpers.data_with_signals(), f)
+            prefs = f / "example.preferences.json"
+            page = json.loads(prefs.read_text()) if prefs.exists() else {}
+            graph = Path(tmp) / "graph.json"
+            graph.write_text(json.dumps(helpers.graph()))
+            out = Path(tmp) / "panel.xml"
+            run = lambda *extra: subprocess.run([sys.executable, "-m", "schematic", "cats", str(out), "--data", str(f),
+                                                 f"{graph}:example", *extra],
+                                                cwd=helpers.PLUGIN, capture_output=True, text=True, timeout=120)
+            prefs.write_text(json.dumps(dict(page, cats_cells_per_unit=1, cats_window=[1900, 1180])))
+            r = run()
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("(fit 62 x 36)", r.stdout)
+            pref_xml = out.read_text()
+            r = run("--cells-per-unit", "1")
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("cats_cells_per_unit set by both", r.stderr)
+            prefs.write_text(json.dumps(page))
+            r = run("--cells-per-unit", "1", "--window", "1900x1180", "--fit", "62x36")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(out.read_text(), pref_xml)     # the preferences draw what the options draw
