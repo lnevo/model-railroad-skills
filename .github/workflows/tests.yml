@@ -1,0 +1,50 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Each suite runs in its own job so the slowest one sets the wall time.
+  # operations-pro runs in fast mode: CI has no JMRI, so the tests that need
+  # real JMRI skip. Run the full suite (python3 tests/run.py) before merging.
+  test:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: repo
+            dir: .
+            apt: mosquitto mosquitto-clients
+            run: python -m unittest discover -s tests
+          - suite: car-cards
+            dir: plugins/car-cards
+            apt: tesseract-ocr
+            pip: -r requirements.txt
+            run: python -m unittest discover -s tests
+          - suite: schematic-maps
+            dir: plugins/schematic-maps
+            run: python -m unittest discover -s tests
+          - suite: operations-pro
+            dir: plugins/operations-pro
+            run: python tests/run.py fast
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - if: matrix.apt
+        run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends ${{ matrix.apt }}
+      - if: matrix.pip
+        working-directory: ${{ matrix.dir }}
+        run: pip install ${{ matrix.pip }}
+      - working-directory: ${{ matrix.dir }}
+        run: ${{ matrix.run }}
