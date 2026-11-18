@@ -100,13 +100,14 @@ def run(argv=None):
     p.add_argument("--discipline", default="CTC", choices=cats.DISCIPLINES, help="the blocks' CATS discipline (default CTC)")
     p.add_argument("--bindings", help="JSON: switch routes, block sensors and names, masts (see the README)")
     p.add_argument("--templates-from", help="a CATS panel whose SIGNALTEMPLATE and JMRINAME elements are copied in")
-    p.add_argument("--cells-per-unit", type=int, choices=(1, 2),
-                   help="CATS cells per schematic grid unit: 2 (default) leaves a free row under each track for its "
-                        "name; 1 is half the size each way, with names placed on the track, to fit a smaller screen "
+    p.add_argument("--cells-per-unit", type=int,
+                   help="CATS cells per schematic grid unit, 1 or an even number: 2 (default) leaves a free row under "
+                        "each track for its name; 1 is half the size each way, with names placed on the track, to fit "
+                        "a smaller screen "
                         "(preference cats_cells_per_unit)")
     p.add_argument("--window", metavar="WIDTHxHEIGHT",
                    help="the window CATS opens the panel in, in pixels (default: CATS's own); CATS has no zoom "
-                        "(preference cats_window, which also fits the panel to it)")
+                        "(preference cats_window, which also trims level columns to the window and checks the fit)")
     p.add_argument("--helix-blocks", choices=cats.HELIX_BLOCKS,
                    help="a helix track drawn on two bands: one block (default), or a block on each band "
                         "(preference cats_helix_blocks)")
@@ -193,11 +194,13 @@ def run(argv=None):
                     raise SchematicError(f"{a.bindings}: cannot read the bindings ({e})") from None
             header = cats.header_from(a.templates_from) if a.templates_from else ()
             o = cats.options(s.opts, bands)
-            given = {"cats_cells_per_unit": a.cells_per_unit, "cats_helix_blocks": a.helix_blocks,
-                     "cats_window": a.window, "cats_window (its fit)": a.fit}
-            both = [k for k, v in given.items() if v is not None and (s.opts or {}).get(k.split()[0]) is not None]
+            given = (("--cells-per-unit", a.cells_per_unit, "cats_cells_per_unit"),
+                     ("--helix-blocks", a.helix_blocks, "cats_helix_blocks"),
+                     ("--window", a.window, "cats_window"), ("--fit", a.fit, "cats_window"))
+            both = [f"{opt} and {pref}" for opt, v, pref in given
+                    if v is not None and (s.opts or {}).get(pref) is not None]
             if both:
-                raise SchematicError(f"{', '.join(both)} set by both an option and the page's preferences; use one")
+                raise SchematicError(f"{', '.join(both)} are both set (option and page preference); use one")
             scale = a.cells_per_unit if a.cells_per_unit is not None else o["scale"]
             helix = a.helix_blocks if a.helix_blocks is not None else o["helix_blocks"]
             window = cats.parse_window(a.window) if a.window else o["window"]

@@ -56,19 +56,21 @@ def options(page, bands=()):
     """{"scale", "helix_blocks", "window", "fit"} from the page's preferences, checked: window and fit are None when
     cats_window is not set. A `cats_` key the page does not know stops (a misspelt preference would be read by no
     one), and so does one a band's own preferences hold with a value the page does not (bands: [(title, band,
-    options)])."""
+    options)]). A preference set to null is not set."""
     page = page or {}
-    unknown = sorted(k for k in page if k.startswith("cats_") and k not in PAGE_PREFS)
-    if unknown:
-        raise SchematicError(f"the page's preferences hold {', '.join(unknown)}, which no CATS panel reads "
-                             f"(CATS preferences: {', '.join(PAGE_PREFS)})")
+    for where, opts in [("the page's preferences", page)] + [(title, o or {}) for title, _b, o in bands]:
+        unknown = sorted(k for k in opts if k.startswith("cats_") and k not in PAGE_PREFS)
+        if unknown:
+            raise SchematicError(f"{where}: {', '.join(unknown)}, which no CATS panel reads "
+                                 f"(CATS preferences: {', '.join(PAGE_PREFS)})")
     for title, _b, opts in bands:
         for k in sorted(k for k in (opts or {}) if k.startswith("cats_")):
             if opts[k] != page.get(k):
                 raise SchematicError(f"{title}: {k} is a page preference; set it in the page's preferences (the "
                                      "last input's), where a CATS panel reads it")
-    scale = check_scale(page.get("cats_cells_per_unit", SCALE), "cats_cells_per_unit")
-    helix = check_helix_blocks(page.get("cats_helix_blocks", "one"), "cats_helix_blocks")
+    given = lambda k, default: default if page.get(k) is None else page[k]     # null: not set
+    scale = check_scale(given("cats_cells_per_unit", SCALE), "cats_cells_per_unit")
+    helix = check_helix_blocks(given("cats_helix_blocks", "one"), "cats_helix_blocks")
     window = fit = None
     if page.get("cats_window") is not None:
         window = _window(page["cats_window"])

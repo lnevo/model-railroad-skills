@@ -976,10 +976,6 @@ class Split(unittest.TestCase):
             self.assertEqual({n for n in defined if not n.startswith("_")}, set(mod.__all__), name)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class Preferences(unittest.TestCase):
     """The page's CATS preferences (cats_prefs): cats_cells_per_unit, cats_helix_blocks, cats_window."""
 
@@ -1008,6 +1004,13 @@ class Preferences(unittest.TestCase):
         self.assertIn("Lower level: cats_window is a page preference", str(e.exception))
         page = {"cats_window": [1900, 1150]}
         self.assertEqual(cats.options(page, [("Upper level", None, page)])["fit"], (62, 35))
+        with self.assertRaises(cats.SchematicError) as e:
+            cats.options(page, [("Lower level", None, {"cats_windw": [800, 600]})])
+        self.assertIn("Lower level: cats_windw, which no CATS panel reads", str(e.exception))
+
+    def test_null_is_not_set(self):
+        self.assertEqual(cats.options({"cats_cells_per_unit": None, "cats_helix_blocks": None, "cats_window": None}),
+                         cats.options({}))
 
     def test_command_reads_them(self):
         import json
@@ -1030,8 +1033,12 @@ class Preferences(unittest.TestCase):
             pref_xml = out.read_text()
             r = run("--cells-per-unit", "1")
             self.assertEqual(r.returncode, 2)
-            self.assertIn("cats_cells_per_unit set by both", r.stderr)
+            self.assertIn("--cells-per-unit and cats_cells_per_unit are both set", r.stderr)
             prefs.write_text(json.dumps(page))
             r = run("--cells-per-unit", "1", "--window", "1900x1180", "--fit", "62x36")
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(out.read_text(), pref_xml)     # the preferences draw what the options draw
+
+
+if __name__ == "__main__":
+    unittest.main()
