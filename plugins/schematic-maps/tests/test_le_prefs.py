@@ -324,6 +324,7 @@ class GridOptions(unittest.TestCase):
                            ({"le_split_crossovers": {"Lower": ["3", "3"]}}, "names a switch twice"),
                            ({"le_tight_crossovers": {"Lower": [["3"]]}}, "pairs of two different switch numbers"),
                            ({"le_tight_crossovers": {"Lower": [["3", "3"]]}}, "pairs of two different switch"),
+                           ({"le_crossover_pairs": {"Lower": [["3"]]}}, "pairs of two different switch numbers"),
                            ({"le_mast_room": {"Nowhere": True}}, "names Nowhere, which is no band")):
             with self.subTest(prefs=prefs), self.assertRaisesRegex(SchematicError, why):
                 le.panel(with_prefs("Lower", **prefs))

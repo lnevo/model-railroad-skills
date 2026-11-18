@@ -27,6 +27,10 @@ entry from its own preferences, and a key naming a band the page does not know s
                        le_crossover_angle).
   le_split_crossovers  {band: [switch, ...]}: le.panel's `split_crossovers` for that band (single crossovers drawn as
                        two plain turnouts on their one turnout name).
+  le_crossover_pairs   {band: [[switch, switch], ...]}: le.panel's `crossover_pairs` for that band (two plain
+                       turnouts of different numbers joined by one track, one crossover on the ground: that
+                       track crosses at the band's le_crossover_angle, the east one and everything east of it
+                       slid along the rows to give it).
   le_mast_room         {band: true or false}: le.panel's `mast_room` takes that band (its tracks let out for mast
                        icons that have no room).
   le_name_room         {band: true or false}: le.panel's `name_room` takes that band (its named tracks let out to
@@ -35,7 +39,7 @@ entry from its own preferences, and a key naming a band the page does not know s
                        page's le_labels and beside the band's own flat le_labels (a key in both stops). For a file
                        that sets the page and several bands at once, where a flat le_labels reaches all of them.
 `le_shift` and `le_longer_straights` apply to the Layout Editor drawing only, before anything is drawn, `le_shift`
-first, once per band (drawn_bands marks the bands it returns). The last four are for a panel at a given grid, as
+first, once per band (drawn_bands marks the bands it returns). The last five are for a panel at a given grid, as
 le_crossover_angle (grid_options): a panel fitted to a window draws without them (logged), and giving le.panel the
 argument too stops.
 
@@ -88,11 +92,11 @@ def known_bands(bands, page):
 
 SHAPES = {"le_shift": "[{from, to, columns}, ...]", "le_longer_straights": "[{from, to, columns}, ...]",
           "le_crossover_angle": "degrees", "le_tight_crossovers": "[[switch, switch], ...]",
-          "le_split_crossovers": "[switch, ...]", "le_mast_room": "true or false", "le_name_room": "true or false",
-          "le_band_labels": "{le_labels key: value}"}
+          "le_split_crossovers": "[switch, ...]", "le_crossover_pairs": "[[switch, switch], ...]",
+          "le_mast_room": "true or false", "le_name_room": "true or false", "le_band_labels": "{le_labels key: value}"}
 # the band preferences that are le.panel arguments for a panel at a given grid (grid_options): preference: argument
 GRID_PREFS = {"le_tight_crossovers": "tight_crossovers", "le_split_crossovers": "split_crossovers",
-              "le_mast_room": "mast_room", "le_name_room": "name_room"}
+              "le_crossover_pairs": "crossover_pairs", "le_mast_room": "mast_room", "le_name_room": "name_room"}
 
 
 def band_entries(bands, page, pref):
@@ -162,7 +166,7 @@ def _switch(v):
 
 def _check_grid(title, pref, key, value):
     """One band's value of a GRID_PREFS preference, its shape checked (the switches are checked against the band
-    when le.panel draws it: check_tight, check_split)."""
+    when le.panel draws it: check_tight, check_split, check_pairs)."""
     where = f"{title}: {pref} for {key}"
     if pref in ("le_mast_room", "le_name_room"):
         if not isinstance(value, bool):
@@ -181,8 +185,8 @@ def _check_grid(title, pref, key, value):
 
 def grid_options(bands, page):
     """({le.panel argument: value}, [argument, ...]) of the band preferences that are le.panel arguments for a panel
-    at a given grid (GRID_PREFS): the values, for the bands drawn that set them, in the bands' order (tight_crossovers
-    and split_crossovers as {band key: value}, mast_room and name_room as the band keys whose value is true; an
+    at a given grid (GRID_PREFS): the values, for the bands drawn that set them, in the bands' order (tight_crossovers,
+    split_crossovers and crossover_pairs as {band key: value}, mast_room and name_room as the band keys whose value is true; an
     argument that would ask for nothing is left out), and every argument some drawn band's preferences set, false
     included (a caller's argument beside it stops: le.panel)."""
     out, held = {}, []

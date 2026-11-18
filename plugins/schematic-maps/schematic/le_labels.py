@@ -76,7 +76,7 @@ of the track lines rather than reusing Layer's (it checks from scratch).
 Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-     "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "lamp_columns": [],
+     "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "name_steps": [], "lamp_columns": [],
      "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
      "extra_follow": [], "hidden_names": []}
 A band's options, each over the one before: DEFAULTS, the page's `le_labels`, the band's own `le_labels`, and its
@@ -101,6 +101,10 @@ P.lamps holds them ({band, track, box}) for the caller to put its lamps in.
 `name_columns` (a band's): groups of track names whose labels stand on one centre x, the middle of where the
 group's tracks all run level side by side (a yard's tracks between its ladders); each such name tries only spots at
 that x, above then below its track, and stops if it has none.
+`name_steps` (a band's): groups of track names whose labels step with their tracks' west ends (a fan of tracks
+ending one after another, an engine house's): each name is centred the same distance in from the west end of its
+track's level run, half the shortest such run in the group, and tries only spots at that x, above then below its
+track, and stops if it has none. A name is in name_columns or name_steps, not both.
 `names_last` (a band's): that band's track names are placed after every other item of the panel (block contents
 icons and caller's items included), and a name with no clean spot then is left out and logged (P.names_skipped)
 instead of stopping: for a crowded band where every block's icon matters more than its name. It is the band's own
@@ -136,7 +140,8 @@ GRID = 64           # px per cell of the indexes
 
 DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
-            "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "lamp_columns": [],
+            "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "name_steps": [],
+            "lamp_columns": [],
             "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
             "extra_follow": [], "hidden_names": []}
 # a band's own le_labels keys: the page's may not set them
@@ -158,7 +163,7 @@ def _check(where, o):
                     all(isinstance(n, (int, float)) and not isinstance(n, bool) and n > 0 for n in v)):
                 raise SchematicError(f"{where}: le_labels: lamp_size must be [width, height] in px above zero, "
                                      f"not {v!r}")
-        elif k in ("name_columns", "lamp_columns"):
+        elif k in ("name_columns", "name_steps", "lamp_columns"):
             if not isinstance(v, list) or not all(isinstance(g, list) and len(g) > 1 and
                                                   all(isinstance(n, str) and n.strip() for n in g) for g in v):
                 raise SchematicError(f"{where}: le_labels: {k} must be a list of lists of two or more track "
@@ -166,6 +171,11 @@ def _check(where, o):
             names = [n for g in v for n in g]
             if len(names) != len(set(names)):
                 raise SchematicError(f"{where}: le_labels: {k} names a track twice")
+            other = "name_steps" if k == "name_columns" else "name_columns" if k == "name_steps" else None
+            both = sorted(set(names) & {n for g in o.get(other) or [] if isinstance(g, list) for n in g}) \
+                if other else []
+            if both:
+                raise SchematicError(f"{where}: le_labels: {', '.join(both)} in both name_columns and name_steps")
         elif k == "extra_steps":
             if not isinstance(v, list) or not all(isinstance(g, list) and len(g) > 1 and
                                                   all(isinstance(n, str) and n.strip() for n in g) for g in v):
@@ -835,6 +845,7 @@ def specs(P, bands, opts, L, extras=()):
             continue
         named.append((bi, sid, tidy([name])[0], mine))
     column = name_column_x(L, bands, opts, named)
+    column.update(name_step_x(L, bands, opts, named))
     L.reserved = lamp_boxes(L, opts, named, name_column_x(L, bands, opts, named, "lamp_columns"))
     for bi, sid, text, mine in named:
         out.append((("name", bi, sid), _track_name(L, bi, text, mine, column.get((bi, text)))))
@@ -907,6 +918,29 @@ def name_column_x(L, bands, opts, named, key="name_columns"):
     return out
 
 
+def name_step_x(L, bands, opts, named):
+    """{(band, name): centre x} for each name of a band's `name_steps`: the west end of its track's level run plus
+    half the shortest level run of its group. Stops on a name that is no named track of the band, or one that runs
+    level nowhere."""
+    out = {}
+    by = {(bi, text): mine for bi, _sid, text, mine in named}
+    for bi, (title, _band, _opts) in enumerate(bands):
+        for group in opts[bi]["name_steps"]:
+            spans = {}
+            for text in group:
+                if (bi, text) not in by:
+                    raise SchematicError(f"{title}: le_labels: name_steps names {text}, which is no named track "
+                                         "with a name placed on the band")
+                span = level_span([pc for i in by[(bi, text)] for pc in L.pieces.get(("seg", i), [])])
+                if span is None:
+                    raise SchematicError(f"{title}: le_labels: name_steps: track {text} runs level nowhere")
+                spans[text] = span
+            inset = min(hi - lo for lo, hi in spans.values()) / 2
+            for text, (lo, _hi) in spans.items():
+                out[(bi, text)] = lo + inset
+    return out
+
+
 def lamp_boxes(L, opts, named, xs):
     """[{band, track, box}] of each lamp_columns track's lamp: lamp_size centred on its column's x, on the level
     piece of its track there."""
@@ -934,8 +968,8 @@ def column(lines, w, h, cx):
 
 
 def _track_name(L, bi, text, mine, cx=None):
-    """make(state, short) for a track's name: beside its track (along), or, with `cx` (name_columns), only centred
-    on that x."""
+    """make(state, short) for a track's name: beside its track (along), or, with `cx` (name_columns, name_steps),
+    only centred on that x."""
     what = f"{L.bands[bi][0]}: track name {text}"
 
     def make(state, short=False):
