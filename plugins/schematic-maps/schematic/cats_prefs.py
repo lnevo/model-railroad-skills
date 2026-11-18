@@ -87,7 +87,7 @@ def options(page, bands=()):
     scale = check_scale(given("cats_cells_per_unit", SCALE), "cats_cells_per_unit")
     helix = check_helix_blocks(given("cats_helix_blocks", "one"), "cats_helix_blocks")
     gaps = {k: given(f"cats_{k}", None) for k in ("band_gap", "title_gap")}     # None: cats.panel's default
-    for k, v in gaps.items():
+    for k, v in gaps.items():       # checked here too, so the error names the preference; cats.panel checks for its callers
         if v is not None:
             check_rows(v, f"cats_{k}")
     window = fit = None
