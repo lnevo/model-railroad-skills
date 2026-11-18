@@ -7,6 +7,10 @@ it makes for that run and removes at the end; install() then keeps each batch th
 need it builds it with real JMRI and the others read that result. A lock per batch makes a second process wait
 for the first instead of building the same thing beside it. Nothing outlives the run, so a code or fixture
 change is always built fresh.
+
+Each call in one process gets a batch of its own, as it would without sharing: the second call for the same
+folder and job in a process (build_check's after sample of an unchanged folder, say) reads the second batch kept
+for that key, never the first, so two samples one process compares stay independent JMRI builds.
 """
 from __future__ import annotations
 
@@ -44,9 +48,12 @@ def install(folder: Path) -> None:
     if not folder.is_dir():
         raise RuntimeError(f"{ENV} names {folder}, which is not a folder")
     build = ops_build_state.run_builds
+    calls: dict[str, int] = {}  # this process's calls so far, per key
 
     def shared(directory: Path, job: dict, runs: int) -> list[dict]:
         key = _key(directory, job, runs)
+        calls[key] = calls.get(key, 0) + 1
+        key = f"{key}-{calls[key]}"
         saved = folder / f"{key}.json"
         with open(folder / f"{key}.lock", "a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)  # released when the file closes

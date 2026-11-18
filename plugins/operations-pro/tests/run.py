@@ -33,13 +33,14 @@ import shared_builds
 TESTS = Path(__file__).resolve().parent
 TICK = 15  # seconds between progress lines
 DONE = "@@test-done"
+MAX_JOBS = 4  # by default: four processes can start sixteen JVMs at once, enough to fill a machine's memory
 SPLIT_CLASS = 20  # seconds: a test class slower than this last time gets a process of its own
 RUN_STATE = Path(tempfile.gettempdir()) / "operations-pro-tests"
 STATUS = RUN_STATE / "status.json"
 # In fast mode a test file runs as it would where JMRI is not installed, so the tests that need it skip.
 # only and skip name test classes; a test that failed to load always runs, so its error is reported.
 ONE_FILE = """
-import importlib, os, sys, time, unittest
+import os, sys, time, unittest
 from pathlib import Path
 sys.path.insert(0, {servers!r})
 import ops_jmri
@@ -63,8 +64,8 @@ def wanted(test):
     if isinstance(test, unittest.loader._FailedTest):
         return True
     return ({only!r} is None or name in {only!r}) and name not in {skip!r}
-module = importlib.import_module({name!r})
-suite = unittest.TestSuite(t for t in flat(unittest.defaultTestLoader.loadTestsFromModule(module)) if wanted(t))
+# loadTestsFromName turns a module that will not import into a failed test, so the error is counted and shown
+suite = unittest.TestSuite(t for t in flat(unittest.defaultTestLoader.loadTestsFromName({name!r})) if wanted(t))
 runner = unittest.TextTestRunner(resultclass=Result, verbosity=0)
 sys.exit(not runner.run(suite).wasSuccessful())
 """
@@ -82,6 +83,7 @@ class Progress:
         self.lock = threading.Lock()
         self.started = time.monotonic()
         self.timings: list[tuple[float, str]] = []
+        self.ran: list[tuple[str, float, str]] = []  # unit name, seconds, test id: which process paid for each test
         known = [h["seconds"] / max(h["tests"], 1) for h in history.values() if h.get("seconds")]
         rate = sum(known) / len(known) if known else 1.0
         self.files = {}
@@ -99,6 +101,7 @@ class Progress:
         with self.lock:
             self.files[name]["done"] += 1
             self.timings.append((seconds, test))
+            self.ran.append((name, seconds, test))
 
     def finish(self, name: str, ok: bool) -> None:
         with self.lock:
@@ -229,11 +232,13 @@ def save_history(mode: str, units: list[Unit], results: list, progress: Progress
     history = load_history(mode)  # a run of some files keeps the times of the others
     took = {name: seconds for name, _, seconds, _ in results}
     classes: dict[str, dict[str, list]] = {}
-    for seconds, test in progress.timings:
+    stems = {unit.name: unit.stem for unit in units}
+    for name, seconds, test in progress.ran:
         parts = test.split(".")
         if len(parts) < 3:  # not module.Class.test, so no class to time
             continue
-        row = classes.setdefault(parts[0], {}).setdefault(parts[1], [0.0, 0])
+        # filed under the file whose process ran it: a class imported into another file is timed there too
+        row = classes.setdefault(stems.get(name, parts[0]), {}).setdefault(parts[1], [0.0, 0])
         row[0], row[1] = round(row[0] + seconds, 2), row[1] + 1
     for stem in {unit.stem for unit in units}:
         mine = [unit.name for unit in units if unit.stem == stem]
@@ -262,8 +267,8 @@ def choose_files(every: list[Path], wanted: list[str]) -> list[Path]:
 
 
 def default_jobs() -> int:
-    """Half the cores, at least two: each process can run four JVMs, and JVM start-up is most of the work."""
-    return max(2, (os.cpu_count() or 2) // 2)
+    """Half the cores, from two to MAX_JOBS: each process can run four JVMs, and JVM start-up is most of the work."""
+    return min(MAX_JOBS, max(2, (os.cpu_count() or 2) // 2))
 
 
 def main() -> int:
