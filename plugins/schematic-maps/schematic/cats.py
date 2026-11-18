@@ -46,12 +46,9 @@ from .cats_masts import (                                   # masts: binding, ga
     SIG_LOCATION, INK_CLEAR, POINT_ZONE, SPOT_COST, SPOT_PER_PX, GANTRY_SHIFT, GANTRY_SPAN, bind_masts, box_gap,
     gantry_look, lamp_way, mast_gap, mast_size, move_gap, move_of, place_mast, points_zones, shift_gaps, spot_costs)
 from .cats_xml import HEADER_FONTS, boundaries, dangling, header_from, lone_blocks, set_io, to_xml, write
+from .cats_prefs import SCALE, HELIX_BLOCKS, CHROME, check_helix_blocks, check_scale, options   # page preferences
 
-SCALE = 2
 OS_REACH = 1            # steps an OS block reaches past a switch's points on each leg
-
-
-HELIX_BLOCKS = ("one", "apart")
 
 
 def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
@@ -59,10 +56,8 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one"):
     `max_cols`: take out columns of plain level track until no track reaches past that column (trim_columns).
     `helix_blocks`: a helix track drawn on two bands is one block ("one"), or a block on each band ("apart": the
     logical join between them is a block boundary, as where the layout parts its detection at the helix)."""
-    if helix_blocks not in HELIX_BLOCKS:
-        raise SchematicError(f"helix_blocks is one of {', '.join(HELIX_BLOCKS)}, not {helix_blocks!r}")
-    if not isinstance(scale, int) or isinstance(scale, bool) or not (scale == 1 or (scale >= 2 and scale % 2 == 0)):
-        raise SchematicError(f"the CATS scale is 1 or an even number of cells per grid unit, not {scale!r}")
+    check_helix_blocks(helix_blocks)
+    check_scale(scale)
     compact = scale == 1
     at = lambda v: math.floor(scale * v + 0.5)          # one rounding everywhere: half up
     bindings = check_bindings(bindings or {})
