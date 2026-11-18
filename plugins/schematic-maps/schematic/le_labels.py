@@ -2,6 +2,7 @@
 each in the first clean spot near what it names, sized as JMRI draws it.
 
     opts = le_labels.options(bands, page)       # le.draw_panel, before any drawing: checked, one dict per band
+    bands = le_labels.hide_names(bands, page)   # le.panel and draw_panel, first: a band's hidden_names marked
     le_labels.place(P, bands, opts)             # le.label_layer, last: the grid settled, every mast icon placed
 
 The drawing (le) keeps room for switch numbers, track names and station names at fixed offsets; that room is part
@@ -77,7 +78,15 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "lamp_columns": [],
      "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
-     "extra_follow": []}
+     "extra_follow": [], "hidden_names": []}
+A band's options, each over the one before: DEFAULTS, the page's `le_labels`, the band's own `le_labels`, and its
+entry of the band preference `le_band_labels` ({band key: le_labels object}, le_prefs: for one preferences file that
+sets the page and several bands, where a flat le_labels reaches them all); a key in both of the band's own stops.
+In such a file the flat le_labels is the page's and each of those bands' own at once, so a key is set either there
+(every band) or per band in le_band_labels, never both.
+`hidden_names` (a band's: track names): the Layout Editor panel draws no name for those tracks (hide_names marks
+them before le.panel draws: no label, no room kept, name_room passes them by); the name itself stays, for block
+names and helix joins. A name on no track of the band stops.
 `extra_steps` and `extra_follow` (a band's own, like names_last): caller's items that step along one slope, which le
 places through le_prefs.extra_steps (see there); this module only checks them.
 `optional_block_contents` (a band's: blocks that band draws): blocks whose block contents icon is left out (logged,
@@ -106,7 +115,7 @@ import itertools
 import math
 from collections import defaultdict
 
-from . import jmri_text, stations
+from . import jmri_text, le_prefs, stations
 from .core import SchematicError, tidy
 from .label_check import _pt_seg as pt_seg, boxes_overlap
 
@@ -129,8 +138,9 @@ DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "lamp_columns": [],
             "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
-            "extra_follow": []}
-BAND_ONLY = ("names_last", "extra_steps", "extra_follow")     # a band's own le_labels keys: the page's may not set them
+            "extra_follow": [], "hidden_names": []}
+# a band's own le_labels keys: the page's may not set them
+BAND_ONLY = ("names_last", "extra_steps", "extra_follow", "hidden_names")
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 
 
@@ -178,10 +188,13 @@ def _check(where, o):
             if moving:
                 raise SchematicError(f"{where}: le_labels: extra_follow's leader {', '.join(moving)} is itself "
                                      "stepped or follows; a leader must stand where the label layer puts it")
-        elif k in ("numbers_below", "optional_block_contents"):
+        elif k in ("numbers_below", "optional_block_contents", "hidden_names"):
+            what = {"numbers_below": "switch numbers", "optional_block_contents": "block names",
+                    "hidden_names": "track names"}[k]
             if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
-                raise SchematicError(f"{where}: le_labels: {k} must be a list of "
-                                     f"{'switch numbers' if k == 'numbers_below' else 'block names'}, not {v!r}")
+                raise SchematicError(f"{where}: le_labels: {k} must be a list of {what}, not {v!r}")
+            if k == "hidden_names" and len(set(v)) != len(v):
+                raise SchematicError(f"{where}: le_labels: hidden_names names a track twice: {v!r}")
         elif k in ("switch_bold", "block_contents", "names_last"):
             if not isinstance(v, bool):
                 raise SchematicError(f"{where}: le_labels: {k} must be true or false, not {v!r}")
@@ -195,8 +208,11 @@ def _check(where, o):
 
 
 def options(bands, page):
-    """[{option: value}] per band: DEFAULTS, then the page's `le_labels`, then the band's own; each checked (and
-    each band's `stations`) before anything is drawn."""
+    """[{option: value}] per band, each checked (and each band's `stations`) before anything is drawn. In this order,
+    each over the one before: DEFAULTS, the page's `le_labels`, the band's own `le_labels`, then the band's entry of
+    its `le_band_labels` (le_prefs.band_entries: {band key: le_labels object}, read from the band's own
+    preferences). A key in both the band's own `le_labels` and its `le_band_labels` entry stops: both are that
+    band's, so set it in one. The BAND_ONLY keys come from the band's two only, never the page's."""
     page = page or {}
     if "le_labels" in page:
         _check("page", page["le_labels"])
@@ -204,21 +220,62 @@ def options(bands, page):
         for k in BAND_ONLY:
             if k in page["le_labels"] and not own:
                 raise SchematicError(f"page: le_labels: {k} is a band's own option; set it in that band's "
-                                     "le_labels, not the page's")
+                                     "le_labels or le_band_labels, not the page's")
+    keyed = le_prefs.band_entries(bands, page, "le_band_labels")
     out = []
-    for title, _band, opts in bands:
+    for bi, (title, _band, opts) in enumerate(bands):
         opts = opts or {}
         if "le_labels" in opts:
             _check(title, opts["le_labels"])
         stations.entries(opts)
-        o = {**DEFAULTS, **page.get("le_labels", {}), **opts.get("le_labels", {})}
+        flat, by_band = opts.get("le_labels", {}), keyed.get(bi, {})
+        both = sorted(set(flat) & set(by_band))
+        if both:
+            raise SchematicError(f"{title}: {', '.join(both)} set in both its le_labels and its le_band_labels "
+                                 f"for {le_prefs.band_key(title)}; set each in one of them")
+        mine = {**flat, **by_band}                              # the band's own, from either
+        o = {**DEFAULTS, **page.get("le_labels", {}), **mine}
         for k in BAND_ONLY:                                     # the band's own, never the page's
-            o[k] = opts.get("le_labels", {}).get(k, DEFAULTS[k])
+            o[k] = mine.get(k, DEFAULTS[k])
         if jmri_text.width(o["block_contents_short"], o["block_contents_size"]) >= \
                 jmri_text.width(o["block_contents_text"], o["block_contents_size"]):
             raise SchematicError(f"{title}: le_labels: block_contents_short {o['block_contents_short']!r} must be "
                                  f"narrower than block_contents_text {o['block_contents_text']!r}")
         out.append(o)
+    return out
+
+
+HIDDEN = "le_name_hidden"     # set on a strand whose name the Layout Editor panel leaves off (hide_names)
+
+
+def hide_names(bands, page):
+    """`bands` with each band's `hidden_names` (options) marked: a copy in which those tracks carry HIDDEN, so the
+    Layout Editor panel draws no name for them (no label, no room kept for one, le.panel's name_room passes them
+    by). The name itself stays, so block names, helix joins and messages read as before, and every other output
+    keeps it. A name matches a track's name as given or as the panel writes it (tidy: "Track Y-1" as "Y-1"). Stops
+    when a listed name is on no track of that band. The bands given are not changed; a band with nothing hidden is
+    returned as it is, and marking twice changes nothing (le.panel and draw_panel both call this)."""
+    out = []
+    for (title, band, o), opts in zip(bands, options(bands, page)):
+        hidden = opts["hidden_names"]
+        if not hidden:
+            out.append((title, band, o))
+            continue
+        strands = band["strands"]
+        named = defaultdict(set)
+        for sid, s in strands.items():
+            if s.get("name"):
+                named[s["name"]].add(sid)
+                named[tidy([s["name"]])[0]].add(sid)
+        missing = [n for n in hidden if n not in named]
+        if missing:
+            raise SchematicError(f"{title}: le_labels: hidden_names {', '.join(missing)}: no track of the band "
+                                 "has that name")
+        gone = {sid for n in hidden for sid in named[n] if not strands[sid].get(HIDDEN)}
+        if gone:
+            band = dict(band, strands={sid: dict(s, **{HIDDEN: True}) if sid in gone else s
+                                       for sid, s in strands.items()})
+        out.append((title, band, o))
     return out
 
 
@@ -768,9 +825,10 @@ def specs(P, bands, opts, L, extras=()):
                                                                label in o["numbers_below"])))
     named = []
     for (bi, sid), idents in sorted(P.strand_segments.items()):
-        name = bands[bi][1]["strands"][sid]["name"]
+        st = bands[bi][1]["strands"][sid]
+        name = st["name"]
         mine = [i for i in idents if i in L.world.track]
-        if not name or not mine:
+        if not name or not mine or st.get(HIDDEN):     # hidden_names: no name drawn, nothing logged
             continue
         if (bi, sid) in P.no_name:          # the drawing keeps no room for it: as before the label layer, no name
             P.log.append(f"{bands[bi][0]}: track {tidy([name])[0]}: no name placed ({P.no_name[(bi, sid)]})")
