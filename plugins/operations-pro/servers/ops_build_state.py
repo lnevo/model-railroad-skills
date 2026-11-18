@@ -42,16 +42,21 @@ def real_build(directory: Path, only: str | None = None, runs: int = RUNS) -> li
 
     only: build just that train, with no other train built first (the answer when another train takes a
     car in the full session)."""
-    import ops_jmri
-    from concurrent.futures import ThreadPoolExecutor
     key = _digest(directory) + (f"|{only}" if only else "") + f"|{runs}"
     if key not in _cache:
         if len(_cache) > 24:
             _cache.clear()
         job = {"build": True, **({"only": [only]} if only else {})}
-        with ThreadPoolExecutor(max_workers=min(runs, 4)) as pool:
-            _cache[key] = list(pool.map(lambda _: ops_jmri.run_worker(Path(directory), job), range(runs)))
+        _cache[key] = run_builds(Path(directory), job, runs)
     return _cache[key]
+
+
+def run_builds(directory: Path, job: dict, runs: int) -> list[dict]:
+    """Run one job runs times on copies of directory, up to four JVMs at once. Not cached."""
+    import ops_jmri
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(runs, 4)) as pool:
+        return list(pool.map(lambda _: ops_jmri.run_worker(directory, job), range(runs)))
 
 
 def forget() -> None:

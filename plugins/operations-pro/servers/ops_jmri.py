@@ -13,10 +13,10 @@ import subprocess
 import tempfile
 import time
 import xml.etree.ElementTree as ET
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 
+import ops_build_state
 import ops_report
 from ops_data import load
 from ops_store import FILES, Refused, plans_root, quick
@@ -208,11 +208,6 @@ def _version_note(result: dict) -> list[str]:
     return [] if version.startswith(TESTED) else [f"Rules were checked on JMRI {TESTED}; this is {version}."]
 
 
-def _sample(source: Path, runs: int) -> list[dict]:
-    with ThreadPoolExecutor(max_workers=min(runs, 4)) as pool:
-        return list(pool.map(lambda _: run_worker(source, {"build": True}), range(runs)))
-
-
 def _variants(results: list[dict]) -> dict[str, list[dict]]:
     """Each train's distinct outcomes across the runs, without repeats."""
     found: dict[str, list[dict]] = {}
@@ -236,8 +231,8 @@ def build_check(plan_id: str, runs: int = 4) -> dict:
     if not 1 <= runs <= 20:
         raise Refused("runs must be 1 to 20")
     manifest = json.loads((folder / "plan.json").read_text(encoding="utf-8"))
-    before_runs = _sample(Path(manifest["ops_dir"]), runs)
-    after_runs = _sample(folder / "after", runs)
+    before_runs = ops_build_state.run_builds(Path(manifest["ops_dir"]), {"build": True}, runs)
+    after_runs = ops_build_state.run_builds(folder / "after", {"build": True}, runs)
     before, after = _variants(before_runs), _variants(after_runs)
     changed, possibly = {}, {}
     for name in sorted(set(before) | set(after)):
