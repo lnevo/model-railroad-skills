@@ -1034,8 +1034,12 @@ class Preferences(unittest.TestCase):
             above = max(r for r in rows(tight) if r < t)
             self.assertEqual(t - above, 2)                     # one empty row between bands
         self.assertEqual(cats.shown(base)[1] - cats.shown(tight)[1], 2 * len(bands) - 1)
+        clashes = lambda P: [line for line in P.log if "no room" in line or " crosses " in line]
+        self.assertLessEqual(len(clashes(tight)), len(clashes(base)), clashes(tight))
         with self.assertRaises(cats.SchematicError):
             cats.panel(bands, scale=1, band_gap=-1)
+        with self.assertRaisesRegex(cats.SchematicError, "need a compact panel"):
+            cats.panel(bands, scale=2, title_gap=0)
 
     def test_command_reads_them(self):
         import json

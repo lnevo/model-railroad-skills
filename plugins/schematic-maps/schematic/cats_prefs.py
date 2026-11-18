@@ -16,8 +16,8 @@ another value stops, as no panel would read it):
   cats_band_gap        whole rows, 0 or more: cats.panel's `band_gap`, the empty rows between a band's lowest cell
                        and the next band's title; COMPACT_GAP - 1 (compact) or BAND_GAP - 1 when not set.
   cats_title_gap       whole rows, 0 or more: cats.panel's `title_gap`, the empty rows between a band's title and
-                       its top track; 1 when not set. Fewer rows leave the labels less room; they are placed as
-                       before (place_labels) and the run says which label finds none.
+                       its top track; 1 when not set. Fewer rows than the defaults only on a compact panel
+                       (cats_cells_per_unit 1), whose labels are placed around them and their clashes logged.
   cats_window          [width, height] whole px: the window CATS opens the panel in, written to the panel (to_xml's
                        `window`). CATS has no zoom and draws GRID_PX cells, so it also sets the cells the panel must
                        show at most (`fit`): (width - CHROME[0]) // GRID_PX columns by (height - CHROME[1]) //
@@ -67,7 +67,8 @@ def _window(v):
 
 
 def options(page, bands=()):
-    """{"scale", "helix_blocks", "band_gap", "title_gap", "window", "fit"} from the page's preferences, checked: window and fit are None when
+    """{"scale", "helix_blocks", "band_gap", "title_gap", "window", "fit"} from the page's preferences, checked:
+    the gaps are None when not set (cats.panel's defaults), window and fit when
     cats_window is not set. A `cats_` key the page does not know stops (a misspelt preference would be read by no
     one), and so does one a band's own preferences hold with a value the page does not (bands: [(title, band,
     options)]). A preference set to null is not set."""

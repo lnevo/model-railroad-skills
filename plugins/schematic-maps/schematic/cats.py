@@ -58,12 +58,18 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
     logical join between them is a block boundary, as where the layout parts its detection at the helix).
     `band_gap`: empty rows between a band's lowest cell and the next band's title (default COMPACT_GAP - 1 on a
     compact panel, BAND_GAP - 1 else); `title_gap`: empty rows between a band's title and its top track (default 1).
-    Labels still find room (place_labels), or the run says which has none."""
+    Fewer than the defaults only on a compact panel: its labels are placed after all the track (place_labels), and
+    the log names any that finds no room or crosses something."""
     check_helix_blocks(helix_blocks)
     check_scale(scale)
     compact = scale == 1
-    band_gap = check_rows((COMPACT_GAP if compact else BAND_GAP) - 1 if band_gap is None else band_gap, "band_gap")
+    default_gap = (COMPACT_GAP if compact else BAND_GAP) - 1
+    band_gap = check_rows(default_gap if band_gap is None else band_gap, "band_gap")
     title_gap = check_rows(1 if title_gap is None else title_gap, "title_gap")
+    if not compact and (band_gap < default_gap or title_gap < 1):
+        raise SchematicError(f"fewer rows between bands ({band_gap}, default {default_gap}) or under a title "
+                             f"({title_gap}, default 1) need a compact panel (scale 1), whose labels are placed "
+                             "around them and their clashes logged")
     at = lambda v: math.floor(scale * v + 0.5)          # one rounding everywhere: half up
     bindings = check_bindings(bindings or {})
     sw_bind = switch_bindings(bands, bindings["switches"])
@@ -104,7 +110,8 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
         # the band title and which way is east
         left, right = opts.get("left", "West"), opts.get("right", "East")
         tx = left_col if compact else MARGIN
-        P.label([((tx, top), "LOWLEFT"), ((tx, top - 1), "LOWLEFT")],
+        spots = [((tx, top), "LOWLEFT")] + ([((tx, top - 1), "LOWLEFT")] if bi == 0 or band_gap else [])
+        P.label(spots,             # the row above only when it is free: no band above, or an empty row between
                 f"{band_key_name(title).upper()}   {left.upper()} <-   -> {right.upper()}", "FONT_TITLE", rank=0)
 
         # OS blocks: a switch's own, or shared by switches of one number joined by a track
