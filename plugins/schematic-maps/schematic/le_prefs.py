@@ -31,6 +31,9 @@ entry from its own preferences, and a key naming a band the page does not know s
                        icons that have no room).
   le_name_room         {band: true or false}: le.panel's `name_room` takes that band (its named tracks let out to
                        their names' width, the band no wider than the widest).
+  le_band_labels       {band: {le_labels key: value}}: that band's label options (le_labels.options), over the
+                       page's le_labels and beside the band's own flat le_labels (a key in both stops). For a file
+                       that sets the page and several bands at once, where a flat le_labels reaches all of them.
 `le_shift` and `le_longer_straights` apply to the Layout Editor drawing only, before anything is drawn, `le_shift`
 first, once per band (drawn_bands marks the bands it returns). The last four are for a panel at a given grid, as
 le_crossover_angle (grid_options): a panel fitted to a window draws without them (logged), and giving le.panel the
@@ -51,7 +54,7 @@ The page's preferences:
   le_row               px above zero: the rows a caller draws its panel at (row(page): for le.panel's `row`, which
                        the caller may scale with its grid); le.ROW when not set.
 
-A band's `le_labels` (its own, not the page's; le_labels checks the keys):
+A band's `le_labels` (its own or its le_band_labels entry, not the page's; le_labels checks the keys):
   extra_steps          [[id, id, id, ...], ...]: caller's items (le.panel's `extras`) that step along one slope: each
                        after the second stands at the first's x plus its place times the first two's step (x only;
                        the label layer finds its y). The first group's step per px of y is the band's slope.
@@ -85,7 +88,8 @@ def known_bands(bands, page):
 
 SHAPES = {"le_shift": "[{from, to, columns}, ...]", "le_longer_straights": "[{from, to, columns}, ...]",
           "le_crossover_angle": "degrees", "le_tight_crossovers": "[[switch, switch], ...]",
-          "le_split_crossovers": "[switch, ...]", "le_mast_room": "true or false", "le_name_room": "true or false"}
+          "le_split_crossovers": "[switch, ...]", "le_mast_room": "true or false", "le_name_room": "true or false",
+          "le_band_labels": "{le_labels key: value}"}
 # the band preferences that are le.panel arguments for a panel at a given grid (grid_options): preference: argument
 GRID_PREFS = {"le_tight_crossovers": "tight_crossovers", "le_split_crossovers": "split_crossovers",
               "le_mast_room": "mast_room", "le_name_room": "name_room"}
@@ -93,7 +97,8 @@ GRID_PREFS = {"le_tight_crossovers": "tight_crossovers", "le_split_crossovers": 
 
 def band_entries(bands, page, pref):
     """{band index: value} of the band preference `pref` (SHAPES), checked: an object of band key to its value (a
-    list of {from, to, columns} entries, an angle, or a GRID_PREFS value: _check_grid), each band key one the page
+    list of {from, to, columns} entries, an angle, a GRID_PREFS value: _check_grid, or for le_band_labels an
+    le_labels object: le_labels._check), each band key one the page
     knows, and the value for a drawn
     band set in that band's own preferences (another input's preferences naming it would be read by no band)."""
     known = known_bands(bands, page)
@@ -118,6 +123,9 @@ def band_entries(bands, page, pref):
                                          f"90, not {value!r}")
             elif pref in GRID_PREFS:
                 _check_grid(title, pref, key, value)
+            elif pref == "le_band_labels":
+                from .le_labels import _check as check_labels       # le_labels imports this module first
+                check_labels(f"{title}: le_band_labels for {key}", value)
             else:
                 if not isinstance(value, list):
                     raise SchematicError(f"{title}: {pref} for {key} must be a list of {{from, to, columns}}, not "

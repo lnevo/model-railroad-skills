@@ -689,7 +689,7 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
         raise SchematicError("no band to draw")
     pg = page if page is not None else bands[-1][2]        # the page's options, for the preferences
     le_prefs.check_page(pg, bands)
-    bands = drawn_bands(bands, page)
+    bands = le_labels.hide_names(drawn_bands(bands, page), page)    # a band's le_labels hidden_names: unnamed here
     band_bottoms = le_prefs.check_bottoms(bands, band_bottoms)
     runs = le_prefs.crossover_runs(bands, pg, row)
     if runs and crossover_run is not None:

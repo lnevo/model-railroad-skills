@@ -3,6 +3,7 @@ icon per block and station names, each in a clean spot sized as JMRI draws it, c
 import copy
 import math
 import unittest
+import xml.etree.ElementTree as ET
 
 import helpers
 from schematic import jmri_text, le, le_labels
@@ -630,6 +631,114 @@ class Extras(unittest.TestCase):
 
 def ET_tags(el):
     return {e.tag.lower() for e in el.iter()}
+
+
+def shared(**prefs):
+    """The example's bands with `prefs` set in the one preferences dict both bands share (as one file that sets the
+    page and both bands), and that dict as the page."""
+    b = bands()
+    o = dict(b[0][2], **prefs)
+    return [(t, band, o) for t, band, _o in b], o
+
+
+class BandKeyedLabels(unittest.TestCase):
+    """le_band_labels: {band: {le_labels key: value}} in a file that sets the page and several bands at once."""
+
+    def test_each_band_takes_its_own_entry_over_the_page_and_the_flat_keys(self):
+        b, page = shared(le_labels={"switch_prefix": "P-", "switch_size": 11},
+                         le_band_labels={"Lower": {"names_last": True, "block_contents_size": 12,
+                                                   "numbers_below": ["7"]},
+                                         "Upper": {"optional_block_contents": ["Rise"]}})
+        lower, upper = (le_labels.options(b, page)[[t for t, _b, _o in b].index(n)]
+                        for n in ("Lower level", "Upper level"))
+        for o in (lower, upper):                                # the flat keys reach both bands and the page
+            self.assertEqual((o["switch_prefix"], o["switch_size"]), ("P-", 11))
+        self.assertEqual((lower["names_last"], lower["block_contents_size"], lower["numbers_below"]),
+                         (True, 12, ["7"]))
+        self.assertEqual((upper["names_last"], upper["block_contents_size"], upper["numbers_below"]),
+                         (False, le_labels.DEFAULTS["block_contents_size"], []))
+        self.assertEqual((lower["optional_block_contents"], upper["optional_block_contents"]), ([], ["Rise"]))
+
+    def test_another_band_takes_the_page_and_its_own_flat_keys_only(self):
+        b, page = shared(le_labels={"switch_prefix": "P-"}, le_band_labels={"Lower": {"names_last": True}})
+        b = [(t, band, {"le_labels": {"switch_size": 10}}) if t.startswith("Upper") else (t, band, o)
+             for t, band, o in b]
+        upper = le_labels.options(b, page)[0]
+        self.assertEqual((upper["switch_prefix"], upper["switch_size"], upper["names_last"]), ("P-", 10, False))
+
+    def test_a_band_key_set_flat_and_band_keyed_stops(self):
+        b, page = shared(le_labels={"switch_size": 11}, le_band_labels={"Lower": {"switch_size": 12}})
+        with self.assertRaisesRegex(SchematicError, "Lower level: switch_size set in both its le_labels and its "
+                                                    "le_band_labels for Lower"):
+            le_labels.options(b, page)
+        b, page = shared(le_labels={"switch_size": 11}, le_band_labels={"Lower": {"switch_size": 11}})
+        with self.assertRaisesRegex(SchematicError, "set in both"):        # even with one value: set it once
+            le_labels.options(b, page)
+
+    def test_bad_entries_stop_before_drawing(self):
+        cases = [([], "le_band_labels must be an object of band"),
+                 ({"Middle": {}}, "le_band_labels names Middle, which is no band"),
+                 ({"Lower": ["x"]}, "le_band_labels for Lower: le_labels must be an object"),
+                 ({"Lower": {"colour": 1}}, "le_band_labels for Lower: le_labels: unknown key colour"),
+                 ({"Lower": {"switch_size": 7}}, "le_band_labels for Lower: le_labels: switch_size must be"),
+                 ({"Upper": {"names_last": "yes"}}, "names_last must be true or false")]
+        for value, msg in cases:
+            b, page = shared(le_band_labels=value)
+            with self.subTest(value=value), self.assertRaisesRegex(SchematicError, msg):
+                le.panel(b, page=page)
+
+    def test_an_entry_in_another_bands_preferences_or_only_on_the_page_stops(self):
+        b = with_opts(None)
+        b = [(t, band, dict(o, le_band_labels={"Lower": {"names_last": True}}) if t.startswith("Upper") else
+              dict(o)) for t, band, o in b]
+        with self.assertRaisesRegex(SchematicError, "le_band_labels for Lower is in another band's preferences"):
+            le_labels.options(b, None)
+        page = dict(bands()[-1][2], le_band_labels={"Lower": {"names_last": True}})
+        with self.assertRaisesRegex(SchematicError, "page: le_band_labels for Lower is not in that band's own"):
+            le.panel(bands(), page=page)
+
+    def test_the_band_keyed_entry_draws_as_the_bands_own_flat_keys(self):
+        b, page = shared(le_band_labels={"Lower": {"switch_prefix": "L-"}})
+        rest = {k: v for k, v in page.items() if k != "le_band_labels"}
+        flat = [(t, band, dict(rest, le_labels={"switch_prefix": "L-"}) if t.startswith("Lower") else rest)
+                for t, band, _o in b]
+        self.assertEqual(ET.tostring(le.to_xml(le.panel(b, page=page), "G")),
+                         ET.tostring(le.to_xml(le.panel(flat, page=rest), "G")))
+
+
+class HiddenNames(unittest.TestCase):
+    """hidden_names: a band's track names the Layout Editor panel leaves off."""
+
+    def test_a_hidden_name_draws_as_a_track_with_no_name(self):
+        b, page = shared(le_band_labels={"Lower": {"hidden_names": ["Yard Lead"]}})
+        rest = {k: v for k, v in page.items() if k != "le_band_labels"}
+        unnamed = [(t, dict(band, strands={sid: dict(s, name="") if s["name"] == "Yard Lead" else s
+                                           for sid, s in band["strands"].items()}) if t.startswith("Lower")
+                    else band, rest) for t, band, _o in b]
+        P = le.panel(b, page=page)
+        self.assertNotIn("Yard Lead", [lb["text"] for lb in P.labels])
+        self.assertEqual(ET.tostring(le.to_xml(P, "G")), ET.tostring(le.to_xml(le.panel(unnamed, page=rest), "G")))
+        self.assertTrue(any(s["name"] == "Yard Lead" for s in b[1][1]["strands"].values()))   # not changed
+
+    def test_every_track_of_a_hidden_name_loses_it_on_that_band_only(self):
+        b, page = shared(le_band_labels={"Lower": {"hidden_names": ["Main"]}})
+        hidden = le_labels.hide_names(b, page)
+        self.assertEqual([s["name"] for s in hidden[1][1]["strands"].values() if s["name"] == "Main"], [])
+        self.assertIs(hidden[0][1], b[0][1])                    # a band with nothing hidden: as it is
+
+    def test_a_name_on_no_track_a_helix_name_or_a_bad_list_stops(self):
+        cases = [({"Lower": {"hidden_names": ["Nowhere"]}}, "Lower level: le_labels: hidden_names Nowhere: no "
+                                                            "track of the band has that name"),
+                 ({"Lower": {"hidden_names": ["Spur"]}}, "hidden_names Spur: no track of the band"),   # Upper's
+                 ({"Upper": {"hidden_names": ["Summit"]}}, "hidden_names Summit: a helix track's name joins"),
+                 ({"Lower": {"hidden_names": "Main"}}, "hidden_names must be a list of track names"),
+                 ({"Lower": {"hidden_names": ["Main", "Main"]}}, "hidden_names names a track twice")]
+        for value, msg in cases:
+            b, page = shared(le_band_labels=value)
+            with self.subTest(value=value), self.assertRaisesRegex(SchematicError, msg):
+                le.panel(b, page=page)
+        with self.assertRaisesRegex(SchematicError, "hidden_names is a band's own option"):
+            le_labels.options(with_opts(None), {"le_labels": {"hidden_names": ["Main"]}})
 
 
 if __name__ == "__main__":
