@@ -4,12 +4,15 @@
   python3 tests/run.py fast       no real JMRI and a sample of the router answers: run this while working
   python3 tests/run.py test_router test_write       only those files, for the area you are changing
   python3 tests/run.py fast test_router             those files without real JMRI
-  python3 tests/run.py --jobs 4   more files at once (default 2); each file can start four JVMs of its own
+  python3 tests/run.py --jobs 6   more files at once (default half the cores, at least 2); each can start four JVMs
   python3 tests/run.py status     where a run is now, from any other shell or session
 
 A progress line prints every 15 seconds and as each file ends. The time left comes from what each file took
 last time, scaled by how this run is going, so a busy machine moves the estimate rather than breaking it.
 Every test's seconds go to tests-all.json or tests-fast.json beside the status file, slowest first.
+The longest files start first. A test class that took over SPLIT_CLASS seconds last time runs in a process of its
+own, beside the rest of its file, unless the file has a setUpModule. The files of one run share their real JMRI
+builds (shared_builds.py), so splitting a file costs no extra builds.
 Run every test before merging: only those hold the plugin to real JMRI.
 """
 import argparse
@@ -23,19 +26,29 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
+from typing import NamedTuple
+
+import shared_builds
 
 TESTS = Path(__file__).resolve().parent
 TICK = 15  # seconds between progress lines
 DONE = "@@test-done"
+MAX_JOBS = 4  # by default: four processes can start sixteen JVMs at once, enough to fill a machine's memory
+SPLIT_CLASS = 20  # seconds: a test class slower than this last time gets a process of its own
 RUN_STATE = Path(tempfile.gettempdir()) / "operations-pro-tests"
 STATUS = RUN_STATE / "status.json"
 # In fast mode a test file runs as it would where JMRI is not installed, so the tests that need it skip.
+# only and skip name test classes; a test that failed to load always runs, so its error is reported.
 ONE_FILE = """
-import sys, time, unittest
+import os, sys, time, unittest
+from pathlib import Path
 sys.path.insert(0, {servers!r})
 import ops_jmri
 if {fast!r}:
     ops_jmri.jmri_home = lambda: None
+if os.environ.get("OPS_SHARED_BUILDS"):
+    import shared_builds
+    shared_builds.install(Path(os.environ["OPS_SHARED_BUILDS"]))
 class Result(unittest.TextTestResult):
     def startTest(self, test):
         self.began = time.monotonic()
@@ -43,8 +56,18 @@ class Result(unittest.TextTestResult):
     def stopTest(self, test):
         super().stopTest(test)
         print({done!r}, round(time.monotonic() - self.began, 2), test.id(), flush=True)
+def flat(suite):
+    for test in suite:
+        yield from flat(test) if isinstance(test, unittest.TestSuite) else [test]
+def wanted(test):
+    name = type(test).__name__
+    if isinstance(test, unittest.loader._FailedTest):
+        return True
+    return ({only!r} is None or name in {only!r}) and name not in {skip!r}
+# loadTestsFromName turns a module that will not import into a failed test, so the error is counted and shown
+suite = unittest.TestSuite(t for t in flat(unittest.defaultTestLoader.loadTestsFromName({name!r})) if wanted(t))
 runner = unittest.TextTestRunner(resultclass=Result, verbosity=0)
-sys.exit(not unittest.main(module=None, argv=["run", {name!r}], exit=False, testRunner=runner).result.wasSuccessful())
+sys.exit(not runner.run(suite).wasSuccessful())
 """
 
 
@@ -60,6 +83,7 @@ class Progress:
         self.lock = threading.Lock()
         self.started = time.monotonic()
         self.timings: list[tuple[float, str]] = []
+        self.ran: list[tuple[str, float, str]] = []  # unit name, seconds, test id: which process paid for each test
         known = [h["seconds"] / max(h["tests"], 1) for h in history.values() if h.get("seconds")]
         rate = sum(known) / len(known) if known else 1.0
         self.files = {}
@@ -77,6 +101,7 @@ class Progress:
         with self.lock:
             self.files[name]["done"] += 1
             self.timings.append((seconds, test))
+            self.ran.append((name, seconds, test))
 
     def finish(self, name: str, ok: bool) -> None:
         with self.lock:
@@ -144,23 +169,54 @@ def parse_timing(text: str) -> tuple[float, str] | None:
     return float(seconds), name
 
 
-def run_file(path: Path, fast: bool, progress: Progress) -> tuple[str, int, float, str]:
-    progress.start(path.stem)
+class Unit(NamedTuple):
+    """One process: a test file, or some of its classes. only and skip are class names, or None for no limit."""
+    name: str
+    stem: str
+    only: tuple[str, ...] | None = None
+    skip: tuple[str, ...] = ()
+
+
+def plan_units(path: Path, past: dict) -> list[Unit]:
+    """The file whole, or each class that took over SPLIT_CLASS seconds last time on its own and the rest together.
+
+    The rest is every class not split off, read by unittest at run time, so a class added since still runs."""
+    classes = past.get("classes", {})
+    slow = sorted(name for name, (seconds, _) in classes.items() if seconds > SPLIT_CLASS)
+    if not slow or re.search(r"^def setUpModule", path.read_text(), re.M):
+        return [Unit(path.stem, path.stem)]
+    return [*(Unit(f"{path.stem}.{name}", path.stem, (name,)) for name in slow),
+            Unit(f"{path.stem} (rest)", path.stem, skip=tuple(slow))]
+
+
+def unit_history(unit: Unit, past: dict) -> dict:
+    """What a unit took last time, from its file's history: the file, its class, or the file less its split classes."""
+    classes = past.get("classes", {})
+    if unit.only is None and not unit.skip:
+        return past
+    picked = [row for name, row in classes.items() if (unit.only is None or name in unit.only)
+              and name not in unit.skip]
+    return {"seconds": sum(r[0] for r in picked), "tests": sum(r[1] for r in picked)} if picked else {}
+
+
+def run_file(unit: Unit, fast: bool, progress: Progress, builds: str = "") -> tuple[str, int, float, str]:
+    progress.start(unit.name)
     started = time.monotonic()
-    code = ONE_FILE.format(servers=str(TESTS.parent / "servers"), fast=fast, name=path.stem, done=DONE)
+    code = ONE_FILE.format(servers=str(TESTS.parent / "servers"), fast=fast, name=unit.stem, done=DONE,
+                           only=None if unit.only is None else set(unit.only), skip=set(unit.skip))
     other = []
     with tempfile.TemporaryDirectory(prefix="opspro-run-") as plans:  # plan folders stay apart between files
-        env = dict(os.environ, OPS_TESTS_FAST="1" if fast else "", OPS_PLAN_DIR=plans)
+        env = dict(os.environ, OPS_TESTS_FAST="1" if fast else "", OPS_PLAN_DIR=plans, OPS_SHARED_BUILDS=builds)
         with subprocess.Popen([sys.executable, "-c", code], cwd=TESTS, env=env, text=True, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT) as process:
             for text in process.stdout:
                 timing = parse_timing(text)
                 if timing:
-                    progress.tested(path.stem, *timing)
+                    progress.tested(unit.name, *timing)
                 else:
                     other.append(text)
-    progress.finish(path.stem, process.returncode == 0)
-    return path.stem, process.returncode, time.monotonic() - started, "".join(other)
+    progress.finish(unit.name, process.returncode == 0)
+    return unit.name, process.returncode, time.monotonic() - started, "".join(other)
 
 
 def load_history(mode: str) -> dict:
@@ -170,11 +226,25 @@ def load_history(mode: str) -> dict:
         return {}
 
 
-def save_history(mode: str, results: list, progress: Progress) -> None:
+def save_history(mode: str, units: list[Unit], results: list, progress: Progress) -> None:
+    """Each file's seconds (its units added up), tests, and each class's seconds and tests from the test ids."""
     RUN_STATE.mkdir(exist_ok=True)
     history = load_history(mode)  # a run of some files keeps the times of the others
-    history.update({name: {"seconds": round(seconds, 1), "tests": progress.files[name]["tests"]}
-                    for name, _, seconds, _ in results})
+    took = {name: seconds for name, _, seconds, _ in results}
+    classes: dict[str, dict[str, list]] = {}
+    stems = {unit.name: unit.stem for unit in units}
+    for name, seconds, test in progress.ran:
+        parts = test.split(".")
+        if len(parts) < 3:  # not module.Class.test, so no class to time
+            continue
+        # filed under the file whose process ran it: a class imported into another file is timed there too
+        row = classes.setdefault(stems.get(name, parts[0]), {}).setdefault(parts[1], [0.0, 0])
+        row[0], row[1] = round(row[0] + seconds, 2), row[1] + 1
+    for stem in {unit.stem for unit in units}:
+        mine = [unit.name for unit in units if unit.stem == stem]
+        history[stem] = {"seconds": round(sum(took[name] for name in mine), 1),
+                         "tests": sum(progress.files[name]["tests"] for name in mine),
+                         "classes": classes.get(stem, {})}
     (RUN_STATE / f"history-{mode}.json").write_text(json.dumps(history))
 
 
@@ -196,10 +266,15 @@ def choose_files(every: list[Path], wanted: list[str]) -> list[Path]:
     return [path for path in every if path.stem in stems]
 
 
+def default_jobs() -> int:
+    """Half the cores, from two to MAX_JOBS: each process can run four JVMs, and JVM start-up is most of the work."""
+    return min(MAX_JOBS, max(2, (os.cpu_count() or 2) // 2))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("names", nargs="*", metavar="all|fast|status|test_file")
-    parser.add_argument("--jobs", type=int, default=2)
+    parser.add_argument("--jobs", type=int, default=default_jobs())
     args = parser.parse_args()
     args.mode, wanted = split_names(args.names)
     if args.mode == "status":
@@ -209,18 +284,32 @@ def main() -> int:
         files = choose_files(every, wanted)
     except ValueError as exc:
         parser.error(str(exc))
-    counts = {p.stem: len(re.findall(r"^\s+def test_", p.read_text(), re.M)) for p in files}
-    progress = Progress(counts, load_history(args.mode))
+    history = load_history(args.mode)
+    units = [unit for path in files for unit in plan_units(path, history.get(path.stem, {}))]
+    counts = {}
+    for path in files:
+        mine = [unit for unit in units if unit.stem == path.stem]
+        total = len(re.findall(r"^\s+def test_", path.read_text(), re.M))
+        for unit in mine:  # last time's count, or else the file's own count shared out
+            past = unit_history(unit, history.get(path.stem, {}))
+            counts[unit.name] = past.get("tests") or max(total // len(mine), 1)
+    progress = Progress(counts, {unit.name: unit_history(unit, history.get(unit.stem, {})) for unit in units})
+    units.sort(key=lambda unit: -progress.files[unit.name]["weight"])  # longest first, so none starts last
     report(progress)
-    with ThreadPoolExecutor(max(args.jobs, 1)) as pool:
-        running = {pool.submit(run_file, path, args.mode == "fast", progress) for path in files}
-        pending, results = running, []
-        while pending:
-            finished, pending = wait(pending, timeout=TICK, return_when="FIRST_COMPLETED")
-            results += [f.result() for f in finished]
-            report(progress)
+    shared = args.mode != "fast" and shared_builds.SUPPORTED
+    if args.mode != "fast" and not shared:
+        print("Real JMRI builds are not shared between files here (no fcntl), so files may build the same folder.")
+    with tempfile.TemporaryDirectory(prefix="opspro-builds-") as builds:
+        with ThreadPoolExecutor(max(args.jobs, 1)) as pool:
+            running = {pool.submit(run_file, unit, args.mode == "fast", progress, builds if shared else "")
+                       for unit in units}
+            pending, results = running, []
+            while pending:
+                finished, pending = wait(pending, timeout=TICK, return_when="FIRST_COMPLETED")
+                results += [f.result() for f in finished]
+                report(progress)
     failed = [r for r in results if r[1]]
-    save_history(args.mode, results, progress)
+    save_history(args.mode, units, results, progress)
     print("Slowest:", ", ".join(f"{name} {clock(seconds)}" for name, _, seconds, _ in
                                 sorted(results, key=lambda r: -r[2])[:5]))
     slowest = sorted(progress.timings, reverse=True)

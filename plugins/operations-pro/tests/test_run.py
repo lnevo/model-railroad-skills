@@ -1,8 +1,20 @@
-"""The test runner's progress and estimate of the time left."""
+"""The test runner's progress and estimate of the time left, how it splits files, and the shared builds."""
+import json
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from run import DONE, Progress, choose_files, clock, line, parse_timing, split_names
+import run
+from run import (DONE, MAX_JOBS, ONE_FILE, SPLIT_CLASS, TESTS, Progress, Unit, choose_files, clock, default_jobs,
+                 line, parse_timing, plan_units, save_history, split_names, unit_history)
+
+sys.path.insert(0, str(TESTS.parent / "servers"))
+import ops_build_state  # noqa: E402
+import ops_jmri  # noqa: E402
+import shared_builds  # noqa: E402
 
 
 class Choosing(unittest.TestCase):
@@ -96,6 +108,178 @@ class Reporting(unittest.TestCase):
 
     def test_clock(self):
         self.assertEqual((clock(9), clock(125)), ("9s", "2m05s"))
+
+
+class Splitting(unittest.TestCase):
+    def file(self, text="class A(unittest.TestCase):\n    pass\n"):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / "test_x.py"
+        path.write_text(text)
+        return path
+
+    def test_a_file_with_no_class_times_runs_whole(self):
+        self.assertEqual(plan_units(self.file(), {}), [Unit("test_x", "test_x")])
+
+    def test_a_slow_class_runs_alone_and_the_rest_runs_together(self):
+        past = {"seconds": 90, "tests": 6, "classes": {"Slow": [SPLIT_CLASS + 1, 2], "Quick": [3, 4]}}
+        self.assertEqual(plan_units(self.file(), past),
+                         [Unit("test_x.Slow", "test_x", ("Slow",)), Unit("test_x (rest)", "test_x", skip=("Slow",))])
+
+    def test_a_file_with_a_module_fixture_is_never_split(self):
+        past = {"classes": {"Slow": [SPLIT_CLASS + 1, 2]}}
+        self.assertEqual(plan_units(self.file("def setUpModule():\n    pass\n"), past), [Unit("test_x", "test_x")])
+
+    def test_each_unit_is_weighed_by_its_own_classes(self):
+        past = {"seconds": 90, "tests": 6, "classes": {"Slow": [60, 2], "Quick": [3, 4]}}
+        self.assertEqual(unit_history(Unit("test_x", "test_x"), past), past)
+        self.assertEqual(unit_history(Unit("test_x.Slow", "test_x", ("Slow",)), past), {"seconds": 60, "tests": 2})
+        self.assertEqual(unit_history(Unit("r", "test_x", skip=("Slow",)), past), {"seconds": 3, "tests": 4})
+
+    TWO_CLASSES = ("import unittest\nclass A(unittest.TestCase):\n    def test_a(self):\n        pass\n"
+                   "class B(unittest.TestCase):\n    def test_b(self):\n        pass\n"
+                   "    def test_c(self):\n        pass\n")
+
+    def child(self, only, skip, text=TWO_CLASSES):
+        """The child script on a file; its finished run."""
+        path = self.file(text)
+        code = ONE_FILE.format(servers=str(TESTS.parent / "servers"), fast=True, name="test_x", done=DONE,
+                               only=only, skip=skip)
+        return subprocess.run([sys.executable, "-c", code], cwd=path.parent, capture_output=True, text=True,
+                              env={"PATH": "", "OPS_SHARED_BUILDS": ""})
+
+    def run_child(self, only, skip):
+        """The child script on a file of two classes; the test ids it reports done."""
+        done = self.child(only, skip)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return sorted(parse_timing(text)[1] for text in done.stdout.splitlines() if parse_timing(text))
+
+    def test_a_file_that_will_not_import_is_a_failed_test_even_in_a_split_unit(self):
+        done = self.child({"A"}, set(), "import no_such_module\n")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("No module named 'no_such_module'", done.stderr)
+        self.assertEqual([parse_timing(t)[1] for t in done.stdout.splitlines() if parse_timing(t)],
+                         ["unittest.loader._FailedTest.test_x"])
+
+    def test_the_child_runs_only_the_classes_named(self):
+        self.assertEqual(self.run_child({"A"}, set()), ["test_x.A.test_a"])
+
+    def test_the_rest_is_every_class_not_split_off(self):
+        self.assertEqual(self.run_child(None, {"A"}), ["test_x.B.test_b", "test_x.B.test_c"])
+        self.assertEqual(len(self.run_child(None, set())), 3)
+
+
+class History(unittest.TestCase):
+    def test_a_class_imported_into_another_file_is_timed_under_the_file_that_ran_it(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        units = [Unit("test_a", "test_a"), Unit("test_b", "test_b")]
+        progress = Progress({"test_a": 1, "test_b": 2}, {})
+        progress.tested("test_a", 5.0, "test_a.Shared.test_one")
+        progress.tested("test_b", 6.0, "test_a.Shared.test_one")  # test_b imports Shared from test_a
+        progress.tested("test_b", 1.0, "test_b.Own.test_two")
+        results = [("test_a", 0, 5.0, ""), ("test_b", 0, 7.0, "")]
+        with mock.patch.object(run, "RUN_STATE", Path(temp.name)):
+            save_history("all", units, results, progress)
+        history = json.loads((Path(temp.name) / "history-all.json").read_text())
+        self.assertEqual(history["test_a"]["classes"], {"Shared": [5.0, 1]})
+        self.assertEqual(history["test_b"]["classes"], {"Shared": [6.0, 1], "Own": [1.0, 1]})
+
+
+class Jobs(unittest.TestCase):
+    def test_half_the_cores_from_two_to_the_cap(self):
+        for cores, jobs in ((None, 2), (1, 2), (4, 2), (8, 4), (64, MAX_JOBS)):
+            with mock.patch("os.cpu_count", return_value=cores):
+                self.assertEqual(default_jobs(), jobs)
+
+
+@unittest.skipUnless(shared_builds.SUPPORTED, "no fcntl here")
+class SharedBuilds(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.folder, self.ops = Path(temp.name) / "builds", Path(temp.name) / "operations"
+        self.folder.mkdir()
+        self.ops.mkdir()
+        (self.ops / "Operations.xml").write_text("<operations/>")
+        self.calls = []
+        for patch in (mock.patch.object(ops_build_state, "run_builds", self.fake_build),
+                      mock.patch.object(ops_jmri, "jmri_home", return_value=None)):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def fake_build(self, directory, job, runs):
+        self.calls.append(job)
+        if job.get("fail"):
+            raise RuntimeError("JMRI did not finish")
+        return [{"run": n, "job": job} for n in range(runs)]
+
+    def install_as_new_process(self):
+        """install() again, as each test process does: its own call counts, the same folder."""
+        ops_build_state.run_builds = self.fake_build  # setUp's patch puts the real one back
+        shared_builds.install(self.folder)
+
+    def test_a_second_process_reads_the_build_the_first_one_kept(self):
+        shared_builds.install(self.folder)
+        first = ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        self.install_as_new_process()
+        second = ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        self.assertEqual((first, second, len(self.calls)), (second, first, 1))
+        kept = [p for p in self.folder.iterdir() if p.suffix == ".json"]
+        self.assertEqual([json.loads(p.read_text()) for p in kept], [first])
+
+    def test_two_calls_in_one_process_are_two_builds(self):
+        # build_check samples an unchanged folder before and after: the samples must stay independent
+        shared_builds.install(self.folder)
+        ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        self.assertEqual(len(self.calls), 2)
+        self.install_as_new_process()  # a later process reads both, in the same order
+        ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_processes_asking_at_once_build_once(self):
+        child = (
+            "import sys, time\n"
+            f"sys.path[:0] = [{str(TESTS)!r}, {str(TESTS.parent / 'servers')!r}]\n"
+            "from pathlib import Path\n"
+            "import ops_build_state, ops_jmri, shared_builds\n"
+            "ops_jmri.jmri_home = lambda: None\n"
+            "def build(directory, job, runs):\n"
+            "    print('built', flush=True)\n"
+            "    time.sleep(1)\n"
+            "    return [{'run': n} for n in range(runs)]\n"
+            "ops_build_state.run_builds = build\n"
+            "shared_builds.install(Path(sys.argv[1]))\n"
+            "print(ops_build_state.run_builds(Path(sys.argv[2]), {'build': True}, 2))\n")
+        processes = [subprocess.Popen([sys.executable, "-c", child, str(self.folder), str(self.ops)],
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for _ in range(3)]
+        outputs = [p.communicate(timeout=60) for p in processes]
+        self.assertEqual([p.returncode for p in processes], [0, 0, 0], [err for _, err in outputs])
+        self.assertEqual(sum(out.count("built") for out, _ in outputs), 1)
+        self.assertEqual({out.splitlines()[-1] for out, _ in outputs}, {"[{'run': 0}, {'run': 1}]"})
+
+    def test_a_different_job_run_count_or_folder_builds_again(self):
+        shared_builds.install(self.folder)
+        ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        ops_build_state.run_builds(self.ops, {"build": True, "only": ["T1"]}, 2)
+        ops_build_state.run_builds(self.ops, {"build": True}, 1)
+        (self.ops / "Operations.xml").write_text("<operations changed='yes'/>")
+        ops_build_state.run_builds(self.ops, {"build": True}, 2)
+        self.assertEqual(len(self.calls), 4)
+
+    def test_a_failed_build_is_not_kept(self):
+        shared_builds.install(self.folder)
+        for _ in range(2):
+            with self.assertRaisesRegex(RuntimeError, "did not finish"):
+                ops_build_state.run_builds(self.ops, {"fail": True}, 1)
+        self.assertEqual(len(self.calls), 2)
+        self.assertEqual([p for p in self.folder.iterdir() if p.suffix == ".json"], [])
+
+    def test_a_missing_folder_is_refused(self):
+        with self.assertRaisesRegex(RuntimeError, "not a folder"):
+            shared_builds.install(self.folder / "gone")
 
 
 if __name__ == "__main__":
