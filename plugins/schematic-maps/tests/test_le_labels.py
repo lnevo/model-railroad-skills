@@ -373,6 +373,63 @@ class NameColumns(unittest.TestCase):
             le.panel(with_opts({"name_columns": [["Nowhere", "Else"]]}))
 
 
+class NameSteps(unittest.TestCase):
+    def level_west_and_run(self, P, bi, name):
+        """(x of the west end, px) of a named track's level run, from the drawn segments."""
+        from schematic.le_masts import PanelView
+        view = PanelView(P)
+        segs = {s["ident"]: s for s in P.segments}
+        xs = []
+        for (b, sid), idents in P.strand_segments.items():
+            if b != bi or le_labels.tidy([le.drawn_bands(bands())[bi][1]["strands"][sid].get("name") or ""])[0] != name:
+                continue
+            for i in idents:
+                a, c = (view.xy(e) for e in segs[i]["ends"])
+                if not segs[i]["arc"] and abs(a[1] - c[1]) < 1e-6:
+                    xs += [a[0], c[0]]
+        return min(xs), max(xs) - min(xs)
+
+    def test_a_groups_names_stand_the_same_way_in_from_their_tracks_west_ends(self):
+        b = bands()
+        lower = next(i for i, (t, _b, _o) in enumerate(b) if t.startswith("Lower"))
+        level = [lb["text"] for lb in le.panel(b).labels if lb["kind"] == "name" and lb["band"] == lower]
+        P = None
+        for i, t1 in enumerate(level):
+            for t2 in level[i + 1:]:
+                try:
+                    P = le.panel([(t, band, dict(o, le_labels={"name_steps": [[t1, t2]]}) if k == lower else o)
+                                  for k, (t, band, o) in enumerate(b)])
+                except SchematicError:
+                    continue
+                break
+            if P is not None:
+                break
+        self.assertIsNotNone(P, "no pair of level tracks whose names fit stepped in the example")
+        runs = {n: self.level_west_and_run(P, lower, n) for n in (t1, t2)}
+        inset = min(r for _w, r in runs.values()) / 2
+        for lb in P.labels:
+            if lb["kind"] == "name" and lb["band"] == lower and lb["text"] in runs:
+                self.assertAlmostEqual(lb["box"][0] + lb["box"][2] / 2, runs[lb["text"]][0] + inset, delta=1.0)
+        le_labels.verify(P)
+
+    def test_the_west_level_run_stops_at_a_climb(self):
+        lines = [((0, 5), (10, 5)), ((10, 5), (20, 5)), ((20, 5), (30, 0)), ((30, 0), (50, 0))]
+        self.assertEqual(le_labels.west_level_run(lines), (0, 20))
+        self.assertIsNone(le_labels.west_level_run([((0, 0), (5, 5))]))
+
+    def test_name_steps_are_checked(self):
+        for bad in ("S-1", [["S-1"]], [["S-1", ""]], [["A", "B"], ["B", "C"]]):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "name_steps"):
+                le_labels.options(with_opts({"name_steps": bad}), None)
+        with self.assertRaisesRegex(SchematicError, "A in both name_columns and name_steps"):
+            le_labels.options(with_opts({"name_steps": [["A", "B"]], "name_columns": [["A", "C"]]}), None)
+        with self.assertRaisesRegex(SchematicError, "A in both name_columns and name_steps \\(from the page's"):
+            le_labels.name_step_x(None, [("Lower", {}, {})], [{"name_steps": [["A", "B"]],
+                                                               "name_columns": [["A", "C"]]}], [])
+        with self.assertRaisesRegex(SchematicError, "name_steps names Nowhere"):
+            le.panel(with_opts({"name_steps": [["Nowhere", "Else"]]}))
+
+
 class LampColumns(unittest.TestCase):
     def test_a_groups_lamps_are_kept_clear_on_one_x_on_their_tracks(self):
         b = bands()

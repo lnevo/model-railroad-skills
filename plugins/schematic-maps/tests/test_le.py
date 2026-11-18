@@ -374,6 +374,121 @@ def three_way_band():
     return [("Test level", dict(nodes=nodes, strands=strands, _drawn=drawn), {})]
 
 
+def pair_band(q_col=6):
+    """Switch 1 on the top row, switch 3 two rows below it, joined by one diagonal track (one crossover on the ground,
+    two numbers), and switch 5 east of 3 on the bottom row with a spur below: a solved band the plugin's own paths
+    draws, so a let-out moves the drawing."""
+    end = lambda s, io: dict(kind="end", sub="bumper", label="", ins={"E": s} if io else {}, outs={} if io else {"E": s})  # noqa: E731
+    nodes = {"WT": end("wt", False), "ET": end("et", True), "WB": end("wb", False), "EB": end("eb", True),
+             "ES": end("s", True),
+             "P": dict(kind="switch", label="1", hand=1, ins={"A": "wt"}, outs={"B": "et", "C": "d"}),
+             "Q": dict(kind="switch", label="3", hand=1, ins={"B": "wb", "C": "d"}, outs={"A": "m"}),
+             "R": dict(kind="switch", label="5", hand=-1, ins={"A": "m"}, outs={"B": "eb", "C": "s"})}
+    st = lambda a, b, name: dict(src=a, dst=b, name=name, main=False, hidden=False, link=False, edge="", cm=1.0)  # noqa: E731
+    strands = {"wt": st(("WT", "E"), ("P", "A"), "Top"), "et": st(("P", "B"), ("ET", "E"), "Top east"),
+               "d": st(("P", "C"), ("Q", "C"), ""), "wb": st(("WB", "E"), ("Q", "B"), "Bottom"),
+               "m": st(("Q", "A"), ("R", "A"), "Middle"), "eb": st(("R", "B"), ("EB", "E"), "Bottom east"),
+               "s": st(("R", "C"), ("ES", "E"), "Spur")}
+    x = {"WT": 0, "P": 2, "ET": 14, "WB": 0, "Q": q_col, "R": 9, "EB": 14, "ES": 12}
+    nrow = {"WT": 0, "P": 0, "ET": 0, "WB": 2, "Q": 2, "R": 2, "EB": 2, "ES": 3}
+    srow = {"wt": 0, "et": 0, "wb": 2, "m": 2, "eb": 2}
+    band = dict(nodes=nodes, strands=strands, x=x, need={k: (0, 0, 0) for k in srow},
+                R=dict(srow=srow, nrow=nrow, diag={"d", "s"}))
+    return [("Test level", band, {"le_labels": {"block_contents": False}})]
+
+
+class CrossoverPairs(unittest.TestCase):
+    """crossover_pairs: two plain turnouts of different numbers that are one crossover on the ground, their track
+    drawn at the crossover run, the east one and everything east of it slid along the rows."""
+
+    RUN = 48.0
+    PAIRS = {"Test": [["1", "3"]]}
+
+    @staticmethod
+    def legs(P):
+        """{switch number: {leg: (x, y)}} as drawn."""
+        label = {"P": "1", "Q": "3", "R": "5"}
+        return {label[t["nodes"][0]]: t["pts"] for t in P.turnouts}
+
+    def diagonal(self, P):
+        legs = self.legs(P)
+        (ax, ay), (bx, by) = legs["1"]["C"], legs["3"]["C"]
+        return bx - ax, by - ay
+
+    def test_the_track_crosses_at_the_run_and_everything_east_slides(self):
+        plain = le.panel(pair_band(), crossover_run=self.RUN)
+        P = le.panel(pair_band(), crossover_run=self.RUN, crossover_pairs=self.PAIRS)
+        across, deep = self.diagonal(P)
+        self.assertAlmostEqual(across / deep, self.RUN / le.ROW, delta=le.PAIR_TOLERANCE / deep)
+        self.assertNotAlmostEqual(*(lambda a, d: (a / d, self.RUN / le.ROW))(*self.diagonal(plain)), places=2)
+        self.assertEqual(P.pair_angles, {"1/3": round(math.degrees(math.atan2(deep, across)), 1)})
+        was, now = self.legs(plain), self.legs(P)
+        self.assertEqual((was["1"]["A"], was["1"]["B"]), (now["1"]["A"], now["1"]["B"]))  # the west switch stays,
+        self.assertNotEqual(was["1"]["C"], now["1"]["C"])                                  # its leg C on the slope
+        slid = now["5"]["A"][0] - was["5"]["A"][0]              # switch 5, east of 3, slides as far as 3 does
+        self.assertAlmostEqual(now["3"]["A"][0] - was["3"]["A"][0], slid)
+        self.assertLess(slid, 0)                                 # the diagonal was flatter: drawn shorter
+        self.assertTrue(any("crossover pair 1/3: its diagonal crosses at" in line for line in P.log))
+        self.assertTrue(any("drawn" in line and "shorter for crossover pair 1/3's angle" in line for line in P.log))
+
+    def test_the_preference_draws_as_the_argument(self):
+        by_arg = le.panel(pair_band(), crossover_run=self.RUN, crossover_pairs=self.PAIRS)
+        (t, b, o), = pair_band()
+        angle = math.degrees(math.atan(le.ROW / self.RUN))
+        by_pref = le.panel([(t, b, dict(o, le_crossover_pairs=self.PAIRS, le_crossover_angle={"Test": angle}))])
+        self.assertEqual(le.geometry(by_pref), le.geometry(by_arg))
+
+    def test_a_steeper_track_is_let_out(self):
+        P = le.panel(pair_band(q_col=3), crossover_run=self.RUN, crossover_pairs=self.PAIRS)
+        across, deep = self.diagonal(P)
+        self.assertAlmostEqual(across / deep, self.RUN / le.ROW, delta=le.PAIR_TOLERANCE / deep)
+        self.assertTrue(any("longer for crossover pair 1/3's angle" in line for line in P.log))
+
+    def test_bad_pairs_stop(self):
+        for pairs, why in (({"Test": [["1", "5"]]}, "switches 1 and 5: 0 tracks join them"),
+                           ({"Test": [["1", "9"]]}, "switch 9 is drawn as 0 switches"),
+                           ({"Test": [["1", "1"]]}, "pairs of two different switch numbers"),
+                           ({"Test": [["1", "3"], ["3", "5"]]}, "switch 3 is in another pair too"),
+                           ({"Nowhere": [["1", "3"]]}, "names Nowhere, which is no band"),
+                           ({"Test": "1/3"}, "pairs of two different switch numbers"),
+                           (["1", "3"], "must be {band key")):
+            with self.subTest(pairs=pairs), self.assertRaisesRegex(SchematicError, why):
+                le.panel(pair_band(), crossover_run=self.RUN, crossover_pairs=pairs)
+        with self.assertRaisesRegex(SchematicError, "needs crossover_run"):
+            le.panel(pair_band(), crossover_pairs=self.PAIRS)
+        with self.assertRaisesRegex(SchematicError, "crossover_pairs is for a panel drawn at a given grid"):
+            le.panel(pair_band(), crossover_pairs=self.PAIRS, fit=(1300, 700))
+        (t, b, o), = three_way_band()
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]), \
+                self.assertRaisesRegex(SchematicError, "switch 7 is half of a single crossover"):
+            le.panel([(t, b, o)], crossover_run=self.RUN, crossover_pairs={"Test": [["7", "8"]]})
+
+    def test_a_pair_whose_track_is_not_one_diagonal_stops(self):
+        (t, b, o), = pair_band()
+        b["R"]["diag"] = {"s"}
+        b["R"]["srow"]["d"], b["need"]["d"] = 2, (0, 0, 0)
+        with self.assertRaisesRegex(SchematicError, "not drawn as one diagonal"):
+            le.panel([(t, b, o)], crossover_run=self.RUN, crossover_pairs=self.PAIRS)
+
+    def test_an_east_switch_at_the_band_edge_stops(self):
+        P = le.panel(pair_band(), crossover_run=self.RUN)
+        (_t, b, _o), = pair_band()
+        b["x"]["Q"] = max(b["x"].values())
+        with self.assertRaisesRegex(SchematicError, "east switch stands at the band's east edge"):
+            le.pair_nodes(P, 0, b, "P", "Q", "d", "1/3")
+
+    def test_the_slide_moves_everything_east_but_the_edge_and_the_west_switch(self):
+        P = le.panel(pair_band(), crossover_run=self.RUN)
+        (_t, b, _o), = pair_band()
+        self.assertEqual(le.pair_nodes(P, 0, b, "P", "Q", "d", "1/3"), ["ES", "Q", "R"])
+
+    def test_a_track_on_one_row_stops(self):
+        (t, b, o), = pair_band()
+        b["R"]["nrow"]["Q"] = 0
+        with self.assertRaisesRegex(SchematicError, "drawn on one row"):
+            le.panel([(t, b, o)], crossover_run=self.RUN, crossover_pairs=self.PAIRS)
+
+
 class TightCrossovers(unittest.TestCase):
     """tight_crossovers: two crossovers on one shared track drawn as close as their shapes allow."""
 
