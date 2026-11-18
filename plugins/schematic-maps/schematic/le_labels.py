@@ -2,7 +2,7 @@
 each in the first clean spot near what it names, sized as JMRI draws it.
 
     opts = le_labels.options(bands, page)       # le.draw_panel, before any drawing: checked, one dict per band
-    bands = le_labels.hide_names(bands, page)   # le.panel, first: a band's hidden_names drawn as unnamed tracks
+    bands = le_labels.hide_names(bands, page)   # le.panel and draw_panel, first: a band's hidden_names marked
     le_labels.place(P, bands, opts)             # le.label_layer, last: the grid settled, every mast icon placed
 
 The drawing (le) keeps room for switch numbers, track names and station names at fixed offsets; that room is part
@@ -82,9 +82,11 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
 A band's options, each over the one before: DEFAULTS, the page's `le_labels`, the band's own `le_labels`, and its
 entry of the band preference `le_band_labels` ({band key: le_labels object}, le_prefs: for one preferences file that
 sets the page and several bands, where a flat le_labels reaches them all); a key in both of the band's own stops.
-`hidden_names` (a band's: track names): those tracks are drawn as unnamed on the Layout Editor panel (hide_names,
-before le.panel draws: no label, no room kept, name_room passes them by); a name on no track of the band, or on a
-helix track (it joins the bands), stops.
+In such a file the flat le_labels is the page's and each of those bands' own at once, so a key is set either there
+(every band) or per band in le_band_labels, never both.
+`hidden_names` (a band's: track names): the Layout Editor panel draws no name for those tracks (hide_names marks
+them before le.panel draws: no label, no room kept, name_room passes them by); the name itself stays, for block
+names and helix joins. A name on no track of the band stops.
 `extra_steps` and `extra_follow` (a band's own, like names_last): caller's items that step along one slope, which le
 places through le_prefs.extra_steps (see there); this module only checks them.
 `optional_block_contents` (a band's: blocks that band draws): blocks whose block contents icon is left out (logged,
@@ -243,12 +245,16 @@ def options(bands, page):
     return out
 
 
+HIDDEN = "le_name_hidden"     # set on a strand whose name the Layout Editor panel leaves off (hide_names)
+
+
 def hide_names(bands, page):
-    """`bands` with each band's `hidden_names` (options) left off: a copy in which those tracks carry no name, so the
-    Layout Editor panel draws them as unnamed tracks (no name label, no room kept for one, le.panel's name_room
-    passes them by); the sheet and every other output keep the names. Stops when a listed name is on no track of
-    that band, or on a helix track (le.partners joins the bands by a helix track's name). The bands given are not
-    changed; a band with nothing hidden is returned as it is."""
+    """`bands` with each band's `hidden_names` (options) marked: a copy in which those tracks carry HIDDEN, so the
+    Layout Editor panel draws no name for them (no label, no room kept for one, le.panel's name_room passes them
+    by). The name itself stays, so block names, helix joins and messages read as before, and every other output
+    keeps it. A name matches a track's name as given or as the panel writes it (tidy: "Track Y-1" as "Y-1"). Stops
+    when a listed name is on no track of that band. The bands given are not changed; a band with nothing hidden is
+    returned as it is, and marking twice changes nothing (le.panel and draw_panel both call this)."""
     out = []
     for (title, band, o), opts in zip(bands, options(bands, page)):
         hidden = opts["hidden_names"]
@@ -256,22 +262,19 @@ def hide_names(bands, page):
             out.append((title, band, o))
             continue
         strands = band["strands"]
-        named = defaultdict(list)
+        named = defaultdict(set)
         for sid, s in strands.items():
             if s.get("name"):
-                named[s["name"]].append(sid)
+                named[s["name"]].add(sid)
+                named[tidy([s["name"]])[0]].add(sid)
         missing = [n for n in hidden if n not in named]
         if missing:
             raise SchematicError(f"{title}: le_labels: hidden_names {', '.join(missing)}: no track of the band "
                                  "has that name")
-        helix = sorted(n for n in hidden for sid in named[n]
-                       if any(band["nodes"].get(e[0], {}).get("sub") == "helix"
-                              for e in (strands[sid]["src"], strands[sid]["dst"])))
-        if helix:
-            raise SchematicError(f"{title}: le_labels: hidden_names {', '.join(helix)}: a helix track's name joins "
-                                 "the bands, so it cannot be hidden")
-        gone = {sid for n in hidden for sid in named[n]}
-        band = dict(band, strands={sid: dict(s, name="") if sid in gone else s for sid, s in strands.items()})
+        gone = {sid for n in hidden for sid in named[n] if not strands[sid].get(HIDDEN)}
+        if gone:
+            band = dict(band, strands={sid: dict(s, **{HIDDEN: True}) if sid in gone else s
+                                       for sid, s in strands.items()})
         out.append((title, band, o))
     return out
 
@@ -822,9 +825,10 @@ def specs(P, bands, opts, L, extras=()):
                                                                label in o["numbers_below"])))
     named = []
     for (bi, sid), idents in sorted(P.strand_segments.items()):
-        name = bands[bi][1]["strands"][sid]["name"]
+        st = bands[bi][1]["strands"][sid]
+        name = st["name"]
         mine = [i for i in idents if i in L.world.track]
-        if not name or not mine:
+        if not name or not mine or st.get(HIDDEN):     # hidden_names: no name drawn, nothing logged
             continue
         if (bi, sid) in P.no_name:          # the drawing keeps no room for it: as before the label layer, no name
             P.log.append(f"{bands[bi][0]}: track {tidy([name])[0]}: no name placed ({P.no_name[(bi, sid)]})")

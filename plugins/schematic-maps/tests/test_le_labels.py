@@ -709,28 +709,44 @@ class BandKeyedLabels(unittest.TestCase):
 class HiddenNames(unittest.TestCase):
     """hidden_names: a band's track names the Layout Editor panel leaves off."""
 
-    def test_a_hidden_name_draws_as_a_track_with_no_name(self):
+    def test_a_hidden_name_is_drawn_as_no_name_but_still_names_its_block(self):
         b, page = shared(le_band_labels={"Lower": {"hidden_names": ["Yard Lead"]}})
         rest = {k: v for k, v in page.items() if k != "le_band_labels"}
         unnamed = [(t, dict(band, strands={sid: dict(s, name="") if s["name"] == "Yard Lead" else s
                                            for sid, s in band["strands"].items()}) if t.startswith("Lower")
                     else band, rest) for t, band, _o in b]
-        P = le.panel(b, page=page)
+        P, U = le.panel(b, page=page), le.panel(unnamed, page=rest)
         self.assertNotIn("Yard Lead", [lb["text"] for lb in P.labels])
-        self.assertEqual(ET.tostring(le.to_xml(P, "G")), ET.tostring(le.to_xml(le.panel(unnamed, page=rest), "G")))
+        # drawn as a track with no name: the same labels and track, so no room kept for it either (the block
+        # contents icons may stand elsewhere: with no names given, the unnamed track's block takes another name)
+        self.assertEqual([(lb["text"], lb["box"]) for lb in P.labels], [(lb["text"], lb["box"]) for lb in U.labels])
+        self.assertEqual(P.strand_segments, U.strand_segments)
+        self.assertIn("Yard Lead", P.blocks)                    # the name stays: its block is still named by it
+        self.assertNotIn("Yard Lead", U.blocks)
+        self.assertFalse(any("Yard Lead" in line for line in P.log if "no name placed" in line))
         self.assertTrue(any(s["name"] == "Yard Lead" for s in b[1][1]["strands"].values()))   # not changed
 
     def test_every_track_of_a_hidden_name_loses_it_on_that_band_only(self):
         b, page = shared(le_band_labels={"Lower": {"hidden_names": ["Main"]}})
         hidden = le_labels.hide_names(b, page)
-        self.assertEqual([s["name"] for s in hidden[1][1]["strands"].values() if s["name"] == "Main"], [])
+        mains = [s for s in hidden[1][1]["strands"].values() if s["name"] == "Main"]
+        self.assertGreater(len(mains), 1)
+        self.assertTrue(all(s[le_labels.HIDDEN] for s in mains))
+        self.assertFalse(any(s.get(le_labels.HIDDEN) for s in hidden[1][1]["strands"].values() if s["name"] != "Main"))
         self.assertIs(hidden[0][1], b[0][1])                    # a band with nothing hidden: as it is
+        again = le_labels.hide_names(hidden, page)              # marking twice changes nothing
+        self.assertIs(again[1][1], hidden[1][1])
+        b2, page2 = shared(le_band_labels={"Lower": {"hidden_names": ["Y-9"]}})     # as the panel writes it
+        t2, band2, o2 = b2[1]
+        b2[1] = (t2, dict(band2, strands={sid: dict(st, name="Track Y-9") if st["name"] == "Y-1" else st
+                                          for sid, st in band2["strands"].items()}), o2)     # a copy
+        self.assertTrue(all(st[le_labels.HIDDEN] for st in le_labels.hide_names(b2, page2)[1][1]["strands"].values()
+                            if st["name"] == "Track Y-9"))
 
-    def test_a_name_on_no_track_a_helix_name_or_a_bad_list_stops(self):
+    def test_a_name_on_no_track_or_a_bad_list_stops(self):
         cases = [({"Lower": {"hidden_names": ["Nowhere"]}}, "Lower level: le_labels: hidden_names Nowhere: no "
                                                             "track of the band has that name"),
                  ({"Lower": {"hidden_names": ["Spur"]}}, "hidden_names Spur: no track of the band"),   # Upper's
-                 ({"Upper": {"hidden_names": ["Summit"]}}, "hidden_names Summit: a helix track's name joins"),
                  ({"Lower": {"hidden_names": "Main"}}, "hidden_names must be a list of track names"),
                  ({"Lower": {"hidden_names": ["Main", "Main"]}}, "hidden_names names a track twice")]
         for value, msg in cases:
@@ -739,6 +755,20 @@ class HiddenNames(unittest.TestCase):
                 le.panel(b, page=page)
         with self.assertRaisesRegex(SchematicError, "hidden_names is a band's own option"):
             le_labels.options(with_opts(None), {"le_labels": {"hidden_names": ["Main"]}})
+
+    def test_a_helix_tracks_hidden_name_still_joins_the_bands(self):
+        b, page = shared(le_band_labels={"Upper": {"hidden_names": ["Summit"]}})
+        rest = {k: v for k, v in page.items() if k != "le_band_labels"}
+        P, full = le.panel(b, page=page), le.panel([(t, band, rest) for t, band, _o in b], page=rest)
+        hidden_join = [s for s in P.segments if s.get("hidden")]
+        self.assertEqual(len(hidden_join), len([s for s in full.segments if s.get("hidden")]))
+        self.assertEqual(sum(lb["text"] == "Summit" for lb in P.labels) + 1,
+                         sum(lb["text"] == "Summit" for lb in full.labels))      # Upper's label only
+
+    def test_draw_panel_marks_them_too(self):
+        b, page = shared(le_band_labels={"Lower": {"hidden_names": ["Yard Lead"]}})
+        P = le.draw_panel(b, None, le.CELL, le.ROW, page)
+        self.assertNotIn("Yard Lead", [lb["text"] for lb in P.labels])
 
 
 if __name__ == "__main__":

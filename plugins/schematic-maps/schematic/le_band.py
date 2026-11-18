@@ -6,7 +6,7 @@ in le's module text. Import le, not this module: le imports it once its own name
 import math
 from collections import defaultdict
 
-from . import stations
+from . import le_labels, stations
 from .core import SchematicError, tidy
 from .draw import band_key
 from .layout import paths
@@ -659,7 +659,7 @@ class Band:
             y = cen[1] - NUMBER_SIZE - 6 if down else cen[1] + 5
             P.label(label, (cen[0], y), NUMBER_SIZE, True, kind="switch")
         for sid, s in sorted(self.strands.items()):
-            if not s["name"] or sid in self.internal:
+            if not s["name"] or sid in self.internal or s.get(le_labels.HIDDEN):     # hidden_names: no room
                 continue
             pts = self.poly[sid]
             runs = [(a, b) for a, b in zip(pts, pts[1:]) if abs(a[1] - b[1]) < EPS]

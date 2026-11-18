@@ -689,7 +689,7 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
         raise SchematicError("no band to draw")
     pg = page if page is not None else bands[-1][2]        # the page's options, for the preferences
     le_prefs.check_page(pg, bands)
-    bands = le_labels.hide_names(drawn_bands(bands, page), page)    # a band's le_labels hidden_names: unnamed here
+    bands = le_labels.hide_names(drawn_bands(bands, page), pg)      # a band's le_labels hidden_names: marked
     band_bottoms = le_prefs.check_bottoms(bands, band_bottoms)
     runs = le_prefs.crossover_runs(bands, pg, row)
     if runs and crossover_run is not None:
@@ -995,6 +995,7 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
     never reach another band, with or without `fit`."""
     if bands:
         le_labels.options(bands, page)      # checked before any drawing (page None: no page-wide label options)
+        bands = le_labels.hide_names(bands, page)       # hidden_names marked (once: le.panel may have marked them)
     le_labels.check_extras(extras)
     mast_room = check_mast_room(bands, mast_room)
     name_room = check_mast_room(bands, name_room, "name_room")
@@ -1206,7 +1207,7 @@ def name_room_wanted(P, bands, keys, want, moved, notes):
         named = []
         for (b, sid), idents in P.strand_segments.items():
             st = band["strands"][sid] if b == bi else None
-            if st is None or not st.get("name") or (bi, sid) in P.no_name:
+            if st is None or not st.get("name") or st.get(le_labels.HIDDEN) or (bi, sid) in P.no_name:
                 continue
             run = best = 0.0
             for i in idents:            # the longest run of level straight segments, end to end
