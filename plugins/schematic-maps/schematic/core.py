@@ -53,6 +53,19 @@ def dx_tracks(nodes, n):
     return (ab, dc) if (d["hand"] == 1) == (d["sig"] == 1) else (dc, ab)
 
 
+XOVER_ONE = "one"       # a double crossover's `corners` binding (CATS) or `xover_blocks` entry (Layout Editor): one block
+
+
+def xover_names(d, n):
+    """The default blocks of double crossover `n` (data `d`): a block per band leg, "OS <number>a" to "OS <number>d"
+    (its OS block's name and the leg's letter), and "OS <number> X" for the middle of its X (CATS only; a Layout
+    Editor double crossover has none). The Layout Editor and CATS panels name a double crossover's corners alike."""
+    if d.get("kind") != "dx":
+        raise SchematicError(f"switch {d.get('label') or n} is not a double crossover; only those have corners")
+    base = f"OS {d.get('label') or n}"
+    return {**{p: base + p.lower() for p in "ABCD"}, "X": base + " X"}
+
+
 
 def descend(start, items, push, cost):
     """Local search: move one item a step, pushing whatever it would collide with; keep it if cheaper."""

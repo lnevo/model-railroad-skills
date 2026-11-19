@@ -374,8 +374,9 @@ class Fit(unittest.TestCase):
             self.assertLessEqual(int(root.get("panelwidth")), 900)
             self.assertLessEqual(int(root.get("panelheight")), 500)
             self.assertLessEqual(int(root.get("windowwidth")), 918)
-            self.assertEqual(len(root.findall("BlockContentsIcon")), len({e.get("blockname") for e in
-                                                                         root.iter() if e.get("blockname")}))
+            self.assertEqual(len(root.findall("BlockContentsIcon")),       # a double crossover's four corners too
+                             len({e.get(a) for e in root.iter() for a in ("blockname", "blockbname", "blockcname",
+                                                                         "blockdname") if e.get(a)}))
             bad = subprocess.run([sys.executable, "-m", "schematic", "le", str(out), "--data", str(f),
                                   f"{graph}:example", "--fit", "wide"],
                                  capture_output=True, text=True, cwd=helpers.PLUGIN, timeout=120)

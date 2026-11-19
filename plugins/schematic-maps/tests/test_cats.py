@@ -134,7 +134,8 @@ class Cats(unittest.TestCase):
         self.assertEqual(names, set(P.names.values()))
         self.assertEqual(len(list(root.iter("IOSPEC"))), 0)           # no bindings without a bindings file
         self.assertEqual(len(list(root.iter("SECSIGNAL"))), 0)
-        self.assertIn("OS 6", names)
+        self.assertLessEqual({"OS 6a", "OS 6b", "OS 6c", "OS 6d", "OS 6 X"}, names)    # double crossover corners
+        self.assertNotIn("OS 6", names)
         self.assertIn("Y-1", names)
         labels = {s.get("NAME") for s in root.iter("SEC_NAME")}
         self.assertTrue({"1", "11", "Y-1", "PASSING"} <= labels, labels)
@@ -541,6 +542,8 @@ class Bindings(unittest.TestCase):
 
 
 MASTS = {"masts": {"M12C": {}, "M1A": {}, "M2E": {}}}
+LOG = ["Lower level: 1 row(s) opened below grid row 1 for a double crossover's corner blocks",
+       "label 'RISE' at (20, 12) UPCENT crosses 1 track lines, signals or labels"]
 
 
 def compact():
@@ -567,10 +570,11 @@ class Compact(unittest.TestCase):
         # every switch keeps its own OS block: 3 and 8 (one unit of level track apart) get a widened column
         self.assertEqual(sorted(n for n in P.names.values() if n.startswith("OS")),
                          sorted(n for n in wide.names.values() if n.startswith("OS")))
-        self.assertEqual(P.log, ["label 'RISE' at (20, 12) UPCENT crosses 1 track lines, signals or labels"])
+        self.assertEqual(P.log, LOG)
 
     def test_a_crossover_one_row_deep_crosses_between_the_rows(self):
-        P = compact()
+        """Bound to one OS block (corners "one"), the X stays one row deep, crossing on the edge between the rows."""
+        P = cats.panel(helpers.build().bands, scale=1, bindings={**MASTS, "switches": {"6": {"corners": "one"}}})
         (a, ea), (b, eb) = sorted(P.crossings)
         self.assertEqual((ea, eb), ("BOTTOM", "TOP"))
         self.assertEqual((b[0], b[1] - 1), a)
@@ -603,6 +607,53 @@ class Compact(unittest.TestCase):
         self.assertEqual(component(links(P), next(iter(sorted(pieces)))), pieces)
         self.assertTrue(any("row(s) opened" in m for m in P.log), P.log)
         cats.to_xml(P)
+
+    def test_a_double_crossover_is_a_block_per_corner_by_default(self):
+        """Unbound, the corners and the middle take the default names (core.xover_names), the same corner blocks a
+        `corners` binding of those names gives; corners without X keep the default middle."""
+        P = compact()
+        default = {"A": "OS 6a", "B": "OS 6b", "C": "OS 6c", "D": "OS 6d", "X": "OS 6 X"}
+        self.assertLessEqual(set(default.values()), set(P.names.values()))
+        self.assertNotIn("OS 6", P.names.values())
+        given = cats.panel(helpers.build().bands, scale=1, bindings={**MASTS, "switches": {"6": {"corners": default}}})
+        self.assertEqual(cats.to_xml(P).find("TRACKPLAN").attrib, cats.to_xml(given).find("TRACKPLAN").attrib)
+        self.assertEqual(sorted(P.names.values()), sorted(given.names.values()))
+        part = {k: v for k, v in default.items() if k != "X"}
+        Q = cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": {"corners": part}}})
+        self.assertIn("OS 6 X", Q.names.values())
+
+    def test_one_os_block_when_bound_so(self):
+        """corners "one", or a `block`, keeps the old single OS block (one row deep, logged); "one" takes the
+        default OS name."""
+        for e, name in (({"corners": "one"}, "OS 6"), ({"block": "Cross"}, "Cross")):
+            with self.subTest(binding=e):
+                P = cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": e}})
+                self.assertIn(name, P.names.values())
+                self.assertFalse({"OS 6a", "OS 6 X"} & set(P.names.values()))
+                self.assertFalse(any("row(s) opened" in m for m in P.log))
+                self.assertIn("Lower level: double crossover 6 is one OS block, as bound", P.log)
+        for bad, why in (({"corners": "two"}, "or \"one\" for one OS block"),
+                         ({"corners": "one", "block": "Cross"}, "corners or block, not both")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(cats.SchematicError, why):
+                cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": bad}})
+        with self.assertRaisesRegex(cats.SchematicError, "corners are for a double crossover"):
+            cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"1": {"corners": "one"}}})
+
+    def test_the_middle_of_the_x_has_no_detector_unless_bound(self):
+        """The middle block is written with no occupancy IOSPEC (dark) by default; a blocks binding gives it one."""
+        def middle(P):
+            root = cats.to_xml(P)
+            blk = next(b for b in root.iter("BLOCK") if b.get("NAME") == "OS 6 X")
+            return blk.findall(".//IOSPEC")
+        self.assertEqual(middle(cats.panel(helpers.build().bands, scale=1)), [])
+        io = {"DECADDR": "61", "JMRIPREFIX": "IS", "USER_NAME": "Middle", "command": "throw"}
+        bound = middle(cats.panel(helpers.build().bands, scale=1, bindings={"blocks": {"OS 6 X": {"occupied": io}}}))
+        self.assertEqual([s.get("DECADDR") for s in bound], ["61"])
+
+    def test_bound_corners_must_not_take_another_blocks_name(self):
+        with self.assertRaisesRegex(cats.SchematicError, "OS 1 are each the name of two blocks"):
+            cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": {
+                "corners": {"A": "OS 1", "B": "b", "C": "c", "D": "d"}}}})
 
     def test_corners_must_name_four_different_blocks(self):
         for bad in ({"A": "a", "B": "b", "C": "c"}, {"A": "a", "B": "a", "C": "c", "D": "d"}):

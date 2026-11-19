@@ -226,7 +226,33 @@ class Switches(unittest.TestCase):
         self.assertAlmostEqual(p["C"][1], p["D"][1])
         self.assertLess(p["A"][0], p["B"][0])
         self.assertLess(p["A"][1], p["D"][1])
-        self.assertEqual(set(dx[0]["blocks"].values()), {"OS 6"})
+        # by default a block per corner, named after the band leg whose corner it is (core.xover_names)
+        n, legs = P.turnout_of[(dx[0]["band"], "DX")]
+        self.assertEqual({legs[port]: f"OS 6{port.lower()}" for port in "ABCD"}, dx[0]["blocks"])
+        self.assertFalse(any("one OS block" in m for m in P.log))
+        self.assertTrue({"OS 6a", "OS 6b", "OS 6c", "OS 6d"} <= set(P.blocks))
+
+    def test_double_crossover_as_one_block(self):
+        """xover_blocks "one", or an `os` block named without corners, keeps the crossover one OS block, logged;
+        xover_blocks still wins over `os`."""
+        for names, block in (({"xover_blocks": {"DX": "one"}}, "OS 6"), ({"os": {"DX": "OS Six"}}, "OS Six")):
+            with self.subTest(names=names):
+                P = panel({"Lower": names})
+                t = next(t for t in P.turnouts if t["type"] == "DOUBLE_XOVER")
+                self.assertEqual(set(t["blocks"].values()), {block})
+                self.assertTrue(any("double crossover 6 is one OS block" in m for m in P.log), P.log)
+                self.assertFalse({"OS 6a", "OS 6b"} & set(P.blocks))
+        given = {"A": "W", "B": "X", "C": "Y", "D": "Z"}
+        P = panel({"Lower": {"os": {"DX": "OS Six"}, "xover_blocks": {"DX": given}}})
+        t = next(t for t in P.turnouts if t["type"] == "DOUBLE_XOVER")
+        self.assertEqual(set(t["blocks"].values()), set(given.values()))
+        for bad in ("two", "ONE", ["one"]):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "or \"one\" for one OS block"):
+                le.panel(bands(), {"Lower": {"xover_blocks": {"DX": bad}}})
+
+    def test_default_corner_blocks_keep_clear_of_given_names(self):
+        with self.assertRaisesRegex(SchematicError, "default corner blocks OS 6b"):
+            le.panel(bands(), {"Lower": {"os": {"S1": "OS 6b"}}})
 
     def test_double_crossover_corner_blocks(self):
         """`xover_blocks` puts each band leg's corner in its own block, written as JMRI's four block names, so no

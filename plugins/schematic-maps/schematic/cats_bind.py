@@ -4,7 +4,7 @@ Bindings (optional, `panel(bands, bindings=...)`, the command's --bindings FILE.
 layout's devices; every name in them must exist in the panel, or it is an error:
 
     {"switches": {"LABEL" or "LABEL/ALIAS": {"block": "OS name", "normal": "B" or "C", "label": "shown text",
-                                              "corners": {"A": block, "B": .., "C": .., "D": .., "X": middle},
+                                              "corners": {"A": block, "B": .., "C": .., "D": .., "X": middle} or "one",
                                               "routes": {"B": {"ROUTECOMMAND": IO, "SELECTEDREPORT": IO}, "C": {..}}}},
      "blocks":   {"BLOCK": {"name": "layout name", "station": "..", "discipline": "CTC", "occupied": IO, "unoccupied": IO}},
      "masts":    {"MAST": {"name": "mast user name", "template": "physical signal template", "pantype": "LAMP2",
@@ -15,7 +15,11 @@ IO is one CATS IOSPEC: {"DECADDR": .., "JMRIPREFIX": .., "USER_NAME": .., "comma
 JMRIDEVICE, EXIT_CMD, DELAY). A switch key is its label (every switch of that number) or label/alias (one of them; a key that
 is not a whole label splits at its last /, and labels and aliases compare as text);
 switches of one number given different `block`s keep apart. A double crossover's binding moves all four of its
-points: route B along each through track, C into the X (normal B unless it says C). Its `corners` (in place of `block`) give it a block per band leg and one for the middle of the X; the X is then drawn two cells deep (a compact panel opens a row between its tracks, other slopes jogging across it) so each corner parts from the middle on a plain edge. BLOCK is the panel's block name after the switches'
+points: route B along each through track, C into the X (normal B unless it says C). A double crossover is a block per band leg and one for the middle of the X
+by default (core.xover_names: OS <number>a to d and OS <number> X); its `corners` name them (X optional), and
+`"corners": "one"`, or a `block`, makes it one OS block. With corners the X is drawn two cells deep (a compact panel
+opens a row between its tracks, other slopes jogging across it) so each corner parts from the middle on a plain
+edge. BLOCK is the panel's block name after the switches'
 `block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
 (field or planned; virtual masts are not drawn). It goes on the block boundary nearest where it stands on its run:
 on the edge of the block it protects (the side toward the switch or end its move is heading for), facing out of
@@ -26,7 +30,7 @@ from collections import defaultdict
 
 from .cats_grid import OPPOSITE
 from .cats_px import LOC_XY
-from .core import SchematicError
+from .core import XOVER_ONE, SchematicError
 
 __all__ = [
     "DISCIPLINES", "SIG_PANTYPES", "IOSPEC_KEYS", "ROUTE_TAGS", "node_of", "check_io", "check_bindings",
@@ -75,14 +79,19 @@ def check_bindings(b):
     section = lambda name: fields(b.get(name) or {}, [k for k in (b.get(name) or {})], f"bindings {name}")
     for key, e in section("switches").items():
         e = fields(e, ("block", "normal", "routes", "label", "corners"), f"switch {key}")
-        if "corners" in e:
+        if "block" in e and "corners" in e:
+            raise SchematicError(f"switch {key}: give corners or block, not both")
+        if e.get("corners") == XOVER_ONE:
+            pass
+        elif "corners" in e:
+            if isinstance(e["corners"], str):
+                raise SchematicError(f"switch {key}: corners is an object of blocks by leg, or \"{XOVER_ONE}\" for "
+                                     f"one OS block, not {e['corners']!r}")
             c = fields(e["corners"], ("A", "B", "C", "D", "X"), f"switch {key} corners")
             if set("ABCD") - set(c) or not all(isinstance(v, str) and v.strip() for v in c.values()) or \
                     len(set(c.values())) != len(c):
                 raise SchematicError(f"switch {key}: corners names a block for each leg A to D (and X, the middle of "
                                      "the X, if wanted), all different")
-            if "block" in e:
-                raise SchematicError(f"switch {key}: give corners or block, not both")
             e["corners"] = c
         if "label" in e and (not isinstance(e["label"], str) or not e["label"].strip()):
             raise SchematicError(f"switch {key}: label is the text shown at its points, a non-empty string")

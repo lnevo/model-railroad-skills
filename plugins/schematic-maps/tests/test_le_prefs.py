@@ -149,10 +149,14 @@ class TitleClear(unittest.TestCase):
         third = [(t.replace("Lower", "Third"), b, o) for t, b, o in bands() if t.startswith("Lower")]
         three = list(bands()) + third
         page = dict(self.page(le_title_clear=8), band_order=["Upper", "Lower", "Third"])
-        P = le.panel(three, page=page)
+        # the copy's double crossover is another one: its corner blocks need names of their own
+        names = {"Third": {"xover_blocks": {"DX": {leg: f"Third {leg}" for leg in "ABCD"}}}}
+        with self.assertRaisesRegex(SchematicError, "same default corner blocks"):
+            le.panel(three, page=page)
+        P = le.panel(three, names, page=page)
         self.assertEqual(len(P.gaps), 2)
         below = le.extent(P, 1)[3] - P.band_boxes[1][3] + 30
-        Q = le.panel(three, page=page, band_bottoms={"Lower": below})
+        Q = le.panel(three, names, page=page, band_bottoms={"Lower": below})
         self.assertEqual(Q.gaps[0], P.gaps[0])
         self.assertAlmostEqual(Q.gaps[1] - P.gaps[1], 30, delta=1.0)
         title = [lb for lb in Q.labels if lb.get("kind") == "title"][2]
