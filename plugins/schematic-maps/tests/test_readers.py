@@ -1,5 +1,7 @@
 """Plan reader, panel reader, layer merge and the plan overrides, on the made-up example."""
 import copy
+import json
+from pathlib import Path
 import unittest
 
 import helpers
@@ -58,6 +60,51 @@ class PlanReader(unittest.TestCase):
         bad.write_text((f / "plan.xml").read_text().replace("RH_TURNOUT", "CROSSING", 1))
         with self.assertRaises(plan_reader.PlanError):
             plan_reader.read(str(bad))
+
+
+class PlanScale(unittest.TestCase):
+    """Lengths come from the export's scale fitted against the parts, so any export size gives plan lengths."""
+
+    def export(self, kx, ky):
+        """The example's export with its x and y coordinates multiplied by kx and ky, as a file path."""
+        import re
+        import tempfile
+        f = helpers.folder()
+
+        def times(m):
+            k = kx if m.group(1) in ("x", "xcen", "xb", "xc") else ky
+            return f'{m.group(1)}="{float(m.group(2)) * k:.2f}"'
+        text = re.sub(r'\b(x|y|xcen|ycen|xb|yb|xc|yc)="([-0-9.]+)"', times, (f / "plan.xml").read_text())
+        self._tmp = tempfile.TemporaryDirectory()
+        path = Path(self._tmp.name) / "plan.xml"
+        path.write_text(text)
+        return str(path)
+
+    def parts(self):
+        return json.loads((helpers.folder() / "parts.json").read_text())
+
+    def test_an_export_at_twice_the_size_gives_the_same_lengths_and_labels(self):
+        big = plan_reader.read(self.export(2, 2), None, self.parts())
+        usual = helpers.graph()
+        self.assertEqual({d["label"] for d in big["nodes"].values()}, {d["label"] for d in usual["nodes"].values()})
+        for a, b in zip(usual["edges"], big["edges"]):
+            self.assertAlmostEqual(a["cm"], b["cm"], delta=max(0.5, a["cm"] * 0.005), msg=a["id"])
+        self.assertTrue(any("fitted to the parts" in n and "2.000 times" in n for n in big["notes"]), big["notes"])
+
+    def test_without_parts_lengths_are_at_the_usual_size_and_say_so(self):
+        g = plan_reader.read(str(helpers.folder() / "plan.xml"))
+        self.assertTrue(any(f"{plan_reader.PX_PER_CM:.4f} px per cm" in n and "no parts" in n for n in g["notes"]),
+                        g["notes"])
+        lead = next(e for e in g["edges"] if {e["u"], e["v"]} == {"S1", "L11"})
+        self.assertAlmostEqual(lead["cm"], 107, delta=2)
+
+    def test_an_export_stretched_on_one_axis_is_an_error(self):
+        with self.assertRaisesRegex(plan_reader.PlanError, "not a uniform copy of the plan"):
+            plan_reader.read(self.export(1, 1.05), None, self.parts())
+
+    def test_too_few_matched_switches_cannot_fit_a_scale(self):
+        with self.assertRaisesRegex(plan_reader.PlanError, "at least 3"):
+            plan_reader.uniform_scale([((0, 0), (0, 0)), ((10, 0), (10, 0))])
 
 
 class PanelReader(unittest.TestCase):

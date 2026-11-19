@@ -18,16 +18,63 @@ a part with three or more end points is a switch. Switches are matched to parts 
 least-squares fit of offset and scale, since the export is not exactly to the plan's scale); a matched
 switch is labelled T<index> and given the part's height `z`. `z_range` = (low, high) restricts the parts to
 one group of heights, for plans that stack levels on top of each other.
+
+Lengths (edge `cm`) are measured in export pixels and turned into centimetres at the export's scale. With a
+parts list that scale is fitted: one factor for both axes, from every matched switch, so an export made at any
+size gives plan lengths. The fit stops the run when the two axes disagree by more than SCALE_AXES_TOLERANCE (the
+export is then not a uniform copy of the plan). Without parts the scale is PX_PER_CM, the size the exports read so
+far were made at; the notes say which scale was used.
 """
 import collections
 import math
 import xml.etree.ElementTree as ET
 
-PX_PER_CM = 120 / 25.4   # AnyRail's export: 120 px per inch of plan
+PX_PER_CM = 12 / 2.54     # the exports read so far: 12 px per inch of plan (within 0.5 % of the fitted scale)
+SCALE_AXES_TOLERANCE = 0.03     # largest relative difference between the x and y scale fitted against the parts
+SCALE_SEARCH_LIMIT = 0.10       # an export whose spread is this far from PX_PER_CM is searched at its own scale
 
 
 class PlanError(ValueError):
     pass
+
+
+def fit(a, b):
+    """Least squares b = s * a + o: (s, o)."""
+    ma, mb = sum(a) / len(a), sum(b) / len(b)
+    s = sum((p - ma) * (q - mb) for p, q in zip(a, b)) / sum((p - ma) ** 2 for p in a)
+    return s, mb - s * ma
+
+
+def spread(points):
+    """Root mean square distance of `points` from their centre."""
+    cx, cy = sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points)
+    return math.sqrt(sum((p[0] - cx) ** 2 + (p[1] - cy) ** 2 for p in points) / len(points))
+
+
+def uniform_scale(matched):
+    """One scale for both axes from [((x, y) on the export, (u, v) on the plan)]: least squares (x, y) = s (u, v) + o.
+    Stops when the axes fitted alone disagree by more than SCALE_AXES_TOLERANCE, or the points are too few or too
+    close together to fit."""
+    if len(matched) < 3:
+        raise PlanError(f"only {len(matched)} switches matched the parts; at least 3 are needed to fit the export's scale")
+    mine, plan = [m for m, _ in matched], [p for _, p in matched]
+    if min(spread(plan), spread(mine)) <= 0:
+        raise PlanError("the matched switches all sit on one spot; the export's scale cannot be fitted")
+    xs, ys = [p[0] for p in plan], [p[1] for p in plan]
+    if len(set(xs)) < 2 or len(set(ys)) < 2:
+        raise PlanError("the matched switches lie on one line; the export's scale cannot be fitted on both axes")
+    sx, _ = fit(xs, [m[0] for m in mine])
+    sy, _ = fit(ys, [m[1] for m in mine])
+    cu, cv = sum(xs) / len(xs), sum(ys) / len(ys)
+    cx, cy = sum(m[0] for m in mine) / len(mine), sum(m[1] for m in mine) / len(mine)
+    s = (sum((u - cu) * (x - cx) + (v - cv) * (y - cy) for (x, y), (u, v) in matched) /
+         sum((u - cu) ** 2 + (v - cv) ** 2 for _, (u, v) in matched))
+    if s <= 0:
+        raise PlanError(f"the export's fitted scale is {s:.4f}; it must be above 0 (is it the same plan?)")
+    if abs(sx - sy) > SCALE_AXES_TOLERANCE * s:
+        raise PlanError(f"the export is not a uniform copy of the plan: its x scale fits {sx:.4f} and its y scale "
+                        f"{sy:.4f} times the parts, more than {SCALE_AXES_TOLERANCE:.0%} apart")
+    return s
 
 
 def unit(dx, dy):
@@ -84,29 +131,29 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
         p = pps[name]
         return float(p.get("x")), float(p.get("y"))
 
-    def seg_cm(s):
+    def seg_px(s):
         pts = [where(s.get("connect1name"), s.get("type1"))]
         pts += [(float(c.get("x")), float(c.get("y"))) for c in s.iter("controlpoint")]
         pts.append(where(s.get("connect2name"), s.get("type2")))
         chord = math.dist(pts[0], pts[-1])
         poly = sum(math.dist(p, q) for p, q in zip(pts, pts[1:]))
-        return (chord + poly) / 2 / PX_PER_CM      # a Bezier lies between its chord and its control polygon
+        return (chord + poly) / 2      # a Bezier lies between its chord and its control polygon
 
     def ends_of(s):
         return [(s.get("connect1name"), s.get("type1")), (s.get("connect2name"), s.get("type2"))]
 
     def follow(seg, frm):
-        cm, blocks, dashed = seg_cm(seg), [seg.get("blockname")], seg.get("dashed") == "yes"
+        px, blocks, dashed = seg_px(seg), [seg.get("blockname")], seg.get("dashed") == "yes"
         while True:
             n, ty = next(e for e in ends_of(seg) if e[0] != frm)
             if ty.startswith("TURNOUT"):
-                return portmap[(n, ty[-1])], cm, blocks, dashed
+                return portmap[(n, ty[-1])], px, blocks, dashed
             pp = pps[n]
             nxt = [x for x in (pp.get("connect1name"), pp.get("connect2name")) if x and x != seg.get("ident")]
             if pp.get("type") == "END_BUMPER" or not nxt:
-                return ("END:" + n, "E"), cm, blocks, dashed
+                return ("END:" + n, "E"), px, blocks, dashed
             frm, seg = n, segs[nxt[0]]
-            cm += seg_cm(seg)
+            px += seg_px(seg)
             dashed = dashed or seg.get("dashed") == "yes"
             if seg.get("blockname") != blocks[-1]:
                 blocks.append(seg.get("blockname"))
@@ -117,14 +164,14 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
             if not ty.startswith("TURNOUT") or portmap[(n, ty[-1])] in seen:
                 continue
             start = portmap[(n, ty[-1])]
-            (v, vp), cm, blocks, dashed = follow(s, n)
+            (v, vp), px, blocks, dashed = follow(s, n)
             seen.update((start, (v, vp)))
             if v.startswith("END:"):
                 ex, ey = float(pps[v[4:]].get("x")), float(pps[v[4:]].get("y"))
                 nodes[v] = dict(kind="end", sub="bumper", label="", xy=[ex, ey])
             district = collections.Counter(b for b in blocks if b).most_common(1)
             district = district[0][0].split("_", 2)[-1] if district else ""
-            edges.append(dict(u=start[0], up=start[1], v=v, vp=vp, names=[], cm=round(cm, 1), link=False,
+            edges.append(dict(u=start[0], up=start[1], v=v, vp=vp, names=[], cm=px, link=False,
                               main=main_section in district, district=district, hidden=dashed))
 
     # two track ends on the same spot are one track drawn in two pieces: join them
@@ -136,7 +183,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 ea = next(e for e in edges if e["v"] == a)
                 eb = next(e for e in edges if e["v"] == b)
                 edges.remove(eb)
-                ea.update(v=eb["u"], vp=eb["up"], cm=round(ea["cm"] + eb["cm"], 1), hidden=ea["hidden"] or eb["hidden"])
+                ea.update(v=eb["u"], vp=eb["up"], cm=ea["cm"] + eb["cm"], hidden=ea["hidden"] or eb["hidden"])
                 del nodes[a], nodes[b]
                 joined += 1
     only = bool(skip) and skip.startswith("+")       # "+Name" keeps only those sections; "Name" leaves them out
@@ -165,6 +212,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     for i, n in enumerate(order, 1):
         nodes[n]["label"] = str(i)
     notes = [f"joined {joined} pairs of track ends that met"]
+    px_per_cm = PX_PER_CM
     if parts:           # label junctions with the plan's part numbers and heights
         plan = []
         for i, p in enumerate(parts):
@@ -173,7 +221,9 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 plan.append((i, sum(q["x"] for q in e) / len(e), sum(q["y"] for q in e) / len(e), max(q["z"] for q in e)))
         if not plan:
             raise PlanError("no switch parts in parts.json" + (f" within heights {z_range}" if z_range else ""))
-        mine = [(n, nodes[n]["xy"][0] / PX_PER_CM, nodes[n]["xy"][1] / PX_PER_CM) for n in order]
+        seed = spread([nodes[n]["xy"] for n in order]) / spread([(u, v) for _, u, v, _ in plan]) / PX_PER_CM
+        seed = 1.0 if abs(seed - 1) < SCALE_SEARCH_LIMIT else seed
+        mine = [(n, nodes[n]["xy"][0] / PX_PER_CM / seed, nodes[n]["xy"][1] / PX_PER_CM / seed) for n in order]
         best = (-1, 0, 0)
         for _, x, y in mine[:6]:
             for _, u, v, _ in plan:
@@ -193,20 +243,17 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                     out.append((n, i, z, x, y, u, v))
             return out
 
-        def fit(a, b):      # least squares b = s * a + o
-            ma, mb = sum(a) / len(a), sum(b) / len(b)
-            s_ = sum((p - ma) * (q - mb) for p, q in zip(a, b)) / sum((p - ma) ** 2 for p in a)
-            return s_, mb - s_ * ma
-
         for tol in (4, 6, 6, 4):        # the export is not exactly to the plan's scale: refit and rematch
             got = pairs(tol)
             if len(got) < 2 or len({g[5] for g in got}) < 2 or len({g[6] for g in got}) < 2:
                 raise PlanError("too few switches line up with parts.json to fit its scale; is it the same plan?")
             sx, ox = fit([g[5] for g in got], [g[3] for g in got])
             sy, oy = fit([g[6] for g in got], [g[4] for g in got])
+        mine_xy = {n: (x, y) for n, x, y in mine}
+        plan_xy = {i: (u, v) for i, u, v, _ in plan}
         cand = sorted((math.hypot(x - (sx * u + ox), y - (sy * v + oy)), n, i, z)
                       for n, x, y in mine for i, u, v, z in plan)
-        used_n, used_i, hits = set(), set(), 0
+        used_n, used_i, hits, matched = set(), set(), 0, []
         for dist, n, i, z in cand:          # nearest first, one plan part per junction
             if dist > 10:
                 break
@@ -216,8 +263,16 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
             used_i.add(i)
             hits += 1
             nodes[n]["label"], nodes[n]["z"] = f"T{i}", round(z, 1)
+            matched.append((mine_xy[n], plan_xy[i]))
+        px_per_cm = PX_PER_CM * seed * uniform_scale(matched)
         notes.append(f"scale correction {round(sx, 4)} {round(sy, 4)}")
         notes.append(f"matched {hits} of {len(mine)} junctions to plan parts")
+        notes.append(f"lengths at {px_per_cm:.4f} px per cm, fitted to the parts" +
+                     (f" (export searched at {seed:.3f} times the usual size)" if seed != 1.0 else ""))
+    else:
+        notes.append(f"lengths at {px_per_cm:.4f} px per cm, the usual export size (no parts to fit it to)")
+    for e in edges:     # `cm` held export pixels until the scale was known
+        e["cm"] = round(e["cm"] / px_per_cm, 1)
     for i, e in enumerate(edges):
         e["id"] = f"e{i}"
     kinds = collections.Counter(d["kind"] for d in nodes.values())
