@@ -16,8 +16,10 @@ a half circle: two quarter arcs joined at an anchor on its far point. A switch i
 its points: right or left hand as drawn, its geometrically straight leg as Layout Editor leg B; when the drawing
 puts the switch's leg C on the straight, the legs swap and `continuing="4"` keeps the normal route on the band's
 leg B (or the leg the names give as normal). A switch with neither leg straight is a wye. A double crossover is a
-DOUBLE_XOVER across its two through tracks; two switches of the same number joined C to C by one track are one
-single crossover (RH_XOVER or LH_XOVER by the slope of the joining track), the track between them inside it.
+DOUBLE_XOVER across its two through tracks; two switches of one number (core.switch_number: labelled alike, or
+lettered A and B) joined by one track from leg B or C to leg B or C are one single crossover (RH_XOVER or LH_XOVER by
+the slope of the joining track), the track between them inside it, each half's other leg B or C (its normal route,
+core.crossover_halves) on the crossover's through track, so closed puts both halves on their through tracks.
 
 Ends. A track end is an end bumper. Connector letters and helix tracks that appear on two drawn bands are joined by
 a hidden track segment between two anchors (the panel stays one connected railroad); a helix end is marked by a
@@ -89,7 +91,8 @@ import re
 from collections import defaultdict
 
 from . import cache, le_labels, le_prefs
-from .core import XOVER_ONE, SchematicError, check_default_xovers, node_ref, other_names, switch_ref, tidy, xover_names
+from .core import (XOVER_ONE, SchematicError, check_default_xovers, crossover_halves, crossover_name, node_ref,
+                   other_names, switch_ref, tidy, xover_names)
 from .draw import band_key
 from .layout import paths
 
@@ -433,16 +436,12 @@ def jmri_kind(name):
 
 
 def crossover_pairs(band):
-    """[(track id, switch, switch)]: two switches of one number joined C to C by one track, drawn as one single
-    crossover (when both stand on level track; else as two turnouts, and the log says so)."""
-    nodes, out = band["nodes"], []
-    for sid, st in sorted(band["strands"].items()):
-        (u, pu), (v, pv) = st["src"], st["dst"]
-        du, dv = nodes[u], nodes[v]
-        if u != v and pu == pv == "C" and du["kind"] == dv["kind"] == "switch" and du.get("label") \
-                and du.get("label") == dv.get("label"):
-            out.append((sid, u, v))
-    return out
+    """[(track id, switch, switch)] of the band's single crossovers (core.crossover_halves: two switches of one number
+    joined by one track from leg B or C to leg B or C), by track id, its switches in the track's order; each is drawn
+    as one single crossover (when both stand on level track; else as two turnouts, and the log says so)."""
+    halves = crossover_halves(band["nodes"], band["strands"])
+    sids = sorted({sid for _p, _o, sid in halves.values()})
+    return [(sid, band["strands"][sid]["src"][0], band["strands"][sid]["dst"][0]) for sid in sids]
 
 
 def check_names(bands, names):
@@ -974,7 +973,7 @@ def fit_drawer(bands, names, cell, row, page, fit, gap, labels_by_band, split_cr
 
 def check_tight(bands, tight, crossover_run):
     """{band key: [(label, label)]} of panel's `tight_crossovers` (None: {}), checked: band keys of the bands drawn,
-    each pair two labels of single crossovers of that band (two switches of one number joined C to C)."""
+    each pair two single crossovers of that band (core.crossover_halves), by number (core.crossover_name)."""
     if tight is None or tight == {}:
         return {}
     if crossover_run is None:
@@ -987,7 +986,7 @@ def check_tight(bands, tight, crossover_run):
     for key, pairs in tight.items():
         if key not in keys:
             raise SchematicError(f"tight_crossovers names {key}, which is no band (bands: {', '.join(keys)})")
-        labels = {keys[key]["nodes"][u].get("label") for _sid, u, _v in crossover_pairs(keys[key])}
+        labels = {crossover_name(keys[key]["nodes"][u].get("label")) for _sid, u, _v in crossover_pairs(keys[key])}
         got = []
         for pair in pairs if isinstance(pairs, (list, tuple)) else [pairs]:
             if not (isinstance(pair, (list, tuple)) and len(pair) == 2 and pair[0] != pair[1]
@@ -1016,7 +1015,7 @@ def check_split(bands, split, tight):
             raise SchematicError(f"split_crossovers names {key}, which is no band (bands: {', '.join(keys)})")
         if not isinstance(labels, (list, tuple, set)) or not all(isinstance(x, str) for x in labels):
             raise SchematicError(f"split_crossovers for {key}: {labels!r} is not a list of switch numbers")
-        have = {keys[key]["nodes"][u].get("label") for _sid, u, _v in crossover_pairs(keys[key])}
+        have = {crossover_name(keys[key]["nodes"][u].get("label")) for _sid, u, _v in crossover_pairs(keys[key])}
         stray = sorted(set(labels) - have)
         if stray:
             raise SchematicError(f"split_crossovers for {key}: switch {', '.join(stray)} is no single crossover of "

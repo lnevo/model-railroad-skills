@@ -4,7 +4,7 @@ import itertools
 import math
 
 from . import rules
-from .core import JUNCTION, SchematicError, descend, dx_tracks  # noqa: F401
+from .core import JUNCTION, SchematicError, crossover_halves, descend, dx_tracks, through_leg  # noqa: F401
 
 
 
@@ -73,19 +73,22 @@ def check_run_hints(bands, opts):
                                      "list the tracks it is for after the switches, or name a switch nearer the one you mean")
 
 
-def points_on_straight(nodes, srow, nrow, end):
-    """True when `end` (node, port) is the points (A) of a switch drawn with its straight leg (B) level."""
+def points_on_straight(nodes, srow, nrow, end, halves):
+    """True when `end` (node, port) is the points (A) of a switch drawn with its straight leg (B) level, or for a
+    single crossover half (`halves`, core.crossover_halves) its normal leg, the one on its through track."""
     n, port = end
     d = nodes[n]
     if d["kind"] != "switch" or port != "A":
         return False
-    b = d["outs"].get("B") or d["ins"].get("B")
+    leg = through_leg(halves[n][0]) if n in halves else "B"
+    b = d["outs"].get(leg) or d["ins"].get(leg)
     return b in srow and srow[b] == nrow.get(n)
 
 
 def place(nodes, strands, R, enclosed, opts, extra=()):
     srow, nrow, diag = R["srow"], R["nrow"], R["diag"]
     ladder = set(rules.ladder_switches(nodes, opts, strands))
+    halves = crossover_halves(nodes, strands)
     cons, need, weight = [], {}, []
     for sid, s in strands.items():
         u, v = s["src"][0], s["dst"][0]
@@ -106,8 +109,8 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
         h += opts.get("_room", {}).get(s["edge"], 0)     # R12: cells claimed by labels that found no free position
         if nodes[u]["kind"] == "end" or nodes[v]["kind"] == "end":
             h = max(h, 1) + 1
-        if (su or sv) and not ({u, v} & ladder) and (points_on_straight(nodes, srow, nrow, s["src"])
-                                                    or points_on_straight(nodes, srow, nrow, s["dst"])):
+        if (su or sv) and not ({u, v} & ladder) and (points_on_straight(nodes, srow, nrow, s["src"], halves)
+                                                    or points_on_straight(nodes, srow, nrow, s["dst"], halves)):
             h = max(h, 1)               # a track sloping into a switch's points runs level a cell first, so the points
             #                             stand in line with the straight leg drawn level beyond them (not a ladder's
             #                             link: its rungs step one cell each, R6)
