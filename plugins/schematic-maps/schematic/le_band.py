@@ -7,11 +7,12 @@ import math
 from collections import defaultdict
 
 from . import le_labels, stations
-from .core import SchematicError, crossover_halves, crossover_name, through_leg, tidy
+from .core import SchematicError, crossover_halves, crossover_name, crossover_notes, through_leg, tidy
 from .draw import band_key
 from .layout import paths
 from .le import (  # le's own names (le imports this module last)
-    add, arc_points, BEND, clean, cross, crossover_pairs, dot, double_corners, EPS, flip_toward, HELIX_R,
+    add, arc_points, BEND, clean, cross, crossover_numbers, crossover_pairs, dot, double_corners, EPS, flip_toward,
+    HELIX_R,
     LABEL_SIZE, LEG, mid, MIN_BLOCK, NoRoom, NUMBER_SIZE, room_width, ROUND_SLACK, shift, sub, unit, xover_blocks,
 )
 
@@ -43,7 +44,15 @@ class Band:
         self.no_room = set()        # crossover half nodes drawn as two plain turnouts: no room for the crossover
         self.mine = []          # this band's turnouts
         # single crossover half node -> its link leg (B or C, toward its other half): core.crossover_halves
-        self.xlink = {n: got[0] for n, got in crossover_halves(self.nodes, self.strands).items()}
+        said = []
+        halves = crossover_halves(self.nodes, self.strands, said)
+        self.xlink = {n: got[0] for n, got in halves.items()}
+        P.log.extend(f"{title}: {m}" for m in said + crossover_notes(self.nodes, halves))
+        for name, pairs in sorted(crossover_numbers(band).items()):
+            if len(pairs) > 1:
+                P.log.append(f"{title}: crossovers " + " and ".join(
+                    f"{self.nodes[u].get('label')}/{self.nodes[v].get('label')}" for _sid, u, v in pairs)
+                    + f" both take number {name}")
 
     # ---- names
     def blocks_of(self, sid):
@@ -238,8 +247,8 @@ class Band:
         self.add_turnout([n], ttype, c, {"A": A, "B": B, "C": C}, conn, blocks, continuing, at=junction)
 
     def crossovers(self):
-        """Two switches of one number joined leg B or C to leg B or C by a track (core.crossover_halves): one single
-        crossover, each half's through legs (A and its normal leg) on its own track."""
+        """Two switches of one number joined C to C, or halves lettered A and B joined B to C (core.crossover_halves):
+        one single crossover, each half's through legs (A and its normal leg) on its own track."""
         split = self.P.split_crossovers.get(band_key(self.title), set())
         if split:
             self.split_moves(split)
@@ -288,6 +297,12 @@ class Band:
                     self.P.log.append(f"{self.title}: switch {label}: both through legs on one side")
                     break
             else:
+                given = sorted(self.nodes[n].get("label") or n for n in (top, bot)
+                               if n in self.names.get("normal", {}))
+                if given:
+                    raise SchematicError(f"{self.title}: names give normal for {', '.join(given)}, drawn as half of "
+                                         f"single crossover {label}, whose closed route is both through tracks; "
+                                         "remove that normal entry")
                 ttype = "RH_XOVER" if bp[0] > tp[0] else "LH_XOVER"
                 blocks = {"A": self.os_of(top), "B": self.os_of(top), "C": self.os_of(bot), "D": self.os_of(bot)}
                 self.add_turnout([top, bot], ttype, mid(tp, bp), pts, conn, blocks)

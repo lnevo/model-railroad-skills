@@ -16,9 +16,10 @@ R6 Ladder. A ladder is a chain of three or more switches (two or more links), ea
 
 R8 Straight level. Every other switch keeps its straight leg (B, the normal route) level and its diverging leg
    (C) sloped, so a switch off the main and outside a ladder is drawn as the part is built, not as the row search
-   happens to pack it. A half of a single crossover (core.crossover_halves: two switches of one number joined leg B
-   or C to leg B or C) keeps its normal leg level instead, the one on its through track that is not its link to the
-   other half: leg B when the halves join C to C, leg C for a half laid with its straight route on the diagonal.
+   happens to pack it. A half of a single crossover (core.crossover_halves: two switches of one number joined C to
+   C, or halves lettered A and B joined B to C) keeps its normal leg level instead, the one on its through track, not
+   its link to the other half: leg B when the halves join C to C, leg C for a half laid with its straight route on
+   the diagonal.
    R5 and R6 win where they apply. A switch with no leg B (a wye), a loop's entry (the main on both legs), a
    switch whose level leg is a loop's return or a crossover's diagonal (a short track to another switch's leg C, or a
    single crossover's link), or one that a ladder switch's link leads to (it carries the ladder on) is left to the
