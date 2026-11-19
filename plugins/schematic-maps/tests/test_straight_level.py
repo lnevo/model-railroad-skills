@@ -121,6 +121,38 @@ class LevelCellBeforePoints(unittest.TestCase):
         self.assertFalse(columns.points_on_straight(nodes, {"b": 2}, nrow, ("w", "E")))
 
 
+class LadderLinksKeepTheirStep(unittest.TestCase):
+    """The level cell before straight-level points is not added on a ladder's links: each rung steps one cell (R6)."""
+
+    @staticmethod
+    def link_width(leg_links):
+        nodes, strands = ladder(leg_links)
+        for sid, s in strands.items():
+            s.update(name="", edge=sid)
+        sw = sorted(n for n, d in nodes.items() if d["kind"] == "switch")
+        nrow = {n: i for i, n in enumerate(sw)}                 # each switch a row below the one before
+        nrow.update({n: 0 for n, d in nodes.items() if d["kind"] == "end"})
+        srow = {}
+        for sid, s in strands.items():
+            (u, up), (v, _vp) = s["src"], s["dst"]
+            if sid.startswith("l"):
+                srow[sid] = nrow[v]                             # the link slopes at its start, level into the points
+            elif nodes[u]["kind"] == "switch":
+                srow[sid] = nrow[u] if up == "B" else nrow[u] + 1   # leg B level (the yard track), C sloped
+            else:
+                srow[sid] = nrow[v]
+        for n in sw:
+            nrow.setdefault(n, 0)
+        _x, need = columns.place(nodes, strands, dict(srow=srow, nrow=nrow, diag=set()), {}, {})
+        return need["l0"][2]
+
+    def test_a_ladder_link_gets_no_extra_cell(self):
+        self.assertEqual(self.link_width(["C", "C"]), 1)
+
+    def test_a_lone_link_into_straight_level_points_gets_one(self):
+        self.assertEqual(self.link_width(["C"]), 2)
+
+
 class BranchLeg(unittest.TestCase):
     @staticmethod
     def graph():
