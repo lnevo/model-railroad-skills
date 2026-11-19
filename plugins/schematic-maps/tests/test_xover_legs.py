@@ -190,6 +190,19 @@ class LayoutEditor(unittest.TestCase):
             normal_le = "B" if t["continuing"] == "2" else "C"
             self.assertEqual(P.turnout_of[(0, n)][1][leg], normal_le, (n, t["continuing"]))
 
+    def test_halves_not_on_two_level_tracks_share_their_one_turnout_name(self):
+        # the halves drawn as two plain turnouts (not on two level tracks) on the one turnout name the names give
+        real = le.Band.direction
+
+        def sloped(self, n, p):
+            d = real(self, n, p)
+            return (d[0], d[1] + 0.5) if n in ("X5A", "X5B") else d
+
+        with mock.patch.object(le.Band, "direction", sloped):
+            P = le.panel(self.bands, {"Xo": {"turnouts": {"X5A": "NT5", "X5B": "NT5"}}})
+        self.assertEqual(sorted(t["nodes"] for t in P.turnouts if t["name"] == "NT5"), [["X5A"], ["X5B"]], P.log)
+        self.assertIn("NT5", P.split_names)
+
     def test_an_explicit_normal_still_wins_on_plain_turnouts(self):
         with mock.patch.object(le.Band, "room_toward", lambda self, n, port: 0.0):
             P = le.panel(self.bands, {"Xo": {"normal": {"X5B": "B"}}})

@@ -246,6 +246,13 @@ class Band:
             continuing = "2" if normal == on_b else "4"
         self.add_turnout([n], ttype, c, {"A": A, "B": B, "C": C}, conn, blocks, continuing, at=junction)
 
+    def share_name(self, u, v):
+        """A crossover's halves drawn as two plain turnouts: when the names give both one turnout name, that name
+        is one turnout drawn twice (P.split_names), as for a split crossover, so check_shared accepts it."""
+        given = self.names.get("turnouts", {})
+        if given.get(u) and given.get(u) == given.get(v):
+            self.P.split_names.add(given[u])
+
     def crossovers(self):
         """Two switches of one number joined C to C, or halves lettered A and B joined B to C (core.crossover_halves):
         one single crossover, each half's through legs (A and its normal leg) on its own track."""
@@ -261,6 +268,7 @@ class Band:
             if not level:
                 self.P.log.append(f"{self.title}: switches {label} are not drawn on two level tracks; "
                                   "drawn as two turnouts, not a crossover")
+                self.share_name(u, v)
                 continue
             top, tp, bot, bp = self.halves(u, v)
             if abs(tp[1] - bp[1]) < EPS:
