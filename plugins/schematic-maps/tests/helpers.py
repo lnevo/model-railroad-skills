@@ -61,3 +61,17 @@ def build(preferences=True):
     if key not in _cache:
         _cache[key] = sheet.build([(graph(), "example")], data_with_signals(), preferences=preferences)
     return _cache[key]
+
+
+def relabelled(node, label):
+    """The example's bands, a copy, with switch `node` of the lower level numbered `label`."""
+    import copy
+    out = copy.deepcopy(build().bands)
+    next(b for t, b, _ in out if t.startswith("Lower"))["nodes"][node]["label"] = label
+    return out
+
+
+def with_third():
+    """The example's bands and a copy of its lower level titled Third level: two double crossovers numbered 6."""
+    bands = build().bands
+    return list(bands) + [(t.replace("Lower", "Third"), b, o) for t, b, o in bands if t.startswith("Lower")]
