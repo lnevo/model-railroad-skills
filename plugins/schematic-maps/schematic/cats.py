@@ -17,7 +17,9 @@ its crossing on the edge between the rows. shown(P) is the cells CATS lays out o
 
 Blocks: one per strand (its track name, or the two switch numbers it joins), one OS block per switch (shared by
 switches of the same number joined by a track), reaching one step past the points on every leg (further where a
-compact panel slides a mast's gap), so no block boundary falls on a points or crossing edge. Each switch's points carry two ROUTEINFO, normal being leg B (the
+compact panel slides a mast's gap), so no block boundary falls on a points or crossing edge. A double crossover is
+a block per corner and one for the middle of its X (OS <number>a to d and OS <number> X; see cats_bind.py), its X
+drawn two cells deep, unless bound to one OS block. Each switch's points carry two ROUTEINFO, normal being leg B (the
 straight leg as the band records it). No IOSPEC is written: binding sensors and turnouts is left to the Designer
 or a later pass. Link ends with the same letter, and helix ends of the same track, on two drawn bands are joined
 logically (SHARED); a helix track joined so is one block, or with `helix_blocks="apart"` a block on each band, parted
@@ -27,7 +29,7 @@ is two blocks, parted in the middle of its vertical run.
 import math
 from collections import defaultdict
 
-from .core import SchematicError, dx_tracks, node_ref
+from .core import XOVER_ONE, SchematicError, dx_tracks, node_ref, xover_names
 from .layout import paths
 
 # The work is split by what it touches; this module keeps panel() and re-exports every name the one-file module had,
@@ -41,7 +43,7 @@ from .cats_labels import SPILL_RANKS, place_labels
 from .cats_fit import check_fit, parse_fit, parse_size, parse_window, shown, summary
 from .cats_bind import (                                    # bindings file checks; blocks, routes and names
     DISCIPLINES, SIG_PANTYPES, IOSPEC_KEYS, ROUTE_TAGS, bind_blocks, bind_routes, check_bindings, check_io, label_of,
-    node_of, number_order, switch_bindings)
+    node_of, number_order, switch_bindings, check_xover_bindings, check_one_name_per_block)
 from .cats_masts import (                                   # masts: binding, gantries, spot choice
     SIG_LOCATION, INK_CLEAR, POINT_ZONE, SPOT_COST, SPOT_PER_PX, GANTRY_SHIFT, GANTRY_SPAN, bind_masts, box_gap,
     gantry_look, lamp_way, mast_gap, mast_size, move_gap, move_of, place_mast, points_zones, shift_gaps, spot_costs)
@@ -89,6 +91,8 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
     left_col = 2 if compact else MARGIN + 1     # a compact panel keeps one empty column on the left
     ends = []                  # (band title, node, data, strand name, (cell, edge), block key of the end step)
     used_names = defaultdict(int)
+    xblocks = {}                    # (band, double crossover) -> its blocks by leg and X
+    check_xover_bindings(bands, sw_bind)
 
     def unique(name):
         used_names[name] += 1
@@ -125,12 +129,20 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
         # OS blocks: a switch's own, or shared by switches of one number joined by a track
         def os_key(n):
             return ("os", tag + n)
-        # a double crossover bound with `corners`: a block per corner (keyed by its band leg) and one for the
-        # middle of its X, in place of its one OS block
-        corners = {n: sw_bind[(bi, n)]["corners"] for n in nodes if sw_bind.get((bi, n), {}).get("corners")}
-        for n in corners:
-            if nodes[n]["kind"] != "dx":
-                raise SchematicError(f"switch {nodes[n].get('label') or n}: corners are for a double crossover")
+        # a double crossover: a block per corner (keyed by its band leg) and one for the middle of its X, named by
+        # its `corners` binding or by default (xover_names), unless bound to one OS block (`block`, or corners "one")
+        corners = {}
+        for n, d in sorted(nodes.items()):
+            e = sw_bind.get((bi, n), {})
+            if d["kind"] != "dx":
+                if "corners" in e:
+                    raise SchematicError(f"switch {d.get('label') or n}: corners are for a double crossover")
+                continue
+            if "block" in e or e.get("corners") == XOVER_ONE:
+                P.log.append(f"{title}: double crossover {d.get('label') or n} is one OS block, as bound")
+                continue
+            corners[n] = {**xover_names(d, n), **e.get("corners", {})}     # defaults checked: check_xover_bindings
+            xblocks[(bi, n)] = corners[n]
 
         def okey(n, port):
             """The block key a strand's end at node n, leg `port`, takes inside the switch's OS reach."""
@@ -482,14 +494,13 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
         groups[P.find(key)].append(key)
     for root in sorted(groups, key=lambda r: (r[0] != "track", r)):
         keys = groups[root]
-        cornered = {sw_bind[node_of(k)]["corners"][k[2]] if k[0] == "corner" else
-                    sw_bind[node_of(k)]["corners"].get("X") or f"OS {label_of(bands, ('os', k[1])) or 'X'} X"
-                    for k in keys if k[0] in ("corner", "xmid")}
+        cornered = {xblocks[node_of(k)][k[2] if k[0] == "corner" else "X"] for k in keys if k[0] in ("corner", "xmid")}
         if cornered:
             if len(cornered) > 1 or any(k[0] == "os" for k in keys):
-                raise SchematicError(f"double crossover blocks {', '.join(sorted(cornered))} run into each other or "
-                                     "into another switch's OS block: the tracks between them are too short")
-            P.names[root] = cornered.pop()
+                raise SchematicError(f"double crossover blocks {', '.join(sorted(cornered))} run into "
+                                     "each other or into another switch's OS block: the tracks between them are too "
+                                     f"short (bind the crossover \"corners\": \"{XOVER_ONE}\" for one OS block)")
+            P.names[root] = cornered.pop()      # never suffixed: defaults are checked clear, bound names are kept
             continue
         labels = sorted({label_of(bands, k) for k in keys if k[0] == "os"} - {""}, key=number_order)
         bound = sorted({sw_bind[node_of(k)]["block"] for k in keys
@@ -512,6 +523,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
                              "to hold a block of their own")
         else:
             P.names[root] = unique(base)
+    check_one_name_per_block(P, bands, groups)          # an invariant bind_blocks relies on
     bind_blocks(P, bindings["blocks"], set(by_bound))
     bind_routes(P, sw_bind)
     bind_masts(P, bands, bindings["masts"], chains, turn_bounds, compact, max_cols=max_cols)

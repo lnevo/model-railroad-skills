@@ -12,7 +12,7 @@ from .draw import band_key
 from .layout import paths
 from .le import (  # le's own names (le imports this module last)
     add, arc_points, BEND, clean, cross, crossover_pairs, dot, double_corners, EPS, flip_toward, HELIX_R,
-    LABEL_SIZE, LEG, mid, MIN_BLOCK, NoRoom, NUMBER_SIZE, room_width, ROUND_SLACK, shift, sub, unit,
+    LABEL_SIZE, LEG, mid, MIN_BLOCK, NoRoom, NUMBER_SIZE, room_width, ROUND_SLACK, shift, sub, unit, xover_blocks,
 )
 
 
@@ -553,7 +553,11 @@ class Band:
         if {p: leg for (_n, p), leg in conn.items()} != double_corners(self.band, n, self.turned, self.drawn):
             raise SchematicError(f"{self.title}: double crossover {self.nodes[n].get('label') or n}: its corners "
                                  "differ from double_corners'")     # an invariant: callers name blocks by it
-        corners = self.names.get("xover_blocks", {}).get(n)
+        corners = xover_blocks(self.band, self.names).get(n)
+        if not corners:
+            self.P.log.append(f"{self.title}: double crossover {self.nodes[n].get('label') or n} is one OS block, "
+                              "as named (xover_blocks \"one\"): JMRI records a through path between its two "
+                              "legs on one side")
         b = self.os_of(n)
         self.add_turnout([n], "DOUBLE_XOVER", (xc, (ys[0] + ys[1]) / 2), pts, conn,
                          {corner: corners[port] for (_n, port), corner in conn.items()} if corners else
