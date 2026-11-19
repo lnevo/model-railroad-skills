@@ -63,6 +63,16 @@ class StraightLevel(unittest.TestCase):
         self.assertTrue(rules.crossover_leg(nodes, strands, "q", "x"))
         self.assertFalse(rules.crossover_leg(nodes, strands, "q", "x", {"ladder_link_max_cm": 5}))
 
+    def test_two_switches_back_to_back_keep_their_straight_legs_level(self):
+        # p and q joined straight leg to straight leg by a short track: one through track, no crossover
+        nodes, strands = band(["p", "q"], ["w1", "w2", "e1", "e2"],
+                              [("pa", ("w1", "E"), ("p", "A"), 120.0, False),
+                               ("x", ("p", "B"), ("q", "B"), 10.0, False),
+                               ("pc", ("p", "C"), ("e1", "E"), 120.0, False),
+                               ("qa", ("w2", "E"), ("q", "A"), 120.0, False),
+                               ("qc", ("q", "C"), ("e2", "E"), 120.0, False)])
+        self.assertEqual(rules.straight_pins(nodes, strands), {"p": "B", "q": "B"})
+
 
 def ladder(leg_links):
     """Switches 1..n joined each by a short link from leg `leg_links[i]` to the next one's A; the other leg of each,
@@ -105,10 +115,10 @@ class LevelCellBeforePoints(unittest.TestCase):
     def test_points_on_a_level_straight_leg(self):
         nodes, strands = lone_switch()
         nrow = {"s": 2}
-        self.assertTrue(columns.points_on_straight(nodes, strands, {"b": 2, "c": 3}, nrow, ("s", "A")))
-        self.assertFalse(columns.points_on_straight(nodes, strands, {"b": 3, "c": 2}, nrow, ("s", "A")))
-        self.assertFalse(columns.points_on_straight(nodes, strands, {"b": 2, "c": 3}, nrow, ("s", "B")))
-        self.assertFalse(columns.points_on_straight(nodes, strands, {"b": 2}, nrow, ("w", "E")))
+        self.assertTrue(columns.points_on_straight(nodes, {"b": 2, "c": 3}, nrow, ("s", "A")))
+        self.assertFalse(columns.points_on_straight(nodes, {"b": 3, "c": 2}, nrow, ("s", "A")))
+        self.assertFalse(columns.points_on_straight(nodes, {"b": 2, "c": 3}, nrow, ("s", "B")))
+        self.assertFalse(columns.points_on_straight(nodes, {"b": 2}, nrow, ("w", "E")))
 
 
 class BranchLeg(unittest.TestCase):
@@ -140,9 +150,11 @@ class BranchLeg(unittest.TestCase):
         edits.apply_edits(g, [dict(self.NEW, branch_leg="B")])
         self.assertEqual(self.legs_of_new(g), {"A": "2", "B": "end", "C": "1"})
 
-    def test_a_bad_branch_leg_stops(self):
+    def test_a_bad_branch_leg_stops_before_the_switch_is_added(self):
+        g = self.graph()
         with self.assertRaisesRegex(SchematicError, "branch_leg must be 'B' or 'C', not 'A'"):
-            edits.apply_edits(self.graph(), [dict(self.NEW, branch_leg="A")])
+            edits.apply_edits(g, [dict(self.NEW, branch_leg="A")])
+        self.assertEqual(set(g["nodes"]), {"p", "q"})
 
 
 if __name__ == "__main__":

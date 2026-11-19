@@ -1,4 +1,4 @@
-"""Generation rules that choose which leg of a switch runs level (R5 and R6) and the settings they use.
+"""Generation rules that choose which leg of a switch runs level (R5, R6 and R8) and the settings they use.
 
 A switch has a common end (A, the points) and two legs, B (straight) and C (diverging). A drawn switch keeps
 one leg level, on the row of its common end, and the other slopes to its own row. These rules say which leg
@@ -8,7 +8,7 @@ R5 Main level. Where the main route enters a switch by the common end and leaves
    is level. Where the main uses both legs, the track is a loop: the leg the main enters the loop by is level
    and the return is drawn as a fold, so a loop's return (a fold half of a run longer than `long_track_cm`) is not pinned and the check does not count
    the return.
-R6 Ladder. A ladder is a chain of two or more switches, each joined to the next by a short link (shorter
+R6 Ladder. A ladder is a chain of three or more switches (two or more links), each joined to the next by a short link (shorter
    than `ladder_link_max_cm`, default 40) from the same leg of each (all straight or all diverging) to the next
    switch's common end, whose other leg is a yard track: it runs to a track end or is longer than `long_track_cm` (default 100). The yard track leg of each ladder switch is level and the link slopes.
    The lead into the first switch runs straight into its common end, so the lead-side leg is level by
@@ -18,12 +18,14 @@ R8 Straight level. Every other switch keeps its straight leg (B, the normal rout
    (C) sloped, so a switch off the main and outside a ladder is drawn as the part is built, not as the row search
    happens to pack it. R5 and R6 win where they apply. A switch with no leg B (a wye), a loop's entry (the main on
    both legs), a switch whose leg B is a loop's return or a crossover's diagonal (a short track to another switch's
-   leg B or C), or one that a ladder switch's link leads to (it carries the ladder on) is left to the search.
+   leg C), or one that a ladder switch's link leads to (it carries the ladder on) is left to the search. A single
+   short link between two switches is no ladder: both keep their straight legs level.
 
 All three are strong preferences, not pins. The row search keeps them unless breaking one makes the drawing tighter by
 more than `rule_weight` (default 2.0, the price of two rows of slope): a short loop entered with the main sloped,
 or a ladder whose link runs level, can draw in fewer rows than the rule allows. The report lists every switch where a
-rule gave way. A `level_leg` preference (layer 3) is a hard pin and overrides both.
+main or ladder rule gave way (R8 is not reported). A `level_leg` preference (layer 3) is a hard pin and overrides
+all three.
 """
 
 DEFAULT_SETTINGS = dict(ladder_link_max_cm=40.0, long_track_cm=100.0, rule_weight=2.0)
@@ -89,8 +91,8 @@ def is_yard_track(nodes, strands, n, sid, opts):
 def ladder_switches(band_or_nodes, opts=None, strands=None):
     """R6: {switch node: yard track leg} for every switch of a ladder: joined to a next switch by a short link on one
     leg while its other leg is a yard track, in a chain of two or more such switches that all link on the same leg (it
-    links to one, or one links to it). A switch that stands alone, or whose neighbour links on the other leg, is no
-    ladder."""
+    links to one, or one links to it), so three or more switches. A switch that stands alone, one short link between
+    two switches, or a neighbour that links on the other leg is no ladder."""
     if strands is None:
         nodes, strands = band_or_nodes["nodes"], band_or_nodes["strands"]
     else:
@@ -109,20 +111,22 @@ def ladder_switches(band_or_nodes, opts=None, strands=None):
 
 
 def crossover_leg(nodes, strands, n, sid, opts=None):
-    """True when strand `sid` from switch `n` is a crossover's diagonal: a short track to a leg (B or C) of another
-    switch, so it climbs from one parallel track to the other and cannot be level."""
+    """True when strand `sid` from switch `n` is a crossover's diagonal: a short track to another switch's diverging
+    leg C, so it climbs from one parallel track to the other and cannot be level. A short track to another switch's
+    straight leg B (two switches back to back on one through track) is no crossover."""
     s = strands[sid]
     (u, up), (v, vp) = s["src"], s["dst"]
     other, port = (v, vp) if u == n else (u, up)
-    return other != n and nodes[other]["kind"] == "switch" and port in "BC" \
+    return other != n and nodes[other]["kind"] == "switch" and port == "C" \
         and s["cm"] < setting(opts, "ladder_link_max_cm")
 
 
-def straight_pins(nodes, strands, opts=None):
+def straight_pins(nodes, strands, opts=None, ladder=None):
     """R8: {switch node: "B"} for every switch with a straight leg B that is not a loop's return or a crossover's
     diagonal, and that is not the next switch of a ladder (reached by a ladder switch's link: it carries the ladder on,
-    so the row search places its legs)."""
-    ladder = ladder_switches(nodes, opts, strands)
+    so the row search places its legs). `ladder` is ladder_switches' result when the caller has it."""
+    if ladder is None:
+        ladder = ladder_switches(nodes, opts, strands)
     in_ladder = {nxt for (n, _leg), nxt in links(nodes, strands, opts).items() if n in ladder}
     pins = {}
     for n, d in nodes.items():
@@ -142,8 +146,9 @@ def straight_pins(nodes, strands, opts=None):
 def level_legs(nodes, strands, opts):
     """The legs rules R5, R6 and R8 fix level, as {switch node: leg}. R8 is the default, R6 overrides it and R5 is
     applied last so it wins."""
-    pins = straight_pins(nodes, strands, opts)
-    pins.update(ladder_switches(nodes, opts, strands))
+    ladder = ladder_switches(nodes, opts, strands)
+    pins = straight_pins(nodes, strands, opts, ladder)
+    pins.update(ladder)
     pins.update(main_pins(nodes, strands, opts))
     return pins
 

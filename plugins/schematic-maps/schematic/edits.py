@@ -154,11 +154,11 @@ def apply_edits(g, edits):
             d["label"] += "*"
         elif op == "switch":        # a switch that is not in the plan, with whatever hangs off its diverging leg
             need_hand_and_source(ed, ed["label"])
-            x = new_switch(g, ed["label"], ed.get("alias", ed["label"]), ed["hand"])
-            t, n0, _ = edge_between(g, *ed["on"], ed.get("port"))
             branch = ed.get("branch_leg", "C")     # the leg the added branch hangs off: C, or B when it is straight
             if branch not in ("B", "C"):
                 raise SchematicError(f"switch {ed['label']}: branch_leg must be 'B' or 'C', not {branch!r}")
+            x = new_switch(g, ed["label"], ed.get("alias", ed["label"]), ed["hand"])
+            t, n0, _ = edge_between(g, *ed["on"], ed.get("port"))
             set_in(g, x, t, n0, ed["cm_from_first"], ed["points_toward"] == ed["on"][0], ed.get("names", (None, None)),
                    through="C" if branch == "B" else "B")
             grow(g, x, branch, ed["c"], t, counter)

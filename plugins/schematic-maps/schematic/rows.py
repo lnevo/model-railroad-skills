@@ -159,7 +159,7 @@ class Rows:
                                 and ref in (d.get("alias"), d.get("label"), (d.get("label") or "").rstrip("*"))]
         # owner's hints: pairs of switches to keep on neighbouring rows
         self.close = [(a[0], b[0]) for a, b in ((find_ref(p), find_ref(q)) for p, q in close) if a and b]
-        # R5 and R6 are strong preferences, not pins: breaking one costs `rule_weight`, so the search keeps them
+        # R5, R6 and R8 are strong preferences, not pins: breaking one costs `rule_weight`, so the search keeps them
         # unless the drawing gets clearly tighter without them. A hand pin (layer 3) is fixed and overrides them.
         self.soft = dict(rule_pins or {})
         self.rule_weight = 2.0
@@ -334,7 +334,7 @@ class Rows:
         return dict(r, srow=dict(r["srow"]), nrow=dict(r["nrow"]), diag=set(r["diag"]))
 
     def broken(self):
-        """The price of the R5 and R6 preferences the current choice breaks."""
+        """The price of the R5, R6 and R8 preferences the current choice breaks."""
         return self.rule_weight * sum(self.flat[n] != leg for n, leg in self.soft.items()
                                       if n in self.flat and n not in self.pins)
 
