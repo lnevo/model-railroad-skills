@@ -17,7 +17,7 @@ is not a whole label splits at its last /, and labels and aliases compare as tex
 switches of one number given different `block`s keep apart. A double crossover's binding moves all four of its
 points: route B along each through track, C into the X (normal B unless it says C). A double crossover is a block per band leg and one for the middle of the X
 by default (core.xover_names: OS <number>a to d and OS <number> X); its `corners` name them (X optional), and
-`"corners": "one"`, or a `block`, makes it one OS block. With corners the X is drawn two cells deep (a compact panel
+`"corners": "one"`, or a `block`, makes it one OS block; default names that another block takes stop (check_xover_bindings). With corners the X is drawn two cells deep (a compact panel
 opens a row between its tracks, other slopes jogging across it) so each corner parts from the middle on a plain
 edge. BLOCK is the panel's block name after the switches'
 `block`s; two blocks given one `name` become one block. MAST is a mast of a band's `signals`
@@ -30,11 +30,12 @@ from collections import defaultdict
 
 from .cats_grid import OPPOSITE
 from .cats_px import LOC_XY
-from .core import XOVER_ONE, SchematicError
+from .core import XOVER_ONE, SchematicError, check_default_xovers, other_names, switch_ref
 
 __all__ = [
     "DISCIPLINES", "SIG_PANTYPES", "IOSPEC_KEYS", "ROUTE_TAGS", "node_of", "check_io", "check_bindings",
-    "switch_bindings", "bind_blocks", "bind_routes", "number_order", "label_of"
+    "switch_bindings", "bind_blocks", "bind_routes", "number_order", "label_of", "check_xover_bindings",
+    "check_one_name_per_block"
 ]
 
 
@@ -204,3 +205,54 @@ def label_of(bands, key):
     tag, n = key[1].split(":", 1)
     band = bands[int(tag[1:])][1]
     return band["nodes"][n].get("label") or ""
+
+
+def check_xover_bindings(bands, sw_bind):
+    """Stop, before drawing, on double crossover blocks the panel cannot keep apart: one switch key giving `corners`
+    to two double crossovers (their corners would be one block; bind each by LABEL/ALIAS), or a default corner or
+    middle block (core.xover_names) that is another block's name or another crossover's default, checked as the
+    Layout Editor panel checks its corners (core.check_default_xovers), so both panels give the same blocks."""
+    given, keyed, entries = {}, defaultdict(list), []
+    for (bi, n), e in sorted(sw_bind.items()):
+        d = bands[bi][1]["nodes"][n]
+        ref = f"{switch_ref(d, n)} on {bands[bi][0]}"
+        if e.get("block"):
+            given.setdefault(e["block"], f"the block switch {ref} is bound to")
+        if d["kind"] == "dx" and isinstance(e.get("corners"), dict):
+            keyed[id(e)].append(ref)            # switch_bindings gives every switch of one key the same entry
+            for leg, b in sorted(e["corners"].items()):
+                given.setdefault(b, f"double crossover {ref}'s bound block {leg}")
+    for refs in keyed.values():
+        if len(refs) > 1:
+            raise SchematicError(f"one switch binding gives corners to double crossovers {' and '.join(refs)}: "
+                                 "their corners would be one block; bind each by its own LABEL/ALIAS key")
+    for bi, (_t, band, _o) in enumerate(bands):
+        for n, d in sorted(band["nodes"].items()):
+            e = sw_bind.get((bi, n), {})
+            if d["kind"] != "dx" or "block" in e or e.get("corners") == XOVER_ONE:
+                continue
+            c = e.get("corners")
+            entries.append((bi, n, "ABCDX" if c is None else "" if "X" in c else "X"))
+    check_default_xovers(bands, entries, other_names(bands, given), 'its "corners" binding')
+
+
+def check_one_name_per_block(P, bands, groups):
+    """Stop when two blocks of the panel take one name (`groups`: {root: [its keys]}), naming what gave each."""
+    def what(keys):
+        k = min(keys, key=lambda k: ("corner", "xmid", "os", "track").index(k[0]))
+        if k[0] == "track":
+            return f"track {P.blocks[k] or k[1].split(':', 1)[1]}"
+        bi, n = node_of(k)
+        ref = f"{switch_ref(bands[bi][1]['nodes'][n], n)} on {bands[bi][0]}"
+        if k[0] == "corner":
+            return f"double crossover {ref}'s corner {k[2]}"
+        if k[0] == "xmid":
+            return f"the middle of double crossover {ref}"
+        return f"switch {ref}'s OS block"
+    by_name = defaultdict(list)
+    for root, name in P.names.items():
+        by_name[name].append(what(groups[root]))
+    clash = {name: sorted(src) for name, src in by_name.items() if len(src) > 1}
+    if clash:
+        raise SchematicError("; ".join(f"block {name} is the name of both {' and '.join(src)}"
+                                       for name, src in sorted(clash.items())) + ": give one of them another name")

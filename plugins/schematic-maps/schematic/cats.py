@@ -27,7 +27,7 @@ at the join. Other ends get a label saying where they go. A turnback joining two
 is two blocks, parted in the middle of its vertical run.
 """
 import math
-from collections import Counter, defaultdict
+from collections import defaultdict
 
 from .core import XOVER_ONE, SchematicError, dx_tracks, node_ref, xover_names
 from .layout import paths
@@ -43,7 +43,7 @@ from .cats_labels import SPILL_RANKS, place_labels
 from .cats_fit import check_fit, parse_fit, parse_size, parse_window, shown, summary
 from .cats_bind import (                                    # bindings file checks; blocks, routes and names
     DISCIPLINES, SIG_PANTYPES, IOSPEC_KEYS, ROUTE_TAGS, bind_blocks, bind_routes, check_bindings, check_io, label_of,
-    node_of, number_order, switch_bindings)
+    node_of, number_order, switch_bindings, check_xover_bindings, check_one_name_per_block)
 from .cats_masts import (                                   # masts: binding, gantries, spot choice
     SIG_LOCATION, INK_CLEAR, POINT_ZONE, SPOT_COST, SPOT_PER_PX, GANTRY_SHIFT, GANTRY_SPAN, bind_masts, box_gap,
     gantry_look, lamp_way, mast_gap, mast_size, move_gap, move_of, place_mast, points_zones, shift_gaps, spot_costs)
@@ -91,7 +91,8 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
     left_col = 2 if compact else MARGIN + 1     # a compact panel keeps one empty column on the left
     ends = []                  # (band title, node, data, strand name, (cell, edge), block key of the end step)
     used_names = defaultdict(int)
-    xblocks, defaulted = {}, set()  # (band, double crossover) -> its blocks by leg and X; those named by default
+    xblocks = {}                    # (band, double crossover) -> its blocks by leg and X
+    check_xover_bindings(bands, sw_bind)
 
     def unique(name):
         used_names[name] += 1
@@ -140,9 +141,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
             if "block" in e or e.get("corners") == XOVER_ONE:
                 P.log.append(f"{title}: double crossover {d.get('label') or n} is one OS block, as bound")
                 continue
-            corners[n] = {**xover_names(d, n), **e.get("corners", {})}
-            if "corners" not in e:
-                defaulted.add((bi, n))
+            corners[n] = {**xover_names(d, n), **e.get("corners", {})}     # defaults checked: check_xover_bindings
             xblocks[(bi, n)] = corners[n]
 
         def okey(n, port):
@@ -495,15 +494,13 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
         groups[P.find(key)].append(key)
     for root in sorted(groups, key=lambda r: (r[0] != "track", r)):
         keys = groups[root]
-        cornered = {(xblocks[node_of(k)][k[2] if k[0] == "corner" else "X"], node_of(k) in defaulted)
-                    for k in keys if k[0] in ("corner", "xmid")}
+        cornered = {xblocks[node_of(k)][k[2] if k[0] == "corner" else "X"] for k in keys if k[0] in ("corner", "xmid")}
         if cornered:
             if len(cornered) > 1 or any(k[0] == "os" for k in keys):
-                raise SchematicError(f"double crossover blocks {', '.join(sorted(n for n, _ in cornered))} run into "
+                raise SchematicError(f"double crossover blocks {', '.join(sorted(cornered))} run into "
                                      "each other or into another switch's OS block: the tracks between them are too "
                                      f"short (bind the crossover \"corners\": \"{XOVER_ONE}\" for one OS block)")
-            name, default = cornered.pop()
-            P.names[root] = unique(name) if default else name     # a bound name is never suffixed (clash checked)
+            P.names[root] = cornered.pop()      # never suffixed: defaults are checked clear, bound names are kept
             continue
         labels = sorted({label_of(bands, k) for k in keys if k[0] == "os"} - {""}, key=number_order)
         bound = sorted({sw_bind[node_of(k)]["block"] for k in keys
@@ -526,10 +523,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
                              "to hold a block of their own")
         else:
             P.names[root] = unique(base)
-    clash = sorted(v for v, k in Counter(P.names.values()).items() if k > 1)
-    if clash:           # an invariant bind_blocks relies on: one name per block
-        raise SchematicError(f"blocks {', '.join(clash)} are each the name of two blocks; a double crossover's bound "
-                             "corners must not take another block's name")
+    check_one_name_per_block(P, bands, groups)          # an invariant bind_blocks relies on
     bind_blocks(P, bindings["blocks"], set(by_bound))
     bind_routes(P, sw_bind)
     bind_masts(P, bands, bindings["masts"], chains, turn_bounds, compact, max_cols=max_cols)

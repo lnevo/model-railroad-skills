@@ -151,7 +151,7 @@ class TitleClear(unittest.TestCase):
         page = dict(self.page(le_title_clear=8), band_order=["Upper", "Lower", "Third"])
         # the copy's double crossover is another one: its corner blocks need names of their own
         names = {"Third": {"xover_blocks": {"DX": {leg: f"Third {leg}" for leg in "ABCD"}}}}
-        with self.assertRaisesRegex(SchematicError, "same default corner blocks"):
+        with self.assertRaisesRegex(SchematicError, "would take the same default block OS 6a"):
             le.panel(three, page=page)
         P = le.panel(three, names, page=page)
         self.assertEqual(len(P.gaps), 2)

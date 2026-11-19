@@ -651,9 +651,30 @@ class Compact(unittest.TestCase):
         self.assertEqual([s.get("DECADDR") for s in bound], ["61"])
 
     def test_bound_corners_must_not_take_another_blocks_name(self):
-        with self.assertRaisesRegex(cats.SchematicError, "OS 1 are each the name of two blocks"):
+        with self.assertRaisesRegex(cats.SchematicError, "block OS 1 is the name of both double crossover 6/T14 on "
+                                    "Lower level's corner A and switch 1/T10 on Lower level's OS block"):
             cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"6": {
                 "corners": {"A": "OS 1", "B": "b", "C": "c", "D": "d"}}}})
+
+    def test_default_corners_keep_clear_of_other_names(self):
+        """As the Layout Editor panel: a default corner or middle that is another switch's default OS block, a bound
+        name, or another double crossover's default stops (never suffixed), and so does one key giving corners to
+        two double crossovers."""
+        with self.assertRaisesRegex(cats.SchematicError, "default block OS 6a is also the name of switch 6a/.*OS block"):
+            cats.panel(helpers.relabelled("S1", "6a"), scale=1)
+        with self.assertRaisesRegex(cats.SchematicError, "default block OS 6 X is also the name of the block switch "
+                                                         "1/T10 on Lower level is bound to"):
+            cats.panel(helpers.build().bands, scale=1, bindings={"switches": {"1": {"block": "OS 6 X"}, "6": {
+                "corners": {"A": "a", "B": "b", "C": "c", "D": "d"}}}})
+        with self.assertRaisesRegex(cats.SchematicError, "6/T14 on Lower level and double crossover 6/T14 on Third "
+                                                         "level would take the same default block OS 6a"):
+            cats.panel(helpers.with_third(), scale=1)
+        with self.assertRaisesRegex(cats.SchematicError, "one switch binding gives corners to double crossovers "
+                                                         "6/T14 on Lower level and 6/T14 on Third level"):
+            cats.panel(helpers.with_third(), scale=1, bindings={"switches": {"6": {
+                "corners": {"A": "a", "B": "b", "C": "c", "D": "d", "X": "x"}}}})
+        P = cats.panel(helpers.relabelled("S1", "6a"), scale=1, bindings={"switches": {"6": {"corners": "one"}}})
+        self.assertLessEqual({"OS 6", "OS 6a"}, set(P.names.values()))
 
     def test_corners_must_name_four_different_blocks(self):
         for bad in ({"A": "a", "B": "b", "C": "c"}, {"A": "a", "B": "a", "C": "c", "D": "d"}):

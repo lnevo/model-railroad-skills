@@ -556,7 +556,7 @@ class Band:
         corners = xover_blocks(self.band, self.names).get(n)
         if not corners:
             self.P.log.append(f"{self.title}: double crossover {self.nodes[n].get('label') or n} is one OS block, "
-                              "as named (os, or xover_blocks \"one\"): JMRI records a through path between its two "
+                              "as named (xover_blocks \"one\"): JMRI records a through path between its two "
                               "legs on one side")
         b = self.os_of(n)
         self.add_turnout([n], "DOUBLE_XOVER", (xc, (ys[0] + ys[1]) / 2), pts, conn,

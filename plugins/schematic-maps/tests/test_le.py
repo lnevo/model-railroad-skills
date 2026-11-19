@@ -233,9 +233,10 @@ class Switches(unittest.TestCase):
         self.assertTrue({"OS 6a", "OS 6b", "OS 6c", "OS 6d"} <= set(P.blocks))
 
     def test_double_crossover_as_one_block(self):
-        """xover_blocks "one", or an `os` block named without corners, keeps the crossover one OS block, logged;
-        xover_blocks still wins over `os`."""
-        for names, block in (({"xover_blocks": {"DX": "one"}}, "OS 6"), ({"os": {"DX": "OS Six"}}, "OS Six")):
+        """xover_blocks "one" (the only opt-out) keeps the crossover one OS block, named by `os` when given, logged;
+        corners in xover_blocks win over `os`; `os` alone stops, as CATS keeps `block` and `corners` apart."""
+        for names, block in (({"xover_blocks": {"DX": "one"}}, "OS 6"),
+                             ({"os": {"DX": "OS Six"}, "xover_blocks": {"DX": "one"}}, "OS Six")):
             with self.subTest(names=names):
                 P = panel({"Lower": names})
                 t = next(t for t in P.turnouts if t["type"] == "DOUBLE_XOVER")
@@ -249,10 +250,25 @@ class Switches(unittest.TestCase):
         for bad in ("two", "ONE", ["one"]):
             with self.subTest(bad=bad), self.assertRaisesRegex(SchematicError, "or \"one\" for one OS block"):
                 le.panel(bands(), {"Lower": {"xover_blocks": {"DX": bad}}})
+        with self.assertRaisesRegex(SchematicError, "os names a block for double crossover 6/T14.*xover_blocks DX"):
+            le.panel(bands(), {"Lower": {"os": {"DX": "OS Six"}}})
 
-    def test_default_corner_blocks_keep_clear_of_given_names(self):
-        with self.assertRaisesRegex(SchematicError, "default corner blocks OS 6b"):
+    def test_default_corner_blocks_keep_clear_of_other_names(self):
+        """A default corner is never another block's name: a given name, another switch's default OS block (switch
+        6a's OS 6a), or another double crossover's default (two numbered 6, named by node or alias)."""
+        with self.assertRaisesRegex(SchematicError, "default block OS 6b is also the name of a block the names give"):
             le.panel(bands(), {"Lower": {"os": {"S1": "OS 6b"}}})
+        with self.assertRaisesRegex(SchematicError, "default block OS 6a is also the name of switch 6a/.*'s OS block"):
+            le.panel(helpers.relabelled("S1", "6a"))
+        with self.assertRaisesRegex(SchematicError, "6/T14 on Lower level and double crossover 6/T14 on Third level "
+                                                    "would take the same default block OS 6a; name one's corners"):
+            le.panel(helpers.with_third())
+        le.panel(helpers.relabelled("S1", "6a"), {"Lower": {"xover_blocks": {"DX": "one"}}})     # named apart
+
+    def test_idents_may_name_default_corner_blocks(self):
+        le.check_names(bands(), {"Lower": {"idents": {"ends": {"OS 6a": "EB9"}}}})
+        with self.assertRaisesRegex(SchematicError, "'OS 6e' is no block the names give"):
+            le.check_names(bands(), {"Lower": {"idents": {"ends": {"OS 6e": "EB9"}}}})
 
     def test_double_crossover_corner_blocks(self):
         """`xover_blocks` puts each band leg's corner in its own block, written as JMRI's four block names, so no
