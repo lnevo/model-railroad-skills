@@ -72,6 +72,16 @@ def check_run_hints(bands, opts):
                                      "list the tracks it is for after the switches, or name a switch nearer the one you mean")
 
 
+def points_on_straight(nodes, strands, srow, nrow, end):
+    """True when `end` (node, port) is the points (A) of a switch drawn with its straight leg (B) level."""
+    n, port = end
+    d = nodes[n]
+    if d["kind"] != "switch" or port != "A":
+        return False
+    b = d["outs"].get("B") or d["ins"].get("B")
+    return b in srow and srow[b] == nrow.get(n)
+
+
 def place(nodes, strands, R, enclosed, opts, extra=()):
     srow, nrow, diag = R["srow"], R["nrow"], R["diag"]
     cons, need, weight = [], {}, []
@@ -94,6 +104,10 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
         h += opts.get("_room", {}).get(s["edge"], 0)     # R12: cells claimed by labels that found no free position
         if nodes[u]["kind"] == "end" or nodes[v]["kind"] == "end":
             h = max(h, 1) + 1
+        if (su or sv) and (points_on_straight(nodes, strands, srow, nrow, s["src"])
+                           or points_on_straight(nodes, strands, srow, nrow, s["dst"])):
+            h = max(h, 1)               # R8: a track sloping into a switch's points runs level a cell first, so the
+            #                             points stand in line with the straight leg drawn level beyond them
         if nodes[u].get("sub") == "link" or nodes[v].get("sub") == "link":
             h, tight = 1, True          # a connector gets one short level cell, never more
         w = max(1, su + sv + h) + sum(nodes[t]["kind"] == "dx" for t in (u, v))

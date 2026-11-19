@@ -57,13 +57,14 @@ def lift(g, x, p1, p2):
                            cm=round(e1["cm"] + e2["cm"], 1), names=e1["names"] or e2["names"]))
 
 
-def set_in(g, x, t, n0, cm_from_first, points_toward_first, names=(None, None)):
-    """Set switch x into track t (between n0 and its other end): A toward one end, B toward the other."""
+def set_in(g, x, t, n0, cm_from_first, points_toward_first, names=(None, None), through="B"):
+    """Set switch x into track t (between n0 and its other end): A toward one end, leg `through` (B, or C for a
+    switch whose added branch is its straight leg) toward the other."""
     end0 = (t["u"], t["up"]) if t["u"] == n0 else (t["v"], t["vp"])
     end1 = (t["v"], t["vp"]) if t["u"] == n0 else (t["u"], t["up"])
     at = max(5.0, min(cm_from_first, t["cm"] - 5))
     g["edges"].remove(t)
-    p0, p1 = ("A", "B") if points_toward_first else ("B", "A")
+    p0, p1 = ("A", through) if points_toward_first else (through, "A")
     g["edges"].append(dict(t, id=t["id"] + "a", u=end0[0], up=end0[1], v=x, vp=p0, cm=round(at, 1),
                            names=[names[0]] if names[0] else t["names"]))
     g["edges"].append(dict(t, id=t["id"] + "b", u=x, up=p1, v=end1[0], vp=end1[1], cm=round(t["cm"] - at, 1),
@@ -155,8 +156,12 @@ def apply_edits(g, edits):
             need_hand_and_source(ed, ed["label"])
             x = new_switch(g, ed["label"], ed.get("alias", ed["label"]), ed["hand"])
             t, n0, _ = edge_between(g, *ed["on"], ed.get("port"))
-            set_in(g, x, t, n0, ed["cm_from_first"], ed["points_toward"] == ed["on"][0], ed.get("names", (None, None)))
-            grow(g, x, "C", ed["c"], t, counter)
+            branch = ed.get("branch_leg", "C")     # the leg the added branch hangs off: C, or B when it is straight
+            if branch not in ("B", "C"):
+                raise SchematicError(f"switch {ed['label']}: branch_leg must be 'B' or 'C', not {branch!r}")
+            set_in(g, x, t, n0, ed["cm_from_first"], ed["points_toward"] == ed["on"][0], ed.get("names", (None, None)),
+                   through="C" if branch == "B" else "B")
+            grow(g, x, branch, ed["c"], t, counter)
         elif op == "crossover":     # two new switches joined by their diverging legs
             need_hand_and_source(ed, ed["label"])
             ids = []
