@@ -115,10 +115,10 @@ class LevelCellBeforePoints(unittest.TestCase):
     def test_points_on_a_level_straight_leg(self):
         nodes, strands = lone_switch()
         nrow = {"s": 2}
-        self.assertTrue(columns.points_on_straight(nodes, {"b": 2, "c": 3}, nrow, ("s", "A"), {}))
-        self.assertFalse(columns.points_on_straight(nodes, {"b": 3, "c": 2}, nrow, ("s", "A"), {}))
-        self.assertFalse(columns.points_on_straight(nodes, {"b": 2, "c": 3}, nrow, ("s", "B"), {}))
-        self.assertFalse(columns.points_on_straight(nodes, {"b": 2}, nrow, ("w", "E"), {}))
+        self.assertTrue(columns.points_on_straight(nodes, {"b": 2, "c": 3}, nrow, ("s", "A")))
+        self.assertFalse(columns.points_on_straight(nodes, {"b": 3, "c": 2}, nrow, ("s", "A")))
+        self.assertFalse(columns.points_on_straight(nodes, {"b": 2, "c": 3}, nrow, ("s", "B")))
+        self.assertFalse(columns.points_on_straight(nodes, {"b": 2}, nrow, ("w", "E")))
 
 
 class LadderLinksKeepTheirStep(unittest.TestCase):
