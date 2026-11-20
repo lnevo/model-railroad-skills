@@ -1,6 +1,7 @@
 """The label layer of the generated Layout Editor panel (le_labels): switch numbers, track names, one block contents
 icon per block and station names, each in a clean spot sized as JMRI draws it, checked from scratch."""
 import copy
+from collections import defaultdict
 import math
 import unittest
 import xml.etree.ElementTree as ET
@@ -821,6 +822,26 @@ class HiddenNames(unittest.TestCase):
         self.assertEqual(len(hidden_join), len([s for s in full.segments if s.get("hidden")]))
         self.assertEqual(sum(lb["text"] == "Summit" for lb in P.labels) + 1,
                          sum(lb["text"] == "Summit" for lb in full.labels))      # Upper's label only
+
+    def test_a_block_on_two_bands_gets_its_icon_on_its_own_band(self):
+        """A joined helix track is one block drawn on two bands (the default names share it through the join): its
+        block contents icon stands on the band block_band gives it, so the band's extent, and with it
+        le_title_clear, never reaches into the other band."""
+        b, page = shared()
+        P = le.panel(b, page=page)
+        segs = defaultdict(set)
+        for s in P.segments:
+            if not s.get("hidden"):
+                segs[s["block"]].add(s["band"])
+        two = [blk for blk, on in segs.items() if len(on) > 1]
+        self.assertTrue(two)                                    # the example joins its helix as one block
+        for blk in two:
+            with self.subTest(block=blk):
+                icon = next(m for m in P.bcis if m["block"] == blk)
+                top, bottom = P.band_boxes[icon["band"]][1], P.band_boxes[icon["band"]][3]
+                x, y, w, h = icon["box"]
+                self.assertTrue(top - 2 * h <= y <= bottom + h, (blk, icon["band"], y, top, bottom))
+                self.assertLessEqual(le.extent(P, icon["band"])[3], bottom + 2 * h)
 
     def test_draw_panel_marks_them_too(self):
         b, page = shared(le_band_labels={"Lower": {"hidden_names": ["Yard Lead"]}})
