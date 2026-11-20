@@ -517,7 +517,7 @@ class Spots:
     def take(self, item, spots):
         for s in spots:
             if s not in self.held:
-                self.held[s] = (item["what"], item["kind"])
+                self.held[s] = (item["what"], item["kind"], item.get("key"))
                 return s, None
         return None, f"{item['what']}: no clean spot"
 
@@ -547,7 +547,7 @@ def spot_items(want, short=None):
         icon = key[0] == "bci"
 
         def make(state, short_reserve=False):
-            item = dict(what=str(key), kind=le_labels.ICON_KIND if icon else "a track name")
+            item = dict(what=str(key), kind=le_labels.ICON_KIND if icon else "a track name", key=key)
             if icon:
                 return (item, list(short.get(key, spots) if short_reserve else spots),
                         lambda box: ("bci", dict(block=key[1], key=key, box=box)))
@@ -583,23 +583,23 @@ class NamesLast(unittest.TestCase):
             with self.subTest(short=short):
                 items = spot_items([(icon, ["S", "T"] if not short else ["S"]), (name, ["S"])], short)
                 L = Spots()
-                L.held = {"S": (str(icon), le_labels.ICON_KIND)}
+                L.held = {"S": (str(icon), le_labels.ICON_KIND, icon)}
                 done, failed, skipped = self.room(L, items, [("bci", dict(block="Block A", key=icon, box="S"))],
                                                   [name])
                 self.assertEqual((failed, skipped), ([], []))
                 self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), [(icon, where), (name, "S")])
-                self.assertEqual(L.held, {"S": (str(name), "a track name"), where: (str(icon), le_labels.ICON_KIND)})
+                self.assertEqual(L.held, {"S": (str(name), "a track name", name), where: (str(icon), le_labels.ICON_KIND, icon)})
                 self.assertTrue(any("room made" in n for n in L.notes))
 
     def test_a_name_stays_out_when_the_icon_has_no_other_spot_and_everything_is_put_back(self):
         name, icon = ("name", 1, "s1"), ("bci", "Block A")
         items = spot_items([(icon, ["S"]), (name, ["S"])], {icon: []})
         L = Spots()
-        L.held = {"S": (str(icon), le_labels.ICON_KIND)}
+        L.held = {"S": (str(icon), le_labels.ICON_KIND, icon)}
         before = [("bci", dict(block="Block A", key=icon, box="S"))]
         done, failed, skipped = self.room(L, items, list(before), [name])
         self.assertEqual((done, failed, [k for k, _w in skipped]), (before, [], [name]))
-        self.assertEqual((L.held, L.notes), ({"S": (str(icon), le_labels.ICON_KIND)}, []))
+        self.assertEqual((L.held, L.notes), ({"S": (str(icon), le_labels.ICON_KIND, icon)}, []))
 
     def test_icons_move_first_then_a_name_with_another_spot(self):
         """The first pass moves only icons: a spot another name holds is passed over for the next, held by an icon
@@ -611,7 +611,7 @@ class NamesLast(unittest.TestCase):
             with self.subTest(other=other_spots, icon=icon_spots):
                 items = spot_items([(other, other_spots), (icon, icon_spots), (name, ["R", "S"])], {icon: []})
                 L = Spots()
-                L.held = {"R": (str(other), "a track name"), "S": (str(icon), le_labels.ICON_KIND)}
+                L.held = {"R": (str(other), "a track name", other), "S": (str(icon), le_labels.ICON_KIND, icon)}
                 before = [("label", dict(key=other, box="R")), ("bci", dict(block="Block A", key=icon, box="S"))]
                 done, _failed, skipped = self.room(L, items, list(before), [name])
                 if want is None:
@@ -627,15 +627,15 @@ class NamesLast(unittest.TestCase):
         none = {a: [], b: [], c: []}
         items = spot_items([(a, ["S", "T"]), (b, ["T", "U"]), (name, ["S"])], none)
         L = Spots()
-        L.held = {"S": (str(a), le_labels.ICON_KIND), "T": (str(b), le_labels.ICON_KIND)}
+        L.held = {"S": (str(a), le_labels.ICON_KIND, a), "T": (str(b), le_labels.ICON_KIND, b)}
         done, _f, skipped = self.room(L, items, [("bci", dict(block="A", key=a, box="S")),
                                                  ("bci", dict(block="B", key=b, box="T"))], [name])
         self.assertEqual(skipped, [])
         self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), sorted([(name, "S"), (a, "T"), (b, "U")]))
         items = spot_items([(a, ["S", "T"]), (b, ["T", "U"]), (c, ["U", "V"]), (name, ["S"])], none)
         L = Spots()
-        L.held = {"S": (str(a), le_labels.ICON_KIND), "T": (str(b), le_labels.ICON_KIND),
-                  "U": (str(c), le_labels.ICON_KIND)}
+        L.held = {"S": (str(a), le_labels.ICON_KIND, a), "T": (str(b), le_labels.ICON_KIND, b),
+                  "U": (str(c), le_labels.ICON_KIND, c)}
         held = dict(L.held)
         before = [("bci", dict(block=k[1], key=k, box=s)) for k, s in ((a, "S"), (b, "T"), (c, "U"))]
         done, _f, skipped = self.room(L, items, list(before), [name])
@@ -647,7 +647,7 @@ class NamesLast(unittest.TestCase):
         need, icon, name = ("bci", "Need"), ("bci", "Other"), ("name", 1, "s1")
         items = spot_items([(icon, ["S", "T"]), (need, ["S"]), (name, ["W"])], {need: [], icon: []})
         L = Spots()
-        L.held = {"S": (str(icon), le_labels.ICON_KIND)}
+        L.held = {"S": (str(icon), le_labels.ICON_KIND, icon)}
         done, failed, skipped = le_labels.make_room(
             L, items, [("bci", dict(block="Other", key=icon, box="S"))], [(need, "no spot")], [(name, "no spot")],
             dict(number_side={}, name_side={}), names=False)
@@ -656,6 +656,57 @@ class NamesLast(unittest.TestCase):
         done, failed, skipped = self.room(L, items, done, [name])
         self.assertEqual((failed, skipped), ([], []))
         self.assertIn((name, "W"), [(d["key"], d["box"]) for _k, d in done])
+
+    def test_an_item_placed_by_an_earlier_band_stands_where_it_is(self):
+        """Placing by band, what an earlier band placed is in L's boxes but not among this band's items: make_room
+        treats it as fixed. A spot only it holds is passed over (no error), and room is made at the next spot."""
+        name, mine, earlier = ("name", 1, "s1"), ("bci", "Mine"), ("bci", "Earlier")
+        for mine_spots, want in ((["T", "U"], [(mine, "U"), (name, "T")]), (["T"], None)):
+            with self.subTest(mine=mine_spots):
+                items = spot_items([(mine, mine_spots), (name, ["S", "T"])], {mine: []})
+                L = Spots()
+                L.held = {"S": (str(earlier), le_labels.ICON_KIND, earlier), "T": (str(mine), le_labels.ICON_KIND, mine)}
+                before = [("bci", dict(block="Mine", key=mine, box="T"))]
+                done, failed, skipped = self.room(L, items, list(before), [name])
+                self.assertEqual(failed, [])
+                self.assertEqual(L.held["S"], (str(earlier), le_labels.ICON_KIND, earlier))
+                if want is None:
+                    self.assertEqual(([k for k, _w in skipped], done), ([name], before))
+                else:
+                    self.assertEqual(skipped, [])
+                    self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), sorted(want))
+
+    def test_items_sharing_one_text_move_apart(self):
+        """Two track names on a band with one text share (what, kind); each box still names its own item (key), so
+        making room moves only the one in the way and the other stays placed, once."""
+        a, b, icon = ("name", 1, "s1"), ("name", 1, "s2"), ("bci", "Need")
+        items = spot_items([(a, ["R"]), (b, ["S", "Q"]), (icon, ["S"])], {icon: []})
+
+        def same_text(make):
+            def made(state, short=False):
+                got = make(state, short)
+                if got and got[0]["kind"] == "a track name":
+                    got[0]["what"] = "Band: track name X"
+                return got
+            return made
+        items = [(k, same_text(m)) for k, m in items]
+        L = Spots()
+        what = "Band: track name X"
+        L.held = {"R": (what, "a track name", a), "S": (what, "a track name", b)}
+        done = [("label", dict(key=a, box="R")), ("label", dict(key=b, box="S"))]
+        done, failed, skipped = le_labels.make_room(L, items, done, [(icon, "no spot")], [],
+                                                    dict(number_side={}, name_side={}))
+        self.assertEqual((failed, skipped), ([], []))
+        self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), sorted([(a, "R"), (b, "Q"), (icon, "S")]))
+        self.assertEqual(L.held, {"R": (what, "a track name", a), "Q": (what, "a track name", b),
+                                  "S": (str(icon), le_labels.ICON_KIND, icon)})
+
+    def test_keyed_items_carry_their_key(self):
+        name = ("name", 1, "s1")
+        (key, make), = le_labels.keyed(spot_items([(name, ["S"])]))
+        self.assertEqual((key, make({})[0]["key"]), (name, name))
+        (key, make), = le_labels.keyed([(name, lambda state, short=False: None)])
+        self.assertIsNone(make({}))
 
     def test_nothing_left_out_is_returned_as_it_is(self):
         name = ("name", 1, "s1")

@@ -438,16 +438,18 @@ class Layer:
         if self.kept is not None:
             self.boxes = copy.deepcopy(self.kept)
             return
-        self.boxes = Grid()                 # (box, (what, kind)) of every label, icon and circle to clear
+        # (box, (what, kind, key)) of every label, icon and circle to clear; key is the placed item's (keyed), None
+        # for what the drawing holds, so two items with one text (track names alike on a band) stay apart
+        self.boxes = Grid()
         for lb in P.labels:
-            self.boxes.add(label_box(lb), (f"label {lb['text']!r}", "a label"))
+            self.boxes.add(label_box(lb), (f"label {lb['text']!r}", "a label", None))
         for m in P.masts:
-            self.boxes.add(box_of(*m["box"]), (f"mast {m['mast']}'s icon", "a mast icon"))
+            self.boxes.add(box_of(*m["box"]), (f"mast {m['mast']}'s icon", "a mast icon", None))
         for sh in P.shapes:
             (cx, cy), r = sh["centre"], sh["r"]
-            self.boxes.add((cx - r, cy - r, cx + r, cy + r), ("a circle", "a circle"))
+            self.boxes.add((cx - r, cy - r, cx + r, cy + r), ("a circle", "a circle", None))
         for lamp in self.reserved:          # a caller's lamp (lamp_columns): kept clear from the start
-            self.boxes.add(box_of(*lamp["box"]), (f"lamp of {lamp['track']}", "a lamp"))
+            self.boxes.add(box_of(*lamp["box"]), (f"lamp of {lamp['track']}", "a lamp", None))
 
     def band_of(self, owner):
         kind, ident = owner
@@ -472,7 +474,7 @@ class Layer:
     def fault(self, box, item, on=False, past=()):
         """(kind, in full) of why a box is not a clean spot for item, or None. `on`: a block contents icon on its own
         block's track, whose lines are then no obstacle (and it reads as that block's by standing on it). `past`:
-        boxes (their (what, kind)) that are no obstacle (in_way)."""
+        boxes (their (what, kind, key)) that are no obstacle (in_way)."""
         if box[0] < self.margin or box[1] < self.margin or box[2] > self.P.size[0] or box[3] > self.P.size[1]:
             return ("outside the panel",) * 2
         for _b, ((a, b), owner) in self.ink.near(box, CLEAR):
@@ -506,7 +508,7 @@ class Layer:
         return None
 
     def in_way(self, item, spot, kinds):
-        """[((what, kind), box)] of the placed items of `kinds` that alone keep a spot (as take reads it) from being
+        """[((what, kind, key), box)] of the placed items of `kinds` that alone keep a spot (as take reads it) from being
         clean for item ([] when it is clean), or None when anything else is in the way too (make_room)."""
         on, w = len(spot) > 2 and spot[2], spot[3] if len(spot) > 3 else item["w"]
         box = box_of(round(spot[0]), round(spot[1]), w, item["h"])
@@ -520,7 +522,7 @@ class Layer:
         return _boxed(box)
 
     def lift(self, things):
-        """Take the boxes of `things` ((what, kind)) away; returns what restore() needs to put them back."""
+        """Take the boxes of `things` ((what, kind, key)) away; returns what restore() needs to put them back."""
         saved = self.boxes
         self.boxes = saved.without(set(things))
         return saved
@@ -558,7 +560,7 @@ class Layer:
                                       "its own block's track")
                 elif moved > LOG_MOVE:
                     self.notes.append(f"{item['what']}: placed {moved:.0f} px from its first spot ({first_why})")
-                self.boxes.add(box, (item["what"], item["kind"]))
+                self.boxes.add(box, (item["what"], item["kind"], item.get("key")))
                 item["on_track"], item["short"] = on, short
                 return box, None
             first_why = first_why or f[1]
@@ -775,7 +777,7 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
     settle_end_labels(P)
     L = Layer(P, bands, opts)
     extras = check_extras(extras, P.blocks)
-    items = specs(P, bands, opts, L, extras)
+    items = keyed(specs(P, bands, opts, L, extras))
     # a band's names_last: its track names go after everything else and may be left out
     skip_names = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
     items = [it for it in items if it[0] not in skip_names] + [it for it in items if it[0] in skip_names]
@@ -921,25 +923,23 @@ def make_room(L, items, done, failed, skipped, state, names=True):
     if not want:
         return done, failed, skipped
     makers = dict(items)
-    key_of = {}                         # (what, kind) of each item that may move -> its key
-    for key, make in items:
-        if key[0] in ("bci", "switch", "name"):
-            it = make(state)[0]
-            key_of[(it["what"], it["kind"])] = key
+    # the keys of the items that may move: only this call's own (a band's, placing by band); what an earlier band
+    # placed stands where it is, an obstacle like the drawing
+    movable = {key for key, _make in items if key[0] in ("bci", "switch", "name")}
     done, placed = list(done), set()
     for kinds in ROOM_PASSES:
         for key in [k for k in want if k not in placed]:
-            if settle(L, makers, key_of, key, state, done, kinds, ROOM_DEPTH, frozenset()):
+            if settle(L, makers, movable, key, state, done, kinds, ROOM_DEPTH, frozenset()):
                 placed.add(key)
     return done, [(k, why) for k, why in failed if k not in placed], [(k, why) for k, why in skipped
                                                                       if k not in placed]
 
 
-def settle(L, makers, key_of, key, state, done, kinds, depth, busy):
+def settle(L, makers, movable, key, state, done, kinds, depth, busy):
     """Whether item `key`, not standing now, stands now (make_room): at its first clean spot (a block contents icon
     at its full reserve, else its short one), else, with depth left, at one of its first ROOM_TRIES spots where only
-    items of `kinds` not in `busy` ((what, kind) of those this move is for) are in the way, each of them lifted and
-    settled again one step deeper. `done` (the placed items' dicts) and `state` follow; when it fails, L, `done` and
+    items of `kinds` not in `busy` ((what, kind, key) of those this move is for) and among `movable` (keys) are in
+    the way, each of them lifted and settled again one step deeper. `done` (the placed items' dicts) and `state` follow; when it fails, L, `done` and
     `state` are as they were."""
     shorts = (False, True) if key[0] == "bci" else (False,)
     made = [m for m in (makers[key](state, short=short) for short in shorts) if m]
@@ -958,9 +958,9 @@ def settle(L, makers, key_of, key, state, done, kinds, depth, busy):
         tries = 0
         for spot in spots:
             way = L.in_way(it, spot, kinds)
-            if not way or any(t in busy for t, _b in way):
+            if not way or any(t in busy or t[2] not in movable for t, _b in way):
                 continue
-            if move_for(L, makers, key_of, it, spot, commit, way, state, done, kinds, depth, busy):
+            if move_for(L, makers, movable, it, spot, commit, way, state, done, kinds, depth, busy):
                 return True
             tries += 1
             if tries >= ROOM_TRIES:
@@ -968,13 +968,9 @@ def settle(L, makers, key_of, key, state, done, kinds, depth, busy):
     return False
 
 
-def move_for(L, makers, key_of, it, spot, commit, way, state, done, kinds, depth, busy):
-    """Whether item `it` stands at `spot` with each of `way` ([((what, kind), box)]: what is in the way) lifted
-    and settled one step deeper (settle); else L, `done` and `state` are as they were."""
-    unknown = [t[0] for t, _b in way if t not in key_of]
-    if unknown:
-        raise SchematicError(f"{it['what']}: {', '.join(unknown)} stands in the way at {spot} but is no item placed "
-                             "here (le labels)")
+def move_for(L, makers, movable, it, spot, commit, way, state, done, kinds, depth, busy):
+    """Whether item `it` stands at `spot` with each of `way` ([((what, kind, key), box)]: what is in the way, each
+    a `movable` item) lifted and settled one step deeper (settle); else L, `done` and `state` are as they were."""
     saved, notes, sides, before = L.lift([t for t, _b in way]), len(L.notes), copy.deepcopy(state), list(done)
     box, why = L.take(it, [spot])
     if box is None:                     # in_way said only these were in the way
@@ -984,8 +980,8 @@ def move_for(L, makers, key_of, it, spot, commit, way, state, done, kinds, depth
     if len(left) != len(done) - len(way):
         raise SchematicError(f"{it['what']}: what was in the way at {spot} is not among the placed items (le labels)")
     done[:] = left + [commit(box)]
-    busy = busy | {t for t, _b in way} | {(it["what"], it["kind"])}
-    if all(settle(L, makers, key_of, key_of[t], state, done, kinds, depth - 1, busy) for t, _b in way):
+    busy = busy | {t for t, _b in way} | {(it["what"], it["kind"], it.get("key"))}
+    if all(settle(L, makers, movable, t[2], state, done, kinds, depth - 1, busy) for t, _b in way):
         L.notes.append(f"{it['what']}: placed where {', '.join(t[0] for t, _b in way)} stood, which moved to "
                        "another clean spot (room made)")
         return True
@@ -1143,6 +1139,19 @@ def specs(P, bands, opts, L, extras=()):
     return out
 
 
+def keyed(items):
+    """[(key, make)] with each item made carrying its key (it["key"]), so the box it takes (Layer.take) names that
+    one item, not every item that shares its text."""
+    def wrap(key, make):
+        def made(state, short=False):
+            got = make(state, short=short)
+            if got:
+                got[0]["key"] = key
+            return got
+        return made
+    return [(key, wrap(key, make)) for key, make in items]
+
+
 def _label_dict(it, box, kind, bi):
     return "label", dict(text=it["text"], xy=[box[0], box[1]], size=it["size"], bold=it["bold"], band=bi, kind=kind,
                          box=_boxed(box))
@@ -1169,8 +1178,8 @@ def _switch_number(L, t, text, o, below=False):
             spots = around(region, it["w"], it["h"], up)
         else:       # a plain turnout's: also in its frog, and stacked past the mast icons and labels standing by it
             here = box_of(*t["at"], 0, 0)
-            obstacles = [b for b, (_what, kind) in L.boxes.near(here, AROUND[-1] + it["w"] + it["h"])
-                         if kind != "a circle"]
+            obstacles = [b for b, thing in L.boxes.near(here, AROUND[-1] + it["w"] + it["h"])
+                         if thing[1] != "a circle"]
             spots = switch_spots(tuple(t["at"]), it["w"], it["h"], up, frog, obstacles, side_only=below)
 
         def commit(box):
