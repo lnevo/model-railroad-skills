@@ -205,6 +205,20 @@ class EditLookups(unittest.TestCase):
         edits.apply_edits(g, [dict(op="end", ends=[["7", "B", "Bumper", "stub", ""]])])
         self.assertTrue(g["edges"][0]["main"])
 
+    def test_a_junction_by_its_part_id_or_by_label_and_track(self):
+        from schematic import edits
+        g = dict(nodes={"TO_3W9-1": dict(kind="switch", label="51"), "TO_3W9-2": dict(kind="switch", label="50"),
+                        "x": dict(kind="switch", label="35"), "y": dict(kind="switch", label="35"),
+                        "e": dict(kind="end", label="")},
+                 edges=[dict(id="e1", u="x", up="A", v="e", vp="E", names=["East Lead"], cm=5.0, main=False, link=False),
+                        dict(id="e2", u="y", up="A", v="e", vp="E", names=["West Ext"], cm=5.0, main=False, link=False)])
+        self.assertEqual(edits.by_label(g, "TO_3W9-2"), "TO_3W9-2")
+        self.assertEqual(edits.by_label(g, "35@East Lead"), "x")
+        self.assertEqual(edits.by_label(g, "35@West Ext"), "y")
+        for ref in ("35", "35@Nowhere", "TO_3W9-3", "e"):        # two answers, none, none, a track end
+            with self.assertRaises(SchematicError):
+                edits.by_label(g, ref)
+
     def test_section_filter_that_keeps_nothing_is_a_plan_error(self):
         from schematic import plan_reader
         import helpers, tempfile, os
