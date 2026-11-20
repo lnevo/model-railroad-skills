@@ -121,8 +121,12 @@ instead of stopping: for a crowded band where every block's icon matters more th
 le_labels key only: the page's le_labels may not set it. A name left out is then tried again first (LEAD_TRIES):
 one at a time, in the order they were left out, each put before every other item, and kept there when every item
 that must be placed still finds a spot (a block contents icon perhaps at the short reserve, logged) and fewer items
-are left out than before; else it stays left out. An optional block contents icon left out
-(`optional_block_contents`) is tried again the same way.
+are left out than before (an item such a round leaves with no spot may first make room, below); else it stays left
+out. An optional block contents icon left out (`optional_block_contents`) is tried again the same way. A name still
+left out then makes room (make_room): it takes its first spot that only placed block contents icons keep from being
+clean when each of them finds another clean spot (full reserve, else short) or makes room the same way one step
+further (ROOM_DEPTH); only then may switch numbers and other names move like that too (ROOM_PASSES). Each move is
+logged; nothing is left out or moved for nothing; a panel whose labels all place never reaches it.
 """
 import copy
 import itertools
@@ -159,6 +163,7 @@ DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
 # a band's own le_labels keys: the page's may not set them
 BAND_ONLY = ("names_last", "extra_steps", "extra_follow", "hidden_names")
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
+ICON_KIND = "a block contents icon"     # a block contents icon's kind among the reasons a spot is not clean
 
 
 # ---------------------------------------------------------------- options
@@ -364,6 +369,14 @@ class Grid:
         for c in cells(box):
             self.cell[c].append(i)
 
+    def without(self, things):
+        """A new Grid of the same boxes less those whose thing is in `things` (this one is left as it is)."""
+        out = Grid()
+        for box, thing in self.items:
+            if thing not in things:
+                out.add(box, thing)
+        return out
+
     def near(self, box, r):
         seen = set()
         for c in cells(box, r):
@@ -456,9 +469,10 @@ class Layer:
         return {None: tuple(t["at"] if t["type"] != "DOUBLE_XOVER" else t["cen"])}
 
     # ---- a spot's faults
-    def fault(self, box, item, on=False):
+    def fault(self, box, item, on=False, past=()):
         """(kind, in full) of why a box is not a clean spot for item, or None. `on`: a block contents icon on its own
-        block's track, whose lines are then no obstacle (and it reads as that block's by standing on it)."""
+        block's track, whose lines are then no obstacle (and it reads as that block's by standing on it). `past`:
+        boxes (their (what, kind)) that are no obstacle (in_way)."""
         if box[0] < self.margin or box[1] < self.margin or box[2] > self.P.size[0] or box[3] > self.P.size[1]:
             return ("outside the panel",) * 2
         for _b, ((a, b), owner) in self.ink.near(box, CLEAR):
@@ -469,9 +483,9 @@ class Layer:
         for bx, _tid in self.circles.near(box, TURNOUT_R):
             if point_gap(box, bx[:2]) < TURNOUT_R:
                 return ("on a turnout's control circle",) * 2
-        for other, (what, kind) in self.boxes.near(box, PAD):
-            if boxes_overlap(box, other, PAD):
-                return f"over {kind}", f"over {what}"
+        for other, thing in self.boxes.near(box, PAD):
+            if thing not in past and boxes_overlap(box, other, PAD):
+                return f"over {thing[1]}", f"over {thing[0]}"
         why = None if on else self.reads_other(box, item)
         return (why, why) if why else None
 
@@ -490,6 +504,29 @@ class Layer:
             if key not in item["marks"] and point_gap(box, bx[:2]) < d - 0.5:
                 return "nearer another turnout"
         return None
+
+    def in_way(self, item, spot, kinds):
+        """[((what, kind), box)] of the placed items of `kinds` that alone keep a spot (as take reads it) from being
+        clean for item ([] when it is clean), or None when anything else is in the way too (make_room)."""
+        on, w = len(spot) > 2 and spot[2], spot[3] if len(spot) > 3 else item["w"]
+        box = box_of(round(spot[0]), round(spot[1]), w, item["h"])
+        way = {(thing, other) for other, thing in self.boxes.near(box, PAD)
+               if thing[1] in kinds and boxes_overlap(box, other, PAD)}
+        return None if self.fault(box, item, on, past={t for t, _b in way}) else sorted(way)
+
+    @staticmethod
+    def as_placed(box):
+        """A box (x0, y0, x1, y1) as a placed item's dict holds it (x, y, width, height)."""
+        return _boxed(box)
+
+    def lift(self, things):
+        """Take the boxes of `things` ((what, kind)) away; returns what restore() needs to put them back."""
+        saved = self.boxes
+        self.boxes = saved.without(set(things))
+        return saved
+
+    def restore(self, saved):
+        self.boxes = saved
 
     # ---- taking a spot
     def take(self, item, spots):
@@ -642,13 +679,18 @@ def beyond_spots(at, w, h, obstacles):
     return out
 
 
-def switch_spots(at, w, h, up_first, frog=None, obstacles=()):
+def switch_spots(at, w, h, up_first, frog=None, obstacles=(), side_only=False):
     """Top-left corners of a w x h switch number around a plain turnout's points `at`: around's spots, ranked as
     there, and after those of each distance the new kinds of that distance (their band): in its frog (frog_spots,
     when `frog` is given), then stacked past a mast icon or label that stands there (beyond_spots), on the side
-    tried first, then the other."""
+    tried first, then the other. With `side_only` (the side was asked for: numbers_below) the new kinds are only
+    those on the side tried first (a frog spot by its box's middle against `at`), so they never take the number to
+    the other side ahead of around's spots further out on its own side; around's spots are as without it."""
     frogs = frog_spots(frog, w, h) if frog else []
     stacks = beyond_spots(at, w, h, obstacles)
+    if side_only:
+        frogs = [(band, xy) for band, xy in frogs if (xy[1] + h / 2 < at[1]) == up_first]
+        stacks = [s for s in stacks if s[1] == up_first]
 
     def more(d):
         yield from (xy for band, xy in frogs if band == d)
@@ -830,11 +872,13 @@ def item_bands(P, L, items, extras):
 def place_items(L, items, skip_names, skip_bcis):
     """(done, failed, skipped) of placing `items` in rounds (place_rounds); then each item left out (skipped) tried
     again first, one at a time (module text, names_last): it leads when every item that must be placed still finds a
-    spot and fewer are left out. An item with no clean spot even with nothing else placed (against the drawing, the
-    mast icons and what stands already) is not tried. The panel's labels stand as in the outcome returned."""
+    spot, room made for any that found none (make_room, names=False), and fewer are left out. An item with no clean
+    spot even with nothing else placed (against the drawing, the mast icons and what stands already) is not tried.
+    Each name still left out then makes room where it can (make_room). The panel's labels stand as in the outcome
+    returned."""
     got = place_rounds(L, items, skip_names, skip_bcis, [])
     if got[1] or not got[2]:
-        return got
+        return got[:3]
     makers = dict(items)
 
     def free(key):
@@ -843,15 +887,114 @@ def place_items(L, items, skip_names, skip_bcis):
         made = makers[key](dict(number_side={}, name_side={}), short=key[0] == "bci")
         return bool(made) and L.take(made[0], made[1])[0] is not None
 
+    def led(lead):
+        """place_rounds with `lead` first, room then made for each item that must be placed and found no spot."""
+        done, failed, skipped, state = place_rounds(L, items, skip_names, skip_bcis, lead)
+        return (*make_room(L, items, done, failed, skipped, state, names=False), state)
+
     lead, last = [], None
     for key in [k for k, _why in got[2] if free(k)][:LEAD_TRIES]:
-        trial = place_rounds(L, items, skip_names, skip_bcis, lead + [key])
+        trial = led(lead + [key])
         last = lead + [key]
         if not trial[1] and len(trial[2]) < len(got[2]):
             lead, got = last, trial
     if last != lead:                    # the labels as in the outcome kept (L.reset above too): its round, again
-        got = place_rounds(L, items, skip_names, skip_bcis, lead)
-    return got
+        got = led(lead)
+    return make_room(L, items, *got)
+
+
+MOVABLE = (ICON_KIND, "a switch number", "a track name")    # what make_room may move to make room for an item
+ROOM_PASSES = ((ICON_KIND,), MOVABLE)       # make_room: moving only block contents icons first, then any of these
+ROOM_DEPTH = 2      # make_room: an item moved may itself move others to stand, this many steps from the one wanting
+ROOM_TRIES = 24     # make_room: spots an item tries moving others from, at most, at each step
+
+
+def make_room(L, items, done, failed, skipped, state, names=True):
+    """(done, failed, skipped) with each item that found no spot (failed) and, with `names`, each track name left
+    out (names_last) placed where it can be (settle): at its first clean spot, else where only placed items of the
+    pass's kinds are in the way, each of them then standing at another clean spot of its own, or itself moving
+    others the same way (up to ROOM_DEPTH steps). The first pass moves only block contents icons; then switch
+    numbers and track names may move too (ROOM_PASSES). Nothing is left out or moved for nothing, and an item with
+    no such spot stays failed or left out. Only a panel that leaves something out reaches this, so one whose labels
+    all place is unchanged. `state` is that of the round that placed `done`; both are updated."""
+    want = [key for key, _why in failed] + ([key for key, _why in skipped if key[0] == "name"] if names else [])
+    if not want:
+        return done, failed, skipped
+    makers = dict(items)
+    key_of = {}                         # (what, kind) of each item that may move -> its key
+    for key, make in items:
+        if key[0] in ("bci", "switch", "name"):
+            it = make(state)[0]
+            key_of[(it["what"], it["kind"])] = key
+    done, placed = list(done), set()
+    for kinds in ROOM_PASSES:
+        for key in [k for k in want if k not in placed]:
+            if settle(L, makers, key_of, key, state, done, kinds, ROOM_DEPTH, frozenset()):
+                placed.add(key)
+    return done, [(k, why) for k, why in failed if k not in placed], [(k, why) for k, why in skipped
+                                                                      if k not in placed]
+
+
+def settle(L, makers, key_of, key, state, done, kinds, depth, busy):
+    """Whether item `key`, not standing now, stands now (make_room): at its first clean spot (a block contents icon
+    at its full reserve, else its short one), else, with depth left, at one of its first ROOM_TRIES spots where only
+    items of `kinds` not in `busy` ((what, kind) of those this move is for) are in the way, each of them lifted and
+    settled again one step deeper. `done` (the placed items' dicts) and `state` follow; when it fails, L, `done` and
+    `state` are as they were."""
+    shorts = (False, True) if key[0] == "bci" else (False,)
+    made = [m for m in (makers[key](state, short=short) for short in shorts) if m]
+    for it, spots, commit in made:
+        box = L.take(it, spots)[0]
+        if box is not None:
+            done.append(commit(box))
+            return True
+    if depth <= 0:
+        return False
+    for short in shorts:
+        m = makers[key](state, short=short)
+        if not m:
+            continue
+        it, spots, commit = m
+        tries = 0
+        for spot in spots:
+            way = L.in_way(it, spot, kinds)
+            if not way or any(t in busy for t, _b in way):
+                continue
+            if move_for(L, makers, key_of, it, spot, commit, way, state, done, kinds, depth, busy):
+                return True
+            tries += 1
+            if tries >= ROOM_TRIES:
+                break
+    return False
+
+
+def move_for(L, makers, key_of, it, spot, commit, way, state, done, kinds, depth, busy):
+    """Whether item `it` stands at `spot` with each of `way` ([((what, kind), box)]: what is in the way) lifted
+    and settled one step deeper (settle); else L, `done` and `state` are as they were."""
+    unknown = [t[0] for t, _b in way if t not in key_of]
+    if unknown:
+        raise SchematicError(f"{it['what']}: {', '.join(unknown)} stands in the way at {spot} but is no item placed "
+                             "here (le labels)")
+    saved, notes, sides, before = L.lift([t for t, _b in way]), len(L.notes), copy.deepcopy(state), list(done)
+    box, why = L.take(it, [spot])
+    if box is None:                     # in_way said only these were in the way
+        raise SchematicError(f"{it['what']}: its spot {spot} is not clean with what was in the way lifted ({why})")
+    gone = [L.as_placed(b) for _t, b in way]
+    left = [(kind, d) for kind, d in done if d["box"] not in gone]
+    if len(left) != len(done) - len(way):
+        raise SchematicError(f"{it['what']}: what was in the way at {spot} is not among the placed items (le labels)")
+    done[:] = left + [commit(box)]
+    busy = busy | {t for t, _b in way} | {(it["what"], it["kind"])}
+    if all(settle(L, makers, key_of, key_of[t], state, done, kinds, depth - 1, busy) for t, _b in way):
+        L.notes.append(f"{it['what']}: placed where {', '.join(t[0] for t, _b in way)} stood, which moved to "
+                       "another clean spot (room made)")
+        return True
+    L.restore(saved)
+    del L.notes[notes:]
+    state.clear()
+    state.update(sides)
+    done[:] = before
+    return False
 
 
 LEAD_TRIES = 24     # items left out tried again first, at most
@@ -864,7 +1007,7 @@ def place_rounds(L, items, skip_names, skip_bcis, lead):
     Neither is ever put first in a later round, nor counted when choosing the best round, except those in `lead`,
     which every round places first (place_items)."""
     makers = dict(items)
-    skipped = []
+    skipped, last_state = [], {}
 
     def attempt(first, short):
         """One round in that order; with `short`, the block contents icons in `first` (they found no spot at full
@@ -873,6 +1016,8 @@ def place_rounds(L, items, skip_names, skip_bcis, lead):
         never put first in a later round."""
         L.reset()
         done, failed, state = place_round(L, items, first, set(first) if short else ())
+        last_state.clear()
+        last_state.update(state)
         skipped[:] = [(k, why) for k, why in failed if k in skip_names]
         failed = [(k, why) for k, why in failed if k not in skip_names]
         still = []
@@ -907,7 +1052,7 @@ def place_rounds(L, items, skip_names, skip_bcis, lead):
         if not still:                               # an optional icon left over still tries the short reserve
             break
     # an optional block contents icon (optional_block_contents) left with no spot at either reserve is left out
-    return done, needed(still), list(skipped) + [x for x in still if x[0] in skip_bcis]
+    return done, needed(still), list(skipped) + [x for x in still if x[0] in skip_bcis], last_state
 
 
 def place_round(L, items, first, again=()):
@@ -1026,7 +1171,7 @@ def _switch_number(L, t, text, o, below=False):
             here = box_of(*t["at"], 0, 0)
             obstacles = [b for b, (_what, kind) in L.boxes.near(here, AROUND[-1] + it["w"] + it["h"])
                          if kind != "a circle"]
-            spots = switch_spots(tuple(t["at"]), it["w"], it["h"], up, frog, obstacles)
+            spots = switch_spots(tuple(t["at"]), it["w"], it["h"], up, frog, obstacles, side_only=below)
 
         def commit(box):
             state["number_side"][t["ident"]] = "above" if centre(box)[1] < (region[1] + region[3]) / 2 else "below"
@@ -1257,7 +1402,7 @@ def _bcis(P, L, places):
         what = f"{L.bands[bi][0]}: block contents of {block}"
 
         def new_item(what=what, size=size, w=w, **kw):
-            it = L.item("a block contents icon", what, "", size, False, w=w[0], **kw)
+            it = L.item(ICON_KIND, what, "", size, False, w=w[0], **kw)
             it.update(reserve=w[2], short_reserve=w[3])
             return it
 
