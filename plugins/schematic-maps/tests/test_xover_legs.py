@@ -66,8 +66,21 @@ class Pairing(unittest.TestCase):
                 with self.subTest(labels=labels, legs=legs):
                     self.assertEqual(paired(labels, legs), ({}, []))
 
-    def test_alike_labels_pair_c_to_c_as_before_even_lettered(self):
-        self.assertEqual(paired(("3A", "3A"), ("C", "C"))[0], {"p": ("C", "q", "x"), "q": ("C", "p", "x")})
+    def test_alike_labels_pair_c_to_c_but_not_lettered_alike(self):
+        self.assertEqual(paired(("3", "3"), ("C", "C"))[0], {"p": ("C", "q", "x"), "q": ("C", "p", "x")})
+        for labels in (("3A", "3A"), ("3B", "3B*")):        # lettered alike: ambiguous, whichever legs
+            for legs in (("C", "C"), ("B", "C"), ("C", "B")):
+                with self.subTest(labels=labels, legs=legs):
+                    got, log = paired(labels, legs)
+                    self.assertEqual(got, {})
+                    self.assertEqual(len(log), 1, log)
+                    self.assertIn(f"both lettered {labels[0][-1]}", log[0])
+        self.assertEqual(paired(("3A", "3A"), ("B", "B")), ({}, []))      # back to back: two switches, as before
+
+    def test_lettered_alike_among_more_letters_of_the_number(self):
+        log = []
+        self.assertEqual(core.crossover_halves(*self.chain(("3A", "3A", "3B")), log), {})
+        self.assertTrue(log and all("3 switches carry letters of number 3" in m for m in log), log)
 
     def test_ambiguous_lettering_is_logged_not_paired(self):
         for labels, why in ((("3A", "3A"), "both lettered A"), (("3B*", "3B"), "both lettered B"),
@@ -203,15 +216,19 @@ class LayoutEditor(unittest.TestCase):
         self.assertEqual(sorted(t["nodes"] for t in P.turnouts if t["name"] == "NT5"), [["X5A"], ["X5B"]], P.log)
         self.assertIn("NT5", P.split_names)
 
-    def test_an_explicit_normal_still_wins_on_plain_turnouts(self):
-        with mock.patch.object(le.Band, "room_toward", lambda self, n, port: 0.0):
-            P = le.panel(self.bands, {"Xo": {"normal": {"X5B": "B"}}})
-        t = next(t for t in P.turnouts if t["nodes"] == ["X5B"])
-        self.assertEqual(P.turnout_of[(0, "X5B")][1]["B"], "B" if t["continuing"] == "2" else "C")
+    def test_a_normal_for_a_half_stops_however_it_is_drawn(self):
+        # one answer for one names file: as one crossover, or as two turnouts for no room
+        why = ("normal names X5B \\(switch 5B\\), half of a single crossover, whose closed route is both through "
+               "tracks.*remove that normal entry")
+        with mock.patch.object(le.Band, "room_toward", lambda self, n, port: 0.0), \
+                self.assertRaisesRegex(SchematicError, why):
+            le.panel(self.bands, {"Xo": {"normal": {"X5B": "B"}}})
+        with self.assertRaisesRegex(SchematicError, why):
+            le.panel(self.bands, {"Xo": {"normal": {"X5B": "B"}}})
 
     def test_a_normal_or_leg_b_for_a_half_drawn_as_a_crossover_stops(self):
-        with self.assertRaisesRegex(SchematicError, "names give normal for 5B, drawn as half of single crossover 5, "
-                                                    "whose closed route is both through tracks; remove"):
+        with self.assertRaisesRegex(SchematicError, "normal names X5B \\(switch 5B\\), half of a single crossover, "
+                                                    "whose closed route is both through tracks"):
             le.panel(self.bands, {"Xo": {"normal": {"X5B": "C"}}})
         with self.assertRaisesRegex(SchematicError, "leg_b names X5B, half of a single crossover.*remove that leg_b"):
             le.panel(self.bands, {"Xo": {"leg_b": {"X5B": "C"}}})

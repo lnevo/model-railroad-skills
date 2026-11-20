@@ -82,14 +82,16 @@ def crossover_halves(nodes, strands, log=None):
     directly by one track, which is the crossover's diagonal and each half's link (thrown) leg; the half's other leg B
     or C is its normal (closed) route, on its through track (through_leg). Two pairings:
 
-      - leg C to leg C, as before 0.1.42: two switches labelled alike, or lettered one A and one B (switch_number);
+      - leg C to leg C, as before 0.1.42: two switches labelled alike (unlettered), or lettered one A and one B
+        (switch_number);
       - leg B to leg C: only halves lettered one A and one B (a half laid with its straight route on the diagonal).
 
     Leg B to leg B is two switches back to back on one through track, and a points (leg A) joins no crossover: those
     stay two switches, as before. Lettered halves are not paired, and `log` (a list, when given) says why, when they
-    are joined by more than one track (a run-around: two switches), when their labels are ambiguous (two A's, or a
-    lettered half and an unlettered switch of its number), when more than two lettered switches carry their number,
-    or when a half would pair with two switches. Nothing here stops a run: a plan that drew before still draws."""
+    are joined by more than one track (a run-around: two switches), when their labels are ambiguous (two switches
+    lettered alike, two A's say, joined C to C or B to C; or a lettered half and an unlettered switch of its number),
+    when more than two lettered switches carry their number, or when a half would pair with two switches. Nothing here
+    stops a run: a plan that drew before still draws."""
     say = log.append if log is not None else (lambda _m: None)
     label = {n: (d.get("label") or "").rstrip("*") for n, d in nodes.items() if d["kind"] == "switch"}
     lettered = defaultdict(set)         # number -> its lettered switches
@@ -110,10 +112,14 @@ def crossover_halves(nodes, strands, log=None):
             continue
         what = f"switches {nodes[u].get('label')} and {nodes[v].get('label')}"
         lettered_pair = {lu, lv} == {num + "A", num + "B"}
-        if lu == lv:            # labelled alike: leg C to leg C, as before
+        if lu == lv and lu != num:      # lettered alike (two 7A's): ambiguous, whichever legs join them
+            if any(t[1:] in (("C", "C"), ("B", "C"), ("C", "B")) for t in tracks):
+                say(f"{what}: {len(lettered[num])} switches carry letters of number {num}, so none is paired as a "
+                    "single crossover" if len(lettered[num]) > 2 else
+                    f"{what} are both lettered {lu[-1]}, so they are not paired as a single crossover")
+            continue
+        if lu == lv:            # labelled alike, unlettered: leg C to leg C, as before
             got = [t for t in tracks if t[1:] == ("C", "C")]
-            if lu != num and not got and any(set(t[1:]) == {"B", "C"} for t in tracks):
-                say(f"{what} are both lettered {lu[-1]}, so they are not paired as a single crossover")
         elif not lettered_pair:
             if any(set(t[1:]) <= {"B", "C"} for t in tracks):
                 say(f"{what} share number {num} but are not lettered one A and one B, so they are not paired as a "

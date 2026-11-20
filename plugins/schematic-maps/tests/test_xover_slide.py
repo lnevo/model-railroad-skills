@@ -22,7 +22,7 @@ def track(a, b, name):
     return dict(src=a, dst=b, name=name, main=False, hidden=False, link=False, edge="", cm=1.0)
 
 
-def xover_band(q=3, r=4, deep=1, p=2):
+def xover_band(q=3, r=4, deep=1, p=2, edge=14):
     """Crossover 7: half P on the top row at column p, half Q `deep` rows below at column q, joined C to C; switch 5
     (R) east of Q on the bottom row at column r, its spur below. A solved band the plugin's own paths draws, so a
     slide moves the drawing. At q=3, r=4 switch 5 leaves Q too little track for the run."""
@@ -35,7 +35,7 @@ def xover_band(q=3, r=4, deep=1, p=2):
                "d": track(("P", "C"), ("Q", "C"), ""), "wb": track(("WB", "E"), ("Q", "B"), "Bottom"),
                "m": track(("Q", "A"), ("R", "A"), "Middle"), "eb": track(("R", "B"), ("EB", "E"), "Bottom east"),
                "s": track(("R", "C"), ("ES", "E"), "Spur")}
-    x = {"WT": 0, "P": p, "ET": 14, "WB": 0, "Q": q, "R": r, "EB": 14, "ES": r + 3}
+    x = {"WT": 0, "P": p, "ET": edge, "WB": 0, "Q": q, "R": r, "EB": edge, "ES": r + 3}
     nrow = {"WT": 0, "P": 0, "ET": 0, "WB": deep, "Q": deep, "R": deep, "EB": deep, "ES": deep + 1}
     srow = {"wt": 0, "et": 0, "wb": deep, "m": deep, "eb": deep}
     band = dict(nodes=nodes, strands=strands, x=x, need={k: (0, 0, 0) for k in srow},
@@ -68,7 +68,7 @@ def boxed_band():
 
 def unslid(bands, **kw):
     """The panel as before 0.1.42's slide: no single crossover is slid."""
-    with mock.patch.object(le, "single_crossovers", lambda *a: []):
+    with mock.patch.object(le, "single_crossovers", lambda *a: ([], [])):
         return le.panel(bands, NAMES, **kw)
 
 
@@ -98,7 +98,8 @@ class Slide(unittest.TestCase):
         across = (x7["pts"]["B"][0] - x7["pts"]["A"][0]) / 2
         deep = x7["pts"]["C"][1] - x7["pts"]["B"][1]
         self.assertAlmostEqual(across, RUN, delta=le.PAIR_TOLERANCE)
-        px, degrees = P.crossover_slides[("Test", "7")]
+        labels, px, degrees = P.crossover_slides[("Test", "d")]      # by track id: two of one number keep theirs
+        self.assertEqual(labels, "7/7")
         self.assertGreater(px, 0)
         self.assertAlmostEqual(degrees, math.degrees(math.atan2(deep, RUN)), places=1)
         # switch 5, east of half Q, slides by just that; the track west of half P stays
@@ -109,9 +110,8 @@ class Slide(unittest.TestCase):
         east = lambda Q: sorted(p["xy"] for p in Q.points.values() if p["xy"][0] > 500)   # noqa: E731  band's edge
         self.assertTrue(east(P))
         self.assertEqual(east(P), east(was))        # the band keeps its width
-        self.assertTrue(any(f"switch 7: crossover's east half and everything east of it slid +{px:.1f} px" in line
+        self.assertTrue(any(f"crossover 7/7: its east half and everything east of it slid +{px:.1f} px" in line
                             for line in P.log))
-        self.assertFalse([line for line in P.log if "no room for" in line])
 
     def test_it_loads_in_jmri_as_written(self):
         JmriCrossovers().check(le.panel(xover_band(), NAMES, crossover_run=RUN), "\\")
@@ -128,24 +128,36 @@ class Slide(unittest.TestCase):
         self.assertEqual(P.crossover_slides, {})
         self.assertEqual(le.geometry(P), le.geometry(unslid(xover_band(r=5), crossover_run=RUN)))
 
+    def test_a_roomy_crossover_at_any_angle_draws_as_without_the_rule(self):
+        runs = [le.ROW / math.tan(math.radians(a)) for a in (30, 35, 40, 55, 60)] + [37.5, 37.3]
+        for run in runs:
+            with self.subTest(run=run):
+                bands = lambda: xover_band(p=4, q=5, r=10, edge=18)     # noqa: E731
+                P = le.panel(bands(), NAMES, crossover_run=run)
+                self.assertEqual(P.crossover_slides, {})
+                self.assertEqual(le.geometry(P), le.geometry(unslid(bands(), crossover_run=run)))
+                x7 = by_node(P)["P"]
+                self.assertAlmostEqual((x7["pts"]["B"][0] - x7["pts"]["A"][0]) / 2, run, delta=1.0)   # whole px
+
     def test_with_no_run_nothing_slides(self):
         with mock.patch.object(le, "let_in_mast_room", side_effect=AssertionError("no rounds without a run")):
             P = le.panel(xover_band(q=4, r=5), NAMES)
         self.assertEqual(P.crossover_slides, {})
         self.assertTrue(any("no room for" in line for line in P.log))        # as drawn: logged, as before
-        self.assertEqual(le.single_crossovers(xover_band(), None, {}), [])
-        self.assertEqual(le.single_crossovers(xover_band(), {"Other": RUN}, {}), [])
+        self.assertEqual(le.single_crossovers(xover_band(), None, {}), ([], []))
+        self.assertEqual(le.single_crossovers(xover_band(), {"Other": RUN}, {}), ([], []))
 
     def test_a_split_crossover_is_not_slid_again(self):
-        self.assertEqual(le.single_crossovers(xover_band(), RUN, {"Test": {"7"}}), [])
-        self.assertEqual([c[4] for c in le.single_crossovers(xover_band(), RUN, {})], ["7"])
+        self.assertEqual(le.single_crossovers(xover_band(), RUN, {"Test": {"7"}}), ([], []))
+        self.assertEqual([c[4] for c in le.single_crossovers(xover_band(), RUN, {})[0]], ["7/7"])
 
-    def test_one_that_cannot_reach_its_run_stops(self):
-        with self.assertRaisesRegex(SchematicError, "do not settle; crossover 7 runs [0-9.]+ px short of its "
-                                                    "crossover run"):
-            le.panel(boxed_band(), crossover_run=RUN)
-        P = le.panel(boxed_band())          # with no run it is drawn as before, as steep as it must be
-        self.assertTrue(any("switch 7: crossover drawn" in line for line in P.log))
+    def test_one_no_slide_mends_is_drawn_as_before_and_logged(self):
+        P = le.panel(boxed_band(), crossover_run=RUN)           # never an error
+        self.assertEqual(P.crossover_slides, {})
+        self.assertEqual(le.geometry(P), le.geometry(unslid(boxed_band(), crossover_run=RUN)))
+        self.assertTrue(any("crossover 7/7: not slid to its crossover run" in line and "drawn as it fits" in line
+                            for line in P.log), P.log)
+        self.assertTrue(any("switch 7: crossover drawn" in line and "no room for 48.0 px" in line for line in P.log))
 
 
 class TwoRowsDeep(unittest.TestCase):
@@ -157,7 +169,7 @@ class TwoRowsDeep(unittest.TestCase):
         self.assertIn("Switch 7", P.split_names)
         (ax, ay), (bx, by) = t["P"]["pts"]["C"], t["Q"]["pts"]["C"]
         self.assertAlmostEqual(abs(bx - ax) / abs(by - ay), RUN / le.ROW, delta=le.PAIR_TOLERANCE / abs(by - ay))
-        self.assertIn(("Test", "7"), P.crossover_slides)
+        self.assertIn(("Test", "d"), P.crossover_slides)
         self.assertTrue(any("switch 7: drawn 2 rows deep" in line and "two turnouts" in line for line in P.log))
 
     def test_with_no_run_it_stays_one_crossover(self):
@@ -165,14 +177,35 @@ class TwoRowsDeep(unittest.TestCase):
         self.assertEqual(by_node(P)["P"]["type"], "RH_XOVER")
         self.assertEqual(P.crossover_slides, {})
 
-
-class Shortfall(unittest.TestCase):
-    def test_halves_in_one_column_stop(self):
-        P = le.panel(xover_band(), NAMES, crossover_run=RUN)
+    def test_halves_in_one_column_are_two_turnouts_not_slid(self):
         (_t, b, _o), = xover_band()
         b["x"]["Q"] = b["x"]["P"]
-        with self.assertRaisesRegex(SchematicError, "crossover 7: its halves stand in one column"):
-            le.crossover_shortfall(P, [("Test level", b, {})], 0, "P", "Q", "d", 2 * RUN / le.ROW, "7")
+        got, notes = le.single_crossovers([("Test level", b, {})], RUN, {})
+        self.assertEqual(got, [])
+        self.assertEqual(len(notes), 1)
+        self.assertIn("crossover 7/7: its halves stand in one column", notes[0])
+        P = le.panel(xover_band(q=2, r=6, deep=2), NAMES, crossover_run=RUN)      # drawn, not an error
+        self.assertEqual(P.crossover_slides, {})
+        self.assertEqual({t["type"] for n, t in by_node(P).items() if n in "PQ"}, {"RH_TURNOUT"})
+        self.assertTrue(any("its halves stand in one column" in line for line in P.log), P.log)
+
+
+class Shortfall(unittest.TestCase):
+    def test_a_rounding_remainder_is_no_shortfall(self):
+        P = le.panel(xover_band(r=5), NAMES, crossover_run=RUN)
+        x7 = by_node(P)["P"]
+        shortfall = lambda: le.crossover_shortfall(P, xover_band(r=5), 0, "P", "Q", "d", RUN / le.ROW, "7/7")  # noqa
+        self.assertEqual(shortfall()[:2], (0.0, None))      # not squeezed
+        P.xover_squeezed[(0, "P")] = RUN - 1.0              # squeezed, but whole pixels within ROUND_SLACK
+        x7["pts"]["A"] = (x7["pts"]["A"][0] + 1, x7["pts"]["A"][1])
+        x7["pts"]["B"] = (x7["pts"]["B"][0] - 1, x7["pts"]["B"][1])     # 47 px across
+        self.assertEqual(shortfall()[:2], (0.0, None))
+        P.xover_squeezed[(0, "P")] = RUN - 2.4
+        x7["pts"]["A"] = (x7["pts"]["A"][0] + 1, x7["pts"]["A"][1])
+        x7["pts"]["B"] = (x7["pts"]["B"][0] - 1, x7["pts"]["B"][1])     # 46 px across: 2 short, past ROUND_SLACK
+        short, east, _deg = shortfall()
+        self.assertAlmostEqual(short, 2.4)                  # by what crossover_points took, before rounding
+        self.assertEqual(east, "Q")
 
     def test_a_crossover_drawn_as_another_turnout_stops(self):
         P = le.panel(xover_band(), NAMES, crossover_run=RUN)
@@ -180,7 +213,7 @@ class Shortfall(unittest.TestCase):
             if t["type"] == "RH_XOVER":
                 t["type"] = "DOUBLE_XOVER"
         with self.assertRaisesRegex(SchematicError, "drawn as one DOUBLE_XOVER, not a single crossover"):
-            le.crossover_shortfall(P, xover_band(), 0, "P", "Q", "d", RUN / le.ROW, "7")
+            le.crossover_shortfall(P, xover_band(), 0, "P", "Q", "d", RUN / le.ROW, "7/7")
 
 
 if __name__ == "__main__":
