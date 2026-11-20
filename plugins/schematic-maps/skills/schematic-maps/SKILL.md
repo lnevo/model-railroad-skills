@@ -16,6 +16,8 @@ The reader gets one sheet: a band for each level of the railroad, the main line 
 | Signals, `NAME.signals.json` | Masts, found on a Layout Editor panel (`signals` command): each mast's run, the switch it heads for, how far from it, its direction and heads, and on a loop (a run with both ends at one switch) its `leg`, the switch leg its half leaves from (required there; the fields are in `schematic/signal_reader.py`) | The command, never by hand |
 | Preferences, `NAME.preferences.json` | The reader's look for one sheet: titles, band order, lengths chosen for looks | The reader (optional) |
 
+Each kind may instead be one file for every input, `DIR/<kind>.json` with `"_sections": true` and one section per input name (`{"_sections": true, "staging": {...}, "main": {...}}`). Keep an input in one place: its own `NAME.<kind>.json` and a section for it in the combined file at once stops the run. With combined signals, put the `signals` command's output into the input's section.
+
 With no preferences file the sheet is still correct. Preferences only move, stretch or mirror what the rules placed.
 
 ## Run it
