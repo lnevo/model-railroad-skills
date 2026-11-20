@@ -450,21 +450,38 @@ class Bindings(unittest.TestCase):
         for _, _, o in bands:
             o["signals"] = [dict(mast="X5", toward="5", run=["5", "5"], names=["Loop"], edge_cm=523.6,
                                  cm_from_toward=255.0, dir="east", kind="planned", heads=1, _edge="e12",
-                                 _toward_node="S5")]
+                                 _toward_node="S5", leg="B")]
         P = cats.panel(bands, bindings={"masts": {"X5": {}}})
         (cell, edge), = P.signals
         self.assertIn(edge, ("TOP", "BOTTOM"))
         root = cats.to_xml(P)
         self.assertIn((cell[0], cell[1], edge), edges_of(root, "Loop"))
 
+    def test_a_loop_masts_leg_picks_its_half_and_a_missing_one_stops(self):
+        bands = relabelled({"e12.1": ("name", "Loop East")})
+        for leg, block in (("B", "Loop"), ("C", "Loop East")):
+            with self.subTest(leg=leg):
+                for _, _, o in bands:
+                    o["signals"] = [dict(mast="X5", toward="5", run=["5", "5"], names=["Loop"], edge_cm=523.6,
+                                         cm_from_toward=100.0, dir="east", kind="planned", heads=1, _edge="e12",
+                                         _toward_node="S5", leg=leg)]
+                P = cats.panel(bands, bindings={"masts": {"X5": {}}})
+                (cell, edge), = P.signals
+                rows = {y for _x, y, _e in edges_of(cats.to_xml(P), block)}    # its half's row, on the boundary
+                self.assertIn(cell[1], rows)
+        for _, _, o in bands:
+            o["signals"][0].pop("leg", None)
+        with self.assertRaisesRegex(cats.SchematicError, r"mast X5: its run e12 is a loop .*\"leg\" \(B or C\)"):
+            cats.panel(bands, bindings={"masts": {"X5": {}}})
+
     def fold_mast(self, bands, start=None):
         for _, _, o in bands:
             o["signals"] = [dict(mast="X5", toward="5", run=["5", "5"], names=["Loop"], edge_cm=523.6,
                                  cm_from_toward=255.0, dir="east", kind="planned", heads=1, _edge="e12",
-                                 _toward_node="S5")]
+                                 _toward_node="S5", leg="B")]
         if start is None:
             return cats.panel(bands, bindings={"masts": {"X5": {}}})
-        piece = lambda sg, strands: ("e12.0", 5.0, 261.8, start) if "e12.0" in strands else None
+        piece = lambda sg, strands, nodes: ("e12.0", 5.0, 261.8, start) if "e12.0" in strands else None
         with mock.patch.object(cats_masts, "mast_piece", piece):
             return cats.panel(bands, bindings={"masts": {"X5": {}}})
 

@@ -33,7 +33,7 @@ def bind_masts(P, bands, masts, chains, turn_bounds, compact=False, gantry=True,
         if known[name].get("kind") == "virtual":
             raise SchematicError(f"mast {name} is virtual (Dispatcher only): it is not drawn")
         hits = [(bi, sg, spot) for bi, (_, band, o) in enumerate(bands) for sg in o.get("signals") or ()
-                if sg["mast"] == name for spot in [mast_piece(sg, band["strands"])]
+                if sg["mast"] == name for spot in [mast_piece(sg, band["strands"], band["nodes"])]
                 if spot is not None and (bi, spot[0]) in chains]
         if len(hits) != 1:
             raise SchematicError(f"mast {name}: " + ("it stands on no drawn track" if not hits else

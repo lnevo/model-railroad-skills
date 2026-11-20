@@ -521,6 +521,29 @@ class Icons(unittest.TestCase):
                 self.assertLess(le.dot(v, d), 0)
                 self.assertEqual(m["icon"][2], slots.icon_degrees(d))
 
+    def test_a_mast_on_a_sloped_diverging_leg_turns_along_it_on_the_trains_right(self):
+        # a trailing move off a turnout's diverging leg: the icon is turned along that leg (not square to the
+        # page) and stands on the train's right-hand side of it, wherever that falls (in or out of the frog)
+        P, _found, _masts = built()
+        turnouts = {t["ident"]: t for t in P.turnouts}
+        seen = 0
+        for m in P.masts:
+            t = turnouts.get(m["ident"]) if m["kind"] == "turnout" else None
+            if t is None or "XOVER" in t["type"] or m["slot"] != "C":
+                continue
+            (ax, ay), (cx, cy) = t["at"], t["pts"]["C"]
+            if abs(ax - cx) < 1e-6 or abs(ay - cy) < 1e-6:
+                continue
+            L = math.hypot(ax - cx, ay - cy)
+            d = ((ax - cx) / L, (ay - cy) / L)                     # off the leg, toward the points
+            with self.subTest(mast=m["mast"]):
+                self.assertEqual(m["icon"][2], slots.icon_degrees(d))
+                self.assertNotEqual(m["icon"][2] % 90, 0)
+                c = le_masts.icon_rect_of(m).c
+                self.assertGreater((c[0] - cx) * -d[1] + (c[1] - cy) * d[0], 0)     # right of the leg's line
+            seen += 1
+        self.assertGreater(seen, 0)
+
     def test_a_gantrys_icons_line_up(self):
         P, _found, _masts = built()
         for g in P.gantries:

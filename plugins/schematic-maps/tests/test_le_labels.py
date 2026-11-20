@@ -1,6 +1,7 @@
 """The label layer of the generated Layout Editor panel (le_labels): switch numbers, track names, one block contents
 icon per block and station names, each in a clean spot sized as JMRI draws it, checked from scratch."""
 import copy
+from collections import defaultdict
 import math
 import unittest
 import xml.etree.ElementTree as ET
@@ -504,28 +505,54 @@ class CrossoverRun(unittest.TestCase):
 
 
 class Spots:
-    """A stand-in for le_labels.Layer in place_items: each item takes the first of its spots no one holds."""
+    """A stand-in for le_labels.Layer in place_items: each item takes the first of its spots no one holds (a spot is
+    a name, so two items clash only on the same one)."""
 
     def __init__(self):
-        self.held, self.notes, self.boxes = set(), [], None
+        self.held, self.notes, self.boxes = {}, [], None
 
     def reset(self):
-        self.held, self.notes = set(), []
+        self.held, self.notes = {}, []
 
     def take(self, item, spots):
         for s in spots:
             if s not in self.held:
-                self.held.add(s)
+                self.held[s] = (item["what"], item["kind"], item.get("key"))
                 return s, None
         return None, f"{item['what']}: no clean spot"
 
+    def in_way(self, item, spot, kinds):
+        thing = self.held.get(spot)
+        return [] if thing is None else [(thing, spot)] if thing[1] in kinds else None
 
-def spot_items(want):
-    """[(key, make)]: one item per (key, spots), each placing at the first free spot of its list."""
+    @staticmethod
+    def as_placed(box):
+        return box
+
+    def lift(self, things):
+        saved = dict(self.held)
+        self.held = {s: t for s, t in self.held.items() if t not in things}
+        return saved
+
+    def restore(self, saved):
+        self.held = saved
+
+
+def spot_items(want, short=None):
+    """[(key, make)]: one item per (key, spots), each placing at the first free spot of its list; a block contents
+    icon (key ("bci", block)) at its short reserve at the first free spot of short[key] (default: the same spots)."""
+    short = short or {}
+
     def maker(key, spots):
-        def make(state, short=False):
-            return dict(what=str(key)), list(spots), lambda box: ("label", dict(key=key, box=box))
-        return make
+        icon = key[0] == "bci"
+
+        def make(state, short_reserve=False):
+            item = dict(what=str(key), kind=le_labels.ICON_KIND if icon else "a track name", key=key)
+            if icon:
+                return (item, list(short.get(key, spots) if short_reserve else spots),
+                        lambda box: ("bci", dict(block=key[1], key=key, box=box)))
+            return item, list(spots), lambda box: ("label", dict(key=key, box=box))
+        return lambda state, short=False: make(state, short)
     return [(key, maker(key, spots)) for key, spots in want]
 
 
@@ -543,6 +570,174 @@ class NamesLast(unittest.TestCase):
         self.assertEqual(failed, [])
         self.assertEqual([k for k, _w in skipped], [other])
         self.assertEqual([(d["key"], d["box"]) for _k, d in done], [(icon, "S")])
+
+    def room(self, L, items, done, skipped):
+        return le_labels.make_room(L, items, done, [], [(k, f"{k}: no clean spot") for k in skipped],
+                                   dict(number_side={}, name_side={}))
+
+    def test_a_name_left_out_takes_an_icons_spot_when_the_icon_has_another(self):
+        """make_room: the name's first spot held only by an icon; the icon moves to its next clean spot and both
+        stand, logged. Where the icon has no other spot at full size, it takes its short reserve."""
+        name, icon = ("name", 1, "s1"), ("bci", "Block A")
+        for short, where in ({}, "T"), ({icon: ["U"]}, "U"):
+            with self.subTest(short=short):
+                items = spot_items([(icon, ["S", "T"] if not short else ["S"]), (name, ["S"])], short)
+                L = Spots()
+                L.held = {"S": (str(icon), le_labels.ICON_KIND, icon)}
+                done, failed, skipped = self.room(L, items, [("bci", dict(block="Block A", key=icon, box="S"))],
+                                                  [name])
+                self.assertEqual((failed, skipped), ([], []))
+                self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), [(icon, where), (name, "S")])
+                self.assertEqual(L.held, {"S": (str(name), "a track name", name), where: (str(icon), le_labels.ICON_KIND, icon)})
+                self.assertTrue(any("room made" in n for n in L.notes))
+
+    def test_a_name_stays_out_when_the_icon_has_no_other_spot_and_everything_is_put_back(self):
+        name, icon = ("name", 1, "s1"), ("bci", "Block A")
+        items = spot_items([(icon, ["S"]), (name, ["S"])], {icon: []})
+        L = Spots()
+        L.held = {"S": (str(icon), le_labels.ICON_KIND, icon)}
+        before = [("bci", dict(block="Block A", key=icon, box="S"))]
+        done, failed, skipped = self.room(L, items, list(before), [name])
+        self.assertEqual((done, failed, [k for k, _w in skipped]), (before, [], [name]))
+        self.assertEqual((L.held, L.notes), ({"S": (str(icon), le_labels.ICON_KIND, icon)}, []))
+
+    def test_icons_move_first_then_a_name_with_another_spot(self):
+        """The first pass moves only icons: a spot another name holds is passed over for the next, held by an icon
+        that has another. When no icon can move, a name in the way that has another spot of its own moves."""
+        name, other, icon = ("name", 1, "s1"), ("name", 1, "s2"), ("bci", "Block A")
+        for other_spots, icon_spots, want in ((["R", "Q"], ["S", "T"], [(other, "R"), (icon, "T"), (name, "S")]),
+                                              (["R", "Q"], ["S"], [(other, "Q"), (icon, "S"), (name, "R")]),
+                                              (["R"], ["S"], None)):
+            with self.subTest(other=other_spots, icon=icon_spots):
+                items = spot_items([(other, other_spots), (icon, icon_spots), (name, ["R", "S"])], {icon: []})
+                L = Spots()
+                L.held = {"R": (str(other), "a track name", other), "S": (str(icon), le_labels.ICON_KIND, icon)}
+                before = [("label", dict(key=other, box="R")), ("bci", dict(block="Block A", key=icon, box="S"))]
+                done, _failed, skipped = self.room(L, items, list(before), [name])
+                if want is None:
+                    self.assertEqual(([k for k, _w in skipped], done), ([name], before))
+                    continue
+                self.assertEqual(skipped, [])
+                self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), sorted(want))
+
+    def test_a_moved_icon_may_move_another_one_step_deeper_and_no_further(self):
+        """The name's spot S is held by icon A, whose other spot T is held by icon B, which has U free: all three
+        stand (ROOM_DEPTH 2). One more step (B's U held by C, free V) is past the depth: nothing moves."""
+        name, a, b, c = ("name", 1, "s1"), ("bci", "A"), ("bci", "B"), ("bci", "C")
+        none = {a: [], b: [], c: []}
+        items = spot_items([(a, ["S", "T"]), (b, ["T", "U"]), (name, ["S"])], none)
+        L = Spots()
+        L.held = {"S": (str(a), le_labels.ICON_KIND, a), "T": (str(b), le_labels.ICON_KIND, b)}
+        done, _f, skipped = self.room(L, items, [("bci", dict(block="A", key=a, box="S")),
+                                                 ("bci", dict(block="B", key=b, box="T"))], [name])
+        self.assertEqual(skipped, [])
+        self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), sorted([(name, "S"), (a, "T"), (b, "U")]))
+        items = spot_items([(a, ["S", "T"]), (b, ["T", "U"]), (c, ["U", "V"]), (name, ["S"])], none)
+        L = Spots()
+        L.held = {"S": (str(a), le_labels.ICON_KIND, a), "T": (str(b), le_labels.ICON_KIND, b),
+                  "U": (str(c), le_labels.ICON_KIND, c)}
+        held = dict(L.held)
+        before = [("bci", dict(block=k[1], key=k, box=s)) for k, s in ((a, "S"), (b, "T"), (c, "U"))]
+        done, _f, skipped = self.room(L, items, list(before), [name])
+        self.assertEqual(([k for k, _w in skipped], done, L.held, L.notes), ([name], before, held, []))
+
+    def test_an_item_that_failed_gets_room_and_names_only_when_asked(self):
+        """make_room(names=False) (a lead trial): an icon that found no spot moves another icon; a name left out
+        is not tried. A left-out name whose spot has come free just takes it."""
+        need, icon, name = ("bci", "Need"), ("bci", "Other"), ("name", 1, "s1")
+        items = spot_items([(icon, ["S", "T"]), (need, ["S"]), (name, ["W"])], {need: [], icon: []})
+        L = Spots()
+        L.held = {"S": (str(icon), le_labels.ICON_KIND, icon)}
+        done, failed, skipped = le_labels.make_room(
+            L, items, [("bci", dict(block="Other", key=icon, box="S"))], [(need, "no spot")], [(name, "no spot")],
+            dict(number_side={}, name_side={}), names=False)
+        self.assertEqual((failed, [k for k, _w in skipped]), ([], [name]))
+        self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), [(need, "S"), (icon, "T")])
+        done, failed, skipped = self.room(L, items, done, [name])
+        self.assertEqual((failed, skipped), ([], []))
+        self.assertIn((name, "W"), [(d["key"], d["box"]) for _k, d in done])
+
+    def test_an_item_placed_by_an_earlier_band_stands_where_it_is(self):
+        """Placing by band, what an earlier band placed is in L's boxes but not among this band's items: make_room
+        treats it as fixed. A spot only it holds is passed over (no error), and room is made at the next spot."""
+        name, mine, earlier = ("name", 1, "s1"), ("bci", "Mine"), ("bci", "Earlier")
+        for mine_spots, want in ((["T", "U"], [(mine, "U"), (name, "T")]), (["T"], None)):
+            with self.subTest(mine=mine_spots):
+                items = spot_items([(mine, mine_spots), (name, ["S", "T"])], {mine: []})
+                L = Spots()
+                L.held = {"S": (str(earlier), le_labels.ICON_KIND, earlier), "T": (str(mine), le_labels.ICON_KIND, mine)}
+                before = [("bci", dict(block="Mine", key=mine, box="T"))]
+                done, failed, skipped = self.room(L, items, list(before), [name])
+                self.assertEqual(failed, [])
+                self.assertEqual(L.held["S"], (str(earlier), le_labels.ICON_KIND, earlier))
+                if want is None:
+                    self.assertEqual(([k for k, _w in skipped], done), ([name], before))
+                else:
+                    self.assertEqual(skipped, [])
+                    self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), sorted(want))
+
+    def test_items_sharing_one_text_move_apart(self):
+        """Two track names on a band with one text share (what, kind); each box still names its own item (key), so
+        making room moves only the one in the way and the other stays placed, once."""
+        a, b, icon = ("name", 1, "s1"), ("name", 1, "s2"), ("bci", "Need")
+        items = spot_items([(a, ["R"]), (b, ["S", "Q"]), (icon, ["S"])], {icon: []})
+
+        def same_text(make):
+            def made(state, short=False):
+                got = make(state, short)
+                if got and got[0]["kind"] == "a track name":
+                    got[0]["what"] = "Band: track name X"
+                return got
+            return made
+        items = [(k, same_text(m)) for k, m in items]
+        L = Spots()
+        what = "Band: track name X"
+        L.held = {"R": (what, "a track name", a), "S": (what, "a track name", b)}
+        done = [("label", dict(key=a, box="R")), ("label", dict(key=b, box="S"))]
+        done, failed, skipped = le_labels.make_room(L, items, done, [(icon, "no spot")], [],
+                                                    dict(number_side={}, name_side={}))
+        self.assertEqual((failed, skipped), ([], []))
+        self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), sorted([(a, "R"), (b, "Q"), (icon, "S")]))
+        self.assertEqual(L.held, {"R": (what, "a track name", a), "Q": (what, "a track name", b),
+                                  "S": (str(icon), le_labels.ICON_KIND, icon)})
+
+    def test_keyed_items_carry_their_key(self):
+        name = ("name", 1, "s1")
+        (key, make), = le_labels.keyed(spot_items([(name, ["S"])]))
+        self.assertEqual((key, make({})[0]["key"]), (name, name))
+        (key, make), = le_labels.keyed([(name, lambda state, short=False: None)])
+        self.assertIsNone(make({}))
+
+    def test_nothing_left_out_is_returned_as_it_is(self):
+        name = ("name", 1, "s1")
+        got = le_labels.make_room(Spots(), spot_items([(name, ["S"])]), [], [], [(name, "x")], {}, names=False)
+        self.assertEqual(got, ([], [], [(name, "x")]))
+        self.assertEqual(le_labels.make_room(Spots(), [], [("label", {})], [], [], {}), ([("label", {})], [], []))
+
+    def test_in_way_on_a_drawn_panel(self):
+        """Layer.in_way: [] on a clean spot, what of the kinds asked is in the way when only that is, None when
+        anything else is; lift and restore take those away and put them back."""
+        b = bands()
+        P = le.panel(b)
+        L = le_labels.Layer(P, b, le_labels.options(b, None))
+        it = L.item("a track name", "test name", "Test", L.name_size, False)
+        spot = next((x, y) for y in range(20, P.size[1], 4) for x in range(20, P.size[0], 4)
+                    if L.fault(le_labels.box_of(x, y, it["w"], it["h"]), it) is None)
+        kinds = (le_labels.ICON_KIND,)
+        self.assertEqual(L.in_way(it, spot, kinds), [])
+        box = le_labels.box_of(spot[0], spot[1], it["w"], it["h"])
+        icon = ("block contents of X", le_labels.ICON_KIND)
+        L.boxes.add(box, icon)
+        self.assertEqual(L.in_way(it, spot, kinds), [(icon, box)])
+        self.assertEqual(L.as_placed(box), (box[0], box[1], box[2] - box[0], box[3] - box[1]))
+        saved = L.lift([icon])
+        self.assertEqual(L.in_way(it, spot, kinds), [])
+        L.restore(saved)
+        self.assertEqual(L.in_way(it, spot, kinds), [(icon, box)])
+        name = ("a name", "a track name")
+        L.boxes.add(box, name)
+        self.assertIsNone(L.in_way(it, spot, kinds))
+        self.assertEqual(L.in_way(it, spot, le_labels.MOVABLE), sorted([(icon, box), (name, box)]))
 
     def test_an_optional_icon_left_out_is_tried_first_too(self):
         opt, icon = ("bci", "Track 2"), ("bci", "Track 1")
@@ -639,6 +834,190 @@ class ReviewFixes(unittest.TestCase):
         self.assertGreaterEqual(P.size[0], box[2])
 
 
+def a_turnout(c=(10.0, 8.0), kind="RH_TURNOUT"):
+    """A turnout whose legs meet at 0, 0: A to the west, B level to the east, C at `c`."""
+    return {"ident": "T1", "type": kind, "at": (0.0, 0.0), "pts": {"A": (-10.0, 0.0), "B": (10.0, 0.0), "C": c}}
+
+
+class FrogSpots(unittest.TestCase):
+    """A plain turnout's switch number may stand in its frog: the wedge between its two legs, past where they meet."""
+
+    def test_the_frog_is_the_wedge_between_legs_b_and_c(self):
+        at, u, v = le_labels.frog_of(a_turnout())
+        self.assertEqual(at, (0.0, 0.0))
+        self.assertEqual(u, (1.0, 0.0))
+        self.assertAlmostEqual(math.hypot(*v), 1.0)
+        for kind in ("RH_XOVER", "LH_XOVER", "DOUBLE_XOVER"):
+            self.assertIsNone(le_labels.frog_of(a_turnout(kind=kind)))
+        self.assertIsNone(le_labels.frog_of(a_turnout(c=(20.0, 0.0))))     # legs on one line: no wedge
+
+    def test_a_missing_or_empty_leg_stops(self):
+        t = a_turnout()
+        del t["pts"]["C"]
+        with self.assertRaisesRegex(SchematicError, "no leg C"):
+            le_labels.frog_of(t)
+        with self.assertRaisesRegex(SchematicError, "leg C ends where its legs meet"):
+            le_labels.frog_of(a_turnout(c=(0.0, 0.0)))
+
+    def test_every_frog_spot_stands_past_the_points_on_the_wedges_side_of_its_leg(self):
+        w, h = 30, 12
+        frog = le_labels.frog_of(a_turnout())          # B east, C down and east: the wedge is below B, above C
+        spots = le_labels.frog_spots(frog, w, h)
+        self.assertEqual(len(spots), 2 * len(le_labels.FROG_GAPS) * len(le_labels.FROG_ALONG))
+        bands = [band for band, _xy in spots]
+        self.assertEqual(bands, sorted(bands))                  # nearest first
+        self.assertTrue(set(bands) <= set(le_labels.AROUND))
+        self.assertEqual(spots[0], (le_labels.FROG_GAPS[0], (0.0, le_labels.FROG_GAPS[0])))  # against B, at the points
+        c = frog[2]
+        for _band, (x, y) in spots:
+            corners = [(x, y), (x + w, y), (x, y + h), (x + w, y + h)]
+            beside_b = all(cy >= le_labels.FROG_GAPS[0] - 1e-9 for _cx, cy in corners)   # below leg B's line
+            beside_c = all(cx * -c[1] + cy * c[0] <= -le_labels.FROG_GAPS[0] + 1e-9 for cx, cy in corners)  # above C's
+            self.assertTrue(beside_b or beside_c, (x, y))
+            self.assertTrue(all(cx >= -1e-9 for cx, _cy in corners), (x, y))     # past the points, not behind them
+
+    def test_a_plain_turnouts_number_tries_its_frog_after_arounds_spots_of_each_distance(self):
+        L = mock.Mock()
+        L.boxes.near.return_value = []
+        t = dict(a_turnout(), band=0)
+        L.bands = [("Band", {}, {})]
+        L.halves.return_value = {None: (0.0, 0.0)}
+        L.item.return_value = dict(w=30, h=12)
+        _it, spots, _commit = le_labels._switch_number(L, t, "8", dict(le_labels.DEFAULTS))(
+            dict(number_side={}, name_side={}))
+        spots = list(spots)
+        frog = le_labels.frog_of(t)
+        self.assertEqual(spots, list(le_labels.switch_spots((0.0, 0.0), 30, 12, True, frog, [])))   # C runs down
+        ranked = list(le_labels.around((0.0, 0.0, 0.0, 0.0), 30, 12, True, dists=le_labels.AROUND[:1]))
+        self.assertEqual(spots[:len(ranked)], ranked)               # around's own first, as ranked before
+        frog_first = [xy for band, xy in le_labels.frog_spots(frog, 30, 12) if band == le_labels.AROUND[0]]
+        self.assertEqual(spots[len(ranked):len(ranked) + len(frog_first)], frog_first)
+
+    def test_a_crossovers_number_keeps_around_its_crossover(self):
+        L = mock.Mock()
+        pts = {"A": (0.0, 0.0), "B": (40.0, 0.0), "C": (40.0, 20.0), "D": (0.0, 20.0)}
+        t = {"ident": "X", "type": "RH_XOVER", "at": (20.0, 10.0), "pts": pts, "band": 0}
+        L.bands = [("Band", {}, {})]
+        L.halves.return_value = {"AB": (20.0, 0.0), "DC": (20.0, 20.0)}
+        L.item.return_value = dict(w=30, h=12)
+        _it, spots, _commit = le_labels._switch_number(L, t, "7", dict(le_labels.DEFAULTS))(
+            dict(number_side={}, name_side={}))
+        self.assertEqual(list(spots), list(le_labels.around((0.0, 0.0, 40.0, 20.0), 30, 12, True)))
+        L.boxes.near.assert_not_called()
+
+
+class StackedSpots(unittest.TestCase):
+    """A plain turnout's switch number may stack further out on a side, past a mast icon or label standing there."""
+
+    def test_a_spot_stacks_past_an_obstacle_above_or_below_in_its_column(self):
+        w, h = 30, 12
+        above = (-10, -20, 30, -8)              # a mast icon above the points
+        below = (5, 6, 25, 14)
+        aside = (100, -20, 120, -8)             # out of the column a number near the points takes
+        across = (-5, -4, 5, 4)                 # on the points' own line
+        spots = le_labels.beyond_spots((0.0, 0.0), w, h, [above, below, aside, across])
+        ups = {xy for _b, up, xy in spots if up}
+        downs = {xy for _b, up, xy in spots if not up}
+        top = above[1] - le_labels.PAD - 1 - h
+        self.assertIn((-w / 2, top), ups)                       # centred on the points
+        self.assertIn(((above[0] + above[2] - w) / 2, top), ups)   # centred over the obstacle
+        self.assertIn((above[0], top), ups)
+        self.assertIn((-w / 2, below[3] + le_labels.PAD + 1), downs)
+        self.assertEqual(len(spots), 16)                        # eight each: nothing for aside or across
+        for band, up, (x, y) in spots:
+            gap = -(y + h) if up else y
+            self.assertEqual(band, next(d for d in le_labels.AROUND if d >= gap))
+        self.assertEqual([b for b, _u, _xy in spots], sorted(b for b, _u, _xy in spots))
+
+    def test_an_obstacle_too_far_out_gives_no_spot_and_a_bad_box_stops(self):
+        far = (-10, -200, 10, -190)
+        self.assertEqual(le_labels.beyond_spots((0.0, 0.0), 30, 12, [far]), [])
+        with self.assertRaisesRegex(SchematicError, "no width or height"):
+            le_labels.beyond_spots((0.0, 0.0), 30, 12, [(0, 0, 0, 5)])
+
+    def test_a_stacked_spot_ranks_with_its_distance_side_tried_first_first(self):
+        w, h = 30, 12
+        obstacles = [(-10, -20, 30, -8), (-10, 8, 30, 20)]       # one above, one below: both 21 px out
+        spots = list(le_labels.switch_spots((0.0, 0.0), w, h, False, None, obstacles))
+        stacked = le_labels.beyond_spots((0.0, 0.0), w, h, obstacles)
+        first_down = next(xy for _b, up, xy in stacked if not up)
+        first_up = next(xy for _b, up, xy in stacked if up)
+        self.assertLess(spots.index(first_down), spots.index(first_up))
+        d = stacked[0][0]
+        self.assertEqual(spots.index(first_down), len(list(le_labels.around((0, 0, 0, 0), w, h, False,
+                                                                             dists=le_labels.AROUND[:le_labels.AROUND.index(d) + 1]))))
+
+    def test_numbers_below_keeps_the_new_spot_kinds_below_its_turnout(self):
+        """A switch in numbers_below: its frog spots (here the frog opens upward) and stacked spots above are not
+        offered, so nothing takes the number above its turnout ahead of around's spots below it further out;
+        around's own spots are as before. Without the preference the frog spots above are offered as before."""
+        w, h = 30, 12
+        t = dict(a_turnout(), band=0)
+        t["pts"] = {k: (p[0], -p[1]) for k, p in t["pts"].items()}          # mirrored: its legs open upward
+        frog = le_labels.frog_of(t)
+        obstacles = [(-10, -20, 30, -8), (-10, 8, 30, 20)]       # one above, one below
+        asked = list(le_labels.switch_spots((0.0, 0.0), w, h, False, frog, obstacles, side_only=True))
+        free = list(le_labels.switch_spots((0.0, 0.0), w, h, False, frog, obstacles))
+        around = set(le_labels.around((0, 0, 0, 0), w, h, False))
+        extra = [xy for xy in asked if xy not in around]
+        self.assertTrue(extra)                                   # the stacked spots below stay
+        self.assertTrue(all(y + h / 2 > 0 for _x, y in extra), extra)
+        self.assertTrue(any(y + h / 2 < 0 for x, y in free if (x, y) not in around))    # frog above, unasked
+        firsts = lambda spots: list(dict.fromkeys(xy for xy in spots if xy in around))    # noqa: E731
+        self.assertEqual(firsts(asked), list(dict.fromkeys(le_labels.around((0, 0, 0, 0), w, h, False))))
+        L = mock.Mock()
+        L.boxes.near.return_value = []
+        L.bands = [("Band", {}, {})]
+        L.halves.return_value = {None: (0.0, 0.0)}
+        L.item.return_value = dict(w=w, h=h)
+        o = dict(le_labels.DEFAULTS)
+        _it, spots, _c = le_labels._switch_number(L, t, "8", o, below=True)(dict(number_side={}, name_side={}))
+        self.assertEqual(list(spots), list(le_labels.switch_spots((0.0, 0.0), w, h, False, frog, [], side_only=True)))
+
+    def test_on_the_example_every_plain_turnouts_number_reads_as_its_own_and_the_check_passes(self):
+        # with around's own spots all held, every plain turnout's number stands in its frog or stacked past
+        # something, on the drawn panel, and the check passes
+        real = le_labels.around
+
+        def only_new(region, w, h, up_first, dists=le_labels.AROUND, more=None):
+            if more is None:
+                yield from real(region, w, h, up_first, dists)
+                return
+            for d in dists:
+                yield from more(d)
+        with mock.patch.object(le_labels, "around", only_new):
+            P = le.panel(bands())
+        frogs = {t["ident"]: le_labels.frog_of(t) for t in P.turnouts}
+        L = le_labels.Layer(P, bands(), le_labels.options(bands(), None))
+        marks = [(p, t["ident"]) for t in P.turnouts for p in L.halves(t).values()]
+        framed = 0
+        for lb in P.labels:
+            if lb["kind"] != "switch":
+                continue
+            box = le_labels.box_of(*lb["box"])
+            mine = [t for t in P.turnouts if bands()[t["band"]][1]["nodes"][t["nodes"][0]].get("label") == lb["text"]]
+            near = min(marks, key=lambda m: le_labels.point_gap(box, m[0]))
+            self.assertIn(near[1], [t["ident"] for t in mine], lb["text"])
+            frog = frogs[mine[0]["ident"]]
+            if frog:
+                (cx, cy), (at, u, v) = le_labels.centre(box), frog
+                q = (cx - at[0], cy - at[1])
+                framed += (u[0] * q[1] - u[1] * q[0]) * (u[0] * v[1] - u[1] * v[0]) > 0 and \
+                    (v[0] * q[1] - v[1] * q[0]) * (v[0] * u[1] - v[1] * u[0]) > 0
+        self.assertGreater(framed, 0)
+        le_labels.verify(P)
+
+
+def passing_x(P, w):
+    """A left edge for a w px item of block Passing: its middle 16 px west of the middle of the block's longest
+    level piece, where a given x has its own track under it."""
+    L = le_labels.Layer(P, bands(), le_labels.options(bands(), None))
+    pieces = [pc for s in P.segments if s["block"] == "Passing" for pc in L.pieces.get(("seg", s["ident"]), [])
+              if abs(pc[0][1] - pc[1][1]) < 1e-6]
+    a, b = max(pieces, key=lambda pc: abs(pc[1][0] - pc[0][0]))
+    return round((a[0] + b[0]) / 2 - 16 - w / 2)
+
+
 class Extras(unittest.TestCase):
     EXTRAS = [{"id": "Passing cluster", "block": "Passing", "size": [82, 20]},
               {"id": "OS 4 cluster", "block": "OS 4", "size": [40, 20]}]
@@ -663,9 +1042,7 @@ class Extras(unittest.TestCase):
             le.panel(bands(), extras=[{"id": "Huge", "block": "Passing", "size": [5000, 400]}])
 
     def test_a_callers_item_at_a_given_x(self):
-        P = le.panel(bands(), extras=self.EXTRAS)
-        first = next(e for e in P.extras if e["id"] == "Passing cluster")
-        want = dict(self.EXTRAS[0], x=first["box"][0] - 16)
+        want = dict(self.EXTRAS[0], x=passing_x(le.panel(bands(), extras=self.EXTRAS), 82))
         Q = le.panel(bands(), extras=[want] + list(self.EXTRAS[1:]))
         got = next(e for e in Q.extras if e["id"] == "Passing cluster")
         self.assertEqual(got["box"][0], round(want["x"]))
@@ -821,6 +1198,26 @@ class HiddenNames(unittest.TestCase):
         self.assertEqual(len(hidden_join), len([s for s in full.segments if s.get("hidden")]))
         self.assertEqual(sum(lb["text"] == "Summit" for lb in P.labels) + 1,
                          sum(lb["text"] == "Summit" for lb in full.labels))      # Upper's label only
+
+    def test_a_block_on_two_bands_gets_its_icon_on_its_own_band(self):
+        """A joined helix track is one block drawn on two bands (the default names share it through the join): its
+        block contents icon stands on the band block_band gives it, so the band's extent, and with it
+        le_title_clear, never reaches into the other band."""
+        b, page = shared()
+        P = le.panel(b, page=page)
+        segs = defaultdict(set)
+        for s in P.segments:
+            if not s.get("hidden"):
+                segs[s["block"]].add(s["band"])
+        two = [blk for blk, on in segs.items() if len(on) > 1]
+        self.assertTrue(two)                                    # the example joins its helix as one block
+        for blk in two:
+            with self.subTest(block=blk):
+                icon = next(m for m in P.bcis if m["block"] == blk)
+                top, bottom = P.band_boxes[icon["band"]][1], P.band_boxes[icon["band"]][3]
+                x, y, w, h = icon["box"]
+                self.assertTrue(top - 2 * h <= y <= bottom + h, (blk, icon["band"], y, top, bottom))
+                self.assertLessEqual(le.extent(P, icon["band"])[3], bottom + 2 * h)
 
     def test_draw_panel_marks_them_too(self):
         b, page = shared(le_band_labels={"Lower": {"hidden_names": ["Yard Lead"]}})

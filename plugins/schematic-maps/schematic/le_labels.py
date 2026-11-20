@@ -12,7 +12,8 @@ shape, mast icon or the panel's size differs afterwards. Items, placed in this o
 before it (and the mast icons, band titles, helix and connector labels and circles, which stay where they are):
   switch numbers   one per turnout: the switch's label (a single crossover's: its crossover number, once), with
                    `switch_prefix` before it, around where its legs meet
-                   (first on the side away from its diverging leg)
+                   (first on the side away from its diverging leg); a plain turnout's also in its frog and stacked
+                   past a mast icon or label that stands by it
   track names      one per named track, beside its track, as near the track's middle as is clean
   block contents   with `block_contents` (on by default), one BlockContentsIcon per block on the panel, which shows
                    the train in the block: a track block's beside its own track (first on the side its track's name
@@ -40,7 +41,14 @@ its default icon (a small red X) while the block has none; a background would pa
 the rail for one standing on its track.
 
 Spots. Each item tries spots in ranked order and takes the first clean one. Around a turnout: above and below it
-(centred, then a quarter and half a box either way), then left and right of it, AROUND px out, nearest first.
+(centred, then a quarter and half a box either way), then left and right of it, AROUND px out, nearest first. A
+plain turnout's switch number (not a crossover's) tries two more kinds after those of each distance, ranked by the
+same distance (the box's gap from where the legs meet, or from the leg it stands against): in its frog, the wedge
+between its two legs past where they meet, the box against either leg FROG_GAPS px off it and FROG_ALONG px along
+it; then stacked past a mast icon or label that stands above or below the turnout in the column the number would
+take, PAD px further out than it (centred on the turnout, shifted as above, or over the obstacle), first on the
+side tried first. Both are judged as any spot: a frog spot over the other leg, or nearer another turnout, is not
+clean.
 Beside a track: above and below it, then left and right of it, GAPS px from its line, from the middle of its length
 outward STEP px at a time, the box centred on the spot or reaching on from it either way (a curve or a short track
 takes whatever part is clean); only when none of those is clean, a block's icon may stand REACH px past its own
@@ -113,8 +121,12 @@ instead of stopping: for a crowded band where every block's icon matters more th
 le_labels key only: the page's le_labels may not set it. A name left out is then tried again first (LEAD_TRIES):
 one at a time, in the order they were left out, each put before every other item, and kept there when every item
 that must be placed still finds a spot (a block contents icon perhaps at the short reserve, logged) and fewer items
-are left out than before; else it stays left out. An optional block contents icon left out
-(`optional_block_contents`) is tried again the same way.
+are left out than before (an item such a round leaves with no spot may first make room, below); else it stays left
+out. An optional block contents icon left out (`optional_block_contents`) is tried again the same way. A name still
+left out then makes room (make_room): it takes its first spot that only placed block contents icons keep from being
+clean when each of them finds another clean spot (full reserve, else short) or makes room the same way one step
+further (ROOM_DEPTH); only then may switch numbers and other names move like that too (ROOM_PASSES). Each move is
+logged; nothing is left out or moved for nothing; a panel whose labels all place never reaches it.
 """
 import copy
 import itertools
@@ -135,6 +147,8 @@ STEP = 8            # px between the spots tried along a track or a band
 END = 4             # px a box reaching on along its track keeps over the spot it was tried at
 REACH = (8, 16, 24, 32, 40)     # px past the spot a block's icon may stand, beside the rest of its track, at last
 STATION_SLIDE = 240     # px a station's name may slide either way from the middle of its switches
+FROG_GAPS = (3, 6, 10, 15, 21, 28)                  # px off a leg's line, in a turnout's frog
+FROG_ALONG = tuple(range(0, 49, 4))                 # px along the leg from where the legs meet, in its frog
 ROUNDS = 8          # rounds of placing, each with the items that found no spot before put first
 LOG_MOVE = 12       # px from its first spot past which a spot taken is logged
 OVERLAP = 0.5       # px two boxes must overlap by to count, in the check
@@ -149,6 +163,7 @@ DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
 # a band's own le_labels keys: the page's may not set them
 BAND_ONLY = ("names_last", "extra_steps", "extra_follow", "hidden_names")
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
+ICON_KIND = "a block contents icon"     # a block contents icon's kind among the reasons a spot is not clean
 
 
 # ---------------------------------------------------------------- options
@@ -354,6 +369,14 @@ class Grid:
         for c in cells(box):
             self.cell[c].append(i)
 
+    def without(self, things):
+        """A new Grid of the same boxes less those whose thing is in `things` (this one is left as it is)."""
+        out = Grid()
+        for box, thing in self.items:
+            if thing not in things:
+                out.add(box, thing)
+        return out
+
     def near(self, box, r):
         seen = set()
         for c in cells(box, r):
@@ -415,16 +438,18 @@ class Layer:
         if self.kept is not None:
             self.boxes = copy.deepcopy(self.kept)
             return
-        self.boxes = Grid()                 # (box, (what, kind)) of every label, icon and circle to clear
+        # (box, (what, kind, key)) of every label, icon and circle to clear; key is the placed item's (keyed), None
+        # for what the drawing holds, so two items with one text (track names alike on a band) stay apart
+        self.boxes = Grid()
         for lb in P.labels:
-            self.boxes.add(label_box(lb), (f"label {lb['text']!r}", "a label"))
+            self.boxes.add(label_box(lb), (f"label {lb['text']!r}", "a label", None))
         for m in P.masts:
-            self.boxes.add(box_of(*m["box"]), (f"mast {m['mast']}'s icon", "a mast icon"))
+            self.boxes.add(box_of(*m["box"]), (f"mast {m['mast']}'s icon", "a mast icon", None))
         for sh in P.shapes:
             (cx, cy), r = sh["centre"], sh["r"]
-            self.boxes.add((cx - r, cy - r, cx + r, cy + r), ("a circle", "a circle"))
+            self.boxes.add((cx - r, cy - r, cx + r, cy + r), ("a circle", "a circle", None))
         for lamp in self.reserved:          # a caller's lamp (lamp_columns): kept clear from the start
-            self.boxes.add(box_of(*lamp["box"]), (f"lamp of {lamp['track']}", "a lamp"))
+            self.boxes.add(box_of(*lamp["box"]), (f"lamp of {lamp['track']}", "a lamp", None))
 
     def band_of(self, owner):
         kind, ident = owner
@@ -446,9 +471,10 @@ class Layer:
         return {None: tuple(t["at"] if t["type"] != "DOUBLE_XOVER" else t["cen"])}
 
     # ---- a spot's faults
-    def fault(self, box, item, on=False):
+    def fault(self, box, item, on=False, past=()):
         """(kind, in full) of why a box is not a clean spot for item, or None. `on`: a block contents icon on its own
-        block's track, whose lines are then no obstacle (and it reads as that block's by standing on it)."""
+        block's track, whose lines are then no obstacle (and it reads as that block's by standing on it). `past`:
+        boxes (their (what, kind, key)) that are no obstacle (in_way)."""
         if box[0] < self.margin or box[1] < self.margin or box[2] > self.P.size[0] or box[3] > self.P.size[1]:
             return ("outside the panel",) * 2
         for _b, ((a, b), owner) in self.ink.near(box, CLEAR):
@@ -459,9 +485,9 @@ class Layer:
         for bx, _tid in self.circles.near(box, TURNOUT_R):
             if point_gap(box, bx[:2]) < TURNOUT_R:
                 return ("on a turnout's control circle",) * 2
-        for other, (what, kind) in self.boxes.near(box, PAD):
-            if boxes_overlap(box, other, PAD):
-                return f"over {kind}", f"over {what}"
+        for other, thing in self.boxes.near(box, PAD):
+            if thing not in past and boxes_overlap(box, other, PAD):
+                return f"over {thing[1]}", f"over {thing[0]}"
         why = None if on else self.reads_other(box, item)
         return (why, why) if why else None
 
@@ -480,6 +506,29 @@ class Layer:
             if key not in item["marks"] and point_gap(box, bx[:2]) < d - 0.5:
                 return "nearer another turnout"
         return None
+
+    def in_way(self, item, spot, kinds):
+        """[((what, kind, key), box)] of the placed items of `kinds` that alone keep a spot (as take reads it) from being
+        clean for item ([] when it is clean), or None when anything else is in the way too (make_room)."""
+        on, w = len(spot) > 2 and spot[2], spot[3] if len(spot) > 3 else item["w"]
+        box = box_of(round(spot[0]), round(spot[1]), w, item["h"])
+        way = {(thing, other) for other, thing in self.boxes.near(box, PAD)
+               if thing[1] in kinds and boxes_overlap(box, other, PAD)}
+        return None if self.fault(box, item, on, past={t for t, _b in way}) else sorted(way)
+
+    @staticmethod
+    def as_placed(box):
+        """A box (x0, y0, x1, y1) as a placed item's dict holds it (x, y, width, height)."""
+        return _boxed(box)
+
+    def lift(self, things):
+        """Take the boxes of `things` ((what, kind, key)) away; returns what restore() needs to put them back."""
+        saved = self.boxes
+        self.boxes = saved.without(set(things))
+        return saved
+
+    def restore(self, saved):
+        self.boxes = saved
 
     # ---- taking a spot
     def take(self, item, spots):
@@ -511,7 +560,7 @@ class Layer:
                                       "its own block's track")
                 elif moved > LOG_MOVE:
                     self.notes.append(f"{item['what']}: placed {moved:.0f} px from its first spot ({first_why})")
-                self.boxes.add(box, (item["what"], item["kind"]))
+                self.boxes.add(box, (item["what"], item["kind"], item.get("key")))
                 item["on_track"], item["short"] = on, short
                 return box, None
             first_why = first_why or f[1]
@@ -536,9 +585,10 @@ class Layer:
                     h=jmri_text.height(size, bold) if h is None else h)
 
 
-def around(region, w, h, up_first, dists=AROUND):
+def around(region, w, h, up_first, dists=AROUND, more=None):
     """Top-left corners of a w x h box around region (x0, y0, x1, y1): above and below (centred, then a quarter
-    and half a box either way), then left and right, each distance out in turn."""
+    and half a box either way), then left and right, each distance out in turn; then more(d)'s spots, if given, for
+    that distance (switch_spots)."""
     x0, y0, x1, y1 = region
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     for d in dists:
@@ -550,6 +600,105 @@ def around(region, w, h, up_first, dists=AROUND):
             x = x0 - d - w if left else x1 + d
             for y in (cy - h / 2, y0 - h - d / 2, y1 + d / 2):
                 yield x, y
+        if more is not None:
+            yield from more(d)
+
+
+def frog_of(t):
+    """(points, unit along leg B, unit along leg C) of a plain turnout or wye: the wedge between its two legs, past
+    where they meet. None for a crossover (its number goes around the whole crossover) or legs drawn on one line
+    (no wedge between them). Stops on a leg missing or drawn with no length."""
+    if "XOVER" in t["type"]:
+        return None
+    at = tuple(t["at"])
+    units = []
+    for k in "BC":
+        p = t["pts"].get(k)
+        if p is None:
+            raise SchematicError(f"turnout {t['ident']} ({t['type']}): no leg {k} drawn")
+        L = math.dist(at, p)
+        if L < 1e-6:
+            raise SchematicError(f"turnout {t['ident']}: its leg {k} ends where its legs meet")
+        units.append(((p[0] - at[0]) / L, (p[1] - at[1]) / L))
+    cross = units[0][0] * units[1][1] - units[0][1] * units[1][0]
+    if abs(cross) < 1e-6:
+        return None
+    return at, units[0], units[1]
+
+
+def frog_spots(frog, w, h):
+    """[(band, (x, y))]: top-left corners of a w x h box in the wedge between the legs of `frog` (frog_of), past
+    where they meet: against each leg in turn, FROG_GAPS px off its line on the other leg's side, FROG_ALONG px
+    along it, the box's corner nearest that line on the spot, so the whole box stands on the wedge's side of it.
+    `band` is the AROUND distance (the first not under the gap) the spot ranks with; nearest first."""
+    at, legs = frog[0], (frog[1], frog[2])
+    out = []
+    for i, u in enumerate(legs):
+        other = legs[1 - i]
+        n = (-u[1], u[0])
+        if n[0] * other[0] + n[1] * other[1] < 0:
+            n = (u[1], -u[0])
+        # the box's corner least far along n (ties: least far along u), as an offset from its top left
+        corner = min(((0, 0), (w, 0), (0, h), (w, h)),
+                     key=lambda c: (round(c[0] * n[0] + c[1] * n[1], 9), c[0] * u[0] + c[1] * u[1]))
+        for g in FROG_GAPS:
+            for s in FROG_ALONG:
+                q = (at[0] + u[0] * s + n[0] * g, at[1] + u[1] * s + n[1] * g)
+                band = next(d for d in AROUND if d >= g)       # FROG_GAPS stay within AROUND
+                out.append((band, math.hypot(s, g), (q[0] - corner[0], q[1] - corner[1])))
+    out.sort(key=lambda o: (o[0], o[1]))
+    return [(band, xy) for band, _dist, xy in out]
+
+
+def beyond_spots(at, w, h, obstacles):
+    """[(band, up, (x, y))]: top-left corners of a w x h box stacked past each box in `obstacles` (x0, y0, x1, y1)
+    that stands wholly above or below the point `at` and spans the column a box near it would take (within w px of
+    it either way): PAD px further out than the obstacle on its side, centred on `at`, a quarter and half a box
+    either way, then over the obstacle (centred, flush with either end). `band` is the AROUND distance the spot
+    ranks with, the first not under the box's gap from `at`; a spot further out than AROUND's last is not given."""
+    x, y = at
+    out = []
+    for ob in obstacles:
+        if ob[2] <= ob[0] or ob[3] <= ob[1]:
+            raise SchematicError(f"le labels: an obstacle box {ob!r} has no width or height")
+        if ob[2] < x - w or ob[0] > x + w:          # not in the column a box near `at` takes
+            continue
+        if ob[3] <= y:
+            up, top = True, ob[1] - PAD - 1 - h
+            gap = y - (top + h)
+        elif ob[1] >= y:
+            up, top = False, ob[3] + PAD + 1
+            gap = top - y
+        else:                                       # across the point's own line: nothing to stack past
+            continue
+        if gap > AROUND[-1]:
+            continue
+        band = next(d for d in AROUND if d >= gap)
+        for left in [x - w / 2 + dx for dx in (0, -w / 4, w / 4, -w / 2, w / 2)] + \
+                [(ob[0] + ob[2] - w) / 2, ob[0], ob[2] - w]:
+            out.append((band, up, (left, top)))
+    out.sort(key=lambda o: o[0])
+    return out
+
+
+def switch_spots(at, w, h, up_first, frog=None, obstacles=(), side_only=False):
+    """Top-left corners of a w x h switch number around a plain turnout's points `at`: around's spots, ranked as
+    there, and after those of each distance the new kinds of that distance (their band): in its frog (frog_spots,
+    when `frog` is given), then stacked past a mast icon or label that stands there (beyond_spots), on the side
+    tried first, then the other. With `side_only` (the side was asked for: numbers_below) the new kinds are only
+    those on the side tried first (a frog spot by its box's middle against `at`), so they never take the number to
+    the other side ahead of around's spots further out on its own side; around's spots are as without it."""
+    frogs = frog_spots(frog, w, h) if frog else []
+    stacks = beyond_spots(at, w, h, obstacles)
+    if side_only:
+        frogs = [(band, xy) for band, xy in frogs if (xy[1] + h / 2 < at[1]) == up_first]
+        stacks = [s for s in stacks if s[1] == up_first]
+
+    def more(d):
+        yield from (xy for band, xy in frogs if band == d)
+        yield from (xy for band, up, xy in stacks if band == d and up == up_first)
+        yield from (xy for band, up, xy in stacks if band == d and up != up_first)
+    return around((*at, *at), w, h, up_first, more=more)
 
 
 def spots_along(lines):
@@ -628,7 +777,7 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
     settle_end_labels(P)
     L = Layer(P, bands, opts)
     extras = check_extras(extras, P.blocks)
-    items = specs(P, bands, opts, L, extras)
+    items = keyed(specs(P, bands, opts, L, extras))
     # a band's names_last: its track names go after everything else and may be left out
     skip_names = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
     items = [it for it in items if it[0] not in skip_names] + [it for it in items if it[0] in skip_names]
@@ -725,11 +874,13 @@ def item_bands(P, L, items, extras):
 def place_items(L, items, skip_names, skip_bcis):
     """(done, failed, skipped) of placing `items` in rounds (place_rounds); then each item left out (skipped) tried
     again first, one at a time (module text, names_last): it leads when every item that must be placed still finds a
-    spot and fewer are left out. An item with no clean spot even with nothing else placed (against the drawing, the
-    mast icons and what stands already) is not tried. The panel's labels stand as in the outcome returned."""
+    spot, room made for any that found none (make_room, names=False), and fewer are left out. An item with no clean
+    spot even with nothing else placed (against the drawing, the mast icons and what stands already) is not tried.
+    Each name still left out then makes room where it can (make_room). The panel's labels stand as in the outcome
+    returned."""
     got = place_rounds(L, items, skip_names, skip_bcis, [])
     if got[1] or not got[2]:
-        return got
+        return got[:3]
     makers = dict(items)
 
     def free(key):
@@ -738,15 +889,108 @@ def place_items(L, items, skip_names, skip_bcis):
         made = makers[key](dict(number_side={}, name_side={}), short=key[0] == "bci")
         return bool(made) and L.take(made[0], made[1])[0] is not None
 
+    def led(lead):
+        """place_rounds with `lead` first, room then made for each item that must be placed and found no spot."""
+        done, failed, skipped, state = place_rounds(L, items, skip_names, skip_bcis, lead)
+        return (*make_room(L, items, done, failed, skipped, state, names=False), state)
+
     lead, last = [], None
     for key in [k for k, _why in got[2] if free(k)][:LEAD_TRIES]:
-        trial = place_rounds(L, items, skip_names, skip_bcis, lead + [key])
+        trial = led(lead + [key])
         last = lead + [key]
         if not trial[1] and len(trial[2]) < len(got[2]):
             lead, got = last, trial
     if last != lead:                    # the labels as in the outcome kept (L.reset above too): its round, again
-        got = place_rounds(L, items, skip_names, skip_bcis, lead)
-    return got
+        got = led(lead)
+    return make_room(L, items, *got)
+
+
+MOVABLE = (ICON_KIND, "a switch number", "a track name")    # what make_room may move to make room for an item
+ROOM_PASSES = ((ICON_KIND,), MOVABLE)       # make_room: moving only block contents icons first, then any of these
+ROOM_DEPTH = 2      # make_room: an item moved may itself move others to stand, this many steps from the one wanting
+ROOM_TRIES = 24     # make_room: spots an item tries moving others from, at most, at each step
+
+
+def make_room(L, items, done, failed, skipped, state, names=True):
+    """(done, failed, skipped) with each item that found no spot (failed) and, with `names`, each track name left
+    out (names_last) placed where it can be (settle): at its first clean spot, else where only placed items of the
+    pass's kinds are in the way, each of them then standing at another clean spot of its own, or itself moving
+    others the same way (up to ROOM_DEPTH steps). The first pass moves only block contents icons; then switch
+    numbers and track names may move too (ROOM_PASSES). Nothing is left out or moved for nothing, and an item with
+    no such spot stays failed or left out. Only a panel that leaves something out reaches this, so one whose labels
+    all place is unchanged. `state` is that of the round that placed `done`; both are updated."""
+    want = [key for key, _why in failed] + ([key for key, _why in skipped if key[0] == "name"] if names else [])
+    if not want:
+        return done, failed, skipped
+    makers = dict(items)
+    # the keys of the items that may move: only this call's own (a band's, placing by band); what an earlier band
+    # placed stands where it is, an obstacle like the drawing
+    movable = {key for key, _make in items if key[0] in ("bci", "switch", "name")}
+    done, placed = list(done), set()
+    for kinds in ROOM_PASSES:
+        for key in [k for k in want if k not in placed]:
+            if settle(L, makers, movable, key, state, done, kinds, ROOM_DEPTH, frozenset()):
+                placed.add(key)
+    return done, [(k, why) for k, why in failed if k not in placed], [(k, why) for k, why in skipped
+                                                                      if k not in placed]
+
+
+def settle(L, makers, movable, key, state, done, kinds, depth, busy):
+    """Whether item `key`, not standing now, stands now (make_room): at its first clean spot (a block contents icon
+    at its full reserve, else its short one), else, with depth left, at one of its first ROOM_TRIES spots where only
+    items of `kinds` not in `busy` ((what, kind, key) of those this move is for) and among `movable` (keys) are in
+    the way, each of them lifted and settled again one step deeper. `done` (the placed items' dicts) and `state` follow; when it fails, L, `done` and
+    `state` are as they were."""
+    shorts = (False, True) if key[0] == "bci" else (False,)
+    made = [m for m in (makers[key](state, short=short) for short in shorts) if m]
+    for it, spots, commit in made:
+        box = L.take(it, spots)[0]
+        if box is not None:
+            done.append(commit(box))
+            return True
+    if depth <= 0:
+        return False
+    for short in shorts:
+        m = makers[key](state, short=short)
+        if not m:
+            continue
+        it, spots, commit = m
+        tries = 0
+        for spot in spots:
+            way = L.in_way(it, spot, kinds)
+            if not way or any(t in busy or t[2] not in movable for t, _b in way):
+                continue
+            if move_for(L, makers, movable, it, spot, commit, way, state, done, kinds, depth, busy):
+                return True
+            tries += 1
+            if tries >= ROOM_TRIES:
+                break
+    return False
+
+
+def move_for(L, makers, movable, it, spot, commit, way, state, done, kinds, depth, busy):
+    """Whether item `it` stands at `spot` with each of `way` ([((what, kind, key), box)]: what is in the way, each
+    a `movable` item) lifted and settled one step deeper (settle); else L, `done` and `state` are as they were."""
+    saved, notes, sides, before = L.lift([t for t, _b in way]), len(L.notes), copy.deepcopy(state), list(done)
+    box, why = L.take(it, [spot])
+    if box is None:                     # in_way said only these were in the way
+        raise SchematicError(f"{it['what']}: its spot {spot} is not clean with what was in the way lifted ({why})")
+    gone = [L.as_placed(b) for _t, b in way]
+    left = [(kind, d) for kind, d in done if d["box"] not in gone]
+    if len(left) != len(done) - len(way):
+        raise SchematicError(f"{it['what']}: what was in the way at {spot} is not among the placed items (le labels)")
+    done[:] = left + [commit(box)]
+    busy = busy | {t for t, _b in way} | {(it["what"], it["kind"], it.get("key"))}
+    if all(settle(L, makers, movable, t[2], state, done, kinds, depth - 1, busy) for t, _b in way):
+        L.notes.append(f"{it['what']}: placed where {', '.join(t[0] for t, _b in way)} stood, which moved to "
+                       "another clean spot (room made)")
+        return True
+    L.restore(saved)
+    del L.notes[notes:]
+    state.clear()
+    state.update(sides)
+    done[:] = before
+    return False
 
 
 LEAD_TRIES = 24     # items left out tried again first, at most
@@ -759,7 +1003,7 @@ def place_rounds(L, items, skip_names, skip_bcis, lead):
     Neither is ever put first in a later round, nor counted when choosing the best round, except those in `lead`,
     which every round places first (place_items)."""
     makers = dict(items)
-    skipped = []
+    skipped, last_state = [], {}
 
     def attempt(first, short):
         """One round in that order; with `short`, the block contents icons in `first` (they found no spot at full
@@ -768,6 +1012,8 @@ def place_rounds(L, items, skip_names, skip_bcis, lead):
         never put first in a later round."""
         L.reset()
         done, failed, state = place_round(L, items, first, set(first) if short else ())
+        last_state.clear()
+        last_state.update(state)
         skipped[:] = [(k, why) for k, why in failed if k in skip_names]
         failed = [(k, why) for k, why in failed if k not in skip_names]
         still = []
@@ -802,7 +1048,7 @@ def place_rounds(L, items, skip_names, skip_bcis, lead):
         if not still:                               # an optional icon left over still tries the short reserve
             break
     # an optional block contents icon (optional_block_contents) left with no spot at either reserve is left out
-    return done, needed(still), list(skipped) + [x for x in still if x[0] in skip_bcis]
+    return done, needed(still), list(skipped) + [x for x in still if x[0] in skip_bcis], last_state
 
 
 def place_round(L, items, first, again=()):
@@ -893,6 +1139,19 @@ def specs(P, bands, opts, L, extras=()):
     return out
 
 
+def keyed(items):
+    """[(key, make)] with each item made carrying its key (it["key"]), so the box it takes (Layer.take) names that
+    one item, not every item that shares its text."""
+    def wrap(key, make):
+        def made(state, short=False):
+            got = make(state, short=short)
+            if got:
+                got[0]["key"] = key
+            return got
+        return made
+    return [(key, wrap(key, make)) for key, make in items]
+
+
 def _label_dict(it, box, kind, bi):
     return "label", dict(text=it["text"], xy=[box[0], box[1]], size=it["size"], bold=it["bold"], band=bi, kind=kind,
                          box=_boxed(box))
@@ -909,16 +1168,24 @@ def _switch_number(L, t, text, o, below=False):
         region = (*t["at"], *t["at"])
         up = not below and diverges_down(t)     # the side away from the diverging leg first
     marks = [(t["ident"], k) for k in L.halves(t)]
+    frog = frog_of(t)
 
     def make(state, short=False):
         if short is True:
             return None
         it = L.item("a switch number", what, text, o["switch_size"], o["switch_bold"], marks=marks)
+        if "XOVER" in t["type"]:
+            spots = around(region, it["w"], it["h"], up)
+        else:       # a plain turnout's: also in its frog, and stacked past the mast icons and labels standing by it
+            here = box_of(*t["at"], 0, 0)
+            obstacles = [b for b, thing in L.boxes.near(here, AROUND[-1] + it["w"] + it["h"])
+                         if thing[1] != "a circle"]
+            spots = switch_spots(tuple(t["at"]), it["w"], it["h"], up, frog, obstacles, side_only=below)
 
         def commit(box):
             state["number_side"][t["ident"]] = "above" if centre(box)[1] < (region[1] + region[3]) / 2 else "below"
             return _label_dict(it, box, "switch", t["band"])
-        return it, around(region, it["w"], it["h"], up), commit
+        return it, spots, commit
     return make
 
 
@@ -1102,7 +1369,10 @@ def by_block(L, places, block, new_item, w, done):
                 return (xy for region, up in rings for xy in around(region, width, it["h"], up))
             return it, reserves(spots, w, short), lambda box: done(box, it, "os")
         return make
-    idents = segs_of[block]
+    # a block drawn on two bands (a helix track joined as one block): only its own band's track (block_band), so the
+    # item stands in that band and counts there (extent, le_title_clear)
+    bi = block_band(L, places, block)
+    idents = [i for i in segs_of[block] if L.world.ctx.segs[i]["band"] == bi]
     track = sorted({j for i in idents for j in L.track_of.get(i, [i]) if j in L.world.track} | set(idents))
     lines = [pc for i in idents for pc in L.pieces[("seg", i)]]
 
@@ -1141,7 +1411,7 @@ def _bcis(P, L, places):
         what = f"{L.bands[bi][0]}: block contents of {block}"
 
         def new_item(what=what, size=size, w=w, **kw):
-            it = L.item("a block contents icon", what, "", size, False, w=w[0], **kw)
+            it = L.item(ICON_KIND, what, "", size, False, w=w[0], **kw)
             it.update(reserve=w[2], short_reserve=w[3])
             return it
 

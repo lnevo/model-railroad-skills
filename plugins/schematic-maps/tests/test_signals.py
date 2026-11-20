@@ -86,17 +86,17 @@ class MastPiece(unittest.TestCase):
         from schematic.draw import mast_piece
         st = self.strands([("e5.0", "e5", 600, "S1", "turn:e5"), ("e5.1", "e5", 600, "S2", "turn:e5")])
         sg = dict(_edge="e5", _toward_node="S1", cm_from_toward=450, edge_cm=600)
-        self.assertEqual(mast_piece(sg, st), ("e5.0", 300, 300, "S1"))     # at the turnback end of its own half
-        self.assertEqual(mast_piece(dict(sg, cm_from_toward=100), st), ("e5.0", 100, 300, "S1"))
+        self.assertEqual(mast_piece(sg, st, {}), ("e5.0", 300, 300, "S1"))     # at the turnback end of its own half
+        self.assertEqual(mast_piece(dict(sg, cm_from_toward=100), st, {}), ("e5.0", 100, 300, "S1"))
 
     def test_run_cut_between_levels(self):
         from schematic.draw import mast_piece
         here = self.strands([("e7x", "e7x", 200, "S4", "LINK:A0")])
         far = self.strands([("e7y", "e7y", 200, "LINK:A1", "S21")])
         sg = dict(_edge="e7", _toward_node="S4", cm_from_toward=50, edge_cm=400)
-        self.assertEqual(mast_piece(sg, here), ("e7x", 50, 200, "S4"))
-        self.assertIsNone(mast_piece(sg, far))                 # it stands on the other band's half
-        self.assertEqual(mast_piece(dict(sg, cm_from_toward=300), far), ("e7y", 100, 200, "LINK:A1"))
+        self.assertEqual(mast_piece(sg, here, {}), ("e7x", 50, 200, "S4"))
+        self.assertIsNone(mast_piece(sg, far, {}))                 # it stands on the other band's half
+        self.assertEqual(mast_piece(dict(sg, cm_from_toward=300), far, {}), ("e7y", 100, 200, "LINK:A1"))
 
 
 class MastAtPoints(unittest.TestCase):
@@ -146,3 +146,53 @@ class SlopedMastStrict(unittest.TestCase):
         ok, svg = self.draw(P)
         self.assertFalse(ok)
         self.assertEqual(svg, [])
+
+
+class LoopLeg(unittest.TestCase):
+    """A loop (a run with both ends at one switch) is drawn as two fold halves both ending at that switch: a mast's
+    `leg` picks the half, and stops the drawing when it is missing or wrong."""
+
+    nodes = {"S7": dict(kind="switch", label="7"), "S8": dict(kind="switch", label="8"),
+             "turn:e9": dict(kind="turnR")}
+
+    def strands(self):
+        return {"e9.0": dict(edge="e9", cm=400, name="Loop", src=("turn:e9", 0), dst=("S7", "B")),
+                "e9.1": dict(edge="e9", cm=400, name="Loop", src=("turn:e9", 1), dst=("S7", "C"))}
+
+    def sg(self, **kw):
+        return dict(dict(mast="10LB", _edge="e9", _toward_node="S7", toward="7", cm_from_toward=0.0, edge_cm=400),
+                    **kw)
+
+    def test_the_leg_picks_the_half(self):
+        from schematic.draw import mast_piece
+        self.assertEqual(mast_piece(self.sg(leg="B"), self.strands(), self.nodes), ("e9.0", 0.0, 200, "S7"))
+        self.assertEqual(mast_piece(self.sg(leg="C"), self.strands(), self.nodes), ("e9.1", 0.0, 200, "S7"))
+        at_turn = self.sg(leg="C", _toward_node="turn:e9", toward="", cm_from_toward=1.0)
+        self.assertEqual(mast_piece(at_turn, self.strands(), self.nodes), ("e9.1", 1.0, 200, "turn:e9"))
+
+    def test_a_missing_or_wrong_leg_stops(self):
+        from schematic.core import SchematicError
+        from schematic.draw import mast_piece
+        for leg in (None, "D", "A", 2):
+            with self.subTest(leg=leg), self.assertRaisesRegex(
+                    SchematicError, r"mast 10LB: its run e9 is a loop with both ends at switch 7 \(legs B and C\).*"
+                                    r"\"leg\" \(B or C\)"):
+                sg = self.sg() if leg is None else self.sg(leg=leg)
+                mast_piece(sg, self.strands(), self.nodes)
+
+    def test_a_loop_drawn_as_one_piece_stops(self):
+        from schematic.core import SchematicError
+        from schematic.draw import mast_piece
+        one = {"e9": dict(edge="e9", cm=400, name="Loop", src=("S7", "B"), dst=("S7", "C"))}
+        with self.assertRaisesRegex(SchematicError, "drawn as one piece"):
+            mast_piece(self.sg(leg="B"), one, self.nodes)
+
+    def test_a_leg_on_a_run_that_is_no_loop_must_match(self):
+        from schematic.core import SchematicError
+        from schematic.draw import mast_piece
+        st = {"e5": dict(edge="e5", cm=300, name="", src=("S7", "B"), dst=("S8", "A"))}
+        sg = dict(mast="12R", _edge="e5", _toward_node="S7", toward="7", cm_from_toward=0.0, edge_cm=300)
+        self.assertEqual(mast_piece(sg, st, self.nodes), ("e5", 0.0, 300, "S7"))          # no leg: as before
+        self.assertEqual(mast_piece(dict(sg, leg="B"), st, self.nodes), ("e5", 0.0, 300, "S7"))
+        with self.assertRaisesRegex(SchematicError, "leg 'C' is not where its run meets switch 7"):
+            mast_piece(dict(sg, leg="C"), st, self.nodes)

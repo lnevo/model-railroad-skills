@@ -7,11 +7,22 @@ from .core import SchematicError
 
 
 def by_label(g, ref):
-    """A junction by its plan part number (kept as alias) or its label."""
-    hits = [n for n, d in g["nodes"].items() if d.get("alias") == ref]
-    hits = hits or [n for n, d in g["nodes"].items() if d.get("label") == ref and d["kind"] != "end"]
+    """A junction by its plan part number (kept as alias), its label, its part's own id, or "label@track".
+
+    The part id is the node's key in the graph (the plan reader's part type and its half: a three-way's halves are
+    TO_3W33789-1 and -2), for a junction whose label the reader could not number. "35@East Lead" is the junction
+    labelled 35 that a track named East Lead leaves: for the halves of a crossover, which share one number, a name
+    that does not depend on the plan's part numbers."""
+    nodes = g["nodes"]
+    hits = [n for n, d in nodes.items() if d.get("alias") == ref]
+    hits = hits or [n for n, d in nodes.items() if d.get("label") == ref and d["kind"] != "end"]
     # a moved switch is labelled with a star (7*); its plain number still finds it
-    hits = hits or [n for n, d in g["nodes"].items() if (d.get("label") or "").rstrip("*") == ref and d["kind"] != "end"]
+    hits = hits or [n for n, d in nodes.items() if (d.get("label") or "").rstrip("*") == ref and d["kind"] != "end"]
+    hits = hits or [n for n, d in nodes.items() if n == ref and d["kind"] != "end"]
+    if not hits and isinstance(ref, str) and "@" in ref:
+        label, track = ref.split("@", 1)
+        hits = [n for n, d in nodes.items() if d["kind"] != "end" and (d.get("label") or "").rstrip("*") == label
+                and any(track in e["names"] for e in g["edges"] if n in (e["u"], e["v"]))]
     if len(hits) != 1:
         raise SchematicError(f"{len(hits)} junctions answer to {ref}")
     return hits[0]
