@@ -1,4 +1,6 @@
 """Small shared pieces of the layout engine: constants, track-name tidying, a switch's legs, local search."""
+import re
+from collections import defaultdict
 
 
 class SchematicError(ValueError):
@@ -51,6 +53,107 @@ def dx_tracks(nodes, n):
     else:
         ab, dc = (d["ins"]["B"], d["outs"]["A"]), (d["ins"]["C"], d["outs"]["D"])
     return (ab, dc) if (d["hand"] == 1) == (d["sig"] == 1) else (dc, ab)
+
+
+HALF_LETTER = re.compile(r"(.*\d)([AB])")    # a crossover half's label: its number and one letter, A or B
+
+
+def switch_number(label):
+    """A switch label's number: the label less a trailing * (a switch with an added branch) and, after a digit, one
+    trailing A or B, the letter the prototype gives each half of a crossover ("23A" and "23B" are switch 23)."""
+    bare = (label or "").rstrip("*")
+    m = HALF_LETTER.fullmatch(bare)
+    return m.group(1) if m else bare
+
+
+def crossover_name(label):
+    """How a single crossover is named (shown on a panel, listed in preferences) from either half's label: the
+    number of halves lettered A and B, else the label the two halves share."""
+    return switch_number(label) if HALF_LETTER.fullmatch((label or "").rstrip("*")) else label
+
+
+def through_leg(link):
+    """A single crossover half's normal (closed) leg: its leg B or C that is not its link to the other half."""
+    return {"B": "C", "C": "B"}[link]
+
+
+def crossover_halves(nodes, strands, log=None):
+    """{switch node: (link leg, other half, strand id)} of every single crossover: two switches of one number joined
+    directly by one track, which is the crossover's diagonal and each half's link (thrown) leg; the half's other leg B
+    or C is its normal (closed) route, on its through track (through_leg). Two pairings:
+
+      - leg C to leg C, as before 0.1.42: two switches labelled alike (unlettered), or lettered one A and one B
+        (switch_number);
+      - leg B to leg C: only halves lettered one A and one B (a half laid with its straight route on the diagonal).
+
+    Leg B to leg B is two switches back to back on one through track, and a points (leg A) joins no crossover: those
+    stay two switches, as before. Lettered halves are not paired, and `log` (a list, when given) says why, when they
+    are joined by more than one track (a run-around: two switches), when their labels are ambiguous (two switches
+    lettered alike, two A's say, joined C to C or B to C; or a lettered half and an unlettered switch of its number),
+    when more than two lettered switches carry their number, or when a half would pair with two switches. Nothing here
+    stops a run: a plan that drew before still draws."""
+    say = log.append if log is not None else (lambda _m: None)
+    label = {n: (d.get("label") or "").rstrip("*") for n, d in nodes.items() if d["kind"] == "switch"}
+    lettered = defaultdict(set)         # number -> its lettered switches
+    for n, lab in label.items():
+        if HALF_LETTER.fullmatch(lab):
+            lettered[switch_number(lab)].add(n)
+    joins = defaultdict(list)           # (u, v) in track order of the first -> [(strand id, u's leg, v's leg)]
+    for sid, s in sorted(strands.items()):
+        (u, pu), (v, pv) = s["src"], s["dst"]
+        if u != v and u in label and v in label:
+            key = (u, v) if (v, u) not in joins else (v, u)
+            joins[key].append((sid, pu, pv) if key == (u, v) else (sid, pv, pu))
+    found = defaultdict(list)           # node -> [(link leg, other node, strand id)]
+    for (u, v), tracks in joins.items():
+        lu, lv = label[u], label[v]
+        num = switch_number(lu)
+        if not lu or not lv or num != switch_number(lv):
+            continue
+        what = f"switches {nodes[u].get('label')} and {nodes[v].get('label')}"
+        lettered_pair = {lu, lv} == {num + "A", num + "B"}
+        if lu == lv and lu != num:      # lettered alike (two 7A's): ambiguous, whichever legs join them
+            if any(t[1:] in (("C", "C"), ("B", "C"), ("C", "B")) for t in tracks):
+                say(f"{what}: {len(lettered[num])} switches carry letters of number {num}, so none is paired as a "
+                    "single crossover" if len(lettered[num]) > 2 else
+                    f"{what} are both lettered {lu[-1]}, so they are not paired as a single crossover")
+            continue
+        if lu == lv:            # labelled alike, unlettered: leg C to leg C, as before
+            got = [t for t in tracks if t[1:] == ("C", "C")]
+        elif not lettered_pair:
+            if any(set(t[1:]) <= {"B", "C"} for t in tracks):
+                say(f"{what} share number {num} but are not lettered one A and one B, so they are not paired as a "
+                    "single crossover")
+            continue
+        elif len(tracks) > 1:
+            say(f"{what} are joined by {len(tracks)} tracks (a run-around or passing track), so they are two "
+                "switches, not a single crossover")
+            continue
+        else:
+            got = [t for t in tracks if t[1:] in (("C", "C"), ("B", "C"), ("C", "B"))]
+            if got and len(lettered[num]) > 2:
+                say(f"{what}: {len(lettered[num])} switches carry letters of number {num}, so none is paired as a "
+                    "single crossover")
+                continue
+        for sid, pu, pv in got:
+            found[u].append((pu, v, sid))
+            found[v].append((pv, u, sid))
+    out = {}
+    for n, links in sorted(found.items()):
+        if len(links) > 1:
+            say(f"switch {nodes[n].get('label')} would pair with "
+                f"{' and '.join(nodes[o].get('label') for _p, o, _s in links)}, so it is no single crossover's half")
+            continue
+        out[n] = links[0]
+    return {n: got for n, got in out.items() if out.get(got[1], (None, None))[1] == n}
+
+
+def crossover_notes(nodes, halves):
+    """Log lines for the field, one per single crossover half (`halves`, crossover_halves) joined by its leg B: the
+    half is laid with its own straight route on the diagonal, so with Closed lining both through tracks its machine
+    must be wired reversed."""
+    return [f"switch {nodes[n].get('label')} is laid straight on the crossover's diagonal: wire its machine reversed "
+            "so Closed lines the through route" for n, (link, _o, _s) in sorted(halves.items()) if link == "B"]
 
 
 XOVER_ONE = "one"       # a double crossover's `corners` binding (CATS) or `xover_blocks` entry (Layout Editor): one block

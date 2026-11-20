@@ -120,7 +120,7 @@ import math
 from collections import defaultdict
 
 from . import jmri_text, le_prefs, stations
-from .core import SchematicError, tidy
+from .core import SchematicError, crossover_name, tidy
 from .label_check import _pt_seg as pt_seg, boxes_overlap
 
 CLEAR = 3           # px from a track line's middle to a box (a main line is 4 px wide)
@@ -828,6 +828,8 @@ def specs(P, bands, opts, L, extras=()):
     for t in P.turnouts:
         o = opts[t["band"]]
         label = bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
+        if t["type"] in ("RH_XOVER", "LH_XOVER"):      # a single crossover: its number, not a half's letter
+            label = crossover_name(label)
         if t["name"] in P.split_names and numbered[(t["band"], t["name"])] is not t:
             continue
         if label:
