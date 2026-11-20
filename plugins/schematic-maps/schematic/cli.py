@@ -212,6 +212,10 @@ def run(argv=None):
             pnl = cats.panel(bands, scale=scale, bindings=bindings, helix_blocks=helix, band_gap=o["band_gap"],
                              title_gap=o["title_gap"],
                              max_cols=fit and fit[0])
+            found = cats.faults(pnl, fit)
+            print(f"desk faults: {len(found)}" + "".join(f"\n  {x}" for x in found))
+            if found:
+                raise SchematicError(f"the desk has {len(found)} fault(s), listed above; nothing written")
             if fit:
                 cats.check_fit(pnl, *fit)
             cats.write(pnl, a.out, a.discipline, header, window)

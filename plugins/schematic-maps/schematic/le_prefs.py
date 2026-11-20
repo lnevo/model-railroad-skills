@@ -26,7 +26,8 @@ entry from its own preferences, and a key naming a band the page does not know s
                        crossovers sharing a track drawn as close on it as their shapes allow; needs a crossover run,
                        le_crossover_angle).
   le_split_crossovers  {band: [switch, ...]}: le.panel's `split_crossovers` for that band (single crossovers drawn as
-                       two plain turnouts on their one turnout name).
+                       two plain turnouts on their one turnout name). Neither may name the two crossovers of a
+                       three-way part in the plan: le.panel draws those tight and split by rule.
   le_crossover_pairs   {band: [[switch, switch], ...]}: le.panel's `crossover_pairs` for that band (two plain
                        turnouts of different numbers joined by one track, one crossover on the ground: that
                        track crosses at the band's le_crossover_angle, the east one and everything east of it

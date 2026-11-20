@@ -595,6 +595,90 @@ class TightCrossovers(unittest.TestCase):
             le.panel(three_way_band(), tight_crossovers={"Test": [["7", "8"]]})
 
 
+def keyed_three_way(keys=(("P", "TW-1"), ("S", "TW-2")), labels=()):
+    """three_way_band with nodes re-keyed (`keys`: (old, new)), say as the plan reader keys the halves of one
+    three-way part (TW-1 and TW-2), and relabelled (`labels`: (node, label), by the new key)."""
+    (t, b, o), = three_way_band()
+    ren = dict(keys)
+    nodes = {ren.get(n, n): dict(d) for n, d in b["nodes"].items()}
+    for n, lab in labels:
+        nodes[n]["label"] = lab
+    strands = {sid: dict(s, src=(ren.get(s["src"][0], s["src"][0]), s["src"][1]),
+                         dst=(ren.get(s["dst"][0], s["dst"][0]), s["dst"][1])) for sid, s in b["strands"].items()}
+    return [(t, dict(b, nodes=nodes, strands=strands), o)], ren
+
+
+class ThreeWayRule(unittest.TestCase):
+    """A three-way part in the plan (its halves keyed <part>-1 and <part>-2, each in a single crossover) is drawn as
+    tight_crossovers and split_crossovers naming its two crossovers would draw it."""
+
+    def draw(self, bands_, ren, turnouts=None, **kw):
+        turnouts = turnouts or {"P": "Switch 7", "Q": "Switch 7", "R": "Switch 8", "S": "Switch 8"}
+        names = {"Test": {"turnouts": {ren.get(n, n): v for n, v in turnouts.items()}}}
+        (t, b, o), = bands_
+        bands_ = [(t, b, dict(o, le_labels={"block_contents": False}, **kw.pop("prefs", {})))]
+        with mock.patch.object(le, "paths", lambda band: band["_drawn"]):
+            return le.panel(bands_, names, **kw)
+
+    @staticmethod
+    def drawn(P):
+        return sorted((t["name"], t["type"], tuple(t["at"]), tuple(sorted(t["pts"].items()))) for t in P.turnouts)
+
+    def test_the_plan_part_draws_as_the_preferences_did(self):
+        by_rule = self.draw(*keyed_three_way(), crossover_run=48.0)
+        by_args = self.draw(three_way_band(), {}, crossover_run=48.0, tight_crossovers={"Test": [["7", "8"]]},
+                            split_crossovers={"Test": ["7", "8"]})
+        self.assertEqual(self.drawn(by_rule), self.drawn(by_args))
+        self.assertEqual(by_rule.split_names, {"Switch 7", "Switch 8"})
+        self.assertIn("Test level: three-way part TW: crossovers 7 and 8 drawn tight and split", by_rule.log)
+        by_angle = self.draw(*keyed_three_way(), prefs={"le_crossover_angle": {"Test": 45}}, row=48.0)
+        self.assertEqual(by_angle.split_names, {"Switch 7", "Switch 8"})       # the band's run, from its angle
+
+    def test_an_entry_naming_its_crossovers_stops(self):
+        for kw in ({"tight_crossovers": {"Test": [["7", "8"]]}}, {"split_crossovers": {"Test": ["8"]}},
+                   {"prefs": {"le_split_crossovers": {"Test": ["7"]}}}):
+            with self.subTest(kw=kw), self.assertRaisesRegex(SchematicError, "drawn tight and split by the plan; "
+                                                                             "remove the entry"):
+                self.draw(*keyed_three_way(), crossover_run=48.0, **kw)
+
+    def test_without_a_grid_run_it_is_drawn_as_usual_and_logged(self):
+        P = self.draw(*keyed_three_way())
+        self.assertEqual(P.split_names, set())
+        self.assertIn("Test level: three-way part TW: crossovers 7 and 8 are drawn as usual, not tight and split: the "
+                      "band has no crossover run (crossover_run, or its le_crossover_angle)", P.log)
+        Q = self.draw(*keyed_three_way(), fit=(1300, 700))
+        self.assertTrue([line for line in Q.log if line.endswith("not tight and split: a panel fitted to a window")])
+        # a fitted panel draws no crossover tight, so an argument split_crossovers may name one there
+        R = self.draw(*keyed_three_way(), fit=(1300, 700), split_crossovers={"Test": ["7"]})
+        self.assertIn("Switch 7", R.split_names)
+
+    def test_one_half_in_a_crossover_is_logged(self):
+        bands_, ren = keyed_three_way(labels=(("TW-2", "9"),))     # 8's halves no longer pair: TW-2 is switch 9
+        P = self.draw(bands_, ren, {"P": "Switch 7", "Q": "Switch 7", "R": "Switch 8", "S": "Switch 9"},
+                      crossover_run=48.0)
+        self.assertIn("Test level: three-way part TW: only crossover 7 holds one of its halves, so nothing is drawn "
+                      "tight or split for it", P.log)
+        self.assertEqual(P.split_names, set())
+
+    def test_parts_the_keys_cannot_describe_stop(self):
+        with self.assertRaisesRegex(SchematicError, "three-way part TW: both its halves are in crossover 7"):
+            self.draw(*keyed_three_way((("P", "TW-1"), ("Q", "TW-2"))), crossover_run=48.0)
+        with self.assertRaisesRegex(SchematicError, r"plan part TW: TW-1 and TW-2 .* but 0 tracks join them, not one"):
+            self.draw(*keyed_three_way((("P", "TW-1"), ("R", "TW-2"))), crossover_run=48.0)
+        with self.assertRaisesRegex(SchematicError, "plan part TW: TW-1 and TW-2 .* of kinds switch and end, not "
+                                                    "two switches"):
+            self.draw(*keyed_three_way((("P", "TW-1"), ("W1", "TW-2"))), crossover_run=48.0)
+
+    def test_a_crossover_in_two_parts_stops(self):
+        # 7's halves P and Q each a half of another part: TW (with S, crossover 8) and UV (with R, crossover 8)
+        bands_, ren = keyed_three_way((("P", "TW-1"), ("S", "TW-2"), ("Q", "UV-1"), ("R", "UV-2")))
+        b = bands_[0][1]
+        b["strands"]["qr"] = dict(b["strands"]["x"], src=("UV-1", "A"), dst=("UV-2", "A"), name="")
+        b["_drawn"]["qr"] = [(3, 2), (5, 0)]
+        with self.assertRaisesRegex(SchematicError, "crossover 7, 8 holds halves of two three-way parts"):
+            self.draw(bands_, ren, crossover_run=48.0)
+
+
 class BandRoundsReview(unittest.TestCase):
     """The 0.1.25 review fixes: rooms, rounding, split crossovers, double crossovers and lamp columns."""
 

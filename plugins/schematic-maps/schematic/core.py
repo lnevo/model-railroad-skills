@@ -72,6 +72,37 @@ def crossover_name(label):
     return switch_number(label) if HALF_LETTER.fullmatch((label or "").rstrip("*")) else label
 
 
+THREE_WAY_HALF = re.compile(r"(.+)-([12])")     # a three-way part's half as the plan reader keys it: <part>-1, -2
+
+
+def three_way_parts(nodes, strands):
+    """{part: (half 1 node, half 2 node)} of every three-way switch whose two halves are both among `nodes`. The plan
+    reader keys each plan part by the export's id, and AnyRail exports one three-way part as two turnouts, <part>-1
+    and <part>-2, joined by a short track (plan_reader; edits.by_label). A half whose partner is not among `nodes`
+    is no part here. Stops when a pair keyed so is not two switches joined directly by exactly one track, since then
+    the keys do not describe one three-way part."""
+    halves = defaultdict(dict)
+    for n in nodes:
+        m = THREE_WAY_HALF.fullmatch(n) if isinstance(n, str) else None
+        if m:
+            halves[m.group(1)][m.group(2)] = n
+    out = {}
+    for part, got in sorted(halves.items()):
+        if set(got) != {"1", "2"}:
+            continue
+        one, two = got["1"], got["2"]
+        kinds = [nodes[n]["kind"] for n in (one, two)]
+        if kinds != ["switch", "switch"]:
+            raise SchematicError(f"plan part {part}: {one} and {two} are keyed as the two halves of one three-way "
+                                 f"switch, but they are of kinds {kinds[0]} and {kinds[1]}, not two switches")
+        joins = [sid for sid, s in strands.items() if {s["src"][0], s["dst"][0]} == {one, two}]
+        if len(joins) != 1:
+            raise SchematicError(f"plan part {part}: {one} and {two} are keyed as the two halves of one three-way "
+                                 f"switch, but {len(joins)} tracks join them, not one")
+        out[part] = (one, two)
+    return out
+
+
 def through_leg(link):
     """A single crossover half's normal (closed) leg: its leg B or C that is not its link to the other half."""
     return {"B": "C", "C": "B"}[link]

@@ -16,7 +16,8 @@ from .core import SchematicError
 __all__ = [
     "MARGIN", "BAND_GAP", "COMPACT_GAP", "ENDS", "OPPOSITE", "STEP", "EDGE_ORDER", "neighbour", "step_pieces",
     "unit_steps", "strand_pieces", "parallel_runs", "stacked_runs", "free_ends", "stretched", "column_shift",
-    "widened_columns", "touching", "Panel", "band_key_name", "trim_columns", "column_plain", "drop_column"
+    "widened_columns", "touching", "Panel", "band_key_name", "band_of", "band_spans", "trim_columns", "column_plain",
+    "drop_column"
 ]
 
 
@@ -228,6 +229,7 @@ class Panel:
         self.labels = {}                    # cell -> (text, loc, font)
         self.names = {}                     # block root -> unique block name, set when the panel is complete
         self.log = []
+        self.titles = []                    # the bands' titles, by band index (the b<index>: of a block key)
         self.pending = None                 # compact panels: label requests, placed at the end
         self._parent = {}
         # bindings (empty without them)
@@ -275,18 +277,42 @@ def band_key_name(title):
     return title.split(",")[0].strip()
 
 
+def band_spans(P):
+    """'<title> columns a to b, ...': the columns each band's track takes on the panel, top band first (by the band
+    index in each cell's block keys, P.titles naming it), so a panel too wide for its window names the band at
+    fault. Stops on a block key of a band P.titles does not name (the panel records every band it draws)."""
+    spans = {}
+    for (x, _y), tracks in P.cells.items():
+        for key in tracks.values():
+            bi = band_of(P, key)
+            lo, hi = spans.get(bi, (x, x))
+            spans[bi] = (min(lo, x), max(hi, x))
+    return ", ".join(f"{P.titles[bi]} columns {lo} to {hi}" for bi, (lo, hi) in sorted(spans.items()))
+
+
+def band_of(P, key):
+    """The band index of block key `key` (its b<index>: tag), one P.titles names; stops otherwise."""
+    tag = key[1].split(":", 1)[0] if len(key) > 1 and isinstance(key[1], str) else ""
+    bi = int(tag[1:]) if tag[:1] == "b" and tag[1:].isdigit() else None
+    if bi is None or not 0 <= bi < len(P.titles):
+        raise SchematicError(f"block key {key!r} names no band of the panel ({len(P.titles)} drawn)")
+    return bi
+
+
 def trim_columns(P, max_cols, spots=None):
     """Take out whole columns until no track reaches past column `max_cols`, the rightmost first: a column goes
     when every cell in it is empty or a level track of the same block as the cells on both sides (so no gap,
     switch, mast, join or turnback is in it, and no block loses its last cell). It shortens level runs on the
-    panel only, never the sheet, to keep a margin on the screen. An error when no such column is left."""
+    panel only, never the sheet, to keep a margin on the screen. An error when no such column is left, naming the
+    columns each band takes (band_spans), so the band that makes the desk too wide shows."""
     while max(c[0] for c in P.cells) > max_cols:
         xs = sorted({c[0] for c in P.cells}, reverse=True)
         col = next((x for x in xs[1:] if column_plain(P, x) and
                     not any(c[0] == x for c, _ in (spots or {}).values())), None)    # nor a mast still to place
         if col is None:
             raise SchematicError(f"the panel's track reaches column {xs[0]}, past {max_cols}, and no column of plain "
-                                 "level track is left to take out")
+                                 f"level track is left to take out: the desk is wider than its window "
+                                 f"({band_spans(P)})")
         drop_column(P, col)
         for k, (cell, edge) in (spots or {}).items():      # masts still to place follow their cells
             if cell[0] > col:
