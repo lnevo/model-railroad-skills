@@ -13,7 +13,8 @@ from .layout import paths
 from .le import (  # le's own names (le imports this module last)
     add, arc_points, BEND, clean, cross, crossover_numbers, crossover_pairs, dot, double_corners, EPS, flip_toward,
     HELIX_R,
-    LABEL_SIZE, LEG, mid, MIN_BLOCK, NoRoom, NUMBER_SIZE, room_width, ROUND_SLACK, shift, sub, unit, xover_blocks,
+    LABEL_SIZE, LEG, mid, MIN_BLOCK, no_room_line, NoRoom, NUMBER_SIZE, room_width, ROUND_SLACK, shift, sub, unit,
+    xover_blocks, XOVER_ROUND,
 )
 
 
@@ -297,6 +298,10 @@ class Band:
             # whole pixels, so the four points JMRI rebuilds from B, C and the centre are exactly the ones written
             tp, bp = self.whole_pixels(label, top, tp, bot, bp)
             h = abs(bp[0] - tp[0])
+            # with a run, logged in whole pixels and only past what rounding leaves (le.let_in_mast_room slides it;
+            # the final drawing logs one it could not mend); without one, crossover_points logs it as before
+            if run is not None and round(run) - h > XOVER_ROUND + EPS:
+                self.P.log.append(no_room_line(self.title, label, h, abs(bp[1] - tp[1]), run))
             self.placed[top], self.placed[bot] = (tp[0], h), (bp[0], h)
             self.provisional -= {top, bot}
             self.no_room -= {top, bot}
@@ -505,9 +510,9 @@ class Band:
         either side of its half's point, so A-B and D-C are twice the run (LayoutTurnoutView keeps no other shape: it
         rebuilds the crossover from B and C, or reshapes it, on load). The halves move apart along their rows and the
         crossover may slide along them as one, as far as each half's track on each side has room (room_toward); where no
-        slide leaves room for the run asked, it takes the widest that fits (logged with its angle; P.xover_squeezed
-        when the band has a crossover run). Stops when not even a steep one fits. The sheet is not changed: only the
-        Layout Editor drawing of the crossover."""
+        slide leaves room for the run asked, it takes the widest that fits (logged with its angle here with no crossover
+        run; with one, crossovers() logs it in whole pixels past XOVER_ROUND, and P.xover_squeezed). Stops when not even
+        a steep one fits. The sheet is not changed: only the Layout Editor drawing of the crossover."""
         dx0, dy = abs(bp[0] - tp[0]), abs(bp[1] - tp[1])
         way = 1 if bp[0] >= tp[0] else -1
         run = self.run_across(dy) if self.run() is not None else dx0
@@ -544,7 +549,7 @@ class Band:
                 a, b = (mid_, b) if slide(mid_) is not None else (a, mid_)
             m = a
             got = dx0 + 2 * m
-            if log:
+            if log and self.run() is None:      # with a run, crossovers() logs it in whole pixels
                 self.P.log.append(f"{self.title}: switch {label}: crossover drawn {got:.1f} px across, "
                                   f"{math.degrees(math.atan2(dy, got)):.1f} degrees: no room for {run:.1f} px")
         lo, hi = slide(m)

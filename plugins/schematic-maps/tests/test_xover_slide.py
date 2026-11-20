@@ -112,6 +112,7 @@ class Slide(unittest.TestCase):
         self.assertEqual(east(P), east(was))        # the band keeps its width
         self.assertTrue(any(f"crossover 7/7: its east half and everything east of it slid +{px:.1f} px" in line
                             for line in P.log))
+        self.assertFalse([line for line in P.log if "no room for" in line])     # it slid and settled
 
     def test_it_loads_in_jmri_as_written(self):
         JmriCrossovers().check(le.panel(xover_band(), NAMES, crossover_run=RUN), "\\")
@@ -138,17 +139,18 @@ class Slide(unittest.TestCase):
                 self.assertEqual(le.geometry(P), le.geometry(unslid(bands(), crossover_run=run)))
                 x7 = by_node(P)["P"]
                 self.assertAlmostEqual((x7["pts"]["B"][0] - x7["pts"]["A"][0]) / 2, run, delta=1.0)   # whole px
+                self.assertFalse([line for line in P.log if "no room for" in line])     # rounded onto its run
 
     def test_with_no_run_nothing_slides(self):
         with mock.patch.object(le, "let_in_mast_room", side_effect=AssertionError("no rounds without a run")):
             P = le.panel(xover_band(q=4, r=5), NAMES)
         self.assertEqual(P.crossover_slides, {})
         self.assertTrue(any("no room for" in line for line in P.log))        # as drawn: logged, as before
-        self.assertEqual(le.single_crossovers(xover_band(), None, {}), ([], []))
-        self.assertEqual(le.single_crossovers(xover_band(), {"Other": RUN}, {}), ([], []))
+        self.assertEqual(le.single_crossovers(xover_band(), None, {}), ([], set()))
+        self.assertEqual(le.single_crossovers(xover_band(), {"Other": RUN}, {}), ([], set()))
 
     def test_a_split_crossover_is_not_slid_again(self):
-        self.assertEqual(le.single_crossovers(xover_band(), RUN, {"Test": {"7"}}), ([], []))
+        self.assertEqual(le.single_crossovers(xover_band(), RUN, {"Test": {"7"}}), ([], set()))
         self.assertEqual([c[4] for c in le.single_crossovers(xover_band(), RUN, {})[0]], ["7/7"])
 
     def test_one_no_slide_mends_is_drawn_as_before_and_logged(self):
@@ -158,6 +160,58 @@ class Slide(unittest.TestCase):
         self.assertTrue(any("crossover 7/7: not slid to its crossover run" in line and "drawn as it fits" in line
                             for line in P.log), P.log)
         self.assertTrue(any("switch 7: crossover drawn" in line and "no room for 48.0 px" in line for line in P.log))
+
+
+class GiveWay(unittest.TestCase):
+    """A slide never stops a drawable panel (le.let_in_mast_room). xover_band's crossover needs nine rounds to settle;
+    with MAST_ROOM_MAX 0 the rounds are MAST_ROOM_ROUNDS + 1."""
+
+    @staticmethod
+    def rounds(n):
+        return mock.patch.multiple(le, MAST_ROOM_MAX=0, MAST_ROOM_ROUNDS=n - 1)
+
+    def test_one_that_settles_on_the_last_round_stands(self):
+        with self.rounds(10):           # the tenth slide settles it, and the rounds end there
+            P = le.panel(xover_band(), NAMES, crossover_run=RUN)
+        self.assertIn(("Test", "d"), P.crossover_slides)
+        self.assertFalse([line for line in P.log if "not slid" in line])
+
+    def test_one_still_off_when_the_rounds_run_out_is_drawn_as_before(self):
+        with self.rounds(9):
+            P = le.panel(xover_band(), NAMES, crossover_run=RUN)
+        self.assertEqual(P.crossover_slides, {})
+        self.assertEqual(le.geometry(P), le.geometry(unslid(xover_band(), crossover_run=RUN)))
+        self.assertTrue(any("crossover 7/7: not slid to its crossover run (it still runs" in line and
+                            "after the rounds" in line for line in P.log), P.log)
+        self.assertTrue(any("switch 7: crossover drawn 36.0 px across" in line and "no room for 48.0 px" in line
+                            for line in P.log))
+
+    def test_one_whose_undo_would_spoil_the_band_keeps_its_slides(self):
+        real = le.let_out_fault
+
+        def fault(band, shifts):        # back to no slide at all spoils the band
+            if shifts and all(abs(v) < 1e-9 for v in shifts.values()):
+                return "a test fault"
+            return real(band, shifts)
+
+        with self.rounds(9), mock.patch.object(le, "let_out_fault", fault):
+            P = le.panel(xover_band(), NAMES, crossover_run=RUN)
+        labels, px, _deg = P.crossover_slides[("Test", "d")]
+        self.assertGreater(px, 0)
+        self.assertTrue(any(f"crossover 7/7: keeps its +{px:.1f} px slide: undoing it, a test fault" in line
+                            for line in P.log), P.log)
+        self.assertTrue(any("(kept, short of its run)" in line for line in P.log))
+
+    def test_a_slide_that_would_spoil_the_band_gives_way(self):
+        real = le.let_out_fault
+        def fault(band, shifts):        # any slide spoils the band
+            return "a test fault" if any(v > 1e-9 for v in shifts.values()) else real(band, shifts)
+
+        with mock.patch.object(le, "let_out_fault", fault):
+            P = le.panel(xover_band(), NAMES, crossover_run=RUN)
+        self.assertEqual(P.crossover_slides, {})
+        self.assertEqual(le.geometry(P), le.geometry(unslid(xover_band(), crossover_run=RUN)))
+        self.assertTrue(any("crossover 7/7: not slid to its crossover run (a test fault)" in line for line in P.log))
 
 
 class TwoRowsDeep(unittest.TestCase):
@@ -180,14 +234,14 @@ class TwoRowsDeep(unittest.TestCase):
     def test_halves_in_one_column_are_two_turnouts_not_slid(self):
         (_t, b, _o), = xover_band()
         b["x"]["Q"] = b["x"]["P"]
-        got, notes = le.single_crossovers([("Test level", b, {})], RUN, {})
-        self.assertEqual(got, [])
-        self.assertEqual(len(notes), 1)
-        self.assertIn("crossover 7/7: its halves stand in one column", notes[0])
+        got, fixed = le.single_crossovers([("Test level", b, {})], RUN, {})
+        self.assertEqual([c[3] for c in got], ["d"])
+        self.assertEqual(fixed, {(0, "d")})
         P = le.panel(xover_band(q=2, r=6, deep=2), NAMES, crossover_run=RUN)      # drawn, not an error
         self.assertEqual(P.crossover_slides, {})
         self.assertEqual({t["type"] for n, t in by_node(P).items() if n in "PQ"}, {"RH_TURNOUT"})
-        self.assertTrue(any("its halves stand in one column" in line for line in P.log), P.log)
+        self.assertTrue(any("crossover 7/7: not slid to its crossover run (its halves stand in one column" in line
+                            for line in P.log), P.log)
 
 
 class Shortfall(unittest.TestCase):
@@ -196,13 +250,17 @@ class Shortfall(unittest.TestCase):
         x7 = by_node(P)["P"]
         shortfall = lambda: le.crossover_shortfall(P, xover_band(r=5), 0, "P", "Q", "d", RUN / le.ROW, "7/7")  # noqa
         self.assertEqual(shortfall()[:2], (0.0, None))      # not squeezed
-        P.xover_squeezed[(0, "P")] = RUN - 1.0              # squeezed, but whole pixels within ROUND_SLACK
+        P.xover_squeezed[(0, "P")] = RUN - 1.0              # squeezed, but whole pixels within XOVER_ROUND
         x7["pts"]["A"] = (x7["pts"]["A"][0] + 1, x7["pts"]["A"][1])
         x7["pts"]["B"] = (x7["pts"]["B"][0] - 1, x7["pts"]["B"][1])     # 47 px across
         self.assertEqual(shortfall()[:2], (0.0, None))
+        was = dict(x7["pts"])
+        x7["pts"]["A"], x7["pts"]["B"] = (1002.1, was["A"][1]), (1096.1, was["B"][1])  # 47 less a float's last bit
+        self.assertEqual(shortfall()[:2], (0.0, None))
+        x7["pts"].update(was)
         P.xover_squeezed[(0, "P")] = RUN - 2.4
         x7["pts"]["A"] = (x7["pts"]["A"][0] + 1, x7["pts"]["A"][1])
-        x7["pts"]["B"] = (x7["pts"]["B"][0] - 1, x7["pts"]["B"][1])     # 46 px across: 2 short, past ROUND_SLACK
+        x7["pts"]["B"] = (x7["pts"]["B"][0] - 1, x7["pts"]["B"][1])     # 46 px across: 2 short, past XOVER_ROUND
         short, east, _deg = shortfall()
         self.assertAlmostEqual(short, 2.4)                  # by what crossover_points took, before rounding
         self.assertEqual(east, "Q")
