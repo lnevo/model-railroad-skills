@@ -215,7 +215,7 @@ class EditLookups(unittest.TestCase):
         self.assertEqual(edits.by_label(g, "TO_3W9-2"), "TO_3W9-2")
         self.assertEqual(edits.by_label(g, "35@East Lead"), "x")
         self.assertEqual(edits.by_label(g, "35@West Ext"), "y")
-        for ref in ("35", "35@Nowhere", "TO_3W9-3", "e"):        # two answers, none, none, a track end
+        for ref in ("35", "35@Nowhere", "TO_3W9-3", "e", 35, None):    # two answers, none, none, a track end, no text
             with self.assertRaises(SchematicError):
                 edits.by_label(g, ref)
 

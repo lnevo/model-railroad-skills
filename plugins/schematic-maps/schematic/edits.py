@@ -19,7 +19,7 @@ def by_label(g, ref):
     # a moved switch is labelled with a star (7*); its plain number still finds it
     hits = hits or [n for n, d in nodes.items() if (d.get("label") or "").rstrip("*") == ref and d["kind"] != "end"]
     hits = hits or [n for n, d in nodes.items() if n == ref and d["kind"] != "end"]
-    if not hits and "@" in ref:
+    if not hits and isinstance(ref, str) and "@" in ref:
         label, track = ref.split("@", 1)
         hits = [n for n, d in nodes.items() if d["kind"] != "end" and (d.get("label") or "").rstrip("*") == label
                 and any(track in e["names"] for e in g["edges"] if n in (e["u"], e["v"]))]
