@@ -820,7 +820,8 @@ def specs(P, bands, opts, L, extras=()):
     numbered = {}
     for t in P.turnouts:
         if t["name"] in P.split_names:
-            below = (bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or "") in opts[t["band"]]["numbers_below"]
+            below = crossover_name(bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or "") \
+                in opts[t["band"]]["numbers_below"]
             key = (t["band"], t["name"])
             best = numbered.get(key)
             if best is None or (t["at"][1] > best["at"][1] if below else t["at"][1] < best["at"][1]):
@@ -828,7 +829,8 @@ def specs(P, bands, opts, L, extras=()):
     for t in P.turnouts:
         o = opts[t["band"]]
         label = bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
-        if t["type"] in ("RH_XOVER", "LH_XOVER"):      # a single crossover: its number, not a half's letter
+        # a single crossover, drawn as one or as two turnouts on its one name: its number, not a half's letter
+        if t["type"] in ("RH_XOVER", "LH_XOVER") or t["name"] in P.split_names:
             label = crossover_name(label)
         if t["name"] in P.split_names and numbered[(t["band"], t["name"])] is not t:
             continue

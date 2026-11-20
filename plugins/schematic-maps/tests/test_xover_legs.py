@@ -215,6 +215,9 @@ class LayoutEditor(unittest.TestCase):
             P = le.panel(self.bands, {"Xo": {"turnouts": {"X5A": "NT5", "X5B": "NT5"}}})
         self.assertEqual(sorted(t["nodes"] for t in P.turnouts if t["name"] == "NT5"), [["X5A"], ["X5B"]], P.log)
         self.assertIn("NT5", P.split_names)
+        # numbered once, by the crossover's number, not a half's letter
+        numbers = [lb["text"] for lb in P.labels if lb["kind"] == "switch"]
+        self.assertEqual([n for n in numbers if n.startswith("5")], ["5"], numbers)
 
     def test_a_normal_for_a_half_stops_however_it_is_drawn(self):
         # one answer for one names file: as one crossover, or as two turnouts for no room
