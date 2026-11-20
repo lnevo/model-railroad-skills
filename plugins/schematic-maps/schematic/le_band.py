@@ -13,7 +13,8 @@ from .layout import paths
 from .le import (  # le's own names (le imports this module last)
     add, arc_points, BEND, clean, cross, crossover_numbers, crossover_pairs, dot, double_corners, EPS, flip_toward,
     HELIX_R,
-    LABEL_SIZE, LEG, mid, MIN_BLOCK, NoRoom, NUMBER_SIZE, room_width, ROUND_SLACK, shift, sub, unit, xover_blocks,
+    LABEL_SIZE, LEG, mid, MIN_BLOCK, NoRoom, NUMBER_SIZE, PAIR_TOLERANCE, room_width, ROUND_SLACK, shift, sub, unit,
+    xover_blocks,
 )
 
 
@@ -30,6 +31,7 @@ class Band:
         y0 = min(p[1] for v in drawn.values() for p in v)
         k = -1 if turned else 1
         self.turned = turned
+        self.row = row          # px per grid row: a crossover's run is per row deep (run_across)
         self.px = lambda p: (k * (p[0] - x0) * cellx, k * (p[1] - y0) * row)    # noqa: E731
         self.drawn = drawn
         self.poly = {sid: clean([self.px(p) for p in drawn[sid]]) for sid in self.strands}
@@ -279,10 +281,12 @@ class Band:
                     self.P.split_names.add(name)
                 continue
             try:
+                self.too_deep(label, abs(bp[1] - tp[1]))
                 self.tight_first(top, bot)
                 tp, bp, _h = self.crossover_points(label, top, tp, bot, bp)
             except NoRoom as e:
                 self.no_room |= {top, bot}
+                self.P.xover_turnouts |= {(self.bi, top), (self.bi, bot)}    # let_in_mast_room may slide it its run
                 self.P.log.append(f"{e}; drawn as two turnouts on its one turnout, not a crossover")
                 name = self.names.get("turnouts", {}).get(u)
                 if name:
@@ -291,6 +295,7 @@ class Band:
             # whole pixels, so the four points JMRI rebuilds from B, C and the centre are exactly the ones written
             tp, bp = self.whole_pixels(label, top, tp, bot, bp)
             h = abs(bp[0] - tp[0])
+            self.short_of_run(label, h, abs(bp[1] - tp[1]))
             self.placed[top], self.placed[bot] = (tp[0], h), (bp[0], h)
             self.provisional -= {top, bot}
             self.no_room -= {top, bot}
@@ -315,6 +320,24 @@ class Band:
                 blocks = {"A": self.os_of(top), "B": self.os_of(top), "C": self.os_of(bot), "D": self.os_of(bot)}
                 self.add_turnout([top, bot], ttype, mid(tp, bp), pts, conn, blocks)
                 self.internal.add(sid)
+
+    def too_deep(self, label, deep):
+        """Raise NoRoom for a crossover `deep` px deep, more than one row, on a band with a crossover run: JMRI draws a
+        single crossover with each track's piece twice its run across (crossover_points), so one two rows deep at the
+        band's angle would take four runs of each track; drawn as two turnouts on its one name instead, its diagonal
+        leg to leg is set to the run (le.let_in_mast_room slides it)."""
+        if self.run() is not None and deep > self.row + EPS:
+            raise NoRoom(f"{self.title}: switch {label}: drawn {deep / self.row:g} rows deep, so a crossover JMRI can "
+                         f"draw at its run would take {2 * self.run_across(deep):.0f} px of each track")
+
+    def short_of_run(self, label, h, deep):
+        """On a band with a crossover run, log a single crossover drawn h px across, in whole pixels, short of its run
+        (run_across) by more than PAIR_TOLERANCE, with its angle: crossover_points found no room for it
+        (le.let_in_mast_room slides one on a solved band, so the final drawing logs only one it could not mend)."""
+        run = self.run_across(deep)
+        if run is not None and h < run - PAIR_TOLERANCE:
+            self.P.log.append(f"{self.title}: switch {label}: crossover drawn {h:.1f} px across, "
+                              f"{math.degrees(math.atan2(deep, h)):.1f} degrees: no room for {run:.1f} px")
 
     def over_room(self, n, x, h):
         """px by which a crossover half at node n, its point at x and its piece x-h to x+h, reaches past its room
@@ -390,11 +413,11 @@ class Band:
             self.move_node(far, -way * pull)
             inner[a], inner[b] = n, far
             moved |= {n, far}
-        run = self.run()
         for label, (u, v) in sorted(pairs.items()):
-            top, _tp, bot, _bp = self.halves(u, v)
+            top, tp, bot, bp = self.halves(u, v)
             keep = inner.get(label, top)
             other = bot if keep == top else top
+            run = self.run_across(abs(bp[1] - tp[1]))
             if run is not None:
                 kx, ox = self.node_point(keep)[0], self.node_point(other)[0]
                 way = 1 if ox >= kx else -1
@@ -455,6 +478,16 @@ class Band:
         run = self.P.crossover_run
         return run.get(band_key(self.title)) if isinstance(run, dict) else run
 
+    def run_across(self, deep):
+        """px across a single crossover `deep` px deep runs: the band's run (run) per row deep, so one two rows deep
+        crosses at the same angle as one a row deep; None when the band has no run."""
+        run = self.run()
+        if run is None:
+            return None
+        if deep < EPS:
+            raise SchematicError(f"{self.title}: a single crossover drawn on one row has no diagonal to run across")
+        return run * deep / self.row
+
     def room_toward(self, n, port):
         """px of track a crossover half at node n may take along its row toward `port` (its leg, and its own move
         that way): its first straight piece that way, less the far switch's leg when the piece runs straight to it,
@@ -482,15 +515,16 @@ class Band:
 
     def crossover_points(self, label, top, tp, bot, bp, log=True):
         """(top point, bottom point, h) of a single crossover as JMRI draws one: the run of its diagonal across
-        (P.crossover_run, else as the sheet draws it) and each track's piece of it h = that run either side of its
-        half's point, so A-B and D-C are twice the run (LayoutTurnoutView keeps no other shape: it rebuilds the
-        crossover from B and C, or reshapes it, on load). The halves move apart along their rows and the crossover
-        may slide along them as one, as far as each half's track on each side has room (room_toward); where no slide
-        leaves room for the run asked, it takes the widest that fits (logged with its angle). Stops when not even a
-        steep one fits. The sheet is not changed: only the Layout Editor drawing of the crossover."""
+        (P.crossover_run per row deep, run_across; else as the sheet draws it) and each track's piece of it h = that run
+        either side of its half's point, so A-B and D-C are twice the run (LayoutTurnoutView keeps no other shape: it
+        rebuilds the crossover from B and C, or reshapes it, on load). The halves move apart along their rows and the
+        crossover may slide along them as one, as far as each half's track on each side has room (room_toward); where no
+        slide leaves room for the run asked, it takes the widest that fits (logged here with no crossover run, in whole
+        pixels by short_of_run with one). Stops when not even a steep one fits. The sheet is not changed: only the
+        Layout Editor drawing of the crossover."""
         dx0, dy = abs(bp[0] - tp[0]), abs(bp[1] - tp[1])
         way = 1 if bp[0] >= tp[0] else -1
-        run = self.run() if self.run() is not None else dx0
+        run = self.run_across(dy) if self.run() is not None else dx0
         rooms = {}
         for n in (top, bot):
             for side in (-1, 1):
@@ -524,7 +558,7 @@ class Band:
                 a, b = (mid_, b) if slide(mid_) is not None else (a, mid_)
             m = a
             got = dx0 + 2 * m
-            if log:
+            if log and self.run() is None:      # with a run, crossovers() logs it in whole pixels (short_of_run)
                 self.P.log.append(f"{self.title}: switch {label}: crossover drawn {got:.1f} px across, "
                                   f"{math.degrees(math.atan2(dy, got)):.1f} degrees: no room for {run:.1f} px")
         lo, hi = slide(m)

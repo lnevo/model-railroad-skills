@@ -257,6 +257,8 @@ class Panel:
         self.mast_straights = {}    # mast -> dict: band, seg, ident, kind, run, need (le_masts; mast_room)
         self.widened = {}           # (band index, strand id) -> px let in for mast icons (mast_room), crossover pairs
         self.pair_angles = {}       # "a/b" -> degrees a crossover pair's diagonal crosses at (crossover_pairs)
+        self.xover_turnouts = set()     # (band index, node): crossover halves drawn as two turnouts: no room, too deep
+        self.crossover_slides = {}  # (band key, number) -> (px, degrees): single crossovers slid for their run
         self.cellx = {}             # band index -> px per grid column as drawn
         self.idents_given = {}      # generated ident -> the ident the names give it (give_idents): the alias layer
         self.log = []
@@ -715,13 +717,17 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     or a list, one per pair of bands, top first.
     `labels_by_band`: the label layer places each band's labels in rounds of their own, top band first, each band's
     standing for the next (le_labels.place), so a band's labels are the same whatever bands are drawn below it.
-    `crossover_run`: px across that every single crossover's diagonal runs (its two halves' points that far apart
-    along the rows, about their middle), so all cross at one angle however each band is stretched; a double
+    `crossover_run`: px across that every single crossover's diagonal runs per row deep (its two halves' points that
+    far apart along the rows, about their middle), so all cross at one angle however each band is stretched; a double
     crossover's diagonals run as far across. A crossover with no room for it (its track beside each half, or each leg,
-    keeps MIN_BLOCK px past its legs) takes what there is, and the log gives its angle. A number for every band, or
-    {band key: px} for the bands it names (the others as drawn). None: as drawn. Known limit: a double crossover's
-    room (its first pieces less MIN_BLOCK) does not reserve its far switch's leg; strand() stops if that leaves a track
-    too short.
+    keeps MIN_BLOCK px past its legs) takes what there is, and the log gives its angle; then, on a solved band, its
+    east half and every switch and end at or east of its column slide along the rows until it has room, in the rounds
+    of `crossover_pairs` below (let_in_mast_room; P.crossover_slides and the log give each slide and angle). One more
+    than a row deep is drawn as two turnouts on its one turnout name (a JMRI single crossover's pieces run twice its
+    run, so two rows deep it would take four runs of each track), slid so its diagonal, leg to leg, runs the run per
+    row deep. A number for every band, or {band key: px} for the bands it names (the others as drawn). None: as
+    drawn. Known limit: a double crossover's room (its first pieces less MIN_BLOCK) does not reserve its far switch's
+    leg; strand() stops if that leaves a track too short.
     `tight_crossovers`: {band key: [[switch, switch], ...]}: two single crossovers that share a track (one half of
     each on it, say the two crossovers of one three-way switch) drawn as close together on it as their shapes allow:
     that track keeps only its block's least length (MIN_BLOCK, or a facing mast's icon), the rest of their room
@@ -731,8 +737,9 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     past its diagonal either way). The half on a track shared with a tight partner (tight_crossovers, which must be
     split too), else the top half, stays; the other slides along its row so the diagonal runs `crossover_run` across.
     Two split crossovers drawn tight have their throats on the shared track 2 LEG and the track's least length apart.
-    `crossover_pairs`: {band key: [[switch, switch], ...]}: two plain turnouts of different numbers joined by one
-    track, its ends on two rows, that are one crossover on the ground: that track, leg to leg, crosses at
+    `crossover_pairs`: {band key: [[switch, switch], ...]}: two plain turnouts of different numbers (a single
+    crossover's halves, one number, slide by `crossover_run` alone) joined by one track, its ends on two rows, that
+    are one crossover on the ground: that track, leg to leg, crosses at
     the band's `crossover_run` (its run across per row deep), however many rows apart they stand. The east one, and
     every switch and end at or east of its column (but the west one), slides along the rows by what that takes, in
     the rounds that let in mast and name room (let_in_mast_room); a slide that would turn a track round or make lines
@@ -1125,12 +1132,14 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
     mast_room = check_mast_room(bands, mast_room)
     name_room = check_mast_room(bands, name_room, "name_room")
     pairs = check_pairs(bands, crossover_pairs, crossover_run)
+    tight = check_tight(bands, tight_crossovers, crossover_run)
+    split = check_split(bands, split_crossovers, tight)
+    singles = single_crossovers(bands, crossover_run, split)
 
     def drawn(widen):
         P = Panel()
         P.crossover_run = crossover_run
-        P.tight_crossovers = check_tight(bands, tight_crossovers, crossover_run)
-        P.split_crossovers = check_split(bands, split_crossovers, P.tight_crossovers)
+        P.tight_crossovers, P.split_crossovers = tight, split
         try:
             _draw(P, bands, names, cell, row, page, masts, gap, widen)
         except SchematicError as e:
@@ -1138,9 +1147,10 @@ def draw_panel(bands, names, cell, row, page, masts=True, labels=True, extras=No
         return P
 
     P = drawn({})
-    if pairs or (masts and (mast_room or name_room)):
+    if pairs or singles or (masts and (mast_room or name_room)):
         P = let_in_mast_room(P, bands, mast_room if masts else [], drawn, name_room if masts else [],
-                             [(bi, u, v, sid, name, run / row) for bi, u, v, sid, name, run in pairs])
+                             [(bi, u, v, sid, name, run / row) for bi, u, v, sid, name, run in pairs],
+                             [(bi, u, v, sid, name, run / row) for bi, u, v, sid, name, run in singles])
     P.final_text()
     if labels:
         label_layer(P, bands, page, extras, labels_by_band)
@@ -1232,17 +1242,7 @@ def pair_shortfall(P, bands, bi, u, v, sid, slope, name):
     """(px the track `sid` between crossover pair u, v runs short of `slope` px across per px deep, from the leg it
     leaves one switch by to the leg it reaches the other by, negative when it runs further; the east node; its angle
     in degrees) as P draws it. Stops when its two ends are drawn on one row."""
-    s = bands[bi][1]["strands"][sid]
-    turnouts = {x["ident"]: x for x in P.turnouts}
-
-    def leg(n):
-        got = P.turnout_of.get((bi, n))
-        port = s["src"][1] if s["src"][0] == n else s["dst"][1]
-        if got is None or got[0] not in turnouts or port not in got[1]:
-            raise SchematicError(f"crossover pair {name}: switch {bands[bi][1]['nodes'][n].get('label') or n} is "
-                                 "not drawn as a plain turnout with a leg on the track between them")
-        return turnouts[got[0]]["pts"][got[1][port]]
-    (ux, uy), (vx, vy) = leg(u), leg(v)
+    (ux, uy), (vx, vy) = pair_legs(P, bands, bi, u, v, sid, f"crossover pair {name}")
     deep = abs(vy - uy)
     if deep < EPS:
         raise SchematicError(f"crossover pair {name}: the track between them is drawn on one row, so there is no "
@@ -1251,19 +1251,87 @@ def pair_shortfall(P, bands, bi, u, v, sid, slope, name):
     return deep * slope - across, (v if vx >= ux else u), math.degrees(math.atan2(deep, across))
 
 
-def pair_nodes(P, bi, band, west, east, sid, name):
-    """The nodes a crossover pair's east switch slides with: itself and every switch and end at or east of its
-    column, but its west partner, turnbacks (as le_shift) and whatever stands at the band's east edge, so the band
-    keeps its width (a narrower band would be stretched back to the widest band's, moving everything west of the
-    pair too) and the tracks into that edge take up the slide; then every node a rigid diagonal line joins to one
+def pair_legs(P, bands, bi, u, v, sid, what):
+    """The points of the legs by which track `sid` leaves switch u and reaches switch v, each drawn as a plain turnout
+    with a leg on it (stops otherwise, naming `what`)."""
+    s = bands[bi][1]["strands"][sid]
+    turnouts = {x["ident"]: x for x in P.turnouts}
+
+    def leg(n):
+        got = P.turnout_of.get((bi, n))
+        port = s["src"][1] if s["src"][0] == n else s["dst"][1]
+        if got is None or got[0] not in turnouts or port not in got[1]:
+            raise SchematicError(f"{what}: switch {bands[bi][1]['nodes'][n].get('label') or n} is "
+                                 "not drawn as a plain turnout with a leg on the track between them")
+        return turnouts[got[0]]["pts"][got[1][port]]
+    return leg(u), leg(v)
+
+
+def single_crossovers(bands, crossover_run, split):
+    """[(band index, node, node, track id, number, run)]: the single crossovers (crossover_pairs) of each band with a
+    crossover run (`crossover_run`, as panel's), `run` its px across per row deep, but those `split` ({band key:
+    {number}}, check_split: split_moves draws them at the run). let_in_mast_room slides each one drawn off its run,
+    so a band drawn from given lines, with no solved columns (band["x"]) to slide, has none here."""
+    if crossover_run is None:
+        return []
+    out = []
+    for bi, (title, band, _o) in enumerate(bands):
+        key = band_key(title)
+        run = crossover_run.get(key) if isinstance(crossover_run, dict) else crossover_run
+        if run is None or "x" not in band:
+            continue
+        for sid, u, v in crossover_pairs(band):
+            number = crossover_name(band["nodes"][u].get("label"))
+            if number not in split.get(key, set()):
+                out.append((bi, u, v, sid, number, run))
+    return out
+
+
+def crossover_shortfall(P, bands, bi, u, v, sid, slope, name):
+    """(px single crossover u, v (its halves joined by track `sid`) runs short of `slope` px across per px deep,
+    negative when it runs further; its east half by the band's columns, None when within PAIR_TOLERANCE; its angle in
+    degrees) as P draws it: a JMRI single crossover runs h across, half its pieces A-B and D-C; drawn as two turnouts
+    for no room or more than a row deep (P.xover_turnouts, Band.too_deep), its diagonal runs from leg to leg. None
+    when it is drawn as two turnouts for another reason (not on two level tracks), which no slide mends. Stops when
+    its halves stand in one column, or it is drawn as neither."""
+    what = f"crossover {name}"
+    gu, gv = P.turnout_of.get((bi, u)), P.turnout_of.get((bi, v))
+    if gu is None or gv is None:
+        raise SchematicError(f"{what}: a half is not drawn as a turnout")
+    if gu[0] == gv[0]:
+        t = next(t for t in P.turnouts if t["ident"] == gu[0])
+        if t["type"] not in ("RH_XOVER", "LH_XOVER"):
+            raise SchematicError(f"{what}: its halves are drawn as one {t['type']}, not a single crossover")
+        pts = t["pts"]
+        across, deep = abs(pts["B"][0] - pts["A"][0]) / 2, abs(pts["C"][1] - pts["B"][1])
+    elif (bi, u) in P.xover_turnouts:
+        (ux, uy), (vx, vy) = pair_legs(P, bands, bi, u, v, sid, what)
+        across, deep = abs(vx - ux), abs(vy - uy)
+    else:
+        return None
+    short = deep * slope - across
+    if abs(short) <= PAIR_TOLERANCE:        # nothing to slide
+        return short, None, math.degrees(math.atan2(deep, across))
+    x = bands[bi][1]["x"]       # single_crossovers takes only bands with solved columns
+    if abs(x[u] - x[v]) < EPS:
+        raise SchematicError(f"{what}: its halves stand in one column, so neither is east of the other to slide")
+    return short, (u if x[u] > x[v] else v), math.degrees(math.atan2(deep, across))
+
+
+def pair_nodes(P, bi, band, west, east, sid, what):
+    """The nodes a crossover pair's (or a single crossover's) east switch slides with: itself and every switch and end
+    at or east of its column, but its west partner, turnbacks (as le_shift) and whatever stands at the band's east edge,
+    so the band keeps its width (a narrower band would be stretched back to the widest band's, moving everything west of
+    the pair too) and the tracks into that edge take up the slide; then every node a rigid diagonal line joins to one
     that moves (rigid_diagonals, moved_east's closure), so no other diagonal changes its slope. Stops when the east
-    switch would not move (it stands at the band's edge) or a rigid diagonal ties the west switch to it."""
+    switch would not move (it stands at the band's edge) or a rigid diagonal ties the west switch to it, naming `what`
+    (say "crossover pair 1/3")."""
     x = band["x"]
     edge = max(x.values())
     moved = {n for n in x if n != west and x[n] >= x[east] - EPS and x[n] < edge - EPS
              and not le_prefs.is_turnback(band, n)}
     if east not in moved:
-        raise SchematicError(f"crossover pair {name}: its east switch stands at the band's east edge, which keeps "
+        raise SchematicError(f"{what}: its east switch stands at the band's east edge, which keeps "
                              "its place, so it cannot slide")
     rigid = [(band["strands"][d]["src"][0], band["strands"][d]["dst"][0])
              for d in rigid_diagonals(P, bi, band) if d != sid]
@@ -1275,23 +1343,34 @@ def pair_nodes(P, bi, band, west, east, sid, name):
                 moved |= {u, v}
                 grown = True
     if west in moved:
-        raise SchematicError(f"crossover pair {name}: a rigid diagonal line ties its west switch to the nodes east of "
+        raise SchematicError(f"{what}: a rigid diagonal line ties its west switch to the nodes east of "
                              "its east switch, so the two cannot be slid apart or together")
     return sorted(moved, key=str)
 
 
-def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=()):
-    """The panel drawn again with room let in for mast icons on the `keys` bands (panel's mast_room) and for track
-    names on the `name_keys` bands (name_room), until it settles. First each mast whose straight is too short gets its
+def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=(), crossovers=()):
+    """The panel drawn again with room let in for mast icons on the `keys` bands (panel's mast_room) and for track names
+    on the `name_keys` bands (name_room), until it settles. First each mast whose straight is too short gets its
     shortfall and MAST_ROOM_SPARE; then a mast whose icon still has no clean spot for a reason a longer track can clear
     (GEOMETRY: track or a turnout through it, or nearer another track) gets MAST_ROOM_STEP px more at a time while its
     cheapest spot gets cheaper, up to MAST_ROOM_MAX columns; a track whose last steps (MAST_ROOM_STALL) bought nothing
     goes back to its best. Each track is let out where mast_track finds it may be. In the same rounds a named track
-    whose straight is shorter than its name and a STEP gets the difference (name_room_wanted), while its band stays
-    no wider than the widest band. In the same rounds each crossover pair (`pairs`: [(band index, node, node, track
-    id, name, px across per px deep)], le.panel's crossover_pairs) has its east switch and everything at or east of
-    it slid along the rows by what its diagonal runs short or long (pair_shortfall, pair_nodes). P.widened, and the
-    log, hold what was let in (a pair's track: negative px, drawn shorter); P.pair_angles {name: degrees}."""
+    whose straight is shorter than its name and a STEP gets the difference (name_room_wanted), while its band stays no
+    wider than the widest band. In the same rounds each crossover pair (`pairs`: [(band index, node, node, track id,
+    name, px across per px deep)], le.panel's crossover_pairs) has its east switch and everything at or east of it slid
+    along the rows by what its diagonal runs short or long (pair_shortfall, pair_nodes). So does each single crossover
+    (`crossovers`: [(band index, node, node, track id, number, px across per px deep)], single_crossovers) drawn off its
+    run by more than PAIR_TOLERANCE (crossover_shortfall: squeezed for want of room, or drawn as two turnouts): its east
+    half and everything at or east of its column slide, so its tracks give the room (Band.crossover_points places it
+    again each round); one drawn at its run is left. P.widened, and the log, hold what was let in (a pair's track:
+    negative px, drawn shorter); P.pair_angles {name: degrees}; P.crossover_slides {(band key, number): (px,
+    degrees)}."""
+    slides = [(bi, u, v, sid, f"crossover pair {name}",
+               lambda Q, a=(bi, u, v, sid, slope, name): pair_shortfall(Q, bands, *a))
+              for bi, u, v, sid, name, slope in pairs]
+    slides += [(bi, u, v, sid, f"crossover {name}",
+                lambda Q, a=(bi, u, v, sid, slope, name): crossover_shortfall(Q, bands, *a))
+               for bi, u, v, sid, name, slope in crossovers]
     grow, moved, notes = {}, {}, []
     why_grown = defaultdict(set)        # (band index, strand id) -> "its mast icons", "its name"
     named = defaultdict(int)            # (band index, strand id) -> rounds it was let out for its name
@@ -1342,17 +1421,21 @@ def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=()):
             moved.setdefault(k, nodes)
             want[k] = max(want.get(k, 0.0), px)
             why_grown[k].add("its name")
-        for bi, u, v, sid, name, slope in pairs:
-            short, east, _deg = pair_shortfall(P, bands, bi, u, v, sid, slope, name)
+        for bi, u, v, sid, what, measure in slides:
+            got = measure(P)
+            if got is None:
+                continue
+            short, east, _deg = got
             k = (bi, sid)
-            if why_grown[k] - {f"crossover pair {name}'s angle"}:
-                raise SchematicError(f"{bands[bi][0]}: crossover pair {name}: its track is also let out for "
-                                     f"{' and '.join(sorted(why_grown[k]))}; a pair's track takes only its angle")
+            if why_grown[k] - {f"{what}'s angle"}:
+                raise SchematicError(f"{bands[bi][0]}: {what}: its track is also let out for "
+                                     f"{' and '.join(sorted(why_grown[k]))}; a crossover's track takes only its "
+                                     "angle")
             if abs(short) <= PAIR_TOLERANCE:
                 continue
-            moved[k] = pair_nodes(P, bi, bands[bi][1], u if east == v else v, east, sid, name)
+            moved[k] = pair_nodes(P, bi, bands[bi][1], u if east == v else v, east, sid, what)
             want[k] = want.get(k, 0.0) + short
-            why_grown[k].add(f"crossover pair {name}'s angle")
+            why_grown[k].add(f"{what}'s angle")
         if not want:
             break
         trial = dict(grow)
@@ -1366,13 +1449,16 @@ def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=()):
         grow = trial
         P = drawn(grow_shifts(grow, moved, P.cellx))
     else:
-        raise SchematicError(P.text("the room for the mast icons and names and the crossover pairs' slides do not "
-                                    "settle"))
+        raise SchematicError(P.text("the room for the mast icons and names and the crossovers' slides do not "
+                                    "settle" + "".join(f"; {what} {run_off(got[0])}"
+                                                       for _b, _u, _v, _s, what, measure in slides
+                                                       for got in [measure(P)]
+                                                       if got and abs(got[0]) > PAIR_TOLERANCE)))
     P.widened = {k: round(px, 1) for k, px in sorted(grow.items()) if abs(px) > EPS}
     for (bi, sid), px in P.widened.items():
         s = bands[bi][1]["strands"][sid]
         where = "its east switch and everything east of it slid" if any(
-            (b, t) == (bi, sid) for b, _u, _v, t, _n, _s in pairs) else "the band let out east of its middle"
+            (b, t) == (bi, sid) for b, _u, _v, t, _w, _m in slides) else "the band let out east of its middle"
         notes.append(f"{bands[bi][0]}: track {s.get('name') or sid}: drawn {abs(px):.1f} px "
                      f"{'longer' if px > 0 else 'shorter'} for {' and '.join(sorted(why_grown[(bi, sid)]))} "
                      f"({where}, {len(moved[(bi, sid)])} switches and ends moved)")
@@ -1384,8 +1470,26 @@ def let_in_mast_room(P, bands, keys, drawn, name_keys=(), pairs=()):
                                         "run after the rounds settled"))
         P.pair_angles[name] = round(deg, 1)
         notes.append(f"{bands[bi][0]}: crossover pair {name}: its diagonal crosses at {deg:.1f} degrees")
+    P.crossover_slides = {}
+    for bi, u, v, sid, name, slope in crossovers:
+        px = grow.get((bi, sid), 0.0)
+        got = crossover_shortfall(P, bands, bi, u, v, sid, slope, name)
+        if not px:
+            continue
+        if got is None or abs(got[0]) > PAIR_TOLERANCE:       # the loop settled, so this is a fault of the code
+            raise SchematicError(P.text(f"crossover {name}: slid {px:.1f} px for its crossover run, but "
+                                        + ("it is not drawn as one crossover" if got is None else
+                                           f"it {run_off(got[0])}") + " after the rounds settled"))
+        P.crossover_slides[(band_key(bands[bi][0]), name)] = (round(px, 1), round(got[2], 1))
+        notes.append(f"{bands[bi][0]}: switch {name}: crossover's east half and everything east of it slid {px:+.1f} "
+                     f"px along the rows for its crossover run: it crosses at {got[2]:.1f} degrees")
     P.log += list(dict.fromkeys(notes))         # each noted once
     return P
+
+
+def run_off(short):
+    """How far a crossover's diagonal runs off its crossover run, from its shortfall in px (pair_shortfall)."""
+    return f"runs {abs(short):.2f} px {'short of' if short > 0 else 'past'} its crossover run"
 
 
 NAME_ROOM_PAD = 8       # px of straight a named track keeps past its name's width (le_labels.STEP)
