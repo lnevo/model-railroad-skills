@@ -10,7 +10,8 @@ of the approved geometry (band places, panel size, mast icon spots), so the draw
 room labels and places the real ones. It changes nothing else: le.label_layer stops if any track, turnout, point,
 shape, mast icon or the panel's size differs afterwards. Items, placed in this order, each against everything placed
 before it (and the mast icons, band titles, helix and connector labels and circles, which stay where they are):
-  switch numbers   one per turnout: the switch's label, with `switch_prefix` before it, around where its legs meet
+  switch numbers   one per turnout: the switch's label (a single crossover's: its crossover number, once), with
+                   `switch_prefix` before it, around where its legs meet
                    (first on the side away from its diverging leg)
   track names      one per named track, beside its track, as near the track's middle as is clean
   block contents   with `block_contents` (on by default), one BlockContentsIcon per block on the panel, which shows
@@ -93,7 +94,8 @@ places through le_prefs.extra_steps (see there); this module only checks them.
 P.bcis_skipped) when it finds no clean spot at either reserve, instead of stopping: for a block too short and
 crowded to read, say once the caller's masts stand around it. It is never put first in a later round nor counted
 when the best round is chosen. Every other icon still stops when it has no spot.
-`numbers_below`: switch numbers (the switches' labels, no prefix) whose number tries the spots below its turnout
+`numbers_below`: switch numbers (the switches' labels, no prefix; a single crossover by its crossover number or
+either half's label) whose number tries the spots below its turnout
 first (a crossover's number tries above first, a plain switch's the side away from its diverging leg).
 `lamp_columns` (a band's): groups of track names whose caller's lamps (lamp_size) stand on one centre x, on each
 track there, the same x as name_columns would give; their boxes are kept clear before anything is placed, and
@@ -818,25 +820,40 @@ def specs(P, bands, opts, L, extras=()):
     # a crossover drawn as two turnouts on its one name (P.split_names) has one number: by its lower turnout when
     # the switch is in numbers_below, else by its upper one
     numbered = {}
+
+    def raw_label(t):
+        return bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
+
+    # numbers_below names a single crossover by its number or either half's label: below when any of them is listed
+    halves = defaultdict(set)
     for t in P.turnouts:
         if t["name"] in P.split_names:
-            below = crossover_name(bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or "") \
-                in opts[t["band"]]["numbers_below"]
+            halves[(t["band"], t["name"])].add(raw_label(t))
+
+    def below_first(t, xover):
+        nb = opts[t["band"]]["numbers_below"]
+        raws = halves.get((t["band"], t["name"])) or {raw_label(t)}
+        return any(r in nb or (xover and crossover_name(r) in nb) for r in raws)
+
+    for t in P.turnouts:
+        if t["name"] in P.split_names:
+            below = below_first(t, True)
             key = (t["band"], t["name"])
             best = numbered.get(key)
             if best is None or (t["at"][1] > best["at"][1] if below else t["at"][1] < best["at"][1]):
                 numbered[key] = t
     for t in P.turnouts:
         o = opts[t["band"]]
-        label = bands[t["band"]][1]["nodes"][t["nodes"][0]].get("label") or ""
+        label = raw_label(t)
         # a single crossover, drawn as one or as two turnouts on its one name: its number, not a half's letter
-        if t["type"] in ("RH_XOVER", "LH_XOVER") or t["name"] in P.split_names:
+        xover = t["type"] in ("RH_XOVER", "LH_XOVER") or t["name"] in P.split_names
+        if xover:
             label = crossover_name(label)
         if t["name"] in P.split_names and numbered[(t["band"], t["name"])] is not t:
             continue
         if label:
             out.append((("switch", t["ident"]), _switch_number(L, t, o["switch_prefix"] + label, o,
-                                                               label in o["numbers_below"])))
+                                                               below_first(t, xover))))
     named = []
     for (bi, sid), idents in sorted(P.strand_segments.items()):
         st = bands[bi][1]["strands"][sid]

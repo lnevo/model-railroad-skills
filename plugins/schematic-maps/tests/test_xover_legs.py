@@ -219,6 +219,24 @@ class LayoutEditor(unittest.TestCase):
         numbers = [lb["text"] for lb in P.labels if lb["kind"] == "switch"]
         self.assertEqual([n for n in numbers if n.startswith("5")], ["5"], numbers)
 
+    def test_numbers_below_names_a_crossover_drawn_as_two_turnouts_by_number_or_half(self):
+        real = le.Band.direction
+
+        def sloped(self, n, p):
+            d = real(self, n, p)
+            return (d[0], d[1] + 0.5) if n in ("X5A", "X5B") else d
+
+        names = {"Xo": {"turnouts": {"X5A": "NT5", "X5B": "NT5"}}}
+        numbered = {}
+        for below in ([], ["5"], ["5A"]):
+            page = {"le_labels": {"numbers_below": below}}
+            with mock.patch.object(le.Band, "direction", sloped):
+                P = le.panel(self.bands, names, page=page)
+            lb = next(lb for lb in P.labels if lb["kind"] == "switch" and lb["text"] == "5")
+            numbered[tuple(below)] = lb["xy"][1] if "xy" in lb else lb.get("y")
+        self.assertEqual(numbered[("5",)], numbered[("5A",)])        # either form names it
+        self.assertNotEqual(numbered[()], numbered[("5",)])          # and it moves the number
+
     def test_a_normal_for_a_half_stops_however_it_is_drawn(self):
         # one answer for one names file: as one crossover, or as two turnouts for no room
         why = ("normal names X5B \\(switch 5B\\), half of a single crossover, whose closed route is both through "
