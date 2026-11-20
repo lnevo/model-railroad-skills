@@ -2,7 +2,7 @@
 
 import math
 
-from .cats_grid import band_of, band_spans
+from .cats_grid import ENDS, band_of, band_spans
 from .cats_px import GRID_PX, text_box
 from .cats_xml import edge_meetings
 from .core import SchematicError
@@ -35,7 +35,8 @@ def faults(P, fit=None):
     """The desk faults of a finished panel P, one line each, [] when there are none:
       - two blocks landing in one cell: a block boundary CATS cannot hold, on a switch's points, on a crossing, or
         where two blocks in one cell reach the same edge (cats_xml.edge_meetings), so CATS would drop the points;
-        named by the blocks and the switch, and the band (P.titles);
+        named by the blocks and the switch, and the band the cell is drawn on (its own block keys, P.titles); a
+        boundary met from both its cells is one fault;
       - with `fit` (cols, rows), a desk wider or taller than its window shows (shown), naming each band's columns
         (band_spans).
     The causes are the drawing's (two tracks too close at one cell per grid unit, a band too wide for the window),
@@ -45,17 +46,24 @@ def faults(P, fit=None):
         if not (isinstance(fit, (tuple, list)) and len(fit) == 2 and
                 all(isinstance(v, int) and not isinstance(v, bool) and v >= 1 for v in fit)):
             raise SchematicError(f"fit must be (columns, rows), both whole numbers of at least 1, not {fit!r}")
-    out = []
-    for cell, edge, mine, theirs, bad in edge_meetings(P):
+    out, seen = [], set()
+    for cell, edge, far, mine, theirs, bad in edge_meetings(P):
         if not bad:
             continue
+        once = frozenset({(cell, edge), far})       # a boundary is met from both its cells: one fault
+        if once in seen:
+            continue
+        seen.add(once)
         unnamed = sorted(str(b) for b in mine | theirs if b not in P.names)
         if unnamed:
             raise SchematicError(f"the panel's blocks are not named yet ({', '.join(unnamed)}): faults reads a "
                                  "finished panel")
         blocks = ", ".join(sorted({P.names[b] for b in mine | theirs}))
         point = P.points.get((cell, edge))
-        bands = [P.titles[bi] for bi in sorted({band_of(P, b) for b in mine | theirs})]
+        # the band of what is drawn in this cell at that edge (its own block keys: a union root may be another
+        # band's, a helix block drawn on two)
+        raw = [k for t, k in P.cells[cell].items() if edge in ENDS[t]]
+        bands = [P.titles[bi] for bi in sorted({band_of(P, k) for k in raw})]
         at = (f"on switch {point['switch']}'s points" if point else
               "on a crossing" if (cell, edge) in P.crossings else "where both reach one edge")
         out.append(f"{'; '.join(bands)}: blocks {blocks} land in one cell, {cell} edge {edge}, {at}; CATS would "

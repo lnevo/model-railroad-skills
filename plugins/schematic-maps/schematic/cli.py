@@ -206,6 +206,10 @@ def run(argv=None):
             helix = a.helix_blocks if a.helix_blocks is not None else o["helix_blocks"]
             window = cats.parse_window(a.window) if a.window else o["window"]
             fit = cats.parse_fit(a.fit) if a.fit else o["fit"]
+            if fit and min(fit) < 1:        # a window too small for one cell: say so, not a bad fit for faults
+                raise SchematicError(f"cats_window {o['window'][0]} x {o['window'][1]} px leaves {fit[0]} x {fit[1]} "
+                                     f"cells inside CATS's frame; it must hold at least one {cats.GRID_PX} px cell "
+                                     "each way")
             cats.check_gaps(scale, o["band_gap"], o["title_gap"],
                             ("cats_band_gap", "cats_title_gap",
                              "--cells-per-unit" if a.cells_per_unit is not None else "cats_cells_per_unit"))
