@@ -90,5 +90,22 @@ class HelixLabel(unittest.TestCase):
         self.assertEqual(le_labels.fixed_on_line(le_labels.track_ink(P), le_labels.label_box(lb)), "a track")
 
 
+class CrowdedIcons(unittest.TestCase):
+    """crowded_block_contents: an icon with no clean spot is drawn anyway; the check passes its overlaps over."""
+
+    def test_the_option_takes_block_names(self):
+        with self.assertRaisesRegex(SchematicError, "crowded_block_contents must be a list of block names"):
+            le.panel([(t, b, dict(o, le_labels={"crowded_block_contents": "Main"})) for t, b, o in helpers.build().bands])
+
+    def test_a_crowded_icon_may_overlap_and_others_may_not(self):
+        P = le.panel(helpers.build().bands)
+        icon, label = P.bcis[0], next(lb for lb in P.labels if lb["kind"] == "switch")
+        icon["box"] = tuple(label["box"])
+        with self.assertRaisesRegex(SchematicError, "overlaps"):
+            le_labels.verify(P)
+        icon["crowded"] = True
+        le_labels.verify(P)
+
+
 if __name__ == "__main__":
     unittest.main()

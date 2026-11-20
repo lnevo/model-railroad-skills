@@ -78,7 +78,7 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "name_steps": [], "lamp_columns": [],
-     "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
+     "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "crowded_block_contents": [], "extra_steps": [],
      "extra_follow": [], "hidden_names": []}
 A band's options, each over the one before: DEFAULTS, the page's `le_labels`, the band's own `le_labels`, and its
 entry of the band preference `le_band_labels` ({band key: le_labels object}, le_prefs: for one preferences file that
@@ -144,7 +144,7 @@ DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "name_steps": [],
             "lamp_columns": [],
-            "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
+            "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "crowded_block_contents": [], "extra_steps": [],
             "extra_follow": [], "hidden_names": []}
 # a band's own le_labels keys: the page's may not set them
 BAND_ONLY = ("names_last", "extra_steps", "extra_follow", "hidden_names")
@@ -200,9 +200,9 @@ def _check(where, o):
             if moving:
                 raise SchematicError(f"{where}: le_labels: extra_follow's leader {', '.join(moving)} is itself "
                                      "stepped or follows; a leader must stand where the label layer puts it")
-        elif k in ("numbers_below", "optional_block_contents", "hidden_names"):
+        elif k in ("numbers_below", "optional_block_contents", "crowded_block_contents", "hidden_names"):
             what = {"numbers_below": "switch numbers", "optional_block_contents": "block names",
-                    "hidden_names": "track names"}[k]
+                    "crowded_block_contents": "block names", "hidden_names": "track names"}[k]
             if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
                 raise SchematicError(f"{where}: le_labels: {k} must be a list of {what}, not {v!r}")
             if k == "hidden_names" and len(set(v)) != len(v):
@@ -647,6 +647,20 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
         notes += L.notes
         L.kept = copy.deepcopy(L.boxes)         # this band's labels stand for the next
     L.kept = None
+    crowded = {("bci", b) for o in opts for b in o["crowded_block_contents"]}
+    makers = dict(items)
+    for key in [k for k, _msg in failed if k in crowded]:     # drawn anyway, at its first spot, overlaps allowed
+        it, spots, keep = makers[key](dict(number_side={}, name_side={}))
+        spot = next(iter(spots))
+        w = spot[3] if len(spot) > 3 else it["w"]
+        it.update(on_track=False, short=w != it["w"])
+        kind, d = keep(box_of(round(spot[0]), round(spot[1]), w, it["h"]))
+        d["crowded"] = True
+        done.append((kind, d))
+        notes.append(f"{it['what']}: no clean spot; drawn at its first spot anyway (crowded_block_contents)")
+    failed = [(k, msg) for k, msg in failed if k not in crowded]
+    P.log += [n for n in notes if n.endswith("(crowded_block_contents)")]
+    notes = [n for n in notes if not n.endswith("(crowded_block_contents)")]
     if failed and strict:
         raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
     P.labels_unplaced = [(k, msg) for k, msg in failed]
@@ -1329,7 +1343,8 @@ def verify(P):
     world = le_masts.World(le_masts.PanelView(P))
     things = [(box_of(*lb["box"]), f"label {lb['text']!r}", "fixed" if lb["kind"] in FIXED else "label")
               for lb in P.labels]
-    things += [(box_of(*b["box"]), f"block contents of {b['block']}", "bci") for b in P.bcis]
+    things += [(box_of(*b["box"]), f"block contents of {b['block']}", "crowded" if b.get("crowded") else "bci")
+               for b in P.bcis]
     things += [(box_of(*e["box"]), f"item {e['id']}", "bci") for e in getattr(P, "extras", [])]
     things += [(box_of(*lp["box"]), f"lamp of {lp['track']}", "lamp") for lp in getattr(P, "lamps", [])]
     for box, what, kind in things:
@@ -1343,13 +1358,15 @@ def verify(P):
         for other, j in seen.near(box, 0):
             if {kind, things[j][2]} <= {"mast", "fixed"}:     # placed before the labels: le_masts judges those
                 continue
+            if "crowded" in (kind, things[j][2]):              # crowded_block_contents: overlaps allowed
+                continue
             if boxes_overlap(box, other, -OVERLAP):
                 raise SchematicError(f"le labels: {what} overlaps {things[j][1]}")
         seen.add(box, i)
     ink = track_ink(P, world)
     shapes = [(tuple(sh["centre"]), sh["r"]) for sh in P.shapes]
     for box, what, kind in things:
-        if kind in ("mast", "lamp"):        # a lamp stands on its own track on purpose
+        if kind in ("mast", "lamp", "crowded"):     # a lamp stands on its own track on purpose
             continue
         if kind != "fixed":                 # a connector's letter stands in its circle on purpose
             for c, r in shapes:
