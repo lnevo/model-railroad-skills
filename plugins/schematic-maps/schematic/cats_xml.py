@@ -8,13 +8,17 @@ from .cats_grid import EDGE_ORDER, ENDS, neighbour
 from .core import SchematicError
 
 __all__ = [
-    "boundaries", "dangling", "lone_blocks", "HEADER_FONTS", "header_from", "set_io", "to_xml", "write"
+    "boundaries", "edge_meetings", "dangling", "lone_blocks", "HEADER_FONTS", "header_from", "set_io", "to_xml",
+    "write"
 ]
 
 
-def boundaries(P):
-    """{(cell, edge): block root} of every edge where one block ends and another (or a joined end) begins."""
-    out = {}
+def edge_meetings(P):
+    """[(cell, edge, far, mine, theirs, bad)] for every edge where one block ends and another (or a joined end)
+    begins, seen from each side (so a boundary is listed from both its cells): `far` the (cell, edge) across it,
+    `mine` and `theirs` the block roots on each side, `bad` True when CATS cannot hold the boundary there (on switch
+    points or a crossing, or two blocks in the cell reaching the edge), where it would drop the points."""
+    out = []
     for cell, tracks in P.cells.items():
         for edge in EDGE_ORDER:
             mine = {P.find(b) for t, b in tracks.items() if edge in ENDS[t]}
@@ -23,10 +27,20 @@ def boundaries(P):
             far, fedge = P.shared.get((cell, edge)) or neighbour(cell, edge)
             theirs = {P.find(b) for t, b in P.cells.get(far, {}).items() if fedge in ENDS[t]}
             if theirs and mine != theirs:
-                if (cell, edge) in P.points or (cell, edge) in P.crossings or len(mine) > 1:
-                    raise SchematicError(f"cell {cell} edge {edge}: a block boundary on switch points or a crossing; "
-                                         "CATS would drop the points")
-                out[(cell, edge)] = next(iter(mine))
+                bad = (cell, edge) in P.points or (cell, edge) in P.crossings or len(mine) > 1
+                out.append((cell, edge, (far, fedge), mine, theirs, bad))
+    return out
+
+
+def boundaries(P):
+    """{(cell, edge): block root} of every edge where one block ends and another (or a joined end) begins. Stops on
+    the first boundary CATS cannot hold (edge_meetings; cats_fit.faults lists them all, by block)."""
+    out = {}
+    for cell, edge, _far, mine, _theirs, bad in edge_meetings(P):
+        if bad:
+            raise SchematicError(f"cell {cell} edge {edge}: a block boundary on switch points or a crossing; "
+                                 "CATS would drop the points")
+        out[(cell, edge)] = next(iter(mine))
     return out
 
 

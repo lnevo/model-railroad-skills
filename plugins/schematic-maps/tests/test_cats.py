@@ -1034,9 +1034,122 @@ class Compact(unittest.TestCase):
             r = run("--fit", "63x36")
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertRegex(r.stdout, r"shows \d+ x \d+ cells \(fit 63 x 36\)")
+            self.assertIn("desk faults: 0", r.stdout)
             r = run("--fit", "10x10")
             self.assertEqual(r.returncode, 2)
             self.assertIn("past 10, and no column of plain level track is left to take out", r.stderr)
+            self.assertRegex(r.stderr, r"the desk is wider than its window \(\w[^)]* columns \d+ to \d+")
+
+
+class Faults(unittest.TestCase):
+    """cats.faults: what makes a desk fail on screen, named by its cause: two blocks in one cell (a boundary CATS
+    cannot hold, where it would drop the points), and a desk wider or taller than its window."""
+
+    @staticmethod
+    def meeting(P, band=None):
+        """(cell, edge, far, mine, theirs) of a boundary CATS can hold, one block each side (in band index `band`
+        when given, by the cell's own block key)."""
+        return next((c, e, f, m, t) for c, e, f, m, t, bad in cats.edge_meetings(P)
+                    if not bad and len(m) == len(t) == 1
+                    and (band is None or cats.band_of(P, P.cells[c][next(x for x in P.cells[c]
+                                                                         if e in cats.ENDS[x])]) == band))
+
+    def test_a_good_desk_has_none(self):
+        P = compact()
+        self.assertEqual(cats.faults(P), [])
+        self.assertEqual(cats.faults(P, cats.shown(P)), [])
+
+    def test_a_desk_wider_than_its_window(self):
+        P = compact()
+        cols, rows = cats.shown(P)
+        (fault,) = cats.faults(P, (cols - 1, rows))
+        self.assertIn(f"the desk shows {cols} x {rows} cells, more than the {cols - 1} x {rows} its window fits "
+                      "(1 columns and 0 rows over)", fault)
+        for title in P.titles:          # each band's columns, so the band that is too wide shows
+            self.assertRegex(fault, rf"{title} columns \d+ to \d+")
+        (fault,) = cats.faults(P, (cols, rows - 2))
+        self.assertIn("(0 columns and 2 rows over)", fault)
+
+    def test_two_blocks_in_one_cell(self):
+        P = copy.deepcopy(compact())
+        cell, edge, _far, mine, theirs = self.meeting(P)
+        names = sorted(P.names[b] for b in mine | theirs)
+        side = next(t for t, ends in cats.ENDS.items() if edge in ends and t not in P.cells[cell])
+        P.cells[cell][side] = next(iter(theirs))        # the far block reaches the same edge in this cell
+        (fault,) = cats.faults(P)
+        self.assertRegex(fault, rf"blocks {names[0]}, {names[1]} land in one cell, \({cell[0]}, {cell[1]}\) edge "
+                                rf"{edge}, where both reach one edge; CATS would drop the points")
+        with self.assertRaisesRegex(cats.SchematicError, "CATS would drop the points"):
+            cats.boundaries(P)                          # the XML writer still stops on it
+
+    def test_a_boundary_on_points_or_a_crossing(self):
+        for where, mark, said in (("points", lambda P, k: P.points.__setitem__(k, {"switch": "99", "routes": []}),
+                                   "on switch 99's points"),
+                                  ("crossing", lambda P, k: P.crossings.add(k), "on a crossing")):
+            with self.subTest(where=where):
+                P = copy.deepcopy(compact())
+                cell, edge, _far, _m, _t = self.meeting(P)
+                mark(P, (cell, edge))
+                (fault,) = cats.faults(P)
+                self.assertIn(f"{said}; CATS would drop the points", fault)
+
+    def test_a_boundary_met_from_both_cells_is_one_fault(self):
+        P = copy.deepcopy(compact())
+        cell, edge, far, _m, _t = self.meeting(P)
+        P.crossings |= {(cell, edge), far}              # bad seen from this cell and from the one across
+        self.assertEqual(sum(bad for *_x, bad in cats.edge_meetings(P)), 2)
+        self.assertEqual(len(cats.faults(P)), 1)
+
+    def test_the_band_is_the_cells_own(self):
+        # the cell's block joined to a block of the top band, whose key becomes its root: the fault still names the
+        # band the cell is drawn on
+        P = copy.deepcopy(compact())
+        low = len(P.titles) - 1
+        self.assertGreater(low, 0)
+        cell, edge, _far, mine, _t = self.meeting(P, low)
+        root = next(iter(mine))
+        top = min(k for tracks in P.cells.values() for k in tracks.values()
+                  if cats.band_of(P, k) == 0 and k[0] == root[0])
+        P.names[top] = P.names[P.find(top)]
+        P.union(root, top)
+        self.assertEqual(cats.band_of(P, P.find(root)), 0)
+        P.points[(cell, edge)] = {"switch": "99", "routes": []}
+        (fault,) = cats.faults(P)
+        self.assertTrue(fault.startswith(f"{P.titles[low]}: "), fault)
+
+    def test_bad_input_stops(self):
+        P = copy.deepcopy(compact())
+        for bad in ((0, 5), (5,), "62x30", (62.0, 30), (True, 30)):
+            with self.subTest(fit=bad), self.assertRaisesRegex(cats.SchematicError, "fit must be"):
+                cats.faults(P, bad)
+        cell, edge, _far, mine, _t = self.meeting(P)
+        P.points[(cell, edge)] = {"switch": "99", "routes": []}
+        P.names.pop(next(iter(mine)))
+        with self.assertRaisesRegex(cats.SchematicError, "not named yet"):
+            cats.faults(P)
+        Q = copy.deepcopy(compact())
+        Q.titles = Q.titles[:1]
+        with self.assertRaisesRegex(cats.SchematicError, "names no band of the panel"):
+            cats.band_spans(Q)
+
+    def test_the_command_names_a_window_too_small_for_a_cell(self):
+        import contextlib
+        import io
+        import json
+        from schematic import cli
+        with tempfile.TemporaryDirectory() as tmp:
+            graph = Path(tmp) / "graph.json"
+            graph.write_text(json.dumps(helpers.graph()))
+            real = cats.options
+            small = lambda page, bands=(): dict(real(page, bands), window=(40, 600), fit=(0, 16))  # noqa: E731
+            err = io.StringIO()
+            with mock.patch.object(cats, "options", small), mock.patch.object(cats, "faults") as faults, \
+                    contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                code = cli.run(["cats", str(Path(tmp) / "panel.xml"), "--data", str(helpers.data_with_signals()),
+                                f"{graph}:example", "--cells-per-unit", "1"])
+            self.assertEqual(code, 2)
+            self.assertIn("cats_window 40 x 600 px leaves 0 x 16 cells", err.getvalue())
+            faults.assert_not_called()
 
 
 class Split(unittest.TestCase):

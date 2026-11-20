@@ -93,7 +93,7 @@ from collections import defaultdict
 
 from . import cache, le_labels, le_prefs
 from .core import (XOVER_ONE, SchematicError, check_default_xovers, crossover_halves, crossover_name, node_ref,
-                   other_names, switch_ref, tidy, xover_names)
+                   other_names, switch_ref, check_three_way, three_way_parts, tidy, xover_names)
 from .draw import band_key
 from .layout import paths
 
@@ -754,6 +754,8 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     past its diagonal either way). The half on a track shared with a tight partner (tight_crossovers, which must be
     split too), else the top half, stays; the other slides along its row so the diagonal runs `crossover_run` across.
     Two split crossovers drawn tight have their throats on the shared track 2 LEG and the track's least length apart.
+    A three-way part in the plan needs neither: its two crossovers are drawn tight and split by rule
+    (three_way_crossovers), and an argument or preference naming either stops.
     `crossover_pairs`: {band key: [[switch, switch], ...]}: two plain turnouts of different numbers (a single
     crossover's halves, one number, slide by `crossover_run` alone) joined by one track, its ends on two rows, that
     are one crossover on the ground: that track, leg to leg, crosses at
@@ -804,6 +806,9 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     check_mast_room(bands, mast_room)
     check_mast_room(bands, name_room, "name_room")
     split_crossovers = check_split(bands, split_crossovers, tight_crossovers)
+    # the plan's three-way parts: their two crossovers drawn tight and split (three_way_crossovers)
+    tight_crossovers, split_crossovers, notes = three_way_crossovers(bands, tight_crossovers, split_crossovers,
+                                                                     crossover_run, fit is not None)
     if not isinstance(labels_by_band, bool):
         raise SchematicError(f"labels_by_band must be true or false, not {labels_by_band!r}")
     runs = crossover_run.values() if isinstance(crossover_run, dict) else [crossover_run]
@@ -829,7 +834,7 @@ def panel(bands, names=None, cell=CELL, row=ROW, page=None, fit=None, extras=Non
     args = dict(bands=bands, names=names, cell=cell, row=row, page=page, fit=fit, extras=extras, gap=gap,
                 labels_by_band=labels_by_band, crossover_run=crossover_run, tight_crossovers=tight_crossovers,
                 split_crossovers=split_crossovers, mast_room=mast_room, name_room=name_room, band_bottoms=band_bottoms,
-                unused=unused, crossover_pairs=crossover_pairs)
+                unused=unused, crossover_pairs=crossover_pairs, notes=notes)
     keyed = dict(args, bands=untitled(bands), page=cache.untitled(page))
     return cache.memo("le-panel", ("le",), keyed, lambda: _panel(**args))
 
@@ -877,9 +882,11 @@ def untitled(bands):
 
 
 def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, crossover_run, tight_crossovers,
-           split_crossovers, mast_room=None, name_room=None, band_bottoms=None, unused=(), crossover_pairs=None):
+           split_crossovers, mast_room=None, name_room=None, band_bottoms=None, unused=(), crossover_pairs=None,
+           notes=()):
     """panel, its arguments checked, without the cache: drawn (at the grid, or fitted), then drawn once more with the
-    caller's items that step at their x (le_prefs.extra_steps; P.extra_x)."""
+    caller's items that step at their x (le_prefs.extra_steps; P.extra_x). `notes`: lines for the log that the
+    checks before drawing gave (three_way_crossovers)."""
     if fit is None:
         draw = grid_drawer(bands, names, cell, row, page, gap, labels_by_band, crossover_run, tight_crossovers,
                            split_crossovers, mast_room, name_room, band_bottoms or {}, crossover_pairs)
@@ -893,6 +900,8 @@ def _panel(bands, names, cell, row, page, fit, extras, gap, labels_by_band, cros
         P = draw(stepped)
         le_prefs.check_steps(P, opts, stepped, xs)
     P.extra_x = xs
+    if notes:
+        P.log.extend(notes)
     return P
 
 
@@ -1079,6 +1088,79 @@ def check_split(bands, split, tight):
                 raise SchematicError(f"split_crossovers for {key}: crossovers {pair[0]} and {pair[1]} are drawn tight, "
                                      "so both or neither are split")
     return out
+
+
+def three_way_crossovers(bands, tight, split, crossover_run, fitted):
+    """(tight, split, notes): the checked `tight` ({band key: [(label, label)]}) and `split` ({band key:
+    set(label)}) with the plan's three-way parts added, and lines for the log. The rule: two single crossovers that
+    each hold one half of the same three-way part (core.three_way_parts) are drawn tight on the track they share
+    and split into plain turnouts, as `tight_crossovers` and `split_crossovers` naming them would draw them, the
+    crossover holding half 1 first. A panel at a given grid only, on a band with a crossover run (`crossover_run`,
+    or its le_crossover_angle): otherwise, or when only one half is in a crossover, nothing is added and the log
+    says why; the part is not checked there, so a panel that drew before still draws. Where the rule applies it
+    stops when a part's halves are not two switches joined by one track (core.check_three_way), when an argument or
+    preference already names such a crossover (the plan decides it), when a part's two halves are in one crossover,
+    when one crossover holds halves of two parts, or when a crossover's number names two crossovers of the band
+    (one_crossover: relabel one)."""
+    tight = {k: list(v) for k, v in tight.items()}
+    split = {k: set(v) for k, v in split.items()}
+    notes, added = [], False
+    for title, band, _o in bands:
+        key = band_key(title)
+        parts = three_way_parts(band["nodes"])
+        if not parts:
+            continue
+        run = crossover_run.get(key) if isinstance(crossover_run, dict) else crossover_run
+        if fitted or run is None:
+            why = "a panel fitted to a window" if fitted else "the band has no crossover run (crossover_run, or its " \
+                                                              "le_crossover_angle)"
+            notes += [f"{title}: three-way part {part} is drawn as usual, not tight and split: {why}" for part in parts]
+            continue
+        holder = {}         # node -> the track id of its single crossover (its diagonal)
+        names = {}          # that track id -> the crossover's number
+        for sid, u, v in crossover_pairs(band):
+            holder[u] = holder[v] = sid
+            names[sid] = crossover_name(band["nodes"][u].get("label"))
+        ruled = {}          # crossover track id -> the part the rule drew it tight for
+        given = (("tight_crossovers", {x for p in tight.get(key, []) for x in p}),     # the caller's entries
+                 ("split_crossovers", set(split.get(key, set()))))
+        for part, halves in parts.items():
+            check_three_way(part, halves, band["nodes"], band["strands"])
+            got = [holder.get(n) for n in halves]
+            if got == [None, None]:
+                continue
+            if None in got:
+                one = names[next(x for x in got if x is not None)]
+                notes.append(f"{title}: three-way part {part}: only crossover {one} holds one of its halves, so "
+                             "nothing is drawn tight or split for it")
+                continue
+            if got[0] == got[1]:
+                raise SchematicError(f"{title}: three-way part {part}: both its halves are in crossover "
+                                     f"{names[got[0]]}; a three-way's halves belong to two crossovers")
+            a, b = names[got[0]], names[got[1]]
+            for x in (a, b):            # a number that names two crossovers of the band stops: relabel one
+                one_crossover(band, key, f"three-way part {part}", x)
+            named = [f"{what} for {key} names {x}" for what, held in given for x in (a, b) if x in held]
+            if named:
+                raise SchematicError(f"{title}: {'; '.join(named)}, but crossovers {a} and {b} hold the halves of "
+                                     f"three-way part {part}, which are drawn tight and split by the plan; remove "
+                                     "the entry")
+            twice = [sid for sid in got if sid in ruled]
+            if twice:
+                others = sorted({ruled[sid] for sid in twice})
+                raise SchematicError(f"{title}: crossovers {a} and {b} hold halves of three-way parts "
+                                     f"{' and '.join(others + [part])}; a crossover is drawn tight with one other only")
+            ruled.update({sid: part for sid in got})
+            added = True
+            tight.setdefault(key, []).append((a, b))
+            split.setdefault(key, set()).update((a, b))
+            notes.append(f"{title}: three-way part {part}: crossovers {a} and {b} drawn tight and split")
+    if added:
+        # what the rule added is held to the arguments' own checks (one crossover per number, a tight pair split
+        # both or neither, a crossover run), so the drawing gets nothing check_tight and check_split would refuse
+        tight = check_tight(bands, tight, crossover_run)
+        split = check_split(bands, split, tight)
+    return tight, split, notes
 
 
 def check_pairs(bands, pairs, crossover_run):

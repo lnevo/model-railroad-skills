@@ -13,7 +13,8 @@ where the track holds it, else one cell (half a 45 degree step); masts' gaps sli
 control point's masts stand in one column per direction and out of switch cells (shift_gaps), and each mast is
 drawn at its clearest spot (spot_costs, place_mast; references/cats-signals.md); a one-unit level track between
 two switches gets a second cell in its grid column (widened_columns), so their OS blocks still part; a double crossover between adjacent rows is one column wide with
-its crossing on the edge between the rows. shown(P) is the cells CATS lays out on screen; check_fit tests it.
+its crossing on the edge between the rows. shown(P) is the cells CATS lays out on screen; check_fit tests it, and
+faults(P, fit) lists the desk faults by cause (two blocks in one cell, a desk wider than its window).
 
 Blocks: one per strand (its track name, or the two switch numbers it joins), one OS block per switch (shared by
 switches labelled alike joined by a track, such as a single crossover's halves; halves lettered A and B keep one
@@ -39,19 +40,20 @@ from .layout import paths
 # The work is split by what it touches; this module keeps panel() and re-exports every name the one-file module had,
 # so `schematic.cats.X` is unchanged for the command, hart's build scripts and the tests.
 from .cats_grid import (                                    # cells, edges, the Panel record, column edits
-    MARGIN, BAND_GAP, COMPACT_GAP, ENDS, OPPOSITE, STEP, EDGE_ORDER, Panel, band_key_name, column_plain,
-    column_shift, drop_column, free_ends, neighbour, parallel_runs, stacked_runs, step_pieces, strand_pieces,
-    stretched, touching, trim_columns, unit_steps, widened_columns)
+    MARGIN, BAND_GAP, COMPACT_GAP, ENDS, OPPOSITE, STEP, EDGE_ORDER, Panel, band_key_name, band_of, band_spans,
+    column_plain, column_shift, drop_column, free_ends, neighbour, parallel_runs, stacked_runs, step_pieces,
+    strand_pieces, stretched, touching, trim_columns, unit_steps, widened_columns)
 from .cats_px import GRID_PX, TEXT_PX, SIG_PX, LOC_XY, crosses, frill_box, overlaps, signal_boxes, text_box, track_lines
 from .cats_labels import SPILL_RANKS, place_labels
-from .cats_fit import check_fit, parse_fit, parse_size, parse_window, shown, summary
+from .cats_fit import check_fit, faults, parse_fit, parse_size, parse_window, shown, summary
 from .cats_bind import (                                    # bindings file checks; blocks, routes and names
     DISCIPLINES, SIG_PANTYPES, IOSPEC_KEYS, ROUTE_TAGS, bind_blocks, bind_routes, check_bindings, check_io, label_of,
     node_of, number_order, switch_bindings, check_xover_bindings, check_one_name_per_block)
 from .cats_masts import (                                   # masts: binding, gantries, spot choice
     SIG_LOCATION, INK_CLEAR, POINT_ZONE, SPOT_COST, SPOT_PER_PX, GANTRY_SHIFT, GANTRY_SPAN, bind_masts, box_gap,
     gantry_look, lamp_way, mast_gap, mast_size, move_gap, move_of, place_mast, points_zones, shift_gaps, spot_costs)
-from .cats_xml import HEADER_FONTS, boundaries, dangling, header_from, lone_blocks, set_io, to_xml, write
+from .cats_xml import (HEADER_FONTS, boundaries, dangling, edge_meetings, header_from, lone_blocks, set_io, to_xml,
+                       write)
 from .cats_prefs import SCALE, HELIX_BLOCKS, CHROME, check_helix_blocks, check_rows, check_scale, options   # page preferences
 
 OS_REACH = 1            # steps an OS block reaches past a switch's points on each leg
@@ -88,6 +90,7 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
     bindings = check_bindings(bindings or {})
     sw_bind = switch_bindings(bands, bindings["switches"])
     P = Panel()
+    P.titles = [t for t, _b, _o in bands]
     if compact:
         P.pending = []
     chains, turn_bounds = {}, {}     # (band, strand) -> its steps and their blocks; (band, turnback) -> its boundary

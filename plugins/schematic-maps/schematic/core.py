@@ -72,6 +72,38 @@ def crossover_name(label):
     return switch_number(label) if HALF_LETTER.fullmatch((label or "").rstrip("*")) else label
 
 
+# A three-way part's half as the plan reader keys it: the AnyRail export's own turnout ident, which for a three-way
+# part is TO_3W<id>-1 and TO_3W<id>-2 (two turnouts; its other turnouts are TOL<id> and TOR<id>, a double crossover
+# TO_CO<id>), kept as the graph's node key (plan_reader.read, `tos` by ident; edits.by_label)
+THREE_WAY_HALF = re.compile(r"(TO_3W[^-]+)-([12])")
+
+
+def three_way_parts(nodes):
+    """{part: (half 1 node, half 2 node)} of every three-way part both of whose halves are among `nodes`, keyed as
+    the AnyRail export keys them (THREE_WAY_HALF). Reads the keys only: check_three_way holds a part to what a
+    three-way is, for a caller about to draw it so."""
+    halves = defaultdict(dict)
+    for n in nodes:
+        m = THREE_WAY_HALF.fullmatch(n) if isinstance(n, str) else None
+        if m:
+            halves[m.group(1)][m.group(2)] = n
+    return {part: (got["1"], got["2"]) for part, got in sorted(halves.items()) if set(got) == {"1", "2"}}
+
+
+def check_three_way(part, halves, nodes, strands):
+    """Stop unless the two halves of three-way part `part` (three_way_parts) are two switches joined directly by
+    exactly one track, as the export draws a three-way: the short track from half 1's leg to half 2's points."""
+    one, two = halves
+    kinds = [nodes[n]["kind"] for n in (one, two)]
+    if kinds != ["switch", "switch"]:
+        raise SchematicError(f"plan part {part}: {one} and {two} are keyed as the two halves of one three-way "
+                             f"switch, but they are of kinds {kinds[0]} and {kinds[1]}, not two switches")
+    joins = [sid for sid, s in strands.items() if {s["src"][0], s["dst"][0]} == {one, two}]
+    if len(joins) != 1:
+        raise SchematicError(f"plan part {part}: {one} and {two} are keyed as the two halves of one three-way "
+                             f"switch, but {len(joins)} tracks join them, not one")
+
+
 def through_leg(link):
     """A single crossover half's normal (closed) leg: its leg B or C that is not its link to the other half."""
     return {"B": "C", "C": "B"}[link]
