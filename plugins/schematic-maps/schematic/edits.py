@@ -7,12 +7,16 @@ from .core import SchematicError
 
 
 def by_label(g, ref):
-    """A junction by its plan part number (kept as alias), its label, its part's own id, or "label@track".
+    """A junction by its plan part number (kept as alias), its label, its part's own id, "label@track" or
+    "label@label".
 
     The part id is the node's key in the graph (the plan reader's part type and its half: a three-way's halves are
     TO_3W33789-1 and -2), for a junction whose label the reader could not number. "35@East Lead" is the junction
     labelled 35 that a track named East Lead leaves: for the halves of a crossover, which share one number, a name
-    that does not depend on the plan's part numbers."""
+    that does not depend on the plan's part numbers. "23@1" is the junction labelled 23 that a track joins to the
+    junction labelled 1: for a half no named track leaves yet, such as the first track a `name` edit names there.
+    The part after @ is read as a track name first; only when no track of that name leaves a junction labelled 23
+    is it read as a neighbour's label."""
     nodes = g["nodes"]
     hits = [n for n, d in nodes.items() if d.get("alias") == ref]
     hits = hits or [n for n, d in nodes.items() if d.get("label") == ref and d["kind"] != "end"]
@@ -21,8 +25,14 @@ def by_label(g, ref):
     hits = hits or [n for n, d in nodes.items() if n == ref and d["kind"] != "end"]
     if not hits and isinstance(ref, str) and "@" in ref:
         label, track = ref.split("@", 1)
-        hits = [n for n, d in nodes.items() if d["kind"] != "end" and (d.get("label") or "").rstrip("*") == label
-                and any(track in e["names"] for e in g["edges"] if n in (e["u"], e["v"]))]
+        mine = [n for n, d in nodes.items() if d["kind"] != "end" and (d.get("label") or "").rstrip("*") == label]
+        hits = [n for n in mine if any(track in e["names"] for e in g["edges"] if n in (e["u"], e["v"]))]
+        if not hits:        # "23@1": the half a track joins to the junction labelled 1
+            def is_other(m):
+                d = nodes[m]
+                return d["kind"] != "end" and (d.get("label") or "").rstrip("*") == track
+            hits = [n for n in mine if any(is_other(e["v"] if e["u"] == n else e["u"])
+                                           for e in g["edges"] if n in (e["u"], e["v"]))]
     if len(hits) != 1:
         raise SchematicError(f"{len(hits)} junctions answer to {ref}")
     return hits[0]

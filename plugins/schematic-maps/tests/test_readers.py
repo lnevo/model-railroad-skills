@@ -219,6 +219,22 @@ class EditLookups(unittest.TestCase):
             with self.assertRaises(SchematicError):
                 edits.by_label(g, ref)
 
+    def test_a_crossover_half_by_its_neighbours_label(self):
+        from schematic import edits
+        def edge(i, u, v, names=()):
+            return dict(id=i, u=u, up="A", v=v, vp="A", names=list(names), cm=5.0, main=False, link=False)
+        g = dict(nodes={"x": dict(kind="switch", label="35"), "y": dict(kind="switch", label="35"),
+                        "a": dict(kind="switch", label="1"), "b": dict(kind="switch", label="2*"),
+                        "e": dict(kind="end", label="9")},
+                 edges=[edge("e1", "x", "a"), edge("e2", "y", "b"), edge("e3", "x", "y"), edge("e4", "y", "e")])
+        self.assertEqual(edits.by_label(g, "35@1"), "x")
+        self.assertEqual(edits.by_label(g, "35@2"), "y")        # a moved switch's plain number
+        for ref in ("35@35", "35@9", "35@3"):                   # both halves, a track end, no neighbour
+            with self.assertRaises(SchematicError):
+                edits.by_label(g, ref)
+        g["edges"][1]["names"] = ["1"]                          # a track name comes before a neighbour's label
+        self.assertEqual(edits.by_label(g, "35@1"), "y")
+
     def test_section_filter_that_keeps_nothing_is_a_plan_error(self):
         from schematic import plan_reader
         import helpers, tempfile, os
