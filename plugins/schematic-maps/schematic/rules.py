@@ -16,10 +16,14 @@ R6 Ladder. A ladder is a chain of three or more switches (two or more links), ea
 
 R8 Straight level. Every other switch keeps its straight leg (B, the normal route) level and its diverging leg
    (C) sloped, so a switch off the main and outside a ladder is drawn as the part is built, not as the row search
-   happens to pack it. R5 and R6 win where they apply. A switch with no leg B (a wye), a loop's entry (the main on
-   both legs), a switch whose leg B is a loop's return or a crossover's diagonal (a short track to another switch's
-   leg C), or one that a ladder switch's link leads to (it carries the ladder on) is left to the search. A single
-   short link between two switches is no ladder: both keep their straight legs level.
+   happens to pack it. A half of a single crossover (core.crossover_halves: two switches of one number joined C to
+   C, or halves lettered A and B joined B to C) keeps its normal leg level instead, the one on its through track, not
+   its link to the other half: leg B when the halves join C to C, leg C for a half laid with its straight route on
+   the diagonal.
+   R5 and R6 win where they apply. A switch with no leg B (a wye), a loop's entry (the main on both legs), a
+   switch whose level leg is a loop's return or a crossover's diagonal (a short track to another switch's leg C, or a
+   single crossover's link), or one that a ladder switch's link leads to (it carries the ladder on) is left to the
+   search. A single short link between two switches is no ladder: both keep their straight legs level.
 
 All three are strong preferences, not pins. The row search keeps them unless breaking one makes the drawing tighter by
 more than `rule_weight` (default 2.0, the price of two rows of slope): a short loop entered with the main sloped,
@@ -27,6 +31,7 @@ or a ladder whose link runs level, can draw in fewer rows than the rule allows. 
 main or ladder rule gave way (R8 is not reported). A `level_leg` preference (layer 3) is a hard pin and overrides
 all three.
 """
+from .core import crossover_halves, through_leg
 
 DEFAULT_SETTINGS = dict(ladder_link_max_cm=40.0, long_track_cm=100.0, rule_weight=2.0)
 
@@ -110,36 +115,46 @@ def ladder_switches(band_or_nodes, opts=None, strands=None):
             if rungs.get(nxt, (None,))[0] == leg or (leg, n) in chained}
 
 
-def crossover_leg(nodes, strands, n, sid, opts=None):
-    """True when strand `sid` from switch `n` is a crossover's diagonal: a short track to another switch's diverging
-    leg C, so it climbs from one parallel track to the other and cannot be level. A short track to another switch's
-    straight leg B (two switches back to back on one through track) is no crossover."""
+def crossover_leg(nodes, strands, n, sid, opts=None, halves=None):
+    """True when strand `sid` from switch `n` is a crossover's diagonal: a single crossover's link (`halves`,
+    core.crossover_halves, when the caller has it), or a short track to another switch's diverging leg C, so it
+    climbs from one parallel track to the other and cannot be level. A short track to another switch's straight leg
+    B (two switches back to back on one through track), or to a single crossover half's normal leg, is no crossover."""
+    if halves is None:
+        halves = crossover_halves(nodes, strands)
+    if halves.get(n, (None, None, None))[2] == sid:
+        return True
     s = strands[sid]
     (u, up), (v, vp) = s["src"], s["dst"]
     other, port = (v, vp) if u == n else (u, up)
+    if other in halves:         # the far switch is a crossover half: only its link is a diagonal
+        return False
     return other != n and nodes[other]["kind"] == "switch" and port == "C" \
         and s["cm"] < setting(opts, "ladder_link_max_cm")
 
 
 def straight_pins(nodes, strands, opts=None, ladder=None):
-    """R8: {switch node: "B"} for every switch with a straight leg B that is not a loop's return or a crossover's
-    diagonal, and that is not the next switch of a ladder (reached by a ladder switch's link: it carries the ladder on,
-    so the row search places its legs). `ladder` is ladder_switches' result when the caller has it."""
+    """R8: {switch node: level leg} for every switch with legs A, B and C whose level leg (B, or a single crossover
+    half's normal leg: core.through_leg) is not a loop's return or a crossover's diagonal, and that is not the next
+    switch of a ladder (reached by a ladder switch's link: it carries the ladder on, so the row search places its
+    legs). `ladder` is ladder_switches' result when the caller has it."""
     if ladder is None:
         ladder = ladder_switches(nodes, opts, strands)
     in_ladder = {nxt for (n, _leg), nxt in links(nodes, strands, opts).items() if n in ladder}
+    halves = crossover_halves(nodes, strands)
     pins = {}
     for n, d in nodes.items():
         if d["kind"] != "switch" or n in in_ladder:
             continue
         legs = leg_strands(nodes, n)
-        if "A" not in legs or "B" not in legs or "C" not in legs or is_loop_return(strands, legs["B"], opts):
+        level = through_leg(halves[n][0]) if n in halves else "B"
+        if "A" not in legs or "B" not in legs or "C" not in legs or is_loop_return(strands, legs[level], opts):
             continue
         if strands[legs["B"]]["main"] and strands[legs["C"]]["main"]:
             continue                        # a loop's entry: the main uses both legs, and R5 leaves it to the search
-        if crossover_leg(nodes, strands, n, legs["B"], opts):
-            continue                        # the straight leg is a crossover's diagonal
-        pins[n] = "B"
+        if crossover_leg(nodes, strands, n, legs[level], opts, halves):
+            continue                        # the level leg is a crossover's diagonal
+        pins[n] = level
     return pins
 
 

@@ -16,20 +16,24 @@ two switches gets a second cell in its grid column (widened_columns), so their O
 its crossing on the edge between the rows. shown(P) is the cells CATS lays out on screen; check_fit tests it.
 
 Blocks: one per strand (its track name, or the two switch numbers it joins), one OS block per switch (shared by
-switches of the same number joined by a track), reaching one step past the points on every leg (further where a
+switches labelled alike joined by a track, such as a single crossover's halves; halves lettered A and B keep one
+each, as on the Layout Editor panel), reaching one step past the points on every leg (further where a
 compact panel slides a mast's gap), so no block boundary falls on a points or crossing edge. A double crossover is
 a block per corner and one for the middle of its X (OS <number>a to d and OS <number> X; see cats_bind.py), its X
 drawn two cells deep, unless bound to one OS block. Each switch's points carry two ROUTEINFO, normal being leg B (the
-straight leg as the band records it). No IOSPEC is written: binding sensors and turnouts is left to the Designer
-or a later pass. Link ends with the same letter, and helix ends of the same track, on two drawn bands are joined
-logically (SHARED); a helix track joined so is one block, or with `helix_blocks="apart"` a block on each band, parted
-at the join. Other ends get a label saying where they go. A turnback joining two tracks of different names
-is two blocks, parted in the middle of its vertical run.
+straight leg as the band records it), or for a half of a single crossover (core.crossover_halves: two switches of one
+number joined C to C, or halves lettered A and B joined B to C) its leg that is not the link to the other half, so
+normal puts both halves on their through tracks; a binding's `normal` overrides either. No IOSPEC is written:
+binding sensors and turnouts is left to the Designer or a later pass. Link ends with the same letter, and helix ends
+of the same track, on two drawn bands are joined logically (SHARED); a helix track joined so is one block, or with
+`helix_blocks="apart"` a block on each band, parted at the join. Other ends get a label saying where they go. A
+turnback joining two tracks of different names is two blocks, parted in the middle of its vertical run.
 """
 import math
 from collections import defaultdict
 
-from .core import XOVER_ONE, SchematicError, dx_tracks, node_ref, xover_names
+from .core import (XOVER_ONE, SchematicError, crossover_halves, crossover_notes, dx_tracks, node_ref, through_leg,
+                   xover_names)
 from .layout import paths
 
 # The work is split by what it touches; this module keeps panel() and re-exports every name the one-file module had,
@@ -100,6 +104,9 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
 
     for bi, (title, band, opts) in enumerate(bands):
         nodes, strands, x = band["nodes"], band["strands"], band["x"]
+        said = []
+        xhalves = crossover_halves(nodes, strands, said)  # single crossover half -> (link leg, other half, track)
+        P.log.extend(f"{title}: {m}" for m in said + crossover_notes(nodes, xhalves))
         drawn = paths(band)
         if not any(drawn.values()):
             raise SchematicError(f"{title}: the band draws no track")
@@ -355,7 +362,8 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
                 raise SchematicError(f"switch {d.get('label') or n}: legs B and C do not leave the points on one side")
             cell, edge = frog
             routes, ports = [], {}
-            normal = sw_bind.get((bi, n), {}).get("normal", "B")
+            # a single crossover half is normal on its through leg (the one that is not its link to the other half)
+            normal = sw_bind.get((bi, n), {}).get("normal", through_leg(xhalves[n][0]) if n in xhalves else "B")
             for port in ("B", "C"):
                 a, b = legs[port]
                 track = next(t for c_, t in step_pieces(a, b) if c_ == cell)
