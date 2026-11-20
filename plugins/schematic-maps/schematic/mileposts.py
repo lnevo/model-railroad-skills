@@ -3,7 +3,10 @@
 Layer 1 (facts the plan does not hold):
     milepost_origin   {"switch": "1", "milepost": 0.0}   the switch where the count starts, and its number
     scale_ratio       87.1                               the model scale (HO); one model inch is that many real inches
-    helix_length_in   690 or {"Track name": 690, ...}    track length through a helix, to carry the count between levels
+    helix_length_in   690 or {"Track name": 690, ...}    track length through a helix, to carry the count between levels;
+                      not needed where both ends of a helix track are plan cuts (track ends marked `cut`, the
+                      height a plan read parted the levels at): the levels' graphs hold the whole run, so the count
+                      carries straight on. A length given for such a track is still added.
     milepost_route    [[a, b], [a, b, "direct"], ...]    the way the count runs, like main_route (default: main_route)
 Layer 3 (the look): `mileposts` true, or {"step": 0.25}. Off by default; with it off nothing is computed or drawn.
 
@@ -168,6 +171,12 @@ def compute(graphs, optlist):
         lengths = {k: _number(helix_in, "helix_length_in", True) for k in ends}
     else:
         lengths = {}
+    for name, group in ends.items():            # cut from one plan run at the height that parts the levels: the
+        cut = [graphs[i]["nodes"][n].get("cut") for i, n in group]      # levels' own track holds all of it
+        if name not in lengths and len(group) > 1 and all(c is not None for c in cut):
+            if len(set(cut)) > 1:
+                raise SchematicError(f"helix track {name} is cut at different heights on its levels: {sorted(set(cut))}")
+            lengths[name] = 0.0
     tables = [{"edges": {}, "origin": None} for _ in graphs]
     adjs = [_adjacency(g) for g in graphs]
     inches = [edge_inches(g, capacity.measured(o)) for g, o in zip(graphs, optlist)]
