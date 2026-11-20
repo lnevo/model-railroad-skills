@@ -639,6 +639,163 @@ class ReviewFixes(unittest.TestCase):
         self.assertGreaterEqual(P.size[0], box[2])
 
 
+def a_turnout(c=(10.0, 8.0), kind="RH_TURNOUT"):
+    """A turnout whose legs meet at 0, 0: A to the west, B level to the east, C at `c`."""
+    return {"ident": "T1", "type": kind, "at": (0.0, 0.0), "pts": {"A": (-10.0, 0.0), "B": (10.0, 0.0), "C": c}}
+
+
+class FrogSpots(unittest.TestCase):
+    """A plain turnout's switch number may stand in its frog: the wedge between its two legs, past where they meet."""
+
+    def test_the_frog_is_the_wedge_between_legs_b_and_c(self):
+        at, u, v = le_labels.frog_of(a_turnout())
+        self.assertEqual(at, (0.0, 0.0))
+        self.assertEqual(u, (1.0, 0.0))
+        self.assertAlmostEqual(math.hypot(*v), 1.0)
+        for kind in ("RH_XOVER", "LH_XOVER", "DOUBLE_XOVER"):
+            self.assertIsNone(le_labels.frog_of(a_turnout(kind=kind)))
+        self.assertIsNone(le_labels.frog_of(a_turnout(c=(20.0, 0.0))))     # legs on one line: no wedge
+
+    def test_a_missing_or_empty_leg_stops(self):
+        t = a_turnout()
+        del t["pts"]["C"]
+        with self.assertRaisesRegex(SchematicError, "no leg C"):
+            le_labels.frog_of(t)
+        with self.assertRaisesRegex(SchematicError, "leg C ends where its legs meet"):
+            le_labels.frog_of(a_turnout(c=(0.0, 0.0)))
+
+    def test_every_frog_spot_stands_past_the_points_on_the_wedges_side_of_its_leg(self):
+        w, h = 30, 12
+        frog = le_labels.frog_of(a_turnout())          # B east, C down and east: the wedge is below B, above C
+        spots = le_labels.frog_spots(frog, w, h)
+        self.assertEqual(len(spots), 2 * len(le_labels.FROG_GAPS) * len(le_labels.FROG_ALONG))
+        bands = [band for band, _xy in spots]
+        self.assertEqual(bands, sorted(bands))                  # nearest first
+        self.assertTrue(set(bands) <= set(le_labels.AROUND))
+        self.assertEqual(spots[0], (le_labels.FROG_GAPS[0], (0.0, le_labels.FROG_GAPS[0])))  # against B, at the points
+        c = frog[2]
+        for _band, (x, y) in spots:
+            corners = [(x, y), (x + w, y), (x, y + h), (x + w, y + h)]
+            beside_b = all(cy >= le_labels.FROG_GAPS[0] - 1e-9 for _cx, cy in corners)   # below leg B's line
+            beside_c = all(cx * -c[1] + cy * c[0] <= -le_labels.FROG_GAPS[0] + 1e-9 for cx, cy in corners)  # above C's
+            self.assertTrue(beside_b or beside_c, (x, y))
+            self.assertTrue(all(cx >= -1e-9 for cx, _cy in corners), (x, y))     # past the points, not behind them
+
+    def test_a_plain_turnouts_number_tries_its_frog_after_arounds_spots_of_each_distance(self):
+        L = mock.Mock()
+        L.boxes.near.return_value = []
+        t = dict(a_turnout(), band=0)
+        L.bands = [("Band", {}, {})]
+        L.halves.return_value = {None: (0.0, 0.0)}
+        L.item.return_value = dict(w=30, h=12)
+        _it, spots, _commit = le_labels._switch_number(L, t, "8", dict(le_labels.DEFAULTS))(
+            dict(number_side={}, name_side={}))
+        spots = list(spots)
+        frog = le_labels.frog_of(t)
+        self.assertEqual(spots, list(le_labels.switch_spots((0.0, 0.0), 30, 12, True, frog, [])))   # C runs down
+        ranked = list(le_labels.around((0.0, 0.0, 0.0, 0.0), 30, 12, True, dists=le_labels.AROUND[:1]))
+        self.assertEqual(spots[:len(ranked)], ranked)               # around's own first, as ranked before
+        frog_first = [xy for band, xy in le_labels.frog_spots(frog, 30, 12) if band == le_labels.AROUND[0]]
+        self.assertEqual(spots[len(ranked):len(ranked) + len(frog_first)], frog_first)
+
+    def test_a_crossovers_number_keeps_around_its_crossover(self):
+        L = mock.Mock()
+        pts = {"A": (0.0, 0.0), "B": (40.0, 0.0), "C": (40.0, 20.0), "D": (0.0, 20.0)}
+        t = {"ident": "X", "type": "RH_XOVER", "at": (20.0, 10.0), "pts": pts, "band": 0}
+        L.bands = [("Band", {}, {})]
+        L.halves.return_value = {"AB": (20.0, 0.0), "DC": (20.0, 20.0)}
+        L.item.return_value = dict(w=30, h=12)
+        _it, spots, _commit = le_labels._switch_number(L, t, "7", dict(le_labels.DEFAULTS))(
+            dict(number_side={}, name_side={}))
+        self.assertEqual(list(spots), list(le_labels.around((0.0, 0.0, 40.0, 20.0), 30, 12, True)))
+        L.boxes.near.assert_not_called()
+
+
+class StackedSpots(unittest.TestCase):
+    """A plain turnout's switch number may stack further out on a side, past a mast icon or label standing there."""
+
+    def test_a_spot_stacks_past_an_obstacle_above_or_below_in_its_column(self):
+        w, h = 30, 12
+        above = (-10, -20, 30, -8)              # a mast icon above the points
+        below = (5, 6, 25, 14)
+        aside = (100, -20, 120, -8)             # out of the column a number near the points takes
+        across = (-5, -4, 5, 4)                 # on the points' own line
+        spots = le_labels.beyond_spots((0.0, 0.0), w, h, [above, below, aside, across])
+        ups = {xy for _b, up, xy in spots if up}
+        downs = {xy for _b, up, xy in spots if not up}
+        top = above[1] - le_labels.PAD - 1 - h
+        self.assertIn((-w / 2, top), ups)                       # centred on the points
+        self.assertIn(((above[0] + above[2] - w) / 2, top), ups)   # centred over the obstacle
+        self.assertIn((above[0], top), ups)
+        self.assertIn((-w / 2, below[3] + le_labels.PAD + 1), downs)
+        self.assertEqual(len(spots), 16)                        # eight each: nothing for aside or across
+        for band, up, (x, y) in spots:
+            gap = -(y + h) if up else y
+            self.assertEqual(band, next(d for d in le_labels.AROUND if d >= gap))
+        self.assertEqual([b for b, _u, _xy in spots], sorted(b for b, _u, _xy in spots))
+
+    def test_an_obstacle_too_far_out_gives_no_spot_and_a_bad_box_stops(self):
+        far = (-10, -200, 10, -190)
+        self.assertEqual(le_labels.beyond_spots((0.0, 0.0), 30, 12, [far]), [])
+        with self.assertRaisesRegex(SchematicError, "no width or height"):
+            le_labels.beyond_spots((0.0, 0.0), 30, 12, [(0, 0, 0, 5)])
+
+    def test_a_stacked_spot_ranks_with_its_distance_side_tried_first_first(self):
+        w, h = 30, 12
+        obstacles = [(-10, -20, 30, -8), (-10, 8, 30, 20)]       # one above, one below: both 21 px out
+        spots = list(le_labels.switch_spots((0.0, 0.0), w, h, False, None, obstacles))
+        stacked = le_labels.beyond_spots((0.0, 0.0), w, h, obstacles)
+        first_down = next(xy for _b, up, xy in stacked if not up)
+        first_up = next(xy for _b, up, xy in stacked if up)
+        self.assertLess(spots.index(first_down), spots.index(first_up))
+        d = stacked[0][0]
+        self.assertEqual(spots.index(first_down), len(list(le_labels.around((0, 0, 0, 0), w, h, False,
+                                                                             dists=le_labels.AROUND[:le_labels.AROUND.index(d) + 1]))))
+
+    def test_on_the_example_every_plain_turnouts_number_reads_as_its_own_and_the_check_passes(self):
+        # with around's own spots all held, every plain turnout's number stands in its frog or stacked past
+        # something, on the drawn panel, and the check passes
+        real = le_labels.around
+
+        def only_new(region, w, h, up_first, dists=le_labels.AROUND, more=None):
+            if more is None:
+                yield from real(region, w, h, up_first, dists)
+                return
+            for d in dists:
+                yield from more(d)
+        with mock.patch.object(le_labels, "around", only_new):
+            P = le.panel(bands())
+        frogs = {t["ident"]: le_labels.frog_of(t) for t in P.turnouts}
+        L = le_labels.Layer(P, bands(), le_labels.options(bands(), None))
+        marks = [(p, t["ident"]) for t in P.turnouts for p in L.halves(t).values()]
+        framed = 0
+        for lb in P.labels:
+            if lb["kind"] != "switch":
+                continue
+            box = le_labels.box_of(*lb["box"])
+            mine = [t for t in P.turnouts if bands()[t["band"]][1]["nodes"][t["nodes"][0]].get("label") == lb["text"]]
+            near = min(marks, key=lambda m: le_labels.point_gap(box, m[0]))
+            self.assertIn(near[1], [t["ident"] for t in mine], lb["text"])
+            frog = frogs[mine[0]["ident"]]
+            if frog:
+                (cx, cy), (at, u, v) = le_labels.centre(box), frog
+                q = (cx - at[0], cy - at[1])
+                framed += (u[0] * q[1] - u[1] * q[0]) * (u[0] * v[1] - u[1] * v[0]) > 0 and \
+                    (v[0] * q[1] - v[1] * q[0]) * (v[0] * u[1] - v[1] * u[0]) > 0
+        self.assertGreater(framed, 0)
+        le_labels.verify(P)
+
+
+def passing_x(P, w):
+    """A left edge for a w px item of block Passing: its middle 16 px west of the middle of the block's longest
+    level piece, where a given x has its own track under it."""
+    L = le_labels.Layer(P, bands(), le_labels.options(bands(), None))
+    pieces = [pc for s in P.segments if s["block"] == "Passing" for pc in L.pieces.get(("seg", s["ident"]), [])
+              if abs(pc[0][1] - pc[1][1]) < 1e-6]
+    a, b = max(pieces, key=lambda pc: abs(pc[1][0] - pc[0][0]))
+    return round((a[0] + b[0]) / 2 - 16 - w / 2)
+
+
 class Extras(unittest.TestCase):
     EXTRAS = [{"id": "Passing cluster", "block": "Passing", "size": [82, 20]},
               {"id": "OS 4 cluster", "block": "OS 4", "size": [40, 20]}]
@@ -663,9 +820,7 @@ class Extras(unittest.TestCase):
             le.panel(bands(), extras=[{"id": "Huge", "block": "Passing", "size": [5000, 400]}])
 
     def test_a_callers_item_at_a_given_x(self):
-        P = le.panel(bands(), extras=self.EXTRAS)
-        first = next(e for e in P.extras if e["id"] == "Passing cluster")
-        want = dict(self.EXTRAS[0], x=first["box"][0] - 16)
+        want = dict(self.EXTRAS[0], x=passing_x(le.panel(bands(), extras=self.EXTRAS), 82))
         Q = le.panel(bands(), extras=[want] + list(self.EXTRAS[1:]))
         got = next(e for e in Q.extras if e["id"] == "Passing cluster")
         self.assertEqual(got["box"][0], round(want["x"]))

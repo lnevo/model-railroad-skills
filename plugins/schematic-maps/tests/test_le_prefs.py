@@ -9,6 +9,7 @@ import helpers  # noqa: F401  (puts the plugin on the path)
 from schematic import le, le_labels, le_prefs
 from schematic.core import SchematicError
 from test_le import bands
+from test_le_labels import passing_x
 
 
 def with_prefs(key, **prefs):
@@ -260,8 +261,7 @@ class ExtraSteps(unittest.TestCase):
 
     def test_the_panel_is_drawn_again_with_the_stepped_items_at_their_x(self):
         extras = [{"id": "Passing cluster", "block": "Passing", "size": [82, 20]}]
-        first = le.panel(bands(), extras=extras)
-        x = first.extras[0]["box"][0] - 16
+        x = passing_x(le.panel(bands(), extras=extras), 82)
         with mock.patch.object(le_prefs, "extra_steps", return_value={"Passing cluster": x}) as steps, \
                 mock.patch.object(le_prefs, "check_steps") as check:
             P = le.panel(bands(), extras=extras)

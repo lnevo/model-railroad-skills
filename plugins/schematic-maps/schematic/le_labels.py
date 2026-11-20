@@ -12,7 +12,8 @@ shape, mast icon or the panel's size differs afterwards. Items, placed in this o
 before it (and the mast icons, band titles, helix and connector labels and circles, which stay where they are):
   switch numbers   one per turnout: the switch's label (a single crossover's: its crossover number, once), with
                    `switch_prefix` before it, around where its legs meet
-                   (first on the side away from its diverging leg)
+                   (first on the side away from its diverging leg); a plain turnout's also in its frog and stacked
+                   past a mast icon or label that stands by it
   track names      one per named track, beside its track, as near the track's middle as is clean
   block contents   with `block_contents` (on by default), one BlockContentsIcon per block on the panel, which shows
                    the train in the block: a track block's beside its own track (first on the side its track's name
@@ -40,7 +41,14 @@ its default icon (a small red X) while the block has none; a background would pa
 the rail for one standing on its track.
 
 Spots. Each item tries spots in ranked order and takes the first clean one. Around a turnout: above and below it
-(centred, then a quarter and half a box either way), then left and right of it, AROUND px out, nearest first.
+(centred, then a quarter and half a box either way), then left and right of it, AROUND px out, nearest first. A
+plain turnout's switch number (not a crossover's) tries two more kinds after those of each distance, ranked by the
+same distance (the box's gap from where the legs meet, or from the leg it stands against): in its frog, the wedge
+between its two legs past where they meet, the box against either leg FROG_GAPS px off it and FROG_ALONG px along
+it; then stacked past a mast icon or label that stands above or below the turnout in the column the number would
+take, PAD px further out than it (centred on the turnout, shifted as above, or over the obstacle), first on the
+side tried first. Both are judged as any spot: a frog spot over the other leg, or nearer another turnout, is not
+clean.
 Beside a track: above and below it, then left and right of it, GAPS px from its line, from the middle of its length
 outward STEP px at a time, the box centred on the spot or reaching on from it either way (a curve or a short track
 takes whatever part is clean); only when none of those is clean, a block's icon may stand REACH px past its own
@@ -135,6 +143,8 @@ STEP = 8            # px between the spots tried along a track or a band
 END = 4             # px a box reaching on along its track keeps over the spot it was tried at
 REACH = (8, 16, 24, 32, 40)     # px past the spot a block's icon may stand, beside the rest of its track, at last
 STATION_SLIDE = 240     # px a station's name may slide either way from the middle of its switches
+FROG_GAPS = (3, 6, 10, 15, 21, 28)                  # px off a leg's line, in a turnout's frog
+FROG_ALONG = tuple(range(0, 49, 4))                 # px along the leg from where the legs meet, in its frog
 ROUNDS = 8          # rounds of placing, each with the items that found no spot before put first
 LOG_MOVE = 12       # px from its first spot past which a spot taken is logged
 OVERLAP = 0.5       # px two boxes must overlap by to count, in the check
@@ -536,9 +546,10 @@ class Layer:
                     h=jmri_text.height(size, bold) if h is None else h)
 
 
-def around(region, w, h, up_first, dists=AROUND):
+def around(region, w, h, up_first, dists=AROUND, more=None):
     """Top-left corners of a w x h box around region (x0, y0, x1, y1): above and below (centred, then a quarter
-    and half a box either way), then left and right, each distance out in turn."""
+    and half a box either way), then left and right, each distance out in turn; then more(d)'s spots, if given, for
+    that distance (switch_spots)."""
     x0, y0, x1, y1 = region
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     for d in dists:
@@ -550,6 +561,100 @@ def around(region, w, h, up_first, dists=AROUND):
             x = x0 - d - w if left else x1 + d
             for y in (cy - h / 2, y0 - h - d / 2, y1 + d / 2):
                 yield x, y
+        if more is not None:
+            yield from more(d)
+
+
+def frog_of(t):
+    """(points, unit along leg B, unit along leg C) of a plain turnout or wye: the wedge between its two legs, past
+    where they meet. None for a crossover (its number goes around the whole crossover) or legs drawn on one line
+    (no wedge between them). Stops on a leg missing or drawn with no length."""
+    if "XOVER" in t["type"]:
+        return None
+    at = tuple(t["at"])
+    units = []
+    for k in "BC":
+        p = t["pts"].get(k)
+        if p is None:
+            raise SchematicError(f"turnout {t['ident']} ({t['type']}): no leg {k} drawn")
+        L = math.dist(at, p)
+        if L < 1e-6:
+            raise SchematicError(f"turnout {t['ident']}: its leg {k} ends where its legs meet")
+        units.append(((p[0] - at[0]) / L, (p[1] - at[1]) / L))
+    cross = units[0][0] * units[1][1] - units[0][1] * units[1][0]
+    if abs(cross) < 1e-6:
+        return None
+    return at, units[0], units[1]
+
+
+def frog_spots(frog, w, h):
+    """[(band, (x, y))]: top-left corners of a w x h box in the wedge between the legs of `frog` (frog_of), past
+    where they meet: against each leg in turn, FROG_GAPS px off its line on the other leg's side, FROG_ALONG px
+    along it, the box's corner nearest that line on the spot, so the whole box stands on the wedge's side of it.
+    `band` is the AROUND distance (the first not under the gap) the spot ranks with; nearest first."""
+    at, legs = frog[0], (frog[1], frog[2])
+    out = []
+    for i, u in enumerate(legs):
+        other = legs[1 - i]
+        n = (-u[1], u[0])
+        if n[0] * other[0] + n[1] * other[1] < 0:
+            n = (u[1], -u[0])
+        # the box's corner least far along n (ties: least far along u), as an offset from its top left
+        corner = min(((0, 0), (w, 0), (0, h), (w, h)),
+                     key=lambda c: (round(c[0] * n[0] + c[1] * n[1], 9), c[0] * u[0] + c[1] * u[1]))
+        for g in FROG_GAPS:
+            for s in FROG_ALONG:
+                q = (at[0] + u[0] * s + n[0] * g, at[1] + u[1] * s + n[1] * g)
+                band = next(d for d in AROUND if d >= g)       # FROG_GAPS stay within AROUND
+                out.append((band, math.hypot(s, g), (q[0] - corner[0], q[1] - corner[1])))
+    out.sort(key=lambda o: (o[0], o[1]))
+    return [(band, xy) for band, _dist, xy in out]
+
+
+def beyond_spots(at, w, h, obstacles):
+    """[(band, up, (x, y))]: top-left corners of a w x h box stacked past each box in `obstacles` (x0, y0, x1, y1)
+    that stands wholly above or below the point `at` and spans the column a box near it would take (within w px of
+    it either way): PAD px further out than the obstacle on its side, centred on `at`, a quarter and half a box
+    either way, then over the obstacle (centred, flush with either end). `band` is the AROUND distance the spot
+    ranks with, the first not under the box's gap from `at`; a spot further out than AROUND's last is not given."""
+    x, y = at
+    out = []
+    for ob in obstacles:
+        if ob[2] <= ob[0] or ob[3] <= ob[1]:
+            raise SchematicError(f"le labels: an obstacle box {ob!r} has no width or height")
+        if ob[2] < x - w or ob[0] > x + w:          # not in the column a box near `at` takes
+            continue
+        if ob[3] <= y:
+            up, top = True, ob[1] - PAD - 1 - h
+            gap = y - (top + h)
+        elif ob[1] >= y:
+            up, top = False, ob[3] + PAD + 1
+            gap = top - y
+        else:                                       # across the point's own line: nothing to stack past
+            continue
+        if gap > AROUND[-1]:
+            continue
+        band = next(d for d in AROUND if d >= gap)
+        for left in [x - w / 2 + dx for dx in (0, -w / 4, w / 4, -w / 2, w / 2)] + \
+                [(ob[0] + ob[2] - w) / 2, ob[0], ob[2] - w]:
+            out.append((band, up, (left, top)))
+    out.sort(key=lambda o: o[0])
+    return out
+
+
+def switch_spots(at, w, h, up_first, frog=None, obstacles=()):
+    """Top-left corners of a w x h switch number around a plain turnout's points `at`: around's spots, ranked as
+    there, and after those of each distance the new kinds of that distance (their band): in its frog (frog_spots,
+    when `frog` is given), then stacked past a mast icon or label that stands there (beyond_spots), on the side
+    tried first, then the other."""
+    frogs = frog_spots(frog, w, h) if frog else []
+    stacks = beyond_spots(at, w, h, obstacles)
+
+    def more(d):
+        yield from (xy for band, xy in frogs if band == d)
+        yield from (xy for band, up, xy in stacks if band == d and up == up_first)
+        yield from (xy for band, up, xy in stacks if band == d and up != up_first)
+    return around((*at, *at), w, h, up_first, more=more)
 
 
 def spots_along(lines):
@@ -909,16 +1014,24 @@ def _switch_number(L, t, text, o, below=False):
         region = (*t["at"], *t["at"])
         up = not below and diverges_down(t)     # the side away from the diverging leg first
     marks = [(t["ident"], k) for k in L.halves(t)]
+    frog = frog_of(t)
 
     def make(state, short=False):
         if short is True:
             return None
         it = L.item("a switch number", what, text, o["switch_size"], o["switch_bold"], marks=marks)
+        if "XOVER" in t["type"]:
+            spots = around(region, it["w"], it["h"], up)
+        else:       # a plain turnout's: also in its frog, and stacked past the mast icons and labels standing by it
+            here = box_of(*t["at"], 0, 0)
+            obstacles = [b for b, (_what, kind) in L.boxes.near(here, AROUND[-1] + it["w"] + it["h"])
+                         if kind != "a circle"]
+            spots = switch_spots(tuple(t["at"]), it["w"], it["h"], up, frog, obstacles)
 
         def commit(box):
             state["number_side"][t["ident"]] = "above" if centre(box)[1] < (region[1] + region[3]) / 2 else "below"
             return _label_dict(it, box, "switch", t["band"])
-        return it, around(region, it["w"], it["h"], up), commit
+        return it, spots, commit
     return make
 
 
