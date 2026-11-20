@@ -625,6 +625,7 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
     and what a band placed stands for the bands after it (so a band's labels do not depend on the bands below it).
     Strict, an item left with none stops; else it is listed in P.labels_unplaced."""
     P.labels = [lb for lb in P.labels if lb["kind"] in FIXED]     # the rest only kept their room in the drawing
+    settle_end_labels(P)
     L = Layer(P, bands, opts)
     extras = check_extras(extras, P.blocks)
     items = specs(P, bands, opts, L, extras)
@@ -1255,6 +1256,55 @@ def _stations(P, L, bi, title, bopts):
 FIXED = ("title", "end")        # the labels le draws itself (band titles; helix and connector ends)
 
 
+def track_ink(P, world=None):
+    """A Grid of every drawn track line, turnout leg and control circle: (a, b, what, block); b is None for a
+    circle, block None but for a track line."""
+    from . import le_masts
+    world = world or le_masts.World(le_masts.PanelView(P))
+    block_of = {s["ident"]: s["block"] for s in P.segments}
+    ink = Grid()
+    for sid, pieces in world.track.items():
+        for a, b in pieces:
+            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])), (a, b, "a track",
+                                                                                        block_of[sid]))
+    for cen, lines in world.bodies.values():
+        for a, b in lines:
+            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])),
+                    (a, b, "a turnout's legs", None))
+        ink.add(box_of(cen[0], cen[1], 0, 0), (cen, None, "a turnout's control circle", None))
+    return ink
+
+
+def fixed_on_line(ink, box):
+    """What line a fixed label's box lies on (verify's test for a label le drew itself), or None."""
+    for _b, (a, b, on, _blk) in ink.near(box, max(1.0, TURNOUT_R)):
+        if b is not None and within(a, b, box, 1.0):
+            return on
+    return None
+
+
+def settle_end_labels(P):
+    """An end's label that lies on a track at its own spot (a helix end's beside its circle) takes the first of its
+    other spots (`alts`: above, then below the circle) that lies on none and overlaps no other label le drew itself,
+    logged. One with no clear spot stays, and the check names it. Labels with no other spot are not touched, so a
+    panel whose end labels were clear is drawn as before."""
+    if not any(lb.get("alts") for lb in P.labels):
+        return
+    ink = track_ink(P)
+    for lb in P.labels:
+        alts = lb.pop("alts", None)
+        if not alts or fixed_on_line(ink, label_box(lb)) is None:
+            continue
+        others = [label_box(o) for o in P.labels if o is not lb]
+        for xy in alts:
+            box = label_box(dict(lb, xy=list(xy)))
+            if fixed_on_line(ink, box) is None and not any(boxes_overlap(box, o, -OVERLAP) for o in others):
+                P.log.append(f"label {lb['text']!r} lay on a track beside its end: drawn at {round(xy[0])}, "
+                             f"{round(xy[1])} instead")
+                lb["xy"] = list(xy)
+                break
+
+
 def verify(P):
     """From scratch: every label and block contents icon lies inside the panel, and none le_labels placed over a
     helix or connector circle; no two of the labels, block contents
@@ -1274,7 +1324,6 @@ def verify(P):
             raise SchematicError(f"le labels: {what} lies outside the {P.size[0]}x{P.size[1]} px panel")
     standing = {f"block contents of {b['block']}": b["block"] for b in P.bcis if b.get("on_track")}
     standing.update({f"item {e['id']}": e["block"] for e in getattr(P, "extras", []) if e.get("on_track")})
-    block_of = {s["ident"]: s["block"] for s in P.segments}
     things += [(box_of(*m["box"]), f"mast {m['mast']}'s icon", "mast") for m in P.masts]
     seen = Grid()
     for i, (box, what, kind) in enumerate(things):
@@ -1284,16 +1333,7 @@ def verify(P):
             if boxes_overlap(box, other, -OVERLAP):
                 raise SchematicError(f"le labels: {what} overlaps {things[j][1]}")
         seen.add(box, i)
-    ink = Grid()
-    for sid, pieces in world.track.items():
-        for a, b in pieces:
-            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])), (a, b, "a track",
-                                                                                        block_of[sid]))
-    for cen, lines in world.bodies.values():
-        for a, b in lines:
-            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])),
-                    (a, b, "a turnout's legs", None))
-        ink.add(box_of(cen[0], cen[1], 0, 0), (cen, None, "a turnout's control circle", None))
+    ink = track_ink(P, world)
     shapes = [(tuple(sh["centre"]), sh["r"]) for sh in P.shapes]
     for box, what, kind in things:
         if kind in ("mast", "lamp"):        # a lamp stands on its own track on purpose

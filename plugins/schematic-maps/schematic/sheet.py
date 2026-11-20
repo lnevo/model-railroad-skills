@@ -117,6 +117,10 @@ def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
         if conflicts and line not in log:   # build_input runs again in each room round: say it once
             log.append(line)
     out = []
+    named = {n for e in g["edges"] for n in e["names"]}
+    lost = sorted(set(layout.turnback_names(opts)) - named)
+    if lost:
+        raise SchematicError(f"{name}: turnbacks names {', '.join(lost)}, which no track of this input has")
     for title, sub in level_bands(g, opts, name):
         w = []
         band = layout.layout(sub, opts, w)

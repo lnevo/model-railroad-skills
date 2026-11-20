@@ -3,7 +3,7 @@ import collections  # noqa: F401
 import itertools
 
 from .columns import Unsettled, overlaps, place, spans
-from .core import JUNCTION, dedupe  # noqa: F401
+from .core import JUNCTION, SchematicError, dedupe  # noqa: F401
 from . import rules
 from .orient import build, columns, orient
 from .rows import Rows
@@ -11,10 +11,32 @@ from .sweep import sweep
 
 
 
+def turnback_names(opts):
+    """The `turnbacks` preference (layer 3): track names each drawn as a turnback, checked."""
+    names = opts.get("turnbacks") or ()
+    if not isinstance(names, (list, tuple)) or not all(isinstance(n, str) and n for n in names):
+        raise SchematicError(f"turnbacks must be a list of track names, not {names!r}")
+    return list(names)
+
+
+def wanted_turnbacks(g, opts):
+    """The edges of this band that the `turnbacks` preference names, each to be drawn as a turnback."""
+    names = turnback_names(opts)
+    return {e["id"] for e in g["edges"] if any(n in e["names"] for n in names)}
+
+
 def layout(g, opts, warnings):
-    """Try the cheapest few orientations and keep the drawing with the fewest faults."""
+    """Try the cheapest few orientations and keep the drawing with the fewest faults. Tracks named in the
+    `turnbacks` preference are turnbacks in every orientation tried."""
     best = None
-    for sig, T in orient(g):
+    need = wanted_turnbacks(g, opts)
+    found = orient(g, keep=10 ** 6) if need else orient(g)
+    if need:
+        found = [(sig, T) for sig, T in found if need <= set(T)][:10]
+        if not found:
+            names = sorted({n for e in g["edges"] if e["id"] in need for n in e["names"]})
+            raise SchematicError(f"no orientation draws {', '.join(names)} as turnbacks (preference turnbacks)")
+    for sig, T in found:
         w = []
         band = layout_one(g, sig, T, opts, w)
         pos = band["x"]

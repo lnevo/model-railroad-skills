@@ -321,12 +321,18 @@ class Panel:
         self.blocks.add(block)
         return ident
 
-    def label(self, text, xy, size=LABEL_SIZE, bold=False, anchor="centre", kind="end"):
+    def label(self, text, xy, size=LABEL_SIZE, bold=False, anchor="centre", kind="end", alts=()):
         """A label drawn with the track: `kind` "title" or "end" stays; "switch", "name" and "station" keep the
-        room the drawing makes for them, and le_labels then places them for real."""
+        room the drawing makes for them, and le_labels then places them for real. `alts`: other (xy, anchor) spots
+        for an end's label, taken in order by le_labels when its own lies on a track (settle_end_labels)."""
         w = room_width(text, size)
-        x = xy[0] - w / 2 if anchor == "centre" else xy[0] - w if anchor == "right" else xy[0]
-        self.labels.append(dict(text=text, xy=[x, xy[1]], size=size, bold=bold, band=self.cur, kind=kind))
+
+        def left(xy, anchor):
+            return [xy[0] - w / 2 if anchor == "centre" else xy[0] - w if anchor == "right" else xy[0], xy[1]]
+        lb = dict(text=text, xy=left(xy, anchor), size=size, bold=bold, band=self.cur, kind=kind)
+        if alts:
+            lb["alts"] = [left(a, an) for a, an in alts]
+        self.labels.append(lb)
 
 
 def room_width(text, size):
@@ -2297,6 +2303,8 @@ def shift(P, bi, dx, dy):
             lb["xy"] = move(lb["xy"])
             if "run" in lb:
                 lb["run"] = [move(q) for q in lb["run"]]
+            if "alts" in lb:
+                lb["alts"] = [move(q) for q in lb["alts"]]
 
 
 # The band geometry and the XML writing live in their own modules (split out of this one, unchanged); they
