@@ -642,7 +642,8 @@ class Band:
             centre = add(pts[0], out, HELIX_R)
             self.P.shapes.append(dict(ident=self.P.ident("SH"), centre=list(centre), r=HELIX_R, band=self.bi))
             tip = add(centre, out, HELIX_R + 4)
-            self.P.label(f"HELIX TO {to}".strip(), (tip[0], tip[1] - LABEL_SIZE / 2 - 1), LABEL_SIZE - 1, anchor=side)
+            self.P.label(f"HELIX TO {to}".strip(), (tip[0], tip[1] - LABEL_SIZE / 2 - 1), LABEL_SIZE - 1, anchor=side,
+                         around=(centre, HELIX_R))
         elif d.get("sub") == "link":        # the connector letter in a circle, where it goes above it
             centre = add(pts[0], out, HELIX_R)
             self.P.shapes.append(dict(ident=self.P.ident("SH"), centre=list(centre), r=HELIX_R, band=self.bi))

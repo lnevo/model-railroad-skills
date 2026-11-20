@@ -321,12 +321,16 @@ class Panel:
         self.blocks.add(block)
         return ident
 
-    def label(self, text, xy, size=LABEL_SIZE, bold=False, anchor="centre", kind="end"):
+    def label(self, text, xy, size=LABEL_SIZE, bold=False, anchor="centre", kind="end", around=None):
         """A label drawn with the track: `kind` "title" or "end" stays; "switch", "name" and "station" keep the
-        room the drawing makes for them, and le_labels then places them for real."""
+        room the drawing makes for them, and le_labels then places them for real. `around`: (centre, radius) of the
+        circle an end's label may move above or below when its own spot lies on a track (settle_end_labels)."""
         w = room_width(text, size)
         x = xy[0] - w / 2 if anchor == "centre" else xy[0] - w if anchor == "right" else xy[0]
-        self.labels.append(dict(text=text, xy=[x, xy[1]], size=size, bold=bold, band=self.cur, kind=kind))
+        lb = dict(text=text, xy=[x, xy[1]], size=size, bold=bold, band=self.cur, kind=kind)
+        if around:
+            lb["around"] = [list(around[0]), around[1]]
+        self.labels.append(lb)
 
 
 def room_width(text, size):
@@ -2297,6 +2301,8 @@ def shift(P, bi, dx, dy):
             lb["xy"] = move(lb["xy"])
             if "run" in lb:
                 lb["run"] = [move(q) for q in lb["run"]]
+            if "around" in lb:
+                lb["around"][0] = move(lb["around"][0])
 
 
 # The band geometry and the XML writing live in their own modules (split out of this one, unchanged); they

@@ -894,6 +894,21 @@ class Mileposts(unittest.TestCase):
         self.assertEqual(near, "h")
         self.assertAlmostEqual(at, 1.0 + 0.5)                 # one mile to the helix end, then the helix's half mile
 
+    def test_a_helix_cut_from_one_plan_run_carries_the_count_with_no_length(self):
+        from schematic import mileposts
+        graphs, opts = self.pair([["1", "Hx"]], [["Hx", "2"]])
+        for g in graphs:
+            g["nodes"]["h"]["cut"] = -5.0
+        t = mileposts.compute(graphs, opts)
+        near, at, miles, _ = t[1]["edges"]["a"]
+        self.assertEqual(near, "h")
+        self.assertAlmostEqual(at, 1.0)                       # the plan's two halves of the run meet at the cut
+        graphs[1]["nodes"]["h"]["cut"] = -6.0
+        with self.assertRaisesRegex(SchematicError, "different heights"):
+            mileposts.compute(graphs, opts)
+        graphs[1]["nodes"]["h"].pop("cut")                    # one end not cut: no length, the count stops at the helix
+        self.assertNotIn("a", mileposts.compute(graphs, opts)[1]["edges"])
+
     def test_a_helix_west_of_the_origin_counts_down(self):
         from schematic import mileposts
         graphs, opts = self.pair([["1", "Hx"]], [["Hx", "2"]], helix_length_in=50)

@@ -117,6 +117,7 @@ def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
         if conflicts and line not in log:   # build_input runs again in each room round: say it once
             log.append(line)
     out = []
+    layout.turnback_names(opts)         # its shape; check_turnbacks says whether some input has each track
     for title, sub in level_bands(g, opts, name):
         w = []
         band = layout.layout(sub, opts, w)
@@ -141,9 +142,20 @@ def in_order(per_input, optlist):
     return sorted((b for bands in per_input for b in bands), key=lambda b: rank.get(draw.band_key(b[0]), 9))
 
 
+def check_turnbacks(prepared, optlist, names):
+    """Stop when a `turnbacks` preference names a track that no input of the sheet has (a sheet-wide preference
+    reaches every input, so a track on one input only is fine)."""
+    have = {n for g in prepared for e in g["edges"] for n in e["names"]}
+    for o, name in zip(optlist, names):
+        lost = sorted(set(layout.turnback_names(o)) - have)
+        if lost:
+            raise SchematicError(f"{name}: turnbacks names {', '.join(lost)}, which no track of the sheet has")
+
+
 def build_bands(inputs, optlist, log):
     """The drawn bands, top to bottom: [(title, band, options)]."""
     tracks = sorted({v for o in optlist for v in o.get("helix", {}).values()})
+    check_turnbacks([prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)], optlist, [n for _, n in inputs])
     return in_order([build_input(g, name, o, tracks, log) for (g, name), o in zip(inputs, optlist)], optlist)
 
 
@@ -208,6 +220,7 @@ def solve(inputs, data, preferences=True, hints=False):
             o["mileposts"] = pref
     posts = [None] * len(inputs)
     prepared = [prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)]
+    check_turnbacks(prepared, optlist, [n for _, n in inputs])
     if pref is not None:
         posts = mileposts.compute(prepared, optlist)
     per = [build_input(g, name, o, tracks, logs[i], posts[i], prepared[i])

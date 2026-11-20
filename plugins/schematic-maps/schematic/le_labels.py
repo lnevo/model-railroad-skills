@@ -78,7 +78,7 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
     {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "name_steps": [], "lamp_columns": [],
-     "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
+     "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "crowded_block_contents": [], "extra_steps": [],
      "extra_follow": [], "hidden_names": []}
 A band's options, each over the one before: DEFAULTS, the page's `le_labels`, the band's own `le_labels`, and its
 entry of the band preference `le_band_labels` ({band key: le_labels object}, le_prefs: for one preferences file that
@@ -144,7 +144,7 @@ DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "name_steps": [],
             "lamp_columns": [],
-            "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "extra_steps": [],
+            "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "crowded_block_contents": [], "extra_steps": [],
             "extra_follow": [], "hidden_names": []}
 # a band's own le_labels keys: the page's may not set them
 BAND_ONLY = ("names_last", "extra_steps", "extra_follow", "hidden_names")
@@ -200,9 +200,9 @@ def _check(where, o):
             if moving:
                 raise SchematicError(f"{where}: le_labels: extra_follow's leader {', '.join(moving)} is itself "
                                      "stepped or follows; a leader must stand where the label layer puts it")
-        elif k in ("numbers_below", "optional_block_contents", "hidden_names"):
+        elif k in ("numbers_below", "optional_block_contents", "crowded_block_contents", "hidden_names"):
             what = {"numbers_below": "switch numbers", "optional_block_contents": "block names",
-                    "hidden_names": "track names"}[k]
+                    "crowded_block_contents": "block names", "hidden_names": "track names"}[k]
             if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
                 raise SchematicError(f"{where}: le_labels: {k} must be a list of {what}, not {v!r}")
             if k == "hidden_names" and len(set(v)) != len(v):
@@ -625,6 +625,7 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
     and what a band placed stands for the bands after it (so a band's labels do not depend on the bands below it).
     Strict, an item left with none stops; else it is listed in P.labels_unplaced."""
     P.labels = [lb for lb in P.labels if lb["kind"] in FIXED]     # the rest only kept their room in the drawing
+    settle_end_labels(P)
     L = Layer(P, bands, opts)
     extras = check_extras(extras, P.blocks)
     items = specs(P, bands, opts, L, extras)
@@ -646,6 +647,20 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
         notes += L.notes
         L.kept = copy.deepcopy(L.boxes)         # this band's labels stand for the next
     L.kept = None
+    crowded = {("bci", b) for o in opts for b in o["crowded_block_contents"]}
+    makers = dict(items)
+    for key in [k for k, _msg in failed if k in crowded]:     # drawn anyway, at its first spot, overlaps allowed
+        it, spots, keep = makers[key](dict(number_side={}, name_side={}))
+        spot = next(iter(spots))
+        w = spot[3] if len(spot) > 3 else it["w"]
+        it.update(on_track=False, short=w != it["w"])
+        kind, d = keep(box_of(round(spot[0]), round(spot[1]), w, it["h"]))
+        d["crowded"] = True
+        done.append((kind, d))
+        notes.append(f"{it['what']}: no clean spot; drawn at its first spot anyway (crowded_block_contents)")
+    failed = [(k, msg) for k, msg in failed if k not in crowded]
+    P.log += [n for n in notes if n.endswith("(crowded_block_contents)")]
+    notes = [n for n in notes if not n.endswith("(crowded_block_contents)")]
     if failed and strict:
         raise SchematicError(failed[0][1] + (f" (and {len(failed) - 1} more)" if len(failed) > 1 else ""))
     P.labels_unplaced = [(k, msg) for k, msg in failed]
@@ -1255,6 +1270,68 @@ def _stations(P, L, bi, title, bopts):
 FIXED = ("title", "end")        # the labels le draws itself (band titles; helix and connector ends)
 
 
+def track_ink(P, world=None):
+    """A Grid of every drawn track line, turnout leg and control circle: (a, b, what, block); b is None for a
+    circle, block None but for a track line."""
+    from . import le_masts
+    world = world or le_masts.World(le_masts.PanelView(P))
+    block_of = {s["ident"]: s["block"] for s in P.segments}
+    ink = Grid()
+    for sid, pieces in world.track.items():
+        for a, b in pieces:
+            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])), (a, b, "a track",
+                                                                                        block_of[sid]))
+    for cen, lines in world.bodies.values():
+        for a, b in lines:
+            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])),
+                    (a, b, "a turnout's legs", None))
+        ink.add(box_of(cen[0], cen[1], 0, 0), (cen, None, "a turnout's control circle", None))
+    return ink
+
+
+def fixed_on_line(ink, box):
+    """What line a fixed label's box lies on (verify's test for a label le drew itself), or None."""
+    for _b, (a, b, on, _blk) in ink.near(box, max(1.0, TURNOUT_R)):
+        if b is not None and within(a, b, box, 1.0):
+            return on
+    return None
+
+
+END_LABEL_GAP = 1   # px between a helix circle and its label moved above or below it
+
+
+def end_label_spots(lb):
+    """Above, then below the circle `lb["around"]` (centre, radius): the label centred on it as JMRI draws it, a
+    gap clear of the circle."""
+    (cx, cy), r = lb["around"]
+    x0, y0, x1, y1 = label_box(lb)
+    w, h = x1 - x0, y1 - y0
+    return [[cx - w / 2, cy - r - END_LABEL_GAP - h], [cx - w / 2, cy + r + END_LABEL_GAP]]
+
+
+def settle_end_labels(P):
+    """An end's label that lies on a track at its own spot (a helix end's beside its circle) takes the first of its
+    other spots (end_label_spots: above, then below its circle) that lies inside the panel, on no track, and over
+    no other label le drew itself or mast icon, logged. One with no clear spot stays, and the check names it.
+    Labels with no circle are not touched, and a label clear at its own spot stays, so such panels draw as before."""
+    if not any(lb.get("around") for lb in P.labels):
+        return
+    ink = track_ink(P)
+    for lb in P.labels:
+        around = lb.pop("around", None)
+        if not around or fixed_on_line(ink, label_box(lb)) is None:
+            continue
+        others = [label_box(o) for o in P.labels if o is not lb] + [box_of(*m["box"]) for m in P.masts]
+        for xy in end_label_spots(dict(lb, around=around)):
+            box = label_box(dict(lb, xy=list(xy)))
+            inside = box[0] >= 0 and box[1] >= 0 and box[2] <= P.size[0] and box[3] <= P.size[1]
+            if inside and fixed_on_line(ink, box) is None and not any(boxes_overlap(box, o, -OVERLAP) for o in others):
+                P.log.append(f"label {lb['text']!r} lay on a track beside its end: drawn at {round(xy[0])}, "
+                             f"{round(xy[1])} instead")
+                lb["xy"] = list(xy)
+                break
+
+
 def verify(P):
     """From scratch: every label and block contents icon lies inside the panel, and none le_labels placed over a
     helix or connector circle; no two of the labels, block contents
@@ -1266,7 +1343,8 @@ def verify(P):
     world = le_masts.World(le_masts.PanelView(P))
     things = [(box_of(*lb["box"]), f"label {lb['text']!r}", "fixed" if lb["kind"] in FIXED else "label")
               for lb in P.labels]
-    things += [(box_of(*b["box"]), f"block contents of {b['block']}", "bci") for b in P.bcis]
+    things += [(box_of(*b["box"]), f"block contents of {b['block']}", "crowded" if b.get("crowded") else "bci")
+               for b in P.bcis]
     things += [(box_of(*e["box"]), f"item {e['id']}", "bci") for e in getattr(P, "extras", [])]
     things += [(box_of(*lp["box"]), f"lamp of {lp['track']}", "lamp") for lp in getattr(P, "lamps", [])]
     for box, what, kind in things:
@@ -1274,29 +1352,21 @@ def verify(P):
             raise SchematicError(f"le labels: {what} lies outside the {P.size[0]}x{P.size[1]} px panel")
     standing = {f"block contents of {b['block']}": b["block"] for b in P.bcis if b.get("on_track")}
     standing.update({f"item {e['id']}": e["block"] for e in getattr(P, "extras", []) if e.get("on_track")})
-    block_of = {s["ident"]: s["block"] for s in P.segments}
     things += [(box_of(*m["box"]), f"mast {m['mast']}'s icon", "mast") for m in P.masts]
     seen = Grid()
     for i, (box, what, kind) in enumerate(things):
         for other, j in seen.near(box, 0):
             if {kind, things[j][2]} <= {"mast", "fixed"}:     # placed before the labels: le_masts judges those
                 continue
+            if "crowded" in (kind, things[j][2]):              # crowded_block_contents: overlaps allowed
+                continue
             if boxes_overlap(box, other, -OVERLAP):
                 raise SchematicError(f"le labels: {what} overlaps {things[j][1]}")
         seen.add(box, i)
-    ink = Grid()
-    for sid, pieces in world.track.items():
-        for a, b in pieces:
-            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])), (a, b, "a track",
-                                                                                        block_of[sid]))
-    for cen, lines in world.bodies.values():
-        for a, b in lines:
-            ink.add((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])),
-                    (a, b, "a turnout's legs", None))
-        ink.add(box_of(cen[0], cen[1], 0, 0), (cen, None, "a turnout's control circle", None))
+    ink = track_ink(P, world)
     shapes = [(tuple(sh["centre"]), sh["r"]) for sh in P.shapes]
     for box, what, kind in things:
-        if kind in ("mast", "lamp"):        # a lamp stands on its own track on purpose
+        if kind in ("mast", "lamp", "crowded"):     # a lamp stands on its own track on purpose
             continue
         if kind != "fixed":                 # a connector's letter stands in its circle on purpose
             for c, r in shapes:

@@ -98,16 +98,18 @@ def udot(g, e):
     return du[0] * dv[0] + du[1] * dv[1] if du and dv else 0.0
 
 
-def orient(g, max_turnbacks=3, keep=10):
-    """The cheapest ways to face every switch, best first: (facing, turnback edges)."""
+def orient(g, max_turnbacks=3, keep=10, require=()):
+    """The cheapest ways to face every switch, best first: (facing, turnback edges). `require`: edge ids that are
+    turnbacks in every way tried (the `turnbacks` preference), on top of up to max_turnbacks others."""
     sw = [e for e in g["edges"] if all(g["nodes"][n]["kind"] in JUNCTION for n in (e["u"], e["v"]))]
-    cand = [e for e in sw if not e["link"]]
+    must = [e for e in sw if e["id"] in set(require)]
+    cand = [e for e in sw if not e["link"] and e["id"] not in set(require)]
     if len(cand) > 40:      # big plan: only runs that bend back on the layout may be turnbacks
         cand = [e for e in cand if udot(g, e) > -0.5]
         max_turnbacks = 5
     best, found = None, []
     for k in range(max_turnbacks + 1):
-        for T in itertools.combinations(cand, k):
+        for T in (tuple(must) + c for c in itertools.combinations(cand, k)):
             ids = {e["id"] for e in T}
             sig = colour(g, sw, ids)
             if sig is None:
@@ -123,7 +125,7 @@ def orient(g, max_turnbacks=3, keep=10):
             found.append((cost, sorted(ids), sig, ids))
             if best is None or cost < best[0] - 1e-9:
                 best = (cost, sig, ids)
-        if best is not None and k > len(best[2]):
+        if best is not None and k + len(must) > len(best[2]):
             break
     if best is None:
         raise SchematicError("no orientation found; raise max_turnbacks")
