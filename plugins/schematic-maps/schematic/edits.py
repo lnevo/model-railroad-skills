@@ -15,8 +15,8 @@ def by_label(g, ref):
     labelled 35 that a track named East Lead leaves: for the halves of a crossover, which share one number, a name
     that does not depend on the plan's part numbers. "23@1" is the junction labelled 23 that a track joins to the
     junction labelled 1: for a half no named track leaves yet, such as the first track a `name` edit names there.
-    The part after @ is read as a track name first; only when no track of that name leaves a junction labelled 23
-    is it read as a neighbour's label."""
+    The part after @ is a track name or a neighbour's label (its label only, not a part number or id); when it is
+    both and the two readings answer different junctions, the reference stops rather than pick one."""
     nodes = g["nodes"]
     hits = [n for n, d in nodes.items() if d.get("alias") == ref]
     hits = hits or [n for n, d in nodes.items() if d.get("label") == ref and d["kind"] != "end"]
@@ -26,13 +26,17 @@ def by_label(g, ref):
     if not hits and isinstance(ref, str) and "@" in ref:
         label, track = ref.split("@", 1)
         mine = [n for n, d in nodes.items() if d["kind"] != "end" and (d.get("label") or "").rstrip("*") == label]
-        hits = [n for n in mine if any(track in e["names"] for e in g["edges"] if n in (e["u"], e["v"]))]
-        if not hits:        # "23@1": the half a track joins to the junction labelled 1
-            def is_other(m):
-                d = nodes[m]
-                return d["kind"] != "end" and (d.get("label") or "").rstrip("*") == track
-            hits = [n for n in mine if any(is_other(e["v"] if e["u"] == n else e["u"])
+        by_track = [n for n in mine if any(track in e["names"] for e in g["edges"] if n in (e["u"], e["v"]))]
+
+        def is_other(m):    # "23@1": the half a track joins to the junction labelled 1
+            d = nodes[m]
+            return d["kind"] != "end" and (d.get("label") or "").rstrip("*") == track
+        by_other = [n for n in mine if any(is_other(e["v"] if e["u"] == n else e["u"])
                                            for e in g["edges"] if n in (e["u"], e["v"]))]
+        if by_track and by_other and set(by_track) != set(by_other):
+            raise SchematicError(f"{ref} reads two ways: {track} is a track name and a neighbouring junction's label, "
+                                 "and they answer different junctions; name the junction another way")
+        hits = by_track or by_other
     if len(hits) != 1:
         raise SchematicError(f"{len(hits)} junctions answer to {ref}")
     return hits[0]
