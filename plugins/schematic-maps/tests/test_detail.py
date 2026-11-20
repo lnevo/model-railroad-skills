@@ -251,8 +251,8 @@ class CutDetails(unittest.TestCase):
         away = dict(mast, _toward_node="S1")                     # S1 is off the cut
         self.assertEqual(detail.cut_signals({"signals": [facing, away]}, sub), [facing])
         far = dict(facing, cm_from_toward=band["strands"]["e2"]["cm"] - 1)
-        self.assertIsNone(draw.mast_piece(far, sub["strands"]))    # beyond the part that is drawn
-        self.assertIsNotNone(draw.mast_piece(facing, sub["strands"]))
+        self.assertIsNone(draw.mast_piece(far, sub["strands"], sub["nodes"]))    # beyond the part that is drawn
+        self.assertIsNotNone(draw.mast_piece(facing, sub["strands"], sub["nodes"]))
 
     def test_a_slope_is_cut_like_a_level_track(self):
         band, _ = self.band()

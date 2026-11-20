@@ -1,5 +1,5 @@
 """Drawing: bands, masts and the page, as SVG in the NYAMR Physical Characteristics Book style."""
-import collections  # noqa: F401
+import collections
 import datetime
 import math
 from xml.sax.saxutils import escape
@@ -742,11 +742,13 @@ def draw_sloped_signal(sg, pts, half, heads, r, arm, stem, gap, dash, opts, svg,
     return True
 
 
-def mast_piece(sg, strands):
+def mast_piece(sg, strands, nodes):
     """The drawn piece a mast stands on: (strand, cm from the piece's start, piece cm, start node), or None when
     the mast is on a part of its run that this band does not draw. A run that joins two levels is cut into halves
     `x` and `y`, one on each band, and the mast goes on the half its distance falls in. A run that doubles back is
-    drawn as two fold halves joined at a turnback; the mast stays on the half its toward end is on."""
+    drawn as two fold halves joined at a turnback; the mast stays on the half its toward end is on, and on a loop
+    (a run with both ends at one switch) on the half that leaves that switch from the mast's `leg`
+    (loop_leg_piece). `nodes` are the band's."""
     edge, tn, cm = sg["_edge"], sg["_toward_node"], sg["cm_from_toward"]
     pieces = [k for k, st in strands.items() if st["edge"] in (edge, edge + "x", edge + "y")]
     if not pieces:
@@ -754,7 +756,11 @@ def mast_piece(sg, strands):
     length = {k: strands[k].get("cut_cm", strands[k]["cm"] / 2 if k.endswith((".0", ".1")) else strands[k]["cm"])
               for k in pieces}      # a track cut short on a detail sheet counts only the part drawn
     ends = {k: (strands[k]["src"][0], strands[k]["dst"][0]) for k in pieces}
-    first = next((k for k in pieces if tn in ends[k]), None)
+    leg_piece = loop_leg_piece(sg, pieces, strands, nodes)
+    if leg_piece is not None and tn not in ends[leg_piece]:
+        raise SchematicError(f"mast {sg['mast']}: its leg {sg['leg']} is on track {strands[leg_piece]['name'] or leg_piece}"
+                             f", which does not reach the node it is measured from ({tn})")
+    first = leg_piece or next((k for k in pieces if tn in ends[k]), None)
     if first is None:                       # the toward end is on another band: start at this band's cut end
         first = pieces[0]
         start = next((n for n in ends[first] if n.startswith("LINK:")), ends[first][0])
@@ -770,6 +776,43 @@ def mast_piece(sg, strands):
     return first, max(cm, 0.0), length[first], start
 
 
+def loop_leg_piece(sg, pieces, strands, nodes):
+    """The piece of a loop a mast stands on, by its signals entry's `leg`, or None when its run is no loop as drawn
+    here. A loop is a run whose two ends are legs of one switch (a balloon loop: both its fold halves end at that
+    switch); nothing else says which half a mast is on, so its `leg`, the switch's leg (port, as the plan graph
+    names it) its half leaves from, must name one of the two. Stops when it is missing or names neither; a loop
+    drawn as one piece (both ends of one strand at the switch) cannot show which end a mast stands at, and stops
+    too. On a run that is no loop a `leg`, if given, must name the leg the run meets its toward switch at."""
+    at = collections.defaultdict(set)       # switch -> {(port, piece)}: the run's ends at a switch
+    for k in pieces:
+        for n, port in (strands[k]["src"], strands[k]["dst"]):
+            if n in nodes and not nodes[n]["kind"].startswith("turn") and not n.startswith("LINK:"):
+                at[n].add((str(port), k))
+    leg = sg.get("leg")
+    loops = {n: ends for n, ends in at.items() if len({p for p, _k in ends}) > 1}
+    if not loops:
+        mine = {p for p, _k in at.get(sg["_toward_node"], ())}
+        if leg is not None and mine and str(leg) not in mine:
+            raise SchematicError(f"mast {sg['mast']}: leg {leg!r} is not where its run meets switch "
+                                 f"{sg.get('toward') or sg['_toward_node']} (leg {', '.join(sorted(mine))})")
+        return None
+    if len(loops) > 1:
+        raise SchematicError(f"mast {sg['mast']}: its run {sg['_edge']} has two ends at each of "
+                             f"{', '.join(sorted(loops))}: no leg can tell its pieces apart")
+    (switch, ends), = loops.items()
+    legs = sorted({p for p, _k in ends})
+    name = nodes[switch].get("label") or switch
+    if not isinstance(leg, str) or leg not in legs:
+        raise SchematicError(f"mast {sg['mast']}: its run {sg['_edge']} is a loop with both ends at switch {name} "
+                             f"(legs {' and '.join(legs)}), so its signals entry must name the leg its half leaves "
+                             f"from in \"leg\" ({' or '.join(legs)}); it has {leg!r}")
+    hits = sorted({k for p, k in ends if p == leg})
+    if len(hits) != 1 or any(p != leg for p, k in ends if k == hits[0]):
+        raise SchematicError(f"mast {sg['mast']}: the loop {sg['_edge']} at switch {name} is drawn as one piece "
+                             "with both ends at the switch, so its leg cannot pick the end the mast stands at")
+    return hits[0]
+
+
 def draw_signals(band, drawn, opts, X, Y, svg, label, P):
     """Masts in the style of the NYAMR Physical Characteristics Book: a stem across the mast's foot, a short arm,
     one open circle per head pointing the way the mast governs, the name beyond the stem. Each sits on the
@@ -780,7 +823,7 @@ def draw_signals(band, drawn, opts, X, Y, svg, label, P):
     for sg in opts["signals"]:
         if sg["kind"] == "virtual":
             continue
-        spot = mast_piece(sg, strands)
+        spot = mast_piece(sg, strands, nodes)
         if spot is None:                    # its run, or the part of it the mast stands on, is on another band
             continue
         k, at, piece_cm, start = spot

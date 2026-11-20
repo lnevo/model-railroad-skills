@@ -13,7 +13,7 @@ The reader gets one sheet: a band for each level of the railroad, the main line 
 |-------|---------------|---------------|
 | Plan graph | Switches, track ends and runs with lengths, read from the plan's JMRI export (`plan` command) | The command |
 | Plan overrides, `NAME.plan_overrides.json` | Facts the plan does not hold: switch numbers, switches that were not built or were added, track names, which tracks are main, helix tracks, level heights | The reader and the agent together |
-| Signals, `NAME.signals.json` | Masts, found on a Layout Editor panel (`signals` command) | The command, never by hand |
+| Signals, `NAME.signals.json` | Masts, found on a Layout Editor panel (`signals` command): each mast's run, the switch it heads for, how far from it, its direction and heads, and on a loop (a run with both ends at one switch) its `leg`, the switch leg its half leaves from (required there; the fields are in `schematic/signal_reader.py`) | The command, never by hand |
 | Preferences, `NAME.preferences.json` | The reader's look for one sheet: titles, band order, lengths chosen for looks | The reader (optional) |
 
 With no preferences file the sheet is still correct. Preferences only move, stretch or mirror what the rules placed.

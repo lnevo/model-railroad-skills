@@ -11,6 +11,14 @@ the leg ports and the track names. One entry per mast:
 cm_from_toward and edge_cm are both the panel's lengths, so their ratio is the mast's share of the run; the
 drawing applies that share to the run as drawn.
 
+"leg" (since 0.1.46): the leg (port, as the plan graph names it: "A", "B", "C", "D") of the switch at the end of
+the run where the mast's part of it starts. Optional, except on a loop: a run whose two ends are both legs of one
+switch (a balloon loop) is drawn as two halves that both end there, and nothing else says which half a mast
+stands on, so a loop's every mast must name the leg its half leaves the switch from (a mast measured from the
+loop's turnback too). The drawing stops on a loop mast with no leg or one that is not a leg of the loop, and on
+any mast whose leg is not where its run meets its toward switch (draw.loop_leg_piece). This reader writes it for
+every loop mast from the panel's leg, and lists the mast as unplaced when that leg is not one of the loop's.
+
 Where the masts are bound (JMRI's own model):
   - a turnout's signalAMast .. signalDMast: a mast standing on that leg, governing movement toward the turnout;
   - a positionable point's east and west bound masts: the mast governs movement in that direction;
@@ -111,7 +119,7 @@ def read(tables, graph, overrides, numbers=None, lengths=None, panel_name=None):
             if e is None:
                 problems.append(f"{name}: no track at {ident} leg {leg}")
                 continue
-            found.append((name, e, node, 0.0, None))
+            found.append((name, e, node, port, 0.0, None))
     anchor_edge = {}
     for e in le["edges"]:
         for a, cm, seg_u, seg_v in e.get("anchors", []):
@@ -127,7 +135,7 @@ def read(tables, graph, overrides, numbers=None, lengths=None, panel_name=None):
                     problems.append(f"{name}: bumper {ident} not on the graph")
                     continue
                 toward = e["u"] if e["v"] == "END:" + ident else e["v"]
-                found.append((name, e, toward, e["cm"], slot))
+                found.append((name, e, toward, e["up"] if toward == e["u"] else e["vp"], e["cm"], slot))
                 continue
             if ident not in anchor_edge:
                 problems.append(f"{name}: anchor {ident} not on the graph")
@@ -137,7 +145,7 @@ def read(tables, graph, overrides, numbers=None, lengths=None, panel_name=None):
             going_east = slot == "east"
             heading_v = (east == seg_v) == going_east       # travel toward v's side of the anchor
             toward = e["v"] if heading_v else e["u"]
-            found.append((name, e, toward, (e["cm"] - cm) if heading_v else cm, slot))
+            found.append((name, e, toward, e["vp"] if heading_v else e["up"], (e["cm"] - cm) if heading_v else cm, slot))
 
     # the same runs on the schematic graph
     g = json.loads(json.dumps(graph))
@@ -171,7 +179,7 @@ def read(tables, graph, overrides, numbers=None, lengths=None, panel_name=None):
         return s, tn, tie
 
     rows = []
-    for name, e, toward, cm, slot in found:
+    for name, e, toward, port, cm, slot in found:
         short = name[len(prefix):] if prefix and name.startswith(prefix) else name
         info = masts.get(name, dict(kind="field", heads=1))
         kind = "planned" if short in planned else info["kind"]
@@ -188,9 +196,17 @@ def read(tables, graph, overrides, numbers=None, lengths=None, panel_name=None):
             problems.append(f"{short}: run {lab(LN, e['u']) or 'end'}-{lab(LN, e['v']) or 'end'} matches more than one run; "
                             "the first was taken. Name the tracks in the overrides to tell them apart")
         far = s["v"] if tn == s["u"] else s["u"]
-        rows.append(dict(mast=short, toward=lab(SN, tn) or SN[tn].get("label", ""), run=[lab(SN, tn), lab(SN, far)],
-                         names=s["names"], edge_cm=e["cm"], cm_from_toward=round(min(cm, e["cm"]), 1), dir=d,
-                         kind=kind, heads=info["heads"], source="le_panel", _edge=s["id"], _toward_node=tn))
+        row = dict(mast=short, toward=lab(SN, tn) or SN[tn].get("label", ""), run=[lab(SN, tn), lab(SN, far)],
+                   names=s["names"], edge_cm=e["cm"], cm_from_toward=round(min(cm, e["cm"]), 1), dir=d,
+                   kind=kind, heads=info["heads"], source="le_panel", _edge=s["id"], _toward_node=tn)
+        if s["u"] == s["v"]:                # a loop: its leg says which half (draw.loop_leg_piece)
+            if str(port) not in (str(s["up"]), str(s["vp"])):
+                problems.append(f"{short}: its run {lab(SN, tn)}-{lab(SN, tn)} is a loop, and the panel's leg {port} "
+                                f"is not one of its legs on the schematic ({s['up']}, {s['vp']}), so its half is "
+                                "unknown")
+                continue
+            row["leg"] = str(port)
+        rows.append(row)
     rows.sort(key=lambda r: (_num(r["mast"]), r["mast"]))
     return dict(schema="schematic.signals/1", source=Path(tables).name, signals=rows, unplaced=problems)
 
