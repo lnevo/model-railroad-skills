@@ -34,6 +34,7 @@ import time
 from pathlib import Path
 
 from .core import SchematicError
+from . import layers
 from .layers import LAYER_KINDS
 
 ENV = "SCHEMATIC_CACHE"
@@ -64,8 +65,7 @@ def folder():
 def read_files(inputs, data):
     """The files a build reads besides the graphs: each input's layer files and sheet.preferences.json."""
     d = Path(data)
-    return ([d / f"{name}.{kind}.json" for _, name in inputs for kind in LAYER_KINDS]
-            + [d / f"{kind}.json" for kind in LAYER_KINDS] + [d / "sheet.preferences.json"])
+    return [d / f"{name}.{kind}.json" for _, name in inputs for kind in LAYER_KINDS] + [d / "sheet.preferences.json"]
 
 
 class Unfollowed(Exception):
@@ -123,10 +123,6 @@ def _layer_bytes(f):
         return raw                                  # the solve reports it; the key needs only to differ
     if not isinstance(prefs, dict):
         return raw
-    if f.name == "preferences.json":                # one section per input (layers.read_layer): strip each
-        prefs = {k: ({kk: vv for kk, vv in v.items() if kk not in TITLE_FIELDS} if isinstance(v, dict) else v)
-                 for k, v in prefs.items()}
-        return json.dumps(prefs, sort_keys=True).encode()
     return json.dumps({k: v for k, v in prefs.items() if k not in TITLE_FIELDS}, sort_keys=True).encode()
 
 
@@ -150,6 +146,20 @@ def key(inputs, data, preferences, hints):
     for f in read_files(inputs, data):            # a missing file and an empty one are different keys
         h.update(str(f.relative_to(data) if f.is_relative_to(data) else f).encode() + b"\0")
         h.update(b"+" + _layer_bytes(f) + b"\0" if f.exists() else b"-\0")
+    names = [name for _, name in inputs]
+    for kind in LAYER_KINDS:                       # a combined file: only the sections these inputs read
+        try:
+            parts = layers.sections(kind, data)
+        except layers.LayerError:
+            parts = {"_unreadable": (Path(data) / f"{kind}.json").read_bytes().hex()}   # the solve reports it
+        if parts is None:
+            h.update(f"{kind}:none\0".encode())
+            continue
+        mine = {n: parts.get(n) for n in names}
+        if kind == "preferences":
+            mine = {n: ({k: v for k, v in sec.items() if k not in TITLE_FIELDS} if isinstance(sec, dict) else sec)
+                    for n, sec in mine.items()}
+        h.update(f"{kind}:".encode() + json.dumps(mine, sort_keys=True, default=str).encode() + b"\0")
     h.update(repr((bool(preferences), bool(hints))).encode())
     return h.hexdigest()
 

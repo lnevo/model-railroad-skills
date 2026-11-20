@@ -1,11 +1,13 @@
-"""layers.read_layer: a kind kept as one file for every input (<kind>.json, a section per input name) reads the same
-as the input's own <name>.<kind>.json, and both at once is an error."""
+"""layers.read_layer: a kind kept as one file for every input (<kind>.json holding "_sections": true, a section per
+input name) reads the same as the input's own <name>.<kind>.json, and both at once is an error."""
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from schematic import cache, layers
+
+ON = {"_sections": True}
 
 
 class Sections(unittest.TestCase):
@@ -26,30 +28,32 @@ class Sections(unittest.TestCase):
         own = layers.load("a", self.data)
         for f in ("a.plan_overrides.json", "a.preferences.json", "a.signals.json"):
             (self.data / f).unlink()
-        self.write("plan_overrides.json", {"_note": "one file", "a": over, "b": {"title": "B"}})
-        self.write("preferences.json", {"a": prefs})
-        self.write("signals.json", {"a": {"signals": [{"mast": "2L"}]}})
+        self.write("plan_overrides.json", {**ON, "_note": "one file", "a": over, "b": {"title": "B"}})
+        self.write("preferences.json", {**ON, "a": prefs})
+        self.write("signals.json", {**ON, "a": {"signals": [{"mast": "2L"}]}})
         self.assertEqual(layers.load("a", self.data), own)
         self.assertEqual(layers.load("b", self.data), {"title": "B"})
         self.assertEqual(layers.load("c", self.data), {})          # no section: as a missing file
 
+    def test_a_kind_json_without_the_marker_is_not_read(self):
+        self.write("signals.json", {"signals": [{"mast": "9L"}], "unplaced": []})    # an old command output
+        self.write("a.signals.json", {"signals": [{"mast": "2L"}]})
+        self.assertEqual(layers.load("a", self.data)["signals"], [{"mast": "2L"}])
+
     def test_one_input_may_keep_its_own_file_beside_the_others_sections(self):
-        self.write("plan_overrides.json", {"a": {"title": "A"}})
+        self.write("plan_overrides.json", {**ON, "a": {"title": "A"}})
         self.write("b.plan_overrides.json", {"title": "B"})
         self.assertEqual((layers.load("a", self.data)["title"], layers.load("b", self.data)["title"]), ("A", "B"))
 
     def test_both_for_one_input_stops(self):
-        self.write("plan_overrides.json", {"a": {"title": "A"}})
+        self.write("plan_overrides.json", {**ON, "a": {"title": "A"}})
         self.write("a.plan_overrides.json", {"title": "A2"})
         with self.assertRaisesRegex(layers.LayerError, "a has both a.plan_overrides.json and a section in "
                                                         "plan_overrides.json: keep one"):
             layers.load("a", self.data)
 
-    def test_a_bad_combined_file_names_itself(self):
-        self.write("preferences.json", ["a"])
-        with self.assertRaisesRegex(layers.LayerError, "preferences.json: must be an object"):
-            layers.load("a", self.data)
-        self.write("preferences.json", {"a": [1]})
+    def test_bad_layers_name_their_file(self):
+        self.write("preferences.json", {**ON, "a": [1]})
         with self.assertRaisesRegex(layers.LayerError, r"section\(s\) a are not objects"):
             layers.load("a", self.data)
         (self.data / "preferences.json").write_text("{")
@@ -57,19 +61,31 @@ class Sections(unittest.TestCase):
             layers.load("a", self.data)
         (self.data / "preferences.json").unlink()
         self.assertEqual(layers.load("a", self.data, preferences=False), {})
+        for bad in ([], None):
+            self.write("a.plan_overrides.json", bad)
+            with self.assertRaisesRegex(layers.LayerError, "a.plan_overrides.json: must be a JSON object"):
+                layers.load("a", self.data)
+        (self.data / "a.plan_overrides.json").unlink()
+        self.write("signals.json", {**ON, "a": {"masts": []}})
+        with self.assertRaisesRegex(layers.LayerError, "a's signals layer has no \"signals\" list"):
+            layers.load("a", self.data)
+        with self.assertRaisesRegex(layers.LayerError, "input name '_draft'"):
+            layers.load("_draft", self.data)
 
-    def test_the_cache_key_reads_the_combined_files_and_leaves_out_title_fields(self):
+    def test_the_cache_key_reads_only_these_inputs_sections_and_leaves_out_title_fields(self):
         inputs = [({"nodes": [], "edges": []}, "a")]
-        self.write("plan_overrides.json", {"a": {"title": "A"}})
-        self.assertIn(self.data / "plan_overrides.json", cache.read_files(inputs, self.data))
-        self.write("preferences.json", {"a": {"turnbacks": [], "date": "NOV 1", "revision": 3}})
+        self.write("plan_overrides.json", {**ON, "a": {"title": "A"}, "b": {"title": "B"}})
+        self.write("preferences.json", {**ON, "a": {"turnbacks": [], "date": "NOV 1", "revision": 3}})
         k1 = cache.key(inputs, self.data, True, False)
-        self.write("preferences.json", {"a": {"turnbacks": [], "date": "NOV 2", "revision": 4}})
+        self.write("preferences.json", {**ON, "a": {"turnbacks": [], "date": "NOV 2", "revision": 4}})
         self.assertEqual(cache.key(inputs, self.data, True, False), k1)
-        self.write("preferences.json", {"a": {"turnbacks": ["x"], "date": "NOV 2"}})
+        self.write("plan_overrides.json", {**ON, "a": {"title": "A"}, "b": {"title": "B2"}})   # another input's
+        self.assertEqual(cache.key(inputs, self.data, True, False), k1)
+        self.write("preferences.json", {**ON, "a": {"turnbacks": ["x"], "date": "NOV 2"}})
         self.assertNotEqual(cache.key(inputs, self.data, True, False), k1)
-        self.write("plan_overrides.json", {"a": {"title": "A2"}})
-        self.assertNotEqual(cache.key(inputs, self.data, True, False), k1)
+        k2 = cache.key(inputs, self.data, True, False)
+        self.write("plan_overrides.json", {**ON, "a": {"title": "A2"}, "b": {"title": "B2"}})
+        self.assertNotEqual(cache.key(inputs, self.data, True, False), k2)
 
 
 if __name__ == "__main__":
