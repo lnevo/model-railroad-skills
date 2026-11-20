@@ -64,7 +64,8 @@ def folder():
 def read_files(inputs, data):
     """The files a build reads besides the graphs: each input's layer files and sheet.preferences.json."""
     d = Path(data)
-    return [d / f"{name}.{kind}.json" for _, name in inputs for kind in LAYER_KINDS] + [d / "sheet.preferences.json"]
+    return ([d / f"{name}.{kind}.json" for _, name in inputs for kind in LAYER_KINDS]
+            + [d / f"{kind}.json" for kind in LAYER_KINDS] + [d / "sheet.preferences.json"])
 
 
 class Unfollowed(Exception):
@@ -122,6 +123,10 @@ def _layer_bytes(f):
         return raw                                  # the solve reports it; the key needs only to differ
     if not isinstance(prefs, dict):
         return raw
+    if f.name == "preferences.json":                # one section per input (layers.read_layer): strip each
+        prefs = {k: ({kk: vv for kk, vv in v.items() if kk not in TITLE_FIELDS} if isinstance(v, dict) else v)
+                 for k, v in prefs.items()}
+        return json.dumps(prefs, sort_keys=True).encode()
     return json.dumps({k: v for k, v in prefs.items() if k not in TITLE_FIELDS}, sort_keys=True).encode()
 
 
