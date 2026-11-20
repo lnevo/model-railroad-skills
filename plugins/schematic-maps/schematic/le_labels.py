@@ -1215,7 +1215,10 @@ def by_block(L, places, block, new_item, w, done):
                 return (xy for region, up in rings for xy in around(region, width, it["h"], up))
             return it, reserves(spots, w, short), lambda box: done(box, it, "os")
         return make
-    idents = segs_of[block]
+    # a block drawn on two bands (a helix track joined as one block): only its own band's track (block_band), so the
+    # item stands in that band and counts there (extent, le_title_clear)
+    bi = block_band(L, places, block)
+    idents = [i for i in segs_of[block] if L.world.ctx.segs[i]["band"] == bi]
     track = sorted({j for i in idents for j in L.track_of.get(i, [i]) if j in L.world.track} | set(idents))
     lines = [pc for i in idents for pc in L.pieces[("seg", i)]]
 
