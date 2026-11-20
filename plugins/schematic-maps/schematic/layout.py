@@ -30,9 +30,9 @@ def layout(g, opts, warnings):
     `turnbacks` preference are turnbacks in every orientation tried."""
     best = None
     need = wanted_turnbacks(g, opts)
-    found = orient(g, keep=10 ** 6) if need else orient(g)
+    found = orient(g, require=need)
     if need:
-        found = [(sig, T) for sig, T in found if need <= set(T)][:10]
+        found = [(sig, T) for sig, T in found if need <= set(T)]      # a track to an end is never a turnback
         if not found:
             names = sorted({n for e in g["edges"] if e["id"] in need for n in e["names"]})
             raise SchematicError(f"no orientation draws {', '.join(names)} as turnbacks (preference turnbacks)")

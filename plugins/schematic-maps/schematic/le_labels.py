@@ -1283,22 +1283,35 @@ def fixed_on_line(ink, box):
     return None
 
 
+END_LABEL_GAP = 1   # px between a helix circle and its label moved above or below it
+
+
+def end_label_spots(lb):
+    """Above, then below the circle `lb["around"]` (centre, radius): the label centred on it as JMRI draws it, a
+    gap clear of the circle."""
+    (cx, cy), r = lb["around"]
+    x0, y0, x1, y1 = label_box(lb)
+    w, h = x1 - x0, y1 - y0
+    return [[cx - w / 2, cy - r - END_LABEL_GAP - h], [cx - w / 2, cy + r + END_LABEL_GAP]]
+
+
 def settle_end_labels(P):
     """An end's label that lies on a track at its own spot (a helix end's beside its circle) takes the first of its
-    other spots (`alts`: above, then below the circle) that lies on none and overlaps no other label le drew itself,
-    logged. One with no clear spot stays, and the check names it. Labels with no other spot are not touched, so a
-    panel whose end labels were clear is drawn as before."""
-    if not any(lb.get("alts") for lb in P.labels):
+    other spots (end_label_spots: above, then below its circle) that lies inside the panel, on no track, and over
+    no other label le drew itself or mast icon, logged. One with no clear spot stays, and the check names it.
+    Labels with no circle are not touched, and a label clear at its own spot stays, so such panels draw as before."""
+    if not any(lb.get("around") for lb in P.labels):
         return
     ink = track_ink(P)
     for lb in P.labels:
-        alts = lb.pop("alts", None)
-        if not alts or fixed_on_line(ink, label_box(lb)) is None:
+        around = lb.pop("around", None)
+        if not around or fixed_on_line(ink, label_box(lb)) is None:
             continue
-        others = [label_box(o) for o in P.labels if o is not lb]
-        for xy in alts:
+        others = [label_box(o) for o in P.labels if o is not lb] + [box_of(*m["box"]) for m in P.masts]
+        for xy in end_label_spots(dict(lb, around=around)):
             box = label_box(dict(lb, xy=list(xy)))
-            if fixed_on_line(ink, box) is None and not any(boxes_overlap(box, o, -OVERLAP) for o in others):
+            inside = box[0] >= 0 and box[1] >= 0 and box[2] <= P.size[0] and box[3] <= P.size[1]
+            if inside and fixed_on_line(ink, box) is None and not any(boxes_overlap(box, o, -OVERLAP) for o in others):
                 P.log.append(f"label {lb['text']!r} lay on a track beside its end: drawn at {round(xy[0])}, "
                              f"{round(xy[1])} instead")
                 lb["xy"] = list(xy)

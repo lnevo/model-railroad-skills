@@ -4,9 +4,10 @@ Layer 1 (facts the plan does not hold):
     milepost_origin   {"switch": "1", "milepost": 0.0}   the switch where the count starts, and its number
     scale_ratio       87.1                               the model scale (HO); one model inch is that many real inches
     helix_length_in   690 or {"Track name": 690, ...}    track length through a helix, to carry the count between levels;
-                      not needed where both ends of a helix track are plan cuts (track ends marked `cut`, the
-                      height a plan read parted the levels at): the levels' graphs hold the whole run, so the count
-                      carries straight on. A length given for such a track is still added.
+                      not needed where both ends of a helix track are plan cuts: track ends the input graph marks
+                      `cut` with the height a plan tool parted the levels at (`schematic plan` writes none; a tool
+                      that cuts the helix run between the levels' graphs does). The levels' graphs then hold the
+                      whole run, so the count carries straight on. A length given for such a track is still added.
     milepost_route    [[a, b], [a, b, "direct"], ...]    the way the count runs, like main_route (default: main_route)
 Layer 3 (the look): `mileposts` true, or {"step": 0.25}. Off by default; with it off nothing is computed or drawn.
 
@@ -35,6 +36,7 @@ MAX_TICKS = 8
 CELLS_PER_TICK = 4      # a band holds about one tick per this many grid columns, up to MAX_TICKS
 MARGIN = 8.0            # px a tick keeps from the ends of its level stretch
 EPS = 1e-9
+CUT_TOLERANCE_CM = 0.01     # two cut ends of one helix track this close in height are one cut
 
 
 def preference(opts):
@@ -174,8 +176,9 @@ def compute(graphs, optlist):
     for name, group in ends.items():            # cut from one plan run at the height that parts the levels: the
         cut = [graphs[i]["nodes"][n].get("cut") for i, n in group]      # levels' own track holds all of it
         if name not in lengths and len(group) > 1 and all(c is not None for c in cut):
-            if len(set(cut)) > 1:
-                raise SchematicError(f"helix track {name} is cut at different heights on its levels: {sorted(set(cut))}")
+            cut = [_number(c, f"helix track {name}'s cut height") for c in cut]
+            if max(cut) - min(cut) > CUT_TOLERANCE_CM:
+                raise SchematicError(f"helix track {name} is cut at different heights on its levels: {sorted(cut)}")
             lengths[name] = 0.0
     tables = [{"edges": {}, "origin": None} for _ in graphs]
     adjs = [_adjacency(g) for g in graphs]
