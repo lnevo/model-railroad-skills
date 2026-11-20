@@ -22,7 +22,7 @@ import json
 import math
 from pathlib import Path
 
-PX = 120 / 25.4       # AnyRail's export is 120 px per inch of plan
+PX = 12 / 2.54        # the made-up export is drawn at the reader's usual size, 12 px per inch of plan
 HALF, SIDE = 12.0, 6.0
 
 # id: (label after the plan overrides, plan part index, centre, facing, hand, height)
