@@ -113,6 +113,33 @@ class Options(unittest.TestCase):
         self.assertEqual(P.bcis, [])
         self.assertEqual(le.to_xml(P, "G").findall("BlockContentsIcon"), [])
 
+    def test_station_size_places_and_checks_station_names_at_that_size(self):
+        """Unset, station names are bold at the drawing's LABEL_SIZE, as before the option; station_size 14 places
+        each at 14 (its box as JMRI draws it), clean against everything, with the drawing itself unchanged."""
+        stations_ = {"Throat": ["1"], "Yard": ["11", "12", "13"], "Junction": ["2", "6", "3"]}
+
+        def built(opts):
+            b = [(t, band, dict(o, stations=stations_, **({"le_labels": opts} if opts else {})))
+                 for t, band, o in bands()]
+            return le.panel(b)
+
+        def names(P):
+            return [lb for lb in P.labels if lb["kind"] == "station"]
+        self.assertEqual(le_labels.DEFAULTS["station_size"], le.LABEL_SIZE)
+        unset, ten, big = built(None), built({"station_size": 10}), built({"station_size": 14})
+        self.assertEqual(len(names(unset)), 3)
+        self.assertEqual([(lb["text"], lb["size"], lb["bold"], lb["xy"]) for lb in names(unset)],
+                         [(lb["text"], 10, True, lb["xy"]) for lb in names(ten)])
+        self.assertEqual(sorted(lb["text"] for lb in names(big)), sorted(lb["text"] for lb in names(unset)))
+        for lb in names(big):
+            self.assertEqual((lb["size"], lb["bold"]), (14, True))
+            self.assertEqual(lb["box"][2:], (jmri_text.width(lb["text"], 14, True), jmri_text.height(14, True)))
+        le_labels.verify(big)
+        self.assertEqual(big.size, unset.size)
+        self.assertEqual([(t["ident"], t["at"]) for t in big.turnouts], [(t["ident"], t["at"]) for t in unset.turnouts])
+        xml = {lb.get("text"): lb.get("size") for lb in le.to_xml(big, "G").iter("positionablelabel")}
+        self.assertEqual({xml[lb["text"]] for lb in names(big)}, {"14"})
+
     def test_a_band_overrides_the_page(self):
         b = with_opts({"switch_prefix": "B-"})
         page = dict(b[-1][2], le_labels={"switch_prefix": "P-", "block_contents": False})
@@ -125,7 +152,7 @@ class Options(unittest.TestCase):
     def test_bad_options_stop_before_drawing(self):
         bad = ["x", {"colour": 1}, {"switch_size": "9"}, {"switch_size": 7}, {"switch_size": 29},
                {"block_contents_size": True}, {"block_contents": "yes"}, {"switch_bold": 1},
-               {"block_contents_text": " "}, {"switch_prefix": 3}]
+               {"block_contents_text": " "}, {"switch_prefix": 3}, {"station_size": 7}, {"station_size": "14"}]
         for o in bad:
             with self.subTest(opts=o), self.assertRaisesRegex(SchematicError, "le_labels"):
                 le_labels.options(with_opts(o), None)

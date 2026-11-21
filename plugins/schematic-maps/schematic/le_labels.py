@@ -27,7 +27,9 @@ before it (and the mast icons, band titles, helix and connector labels and circl
                    blocks the panel draws), each placed by its block as a block contents icon is (beside its track,
                    on it at last; no shorter size), before the icons; P.extras holds them. No XML is written for
                    them: the caller writes its own elements there
-  station names    the `stations` preference, under the band or over it for side "top", centred on their switches
+  station names    the `stations` preference, under the band or over it for side "top", centred on their switches,
+                   bold at `station_size` (10 by default, the size the drawing keeps their room at; a larger one
+                   is placed and checked at its own size like every item, and the room stays as drawn)
 
 Sizes. A label's box is the one JMRI gives it (PositionableLabel: FontMetrics stringWidth x getHeight), its stored
 whole-pixel x, y the top left: jmri_text holds the Dialog font's sizes, and every label is written in Dialog so the
@@ -83,7 +85,7 @@ Known costs: a panel that needs the short reserve runs every round at full size 
 of the track lines rather than reusing Layer's (it checks from scratch).
 
 Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
-    {"switch_prefix": "", "switch_size": 9, "switch_bold": true,
+    {"switch_prefix": "", "switch_size": 9, "switch_bold": true, "station_size": 10,
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "name_steps": [], "lamp_columns": [],
      "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "crowded_block_contents": [], "extra_steps": [],
@@ -154,7 +156,7 @@ LOG_MOVE = 12       # px from its first spot past which a spot taken is logged
 OVERLAP = 0.5       # px two boxes must overlap by to count, in the check
 GRID = 64           # px per cell of the indexes
 
-DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True,
+DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True, "station_size": 10,
             "block_contents": True, "block_contents_size": 13, "block_contents_text": "OCS-1234",
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "name_steps": [],
             "lamp_columns": [],
@@ -1135,7 +1137,7 @@ def specs(P, bands, opts, L, extras=()):
     out += _extras(L, places, extras)       # before the icons: bigger, and rarer
     out += _bcis(P, L, places)
     for bi, (title, _band, bopts) in enumerate(bands):
-        out += _stations(P, L, bi, title, bopts or {})
+        out += _stations(P, L, bi, title, bopts or {}, opts[bi]["station_size"])
     return out
 
 
@@ -1500,9 +1502,9 @@ def check_extras(extras, blocks=None):
     return list(extras)
 
 
-def _stations(P, L, bi, title, bopts):
-    """[(key, make)]: each station's name under its band (over it for side "top"), centred on its switches, sliding
-    along the band."""
+def _stations(P, L, bi, title, bopts, size):
+    """[(key, make)]: each station's name, bold at `size` (the band's station_size), under its band (over it for side
+    "top"), centred on its switches, sliding along the band."""
     entries = stations.entries(bopts)
     if not entries:
         return []
@@ -1527,7 +1529,7 @@ def _stations(P, L, bi, title, bopts):
         def make(state, short=False, text=text, mid=mid, top=top):
             if short is True:
                 return None
-            it = L.item("a station name", f"{title}: station name {text}", text, L.name_size, True)
+            it = L.item("a station name", f"{title}: station name {text}", text, size, True)
             spots = ((mid - it["w"] / 2 + d, min(ys) - g - it["h"] if top else max(ys) + g)
                      for g in STATION_GAPS for d in slide)
             return it, spots, lambda box: _label_dict(it, box, "station", bi)
