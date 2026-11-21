@@ -113,6 +113,79 @@ class Options(unittest.TestCase):
         self.assertEqual(P.bcis, [])
         self.assertEqual(le.to_xml(P, "G").findall("BlockContentsIcon"), [])
 
+    def test_station_size_places_and_checks_station_names_at_that_size(self):
+        """Unset, station names are bold at the drawing's LABEL_SIZE, as before the option; station_size 14 places
+        each at 14 (its box as JMRI draws it), clean against everything, with the drawing itself unchanged."""
+        stations_ = {"Throat": ["1"], "Yard": ["11", "12", "13"], "Junction": ["2", "6", "3"]}
+
+        def built(opts):
+            b = [(t, band, dict(o, stations=stations_, **({"le_labels": opts} if opts else {})))
+                 for t, band, o in bands()]
+            return le.panel(b)
+
+        def names(P):
+            return [lb for lb in P.labels if lb["kind"] == "station"]
+        self.assertEqual(le_labels.DEFAULTS["station_size"], le.LABEL_SIZE)
+        unset, ten, big = built(None), built({"station_size": 10}), built({"station_size": 14})
+        self.assertEqual(len(names(unset)), 3)
+        self.assertEqual([(lb["text"], lb["size"], lb["bold"], lb["xy"]) for lb in names(unset)],
+                         [(lb["text"], 10, True, lb["xy"]) for lb in names(ten)])
+        self.assertEqual(sorted(lb["text"] for lb in names(big)), sorted(lb["text"] for lb in names(unset)))
+        for lb in names(big):
+            self.assertEqual((lb["size"], lb["bold"]), (14, True))
+            self.assertEqual(lb["box"][2:], (jmri_text.width(lb["text"], 14, True), jmri_text.height(14, True)))
+        le_labels.verify(big)
+        self.assertEqual(big.size, unset.size)
+        self.assertEqual([(t["ident"], t["at"]) for t in big.turnouts], [(t["ident"], t["at"]) for t in unset.turnouts])
+        xml = {lb.get("text"): lb.get("size") for lb in le.to_xml(big, "G").iter("positionablelabel")}
+        self.assertEqual({xml[lb["text"]] for lb in names(big)}, {"14"})
+
+    def test_station_gap_keeps_station_names_apart_and_is_checked(self):
+        """station_gap: each station name that many px from every other (Junction and Yard stand 10 px apart at 14);
+        unset, the label dicts are as before (no gap key); verify stops on two nearer than their gap."""
+        stations_ = {"Throat": ["1"], "Yard": ["11", "12", "13"], "Junction": ["2", "6", "3"]}
+
+        def built(opts):
+            return le.panel([(t, band, dict(o, stations=stations_, le_labels=opts)) for t, band, o in bands()])
+
+        def gaps(P):
+            named = [lb for lb in P.labels if lb["kind"] == "station"]
+            return {(a["text"], b["text"]): max(b["box"][0] - (a["box"][0] + a["box"][2]),
+                                                a["box"][0] - (b["box"][0] + b["box"][2]))
+                    for i, a in enumerate(named) for b in named[i + 1:] if abs(a["box"][1] - b["box"][1]) < 20}
+        tight = built({"station_size": 14})
+        self.assertLess(min(gaps(tight).values()), 20)
+        self.assertTrue(all("gap" not in lb for lb in tight.labels))
+        apart = built({"station_size": 14, "station_gap": 20})
+        self.assertGreaterEqual(min(gaps(apart).values()), 20)
+        self.assertEqual({lb["gap"] for lb in apart.labels if lb["kind"] == "station"}, {20})
+        bad = copy.deepcopy(apart)
+        a, b = sorted((lb for lb in bad.labels if lb["kind"] == "station"), key=lambda lb: lb["box"][0])[-2:]
+        b["box"] = (a["box"][0] + a["box"][2] + 5,) + tuple(b["box"][1:])
+        with self.assertRaisesRegex(SchematicError, "nearer than their station_gap, 20 px"):
+            le_labels.verify(bad)
+        for v in (1, 101, True, "10", 2.5):
+            with self.subTest(v=v), self.assertRaisesRegex(SchematicError, "station_gap must be whole px"):
+                le_labels.options(with_opts({"station_gap": v}), None)
+
+    def test_a_station_name_keeps_the_larger_gap_of_the_two(self):
+        """Bands with different station_gap: a name with the default gap still keeps the other name's larger gap from
+        it when placed, as verify holds the pair to the larger (review, 2026-11-21)."""
+        stations_ = {"Throat": ["1"], "Yard": ["11", "12", "13"], "Junction": ["2", "6", "3"]}
+        b = [(t, band, dict(o, stations=stations_)) for t, band, o in bands()]
+        P = le.panel(b)
+        L = le_labels.Layer(P, b, le_labels.options(b, None))
+        yard = next(lb for lb in P.labels if lb["kind"] == "station" and lb["text"] == "YARD")
+        L.boxes = L.boxes.without({(f"label {yard['text']!r}", "a label", None)})
+        box = le_labels.box_of(*yard["box"])
+        item = L.item(le_labels.STATION_KIND, "Lower: station name YARD", "YARD", yard["size"], True)
+        self.assertIsNone(L.fault(box, item))
+        other = (box[2] + 5, box[1], box[2] + 45, box[3])          # another band's name, 5 px to the right
+        L.boxes.add(other, ("Upper: station name FAR", le_labels.STATION_KIND, None))
+        self.assertIsNone(L.fault(box, item))                     # both at the default gap: 5 px is clean
+        L.station_gaps["Upper: station name FAR"] = 20
+        self.assertEqual(L.fault(box, item)[0], "too near a station name")
+
     def test_a_band_overrides_the_page(self):
         b = with_opts({"switch_prefix": "B-"})
         page = dict(b[-1][2], le_labels={"switch_prefix": "P-", "block_contents": False})
@@ -125,7 +198,7 @@ class Options(unittest.TestCase):
     def test_bad_options_stop_before_drawing(self):
         bad = ["x", {"colour": 1}, {"switch_size": "9"}, {"switch_size": 7}, {"switch_size": 29},
                {"block_contents_size": True}, {"block_contents": "yes"}, {"switch_bold": 1},
-               {"block_contents_text": " "}, {"switch_prefix": 3}]
+               {"block_contents_text": " "}, {"switch_prefix": 3}, {"station_size": 7}, {"station_size": "14"}]
         for o in bad:
             with self.subTest(opts=o), self.assertRaisesRegex(SchematicError, "le_labels"):
                 le_labels.options(with_opts(o), None)
