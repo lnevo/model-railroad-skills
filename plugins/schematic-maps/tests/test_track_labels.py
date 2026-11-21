@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 import helpers
-from schematic import detail, sheet
+from schematic import cats, detail, layers, le, sheet
 from schematic.core import SchematicError, helix_order, shown_name
 
 STATIONS = {"Throat": ["1"], "Junction": ["2", "6", "3"]}
@@ -100,6 +100,46 @@ class HelixOrder(unittest.TestCase):
         self.assertEqual(shown_name("A / B", opts), "X / B")
         self.assertEqual(shown_name("", opts), "")
         self.assertEqual(shown_name("A", {}), "A")
+
+
+class EveryOutput(unittest.TestCase):
+    """The Layout Editor panel and the CATS desk print the label too, in the room it needs, so the sheet, the panel
+    and the desk read alike."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.base = helpers.build()
+        cls.got = built({"Peak": "Summit"}, rename={"Summit": "Peak"})
+
+    def test_the_layout_editor_panel_prints_the_label_where_the_name_was(self):
+        texts = lambda s: sorted((lb["text"], tuple(lb["xy"])) for lb in le.panel(s.bands).labels)
+        self.assertEqual(texts(self.got), texts(self.base))
+
+    def test_the_cats_desk_prints_the_label_where_the_name_was(self):
+        texts = lambda s: sorted((cell, v[0]) for cell, v in cats.panel(s.bands).labels.items())
+        self.assertEqual(texts(self.got), texts(self.base))
+        self.assertIn("Peak", cats.panel(self.got.bands).blocks.values())      # blocks keep the plan name
+
+
+class Checks(unittest.TestCase):
+    def test_two_tracks_drawing_one_text_stop(self):
+        with self.assertRaisesRegex(SchematicError, "would both be drawn as"):
+            built({"Summit": "Main West"})
+
+    def test_a_label_may_equal_its_own_name(self):
+        self.assertEqual(built({"Summit": "Summit"}).svg(), helpers.build().svg())
+
+    def test_underscore_keys_are_track_names_not_notes(self):
+        self.assertEqual(layers.merge({}, {"track_labels": {"_X": "Y"}}), {"track_labels": {"_X": "Y"}})
+        with self.assertRaisesRegex(SchematicError, "track_labels names _note, which no track of the sheet has"):
+            built({"_note": "a note is not a track"})
+
+    def test_a_helix_end_an_end_edit_adds_takes_its_letter_by_the_same_order(self):
+        """A helix track only an `end` edit makes is lettered with the declared ones, sheet-wide, by label then name."""
+        graph = {"edges": [{"u": "a", "v": "b", "names": ["Zed"]}, {"u": "c", "v": "d", "names": ["Loop"]}],
+                 "nodes": {"a": {}, "b": {"sub": "helix"}, "c": {}, "d": {}}}
+        self.assertEqual(sheet.helix_tracks(["Summit"], [graph], {}), ["Summit", "Zed"])
+        self.assertEqual(sheet.helix_tracks(["Summit"], [graph], {"track_labels": {"Zed": "Alpha"}}), ["Zed", "Summit"])
 
 
 if __name__ == "__main__":

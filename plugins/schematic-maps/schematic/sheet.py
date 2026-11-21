@@ -178,20 +178,39 @@ def track_labels(optlist, names):
 
 
 def check_track_labels(prepared, labels):
-    """Stop when `track_labels` names a track that no input of the sheet has."""
+    """Stop when `track_labels` names a track that no input of the sheet has, or when two tracks of the sheet would
+    draw the same text (a label and another track's label or unlabelled name), naming both."""
     have = {n for g in prepared for e in g["edges"] for n in e["names"]}
     lost = sorted(set(labels) - have)
     if lost:
         raise SchematicError(f"track_labels names {', '.join(lost)}, which no track of the sheet has")
+    if not labels:
+        return
+    drawn = {}
+    for name in sorted(have):
+        text = labels.get(name, name)
+        other = drawn.setdefault(text, name)
+        if other != name and (name in labels or other in labels):
+            raise SchematicError(f"tracks {other} and {name} would both be drawn as {text!r}; give track_labels "
+                                 "labels no other track of the sheet draws")
+
+
+def helix_tracks(declared, prepared, opts):
+    """Every helix track of the sheet in letter order (core.helix_order): the `helix` preference's tracks and the ones
+    an `end` edit makes (a track to a helix end), sheet-wide, so a track has one letter on every band."""
+    ended = {n for g in prepared for e in g["edges"] for n in e["names"]
+             if any(g["nodes"][x].get("sub") == "helix" for x in (e["u"], e["v"]))}
+    return helix_order(set(declared) | ended, opts)
 
 
 def build_bands(inputs, optlist, log):
     """The drawn bands, top to bottom: [(title, band, options)]."""
     labels = track_labels(optlist, [n for _, n in inputs])
-    tracks = helix_order([v for o in optlist for v in o.get("helix", {}).values()], optlist[-1])
-    prepared = [prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)]
+    declared = [v for o in optlist for v in o.get("helix", {}).values()]
+    prepared = [prepare(g, o, helix_order(declared, optlist[-1])) for (g, _), o in zip(inputs, optlist)]
     check_turnbacks(prepared, optlist, [n for _, n in inputs])
     check_track_labels(prepared, labels)
+    tracks = helix_tracks(declared, prepared, optlist[-1])
     return in_order([build_input(g, name, o, tracks, log) for (g, name), o in zip(inputs, optlist)], optlist)
 
 
@@ -249,7 +268,8 @@ def solve(inputs, data, preferences=True, hints=False):
         o["helix_style"] = optlist[-1].get("helix_style", "box")
     optlist[-1].setdefault("helix_style", "box")
     labels = track_labels(optlist, [n for _, n in inputs])          # one set for the sheet, as helix_style
-    tracks = helix_order([v for o in optlist for v in o.get("helix", {}).values()], optlist[-1])
+    declared = [v for o in optlist for v in o.get("helix", {}).values()]
+    tracks = helix_order(declared, optlist[-1])
     logs = [[] for _ in inputs]
     pref = next((o["mileposts"] for o in reversed(optlist) if mileposts.preference(o) is not None), None)
     for o in optlist:                   # one switch for the sheet, set in any input's preferences
@@ -259,6 +279,7 @@ def solve(inputs, data, preferences=True, hints=False):
     prepared = [prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)]
     check_turnbacks(prepared, optlist, [n for _, n in inputs])
     check_track_labels(prepared, labels)
+    tracks = helix_tracks(declared, prepared, optlist[-1])
     if pref is not None:
         posts = mileposts.compute(prepared, optlist)
     per = [build_input(g, name, o, tracks, logs[i], posts[i], prepared[i])

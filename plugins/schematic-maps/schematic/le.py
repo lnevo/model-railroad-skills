@@ -93,7 +93,7 @@ from collections import defaultdict
 
 from . import cache, le_labels, le_prefs
 from .core import (XOVER_ONE, SchematicError, check_default_xovers, crossover_halves, crossover_name, node_ref,
-                   other_names, switch_ref, check_three_way, three_way_parts, tidy, xover_names)
+                   other_names, shown_name, switch_ref, check_three_way, three_way_parts, tidy, xover_names)
 from .draw import band_key
 from .layout import paths
 
@@ -1772,10 +1772,11 @@ def name_room_wanted(P, bands, keys, want, moved, notes):
                     continue
                 run += abs(c[0] - a[0])
                 best = max(best, run)
-            need = jmri_text.width(tidy([st["name"]])[0], LABEL_SIZE) + NAME_ROOM_PAD
+            text = tidy([shown_name(st["name"], _opts)])[0]
+            need = jmri_text.width(text, LABEL_SIZE) + NAME_ROOM_PAD
             if best < need - EPS:
                 x = min(view.xy(e)[0] for i in idents for e in segs[i]["ends"])
-                named.append((x, sid, tidy([st["name"]])[0], need - best))
+                named.append((x, sid, text, need - best))
         no_room = []
         for _x, sid, name, px in sorted(named):
             pieces = level_pieces(paths(band)[sid])

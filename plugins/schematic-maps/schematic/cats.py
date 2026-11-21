@@ -34,7 +34,7 @@ import math
 from collections import defaultdict
 
 from .core import (XOVER_ONE, SchematicError, crossover_halves, crossover_notes, dx_tracks, node_ref, through_leg,
-                   xover_names)
+                   shown_name, xover_names)
 from .layout import paths
 
 # The work is split by what it touches; this module keeps panel() and re-exports every name the one-file module had,
@@ -404,9 +404,9 @@ def panel(bands, scale=SCALE, bindings=None, max_cols=None, helix_blocks="one", 
             cands = [((c, y + 1), "UPCENT") for c in cols] + [((c, y - 1), "LOWCENT") for c in cols]
             if compact:                         # in the track's own cells, over it first
                 cands = [((c, y), "UPCENT") for c in cols] + [((c, y), "LOWCENT") for c in cols] + cands
-                named.append((xa, xb, y, s["name"].upper(), cands))
+                named.append((xa, xb, y, shown_name(s["name"], opts).upper(), cands))
             else:
-                P.label(cands, s["name"].upper(), rank=3)
+                P.label(cands, shown_name(s["name"], opts).upper(), rank=3)
         groups = parallel_runs(named)           # a compact panel names a yard's parallel tracks in one column
         for group in stacked_runs([g[0] for g in groups if len(g) == 1]):    # and lone tracks above one another
             if len(group) > 1:                  # (say a main's two stretches) centred in one column
