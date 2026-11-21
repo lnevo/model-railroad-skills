@@ -78,4 +78,5 @@ Settings that are tuning, not per-switch hints: `ladder_link_max_cm` (40) and `l
 - A hop in `main_route` written `[from, to, "direct"]` marks every track between the two; one written `[from, to]` takes the shortest. Through a double crossover use the shortest form unless both tracks are main.
 - Two track ends on the same spot in the plan are one track; the reader joins them. A loop that returns to its own switch arrives this way.
 - Heights are read from the parts file, matched by position. Check the "matched n of m" line.
+- To list what track a plan holds (radii, turnout sizes, frog numbers) before drawing, use the `anyrail-track-plans` skill and `schematic pieces`.
 - Text is measured with a bundled table for a Helvetica-style face, so results do not change with the fonts installed.

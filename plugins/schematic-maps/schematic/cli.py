@@ -1,6 +1,7 @@
 """The `schematic` command: read a plan, a panel and the layer files; draw, check and fingerprint a sheet.
 
     python3 -m schematic plan EXPORT.xml OUT.json [--section +Name] [--parts parts.json] [--z-range LO HI]
+    python3 -m schematic pieces EXPORT.xml [--px-per-cm X] [--json OUT.json]   every track piece by its geometry
     python3 -m schematic panel TABLES.xml OUT.json [--numbers numbers.csv] [--lengths lengths.csv]
     python3 -m schematic signals TABLES.xml GRAPH.json NAME OUT.json --data DIR [--numbers ..] [--lengths ..]
     python3 -m schematic draw OUT.svg --data DIR GRAPH.json:NAME [GRAPH.json:NAME ...] [--no-preferences]
@@ -19,7 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import cats, detail, le, fingerprint, label_check, layers, panel_reader, plan_reader, report, sheet, signal_reader
+from . import cats, detail, le, fingerprint, label_check, layers, panel_reader, pieces, plan_reader, report, sheet, signal_reader
 from .core import SchematicError
 from .plan_reader import PlanError
 
@@ -55,6 +56,12 @@ def run(argv=None):
     p.add_argument("--parts", help="plan parts JSON, for switch numbers T<n> and heights")
     p.add_argument("--z-range", nargs=2, type=float, metavar=("LO", "HI"), help="use only parts in this height range")
     p.add_argument("--main-section", default="Mainline", help="section name that marks main track")
+
+    p = sub.add_parser("pieces", help="every track piece in AnyRail's JMRI export, told by its geometry")
+    p.add_argument("export")
+    p.add_argument("--px-per-cm", type=float, default=plan_reader.PX_PER_CM,
+                   help=f"the export's scale (default {plan_reader.PX_PER_CM:.4f}, AnyRail's 12 px per inch)")
+    p.add_argument("--json", metavar="OUT", help="also write every piece, with its measures, to this JSON file")
 
     p = sub.add_parser("panel", help="a Layout Editor panel to a track graph")
     p.add_argument("tables")
@@ -143,6 +150,14 @@ def run(argv=None):
             g = plan_reader.read(a.export, a.section, parts, tuple(a.z_range) if a.z_range else None, a.main_section)
             json.dump(g, open(a.out, "w"), indent=1)
             print("\n".join(g["notes"]))
+        elif a.cmd == "pieces":
+            res = pieces.read(a.export, a.px_per_cm)
+            if a.json:
+                try:
+                    Path(a.json).write_text(json.dumps(res, indent=1))
+                except OSError as e:
+                    raise SchematicError(f"{a.json}: cannot write the pieces ({e.strerror})") from None
+            print("\n".join(pieces.report(res)))
         elif a.cmd == "panel":
             numbers, lengths = csv_args(a)
             g = panel_reader.read(a.tables, numbers, lengths, a.panel)
