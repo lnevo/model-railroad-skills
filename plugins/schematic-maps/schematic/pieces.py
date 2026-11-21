@@ -2,7 +2,7 @@
 
 The export holds no part numbers, makers or heights, only shapes, so every piece is told by what it is:
 
-- straight: a plain <tracksegment>; its length.
+- straight: a plain <tracksegment>; its length. The report totals straights and flex; `--json` lists each.
 - curve: a segment with arc="yes" and circle="yes"; JMRI keeps the arc's angle, so the radius is
   chord / (2 sin(angle / 2)) and the length radius * angle.
 - flex: a segment with bezier="yes"; JMRI draws a Bezier through its end points and control points, so the
@@ -40,10 +40,13 @@ FROG_SHAPES = ("straight", "wye")     # a curved turnout gets its angle between 
 IN_LINE_DEG = 1.5       # a leg within this angle of the line of the points runs straight through (joins are rarely truer)
 HEADING_MATCH_DEG = 30  # a heading read beyond an end must lie this close to the leg's own direction
 SAMPLES = 400           # steps along a flex piece for its length and tightest radius
+STRAIGHT_RADIUS = 1e4   # a flex 'radius' this many times its own length is a straight drawn at an angle
+KINK_DEG = 3.0          # a B leg this far off the track beyond the points may be a kinked join, not a bend
 CM_PER_IN = 2.54
 
 
-def _wrap(deg):
+def wrap_deg(deg):
+    """An angle in degrees brought into -180 up to 180."""
     return (deg + 180.0) % 360.0 - 180.0
 
 
@@ -65,12 +68,14 @@ def _derivative(points):
 
 
 def bezier_geometry(points):
-    """(length, tightest radius or None when straight) of a Bezier given its control points, end points included."""
+    """(length, tightest radius or None when straight, turn in degrees) of a Bezier given its control points, end
+    points included. The turn adds up the change of heading along the curve, so a loop past 180 degrees keeps its
+    full turn and its sign (positive clockwise on screen, y pointing down)."""
     if len(points) < 3:
         raise PlanError(f"a Bezier needs at least one control point between its ends, got {len(points)} points")
     d1 = _derivative(points)
     d2 = _derivative(d1) if len(d1) > 1 else None
-    length, prev, tightest = 0.0, points[0], None
+    length, prev, tightest, turn, heading = 0.0, points[0], None, 0.0, None
     for i in range(SAMPLES + 1):
         t = i / SAMPLES
         if i:
@@ -79,13 +84,26 @@ def bezier_geometry(points):
             prev = p
         v = _bezier(d1, t)
         speed = math.hypot(*v)
-        if d2 is None or speed < 1e-9:
+        if speed < 1e-9:            # a control point on an end: no heading there
             continue
-        bend = abs(cross(v, _bezier(d2, t)))
-        if bend > 1e-12:
-            r = speed ** 3 / bend
+        h = math.degrees(math.atan2(v[1], v[0]))
+        if heading is not None:
+            turn += wrap_deg(h - heading)
+        heading = h
+        if d2 is None:
+            continue
+        curvature = abs(cross(v, _bezier(d2, t))) / speed ** 3
+        if curvature > 0:
+            r = 1 / curvature
             tightest = r if tightest is None else min(tightest, r)
-    return length, tightest
+    span = math.dist(points[0], points[-1])
+    if tightest is not None and tightest > STRAIGHT_RADIUS * max(length, span):
+        tightest = None             # float noise on a straight piece, not a bend
+    return length, tightest, turn
+
+
+class _Unread(Exception):
+    """A piece this command cannot read: listed under skipped with the message, never raised to the user."""
 
 
 class Export:
@@ -98,9 +116,13 @@ class Export:
             raise PlanError(f"{path}: not readable XML ({e})") from None
         except OSError as e:
             raise PlanError(f"{path}: cannot be read ({e.strerror})") from None
-        panel = root.find("LayoutEditor") if root.tag != "LayoutEditor" else root
-        if panel is None:
+        panels = [root] if root.tag == "LayoutEditor" else root.findall("LayoutEditor")
+        if not panels:
             raise PlanError(f"{path}: no <LayoutEditor> panel; is it AnyRail's JMRI export?")
+        if len(panels) > 1:
+            raise PlanError(f"{path}: {len(panels)} <LayoutEditor> panels; an AnyRail export has one, so give one "
+                            "panel at a time")
+        panel = panels[0]
         self.turnouts = self._index(panel, "layoutturnout")
         self.segments = self._index(panel, "tracksegment")
         self.points = self._index(panel, "positionablepoint")
@@ -181,8 +203,7 @@ def _segment_piece(ex, s, scale):
     if s.get("bezier") == "yes":
         if len(pts) < 3:
             raise PlanError(f"tracksegment {ident!r}: bezier='yes' but no control points")
-        length, tight = bezier_geometry(pts)
-        turn = _wrap(_heading(pts[-2], pts[-1]) - _heading(pts[0], pts[1]))
+        length, tight, turn = bezier_geometry(pts)
         return dict(id=ident, kind="flex", length_cm=length / scale, turn_deg=turn,
                     tightest_radius_cm=None if tight is None else tight / scale), None
     return dict(id=ident, kind="straight", length_cm=chord), None
@@ -218,7 +239,8 @@ def _legs(ex, ident, t, legs):
         far = ex.far_end(s, ident)
         xy = ex.where(*far)
         if xy is None:
-            raise PlanError(f"layoutturnout {ident!r}: leg {leg} runs to {far[0]!r}, a crossing, slip or turntable")
+            raise _Unread(f"its leg {leg} runs to {far[0]!r}, a crossing, slip or turntable, which this command "
+                          "does not read")
         out[leg] = (xy, far[0], far[1], s)
     return out
 
@@ -233,7 +255,7 @@ def _turnout_piece(ex, ident, t, scale, leg_seen):
         h = _heading_beyond(ex, legs[k][1], legs[k][2], legs[k][3], leg_seen)
         # a heading far from the leg's own way out is not this leg's track (a reversing curve, a join): not used
         out = _heading(legs["B"][0], a) if k == "A" else _heading(a, legs[k][0])
-        heads[k] = h if h is not None and abs(_wrap(h - out)) <= HEADING_MATCH_DEG else None
+        heads[k] = h if h is not None and abs(wrap_deg(h - out)) <= HEADING_MATCH_DEG else None
     side = cross((b[0] - a[0], b[1] - a[1]), (c[0] - a[0], c[1] - a[1]))
     c_side = 1 if side > 0 else -1             # y down the screen: positive is clockwise, to the right
     notes = []
@@ -241,7 +263,7 @@ def _turnout_piece(ex, ident, t, scale, leg_seen):
         # The B leg's way out against its own chord: it runs on along the chord for a straight part, bends toward C
         # on a curved one and away from C on a wye. Read inside the part's two ends, a kinked join at the points
         # does not change it.
-        bend = _wrap(heads["B"] - _heading(a, b))
+        bend = wrap_deg(heads["B"] - _heading(a, b))
         if abs(bend) <= IN_LINE_DEG:
             shape = "straight"
         else:
@@ -249,11 +271,15 @@ def _turnout_piece(ex, ident, t, scale, leg_seen):
     elif heads["A"] is not None:
         # Nothing to read beyond B: the line of the points is the track joined beyond the points end, and a leg
         # whose end lies within IN_LINE_DEG of it runs straight through.
-        line = _wrap(heads["A"] + 180)
-        off_b, off_c = _wrap(_heading(a, b) - line), _wrap(_heading(a, c) - line)
+        line = wrap_deg(heads["A"] + 180)
+        off_b, off_c = wrap_deg(_heading(a, b) - line), wrap_deg(_heading(a, c) - line)
         if abs(off_b) <= IN_LINE_DEG:
             shape = "straight"
             heads["B"] = line
+        elif abs(off_b) <= KINK_DEG:
+            shape = "unknown"
+            notes.append(f"its B leg lies {abs(off_b):.1f} deg off the track beyond its points: a kinked join there, "
+                         "or a curved part or wye; look at the part in AnyRail")
         elif abs(off_c) <= IN_LINE_DEG:
             shape = "unknown"
             notes.append("its C leg runs in line with the track beyond its points and B does not")
@@ -264,7 +290,7 @@ def _turnout_piece(ex, ident, t, scale, leg_seen):
         notes.append("shape not read: no plain or flex track beyond its points or its straight leg; look at the part "
                      "in AnyRail")
     hand = None if shape in ("wye", "unknown") else ("R" if c_side > 0 else "L")
-    angle = abs(_wrap(heads["C"] - heads["B"])) if heads["B"] is not None and heads["C"] is not None else None
+    angle = abs(wrap_deg(heads["C"] - heads["B"])) if heads["B"] is not None and heads["C"] is not None else None
     frog = frog_number(angle) if angle and shape in FROG_SHAPES else None
     kind_hand = {"LH_TURNOUT": "L", "RH_TURNOUT": "R"}.get(t.get("type"))
     if hand and kind_hand and hand != kind_hand:
@@ -294,19 +320,21 @@ def read(path, px_per_cm=PX_PER_CM):
     leg_seen = set()
     for ident, t in ex.turnouts.items():
         ty = t.get("type")
-        if ty in TURNOUT_TYPES or ty == "DOUBLE_XOVER":
-            for leg in "ABCD":
-                name = t.get(f"connect{leg.lower()}name")
-                if name in ex.segments:
-                    leg_seen.add(name)
+        for leg in "ABCD":            # every turnout's legs belong to it, read or not: they are not track pieces
+            name = t.get(f"connect{leg.lower()}name")
+            if name in ex.segments:
+                leg_seen.add(name)
     for ident, t in ex.turnouts.items():
         ty = t.get("type")
-        if ty in TURNOUT_TYPES:
-            pieces.append(_turnout_piece(ex, ident, t, px_per_cm, leg_seen))
-        elif ty == "DOUBLE_XOVER":
-            pieces.append(_crossover_piece(ex, ident, t, px_per_cm))
-        else:
-            skipped.append((ident, f"turnout type {ty}, which this command does not read"))
+        try:
+            if ty in TURNOUT_TYPES:
+                pieces.append(_turnout_piece(ex, ident, t, px_per_cm, leg_seen))
+            elif ty == "DOUBLE_XOVER":
+                pieces.append(_crossover_piece(ex, ident, t, px_per_cm))
+            else:
+                skipped.append((ident, f"turnout type {ty}, which this command does not read (nor its legs)"))
+        except _Unread as e:
+            skipped.append((ident, str(e)))
     for ident, s in ex.segments.items():
         if ident in leg_seen:
             continue
@@ -370,6 +398,8 @@ def _mid(vals):
 
 def frog_number(angle_deg):
     """The frog number of a diverging angle: 1 / (2 tan(angle / 2))."""
+    if not 0 < angle_deg < 180:
+        raise PlanError(f"a diverging angle of {angle_deg} degrees has no frog number")
     return 1 / (2 * math.tan(math.radians(angle_deg) / 2))
 
 
@@ -384,7 +414,7 @@ def describe(exact, ps):
         angles = [p["angle_deg"] for p in ps if p["angle_deg"] is not None]
         if angles:
             a = _mid(angles)
-            frog = f"frog number {frog_number(a):.1f}; " if shape in FROG_SHAPES else ""
+            frog = f"frog number {frog_number(a):.1f}; " if shape in FROG_SHAPES and a > 0 else ""
             what += (f", diverging angle {a:.1f} deg ({frog}{min(angles):.1f} to {max(angles):.1f} deg over "
                      f"{len(angles)} of {len(ps)})")
         else:

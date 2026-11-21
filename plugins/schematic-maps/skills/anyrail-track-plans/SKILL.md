@@ -1,6 +1,6 @@
 ---
 name: anyrail-track-plans
-description: Reads an AnyRail track plan through AnyRail's own exports and names every piece by its geometry, never by a maker's part number. Straights by length, curves by radius and angle, flex by length and tightest radius, turnouts by hand, shape (straight, curved, wye), route lengths, diverging angle and frog number, double crossovers by length and track spacing. Covers which AnyRail feature gives which fact (the JMRI export, the endpoint and connection tabs, track details, the lists of materials, sections and labels), the export's scale and coordinates, and the pieces command that lists every piece in the JMRI export. Use when someone asks what track a plan holds, how long a run or a yard track is, which turnouts or curves a plan uses, whether two plans or two libraries use the same parts, or how to get geometry out of AnyRail for another tool. Not for drawing a schematic (use schematic-maps) or for editing a Layout Editor panel.
+description: Reads an AnyRail track plan through AnyRail's own exports and names every piece by its geometry, never by a maker's part number. Curves by radius and angle, flex by length and tightest radius, turnouts by hand, shape (straight, curved, wye), route lengths, diverging angle and frog number, double crossovers by length and track spacing. Covers which AnyRail feature gives which fact (the JMRI export, the endpoint and connection tabs, track details, the lists of materials, sections and labels), the export's scale and coordinates, and the pieces command that lists every piece in the JMRI export. Use when someone asks what track a plan holds, how long a run or a yard track is, which turnouts or curves a plan uses, whether two plans or two libraries use the same parts, or how to get geometry out of AnyRail for another tool. Not for drawing a schematic (use schematic-maps) or for editing a Layout Editor panel.
 ---
 
 # Reading AnyRail track plans by geometry
@@ -45,7 +45,7 @@ Checked against JMRI's source (Layout Editor track segments and Bezier code, v5.
 
 | Piece | Ends | Told by |
 |-------|------|---------|
-| Straight | 2 | Length |
+| Straight | 2 | Length (the report totals them; `--json` lists each) |
 | Curve | 2 | Radius and angle |
 | Flex | 2 | Length, change of heading end to end, tightest radius along it |
 | Turnout | 3 | Hand, shape, straight route length, diverging chord, diverging angle |

@@ -207,6 +207,74 @@ class Turnouts(unittest.TestCase):
         self.assertEqual(len(kinds(res, "straight")), 3)        # the three tracks beyond, not the three legs
 
 
+class ReviewFixes(unittest.TestCase):
+    """Cases a review found, one test each."""
+
+    def test_a_kinked_join_with_nothing_beyond_b_is_unknown_not_a_wye(self):
+        plan = Plan()
+        straight_turnout(plan, beyond=("A", "C"), kink=2.0)
+        t = kinds(plan.read(), "turnout")[0]
+        self.assertEqual(t["shape"], "unknown")
+        self.assertIn("kinked join", t["notes"][0])
+
+    def test_a_zero_diverging_angle_reports_without_a_frog_number(self):
+        plan = Plan()
+        straight_turnout(plan, angle=0.0)
+        res = plan.read()
+        self.assertEqual(kinds(res, "turnout")[0]["angle_deg"], 0.0)
+        line = next(x for x in pieces.report(res) if "turnout" in x)
+        self.assertNotIn("frog number", line)
+        with self.assertRaisesRegex(PlanError, "no frog number"):
+            pieces.frog_number(0.0)
+
+    def test_straight_flex_drawn_at_an_angle_has_no_radius(self):
+        plan = Plan(turn=37.0)
+        a, b = plan.point((0.0, 0.0)), plan.point((30.0, 0.0))
+        plan.segment((a, "POS_POINT"), (b, "POS_POINT"), ' bezier="yes"', ctrl=[(10.0, 0.0), (20.0, 0.0)])
+        self.assertIsNone(kinds(plan.read(), "flex")[0]["tightest_radius_cm"])
+
+    def test_the_legs_of_a_turnout_type_not_read_are_not_track(self):
+        plan = Plan()
+        a = plan.point((10.0, 0.0))
+        leg = plan.segment(("TX", "TURNOUT_A"), (a, "POS_POINT"))
+        plan.items.append(f'<layoutturnout ident="TX" type="LH_XOVER" xcen="0" ycen="0" xb="1" yb="0" xc="1" yc="1" '
+                          f'connectaname="{leg}"/>')
+        res = plan.read()
+        self.assertEqual(res["pieces"], [])
+        self.assertIn("nor its legs", dict(res["skipped"])["TX"])
+
+    def test_a_half_circle_of_flex_turns_180_clockwise(self):
+        plan = Plan()
+        a, b = plan.point((0.0, 0.0)), plan.point((0.0, 100.0))
+        plan.segment((a, "POS_POINT"), (b, "POS_POINT"), ' bezier="yes"', ctrl=[(66.5, 0.0), (66.5, 100.0)])
+        self.assertAlmostEqual(kinds(plan.read(), "flex")[0]["turn_deg"], 180.0, delta=0.5)
+
+    def test_a_turnout_leg_on_a_crossing_skips_the_turnout_not_the_run(self):
+        plan = Plan()
+        straight_turnout(plan, origin=(0.0, 50.0))
+        ends = [(0.0, 0.0), (23.35, 0.0), (23.3, 2.5)]
+        a, b, _ = (plan.point(p) for p in ends)
+        legs = [plan.segment(("T9", "TURNOUT_A"), (a, "POS_POINT")), plan.segment(("T9", "TURNOUT_B"), (b, "POS_POINT")),
+                plan.segment(("T9", "TURNOUT_C"), ("LX1", "LEVEL_XING_A"))]
+        (cx, cy), (bx, by), (qx, qy) = (plan.px(p) for p in ((11.7, 0.0), (15.8, 0.0), (15.8, 0.6)))
+        plan.items.append(f'<layoutturnout ident="T9" type="RH_TURNOUT" xcen="{cx}" ycen="{cy}" xb="{bx}" yb="{by}" '
+                          f'xc="{qx}" yc="{qy}" connectaname="{legs[0]}" connectbname="{legs[1]}" '
+                          f'connectcname="{legs[2]}"/>')
+        plan.items.append('<levelxing ident="LX1" xcen="0" ycen="0"/>')
+        res = plan.read()
+        self.assertIn("a crossing, slip or turntable", dict(res["skipped"])["T9"])
+        self.assertEqual(len(kinds(res, "turnout")), 1)
+
+    def test_two_panels_in_one_file_stop(self):
+        plan = Plan()
+        plan.track(plan.point((0.0, 0.0)), plan.point((1.0, 0.0)))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "two.xml"
+            path.write_text(plan.xml().replace("</layout-config>", '<LayoutEditor name="second"/></layout-config>'))
+            with self.assertRaisesRegex(PlanError, "2 <LayoutEditor> panels"):
+                pieces.read(str(path))
+
+
 class DoubleCrossover(unittest.TestCase):
     def test_length_and_spacing(self):
         plan = Plan()
