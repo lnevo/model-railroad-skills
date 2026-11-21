@@ -49,10 +49,12 @@ PARALLEL_DEG = 2.0      # two ends this close in heading run the same way
 LEVEL_CM = 0.05         # a part's ends within this much height are level
 STUB_PX = 60.0          # how far out along its leg a cut stub's track end is placed in a plan graph (export px)
 
-LENGTH_RE = re.compile(rb"(?=[\x01-\x30]\x00{7})")      # where a length-prefixed string may start
+LENGTH_RE = re.compile(rb"(?=[\x01-\x80]\x00{7})")      # where a length-prefixed string may start (up to 128 bytes)
 PRINTABLE = re.compile(rb"[\x20-\x7e]+")
 CODE = re.compile(rb"[A-Za-z0-9_-]+")
 POINT_BYTES = 22        # tag (2), id (4), x (8), y (8)
+MAX_NAME = 128          # longest catalogue name read; widening from 48 changed nothing on the real plans checked
+MAX_CODE = 32           # longest library or track system code read
 
 
 def _finite(*v):
@@ -74,10 +76,10 @@ def _names(d: bytes):
     out = []
     for m in LENGTH_RE.finditer(d):
         o = m.start()
-        name = _string(d, o, PRINTABLE, 3, 48)
+        name = _string(d, o, PRINTABLE, 3, MAX_NAME)
         if name is None:
             continue
-        lib = _string(d, o + 8 + len(name), CODE, 2, 16)
+        lib = _string(d, o + 8 + len(name), CODE, 2, MAX_CODE)
         if lib is not None:
             out.append((o, name, lib))
     return out
@@ -88,7 +90,7 @@ def _end_records(d: bytes):
     out = []
     for m in LENGTH_RE.finditer(d):
         o = m.start()
-        system = _string(d, o, CODE, 3, 32) if o >= 32 else None
+        system = _string(d, o, CODE, 3, MAX_CODE) if o >= 32 else None
         if system is None:
             continue
         x, y, z, a = struct.unpack("<4d", d[o - 32:o])
@@ -121,8 +123,8 @@ def _curve(d: bytes, start: int, ends):
             pts.append((x, y))
         if len(pts) != n:
             continue
-        tips = (pts[0], pts[-1])
-        if all(min(math.dist(t, (e["x"], e["y"])) for t in tips) < 0.5 for e in ends):
+        (a, b), tips = [(e["x"], e["y"]) for e in ends], (pts[0], pts[-1])
+        if any(math.dist(tips[0], u) < 0.5 and math.dist(tips[1], v) < 0.5 for u, v in ((a, b), (b, a))):
             return pts
     return None
 
@@ -136,7 +138,8 @@ def bezier_length(pts):
 
 def read(path) -> list[dict]:
     """The plan's track parts in file order: {index, name, library, system, ends [{x, y, z, a}], curve, cm, kind,
-    ...}; `cm` is a flex track's length along its curve, None for a fixed part."""
+    ...}; `cm` is a two-ended part's length: along its curve for flex, from its ends for a fixed part (see
+    fixed_length); None for a part with one, three or four ends."""
     try:
         d = Path(path).read_bytes()
     except OSError as e:
@@ -261,8 +264,9 @@ def components(parts, links):
 
 def runs(parts, links):
     """Switch-to-switch runs: [(part, end, part or None, end or None, cm)] from every end of every part with three or
-    more ends, through two-ended parts, to the next such part or a free end; each run once from each side. cm counts
-    flex curves only (fixed parts add nothing), as AnyRail's export measures between turnout ends."""
+    more ends, through two-ended parts, to the next such part or a free end; each run once from each side. cm adds up
+    the two-ended parts' `cm` between the switches' ends (flex along its curve, fixed parts from their ends); the
+    switches themselves add nothing."""
     nbr = {}
     for a, ka, b, kb in links:
         nbr[(a, ka)], nbr[(b, kb)] = (b, kb), (a, ka)
@@ -302,21 +306,41 @@ def level_cuts(parts, links, cut_z) -> list[dict]:
     for p, k, q, m, cm in runs(parts, links):
         if q is None or not parts[p]["ends"][k]["z"] < cut_z < parts[q]["ends"][m]["z"]:
             continue
-        here, low_cm, at = (p, k), 0.0, None
+        here, low_cm, at, crossings = (p, k), 0.0, None, 0
         while True:
             j, mm = nbr[here]
             part = parts[j]
             if len(part["ends"]) != 2:
                 break
             za, zb, length = part["ends"][mm]["z"], part["ends"][1 - mm]["z"], part["cm"] or 0.0
-            if at is None and za <= cut_z < zb:
-                at = low_cm + length * (cut_z - za) / (zb - za)
+            if za <= cut_z < zb or zb <= cut_z < za:
+                crossings += 1
+                if za <= cut_z < zb:
+                    at = low_cm + length * (cut_z - za) / (zb - za)
             low_cm += length
             here = (j, 1 - mm)
-        if at is None:
-            raise PlanError(f"the run from part {p} to part {q} crosses {cut_z} cm between two pieces, not in one")
+        if crossings != 1 or at is None:
+            raise PlanError(f"the run from part {p} to part {q} crosses {cut_z} cm {crossings} times inside its pieces; "
+                            "it must climb through it once, inside one piece: choose another cut height")
         out.append(dict(low=(p, k), high=(q, m), low_cm=at, high_cm=cm - at))
     return out
+
+
+def check_graph(graph, name="the graph"):
+    """Stop unless `graph` has the shape of a plan graph (`schematic plan` output) as add_cut_stubs uses it."""
+    if not isinstance(graph, dict) or not isinstance(graph.get("nodes"), dict) or not isinstance(graph.get("edges"), list):
+        raise PlanError(f"{name} is not a plan graph: it needs an object of nodes and a list of edges")
+    for n, d in graph["nodes"].items():
+        if not isinstance(d, dict) or "kind" not in d:
+            raise PlanError(f"{name}: node {n!r} has no kind")
+        if d["kind"] == "switch" and not (isinstance(d.get("xy"), list) and len(d["xy"]) == 2):
+            raise PlanError(f"{name}: switch {n!r} has no xy")
+    for e in graph["edges"]:
+        missing = [k for k in ("u", "up", "v", "vp") if not isinstance(e, dict) or k not in e]
+        if missing:
+            raise PlanError(f"{name}: an edge lacks {', '.join(missing)}")
+        if e["u"] not in graph["nodes"] or e["v"] not in graph["nodes"]:
+            raise PlanError(f"{name}: edge {e.get('id')!r} joins a node the graph does not have")
 
 
 def add_cut_stubs(graph, cuts, cut_z):
@@ -324,6 +348,7 @@ def add_cut_stubs(graph, cuts, cut_z):
     track up to the cut: a track end `CUT:T<n>` (marked `cut` with the height) at the end of a new edge as long as
     the run's share on that side. The graph's switch is found by its T label; the run must be the one leg it lacks.
     Returns the T labels given a stub."""
+    check_graph(graph)
     N, edges = graph["nodes"], graph["edges"]
     by_t = {d["label"]: n for n, d in N.items() if d["kind"] == "switch" and d.get("label", "").startswith("T")}
     used = collections.defaultdict(set)
@@ -394,8 +419,8 @@ def report(parts) -> list[str]:
     lines.append(f"switches not level: {tilted or 'none'}")
     grades = sorted(((100 * abs(p["ends"][0]["z"] - p["ends"][1]["z"]) / p["cm"], p["index"]) for p in parts
                      if p["cm"] and abs(p["ends"][0]["z"] - p["ends"][1]["z"]) > LEVEL_CM), reverse=True)
-    lines.append(f"sloped flex pieces: {len(grades)}, steepest " +
-                 ", ".join(f"T{i} {g:.2f}%" for g, i in grades[:5]) if grades else "sloped flex pieces: none")
+    lines.append(f"sloped two-ended pieces: {len(grades)}, steepest " +
+                 ", ".join(f"T{i} {g:.2f}%" for g, i in grades[:5]) if grades else "sloped two-ended pieces: none")
     near, seen = [], set()
     for i, k in free:                   # a free end close to another end that faces it, once per pair
         e = parts[i]["ends"][k]

@@ -75,7 +75,7 @@ Where nothing plain or flex joins beyond a leg (a buffer stop, a curve, another 
 
 ## The .any file, read directly
 
-`schematic anyplan PLAN.any` prints a report: how many track parts, ends and joins, how many connected pieces, the kinds of switch, ends and switches by height, switches that are not level, the steepest sloped flex pieces, and free ends that nearly meet another end (likely gaps in the plan).
+`schematic anyplan PLAN.any` prints a report: how many track parts, ends and joins, how many connected pieces, the kinds of switch, ends and switches by height, switches that are not level, the steepest sloped pieces, and free ends that nearly meet another end (likely gaps in the plan).
 
 - A part is track when its library starts with a track system code that end points use; scenery and buildings are left out without a list of makers. Its type comes from its number of ends, as in the table above, and a turnout's hand, curved or straight, from the ends' positions and headings.
 - Ends join where they meet within 0.15 cm and 0.5 cm in height. More than two ends on one spot stops the report.

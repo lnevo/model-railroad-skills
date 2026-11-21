@@ -180,13 +180,22 @@ def run(argv=None):
                 except (OSError, ValueError) as e:  # ValueError: a graph that is not JSON
                     raise SchematicError(f"{g}: cannot read the graph ({e})") from None
             if graphs:
+                for g, graph in graphs.items():
+                    anyplan.check_graph(graph, g)
                 anyplan.stub_graphs(plan, a.cut, list(graphs.values()))
-            if a.parts:
-                Path(a.parts).write_text(json.dumps(anyplan.parts_list(plan), separators=(",", ":")))
-                print(f"wrote {a.parts}: {len(plan)} parts")
-            for g, graph in graphs.items():
-                Path(g).write_text(json.dumps(graph, indent=1))
-                print(f"wrote {g}: stubs up to {a.cut} cm")
+            outputs = [(a.parts, json.dumps(anyplan.parts_list(plan), separators=(",", ":")), f"{len(plan)} parts")] \
+                if a.parts else []
+            outputs += [(g, json.dumps(graph, indent=1), f"stubs up to {a.cut} cm") for g, graph in graphs.items()]
+            for path in {Path(f).parent for f, _, _ in outputs}:       # every folder checked before any file is written
+                if not path.is_dir():
+                    raise SchematicError(f"{path}: no such folder; nothing written")
+            for f, text, what in outputs:
+                try:
+                    Path(f).write_text(text)
+                except OSError as e:
+                    raise SchematicError(f"{f}: cannot write it ({e.strerror}); files before it in the list were "
+                                         "written") from None
+                print(f"wrote {f}: {what}")
             if a.report or not (a.parts or a.stubs):
                 print("\n".join(anyplan.report(plan)))
         elif a.cmd == "panel":

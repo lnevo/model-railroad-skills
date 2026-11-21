@@ -274,7 +274,7 @@ class Command(unittest.TestCase):
         code, out, _ = self.run_cli()
         self.assertEqual(code, 0)
         self.assertIn("4 track parts", out)
-        self.assertIn("sloped flex pieces: 2", out)
+        self.assertIn("sloped two-ended pieces: 2", out)
 
     def test_cut_and_stubs_go_together(self):
         code, _, err = self.run_cli("--cut", "-5")
@@ -301,6 +301,69 @@ class Command(unittest.TestCase):
         self.assertIn("bad.json: cannot read the graph", err)
         self.assertEqual(low.read_text(), before)
         self.assertFalse(parts.exists())
+
+
+class PortReviewFixes(unittest.TestCase):
+    """Cases a review of the port found, one test each."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.tmp = Path(folder.name)
+
+    def test_a_long_catalogue_name_is_still_a_part(self):
+        long = "A-VERY-LONG-CATALOGUE-NAME-FOR-ONE-FLEX-PIECE-OF-TRACK-IN-SOME-LIBRARY"     # 70 bytes
+        plan = self.tmp / "long.any"
+        plan.write_bytes(name("FLEX-1", "ABC87") + end(10.0, 20.0, 0.0, 180.0, "ABC87") + end(40.0, 20.0, 0.0, 0.0, "ABC87")
+                         + name(long, "ABC87") + end(40.0, 20.0, 0.0, 180.0, "ABC87") + end(70.0, 20.0, 0.0, 0.0, "ABC87"))
+        parts = A.read(plan)
+        self.assertEqual([(p["name"], len(p["ends"])) for p in parts], [("FLEX-1", 2), (long, 2)])
+
+    def test_a_run_that_crosses_the_cut_three_times_stops(self):
+        def part(i, *spec, cm=None):
+            return dict(index=i, ends=ends(*spec), cm=cm, curve=None)
+        parts = [part(0, (0, 0, -30, 180), (-10, 0, -30, 0), (-10, 2, -30, 0)),
+                 part(1, (0, 0, -30, 0), (100, 0, -4, 0), cm=100.0),
+                 part(2, (100, 0, -4, 0), (150, 0, -6, 0), cm=50.0),          # dips back through -5
+                 part(3, (150, 0, -6, 0), (250, 0, 0, 0), cm=100.0),
+                 part(4, (250, 0, 0, 180), (260, 0, 0, 0), (260, 2, 0, 0))]
+        links, _ = A.joins(parts)
+        with self.assertRaisesRegex(A.PlanError, "crosses -5.0 cm 3 times"):
+            A.level_cuts(parts, links, -5.0)
+
+    def test_a_curve_must_start_on_one_end_and_finish_on_the_other(self):
+        short = ends((10.0, 20.0, 0, 180), (10.4, 20.0, 0, 0))     # both ends near one tip of the list below
+        data = curve([(10.2, 20.0), (20.0, 20.0), (30.0, 20.0), (40.0, 20.0)])
+        self.assertIsNone(A._curve(data, 0, short))
+        right = ends((10.2, 20.0, 0, 180), (40.0, 20.0, 0, 0))
+        self.assertIsNotNone(A._curve(data, 0, right))
+
+    def test_a_stubs_file_that_is_not_a_plan_graph_says_so(self):
+        plan = self.tmp / "rise.any"
+        plan.write_bytes(rise_bytes())
+        low, other = self.tmp / "low.json", self.tmp / "other.json"
+        low.write_text(json.dumps(level_graph("T0", "A")))
+        other.write_text(json.dumps([{"name": "x", "eps": []}]))
+        err = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            code = cli.run(["anyplan", str(plan), "--cut", "-5", "--stubs", str(low), str(other)])
+        self.assertEqual(code, 2)
+        self.assertIn("other.json is not a plan graph", err.getvalue())
+
+    def test_a_parts_file_in_a_missing_folder_writes_nothing(self):
+        plan = self.tmp / "rise.any"
+        plan.write_bytes(rise_bytes())
+        low, high = self.tmp / "low.json", self.tmp / "high.json"
+        low.write_text(json.dumps(level_graph("T0", "A")))
+        high.write_text(json.dumps(level_graph("T3", "A")))
+        before = low.read_text()
+        err = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            code = cli.run(["anyplan", str(plan), "--parts", str(self.tmp / "nope" / "parts.json"),
+                            "--cut", "-5", "--stubs", str(low), str(high)])
+        self.assertEqual(code, 2)
+        self.assertIn("no such folder; nothing written", err.getvalue())
+        self.assertEqual(low.read_text(), before)
 
 
 class SharedBezier(unittest.TestCase):
