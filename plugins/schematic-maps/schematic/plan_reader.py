@@ -86,6 +86,30 @@ def cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
 
+def number(el, attr):
+    """The element's attribute as a finite number, or a PlanError naming the element and the attribute."""
+    raw = el.get(attr)
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        v = None
+    if v is None or not math.isfinite(v):
+        raise PlanError(f"{el.tag} {el.get('ident')!r}: {attr}={raw!r} is not a number")
+    return v
+
+
+def turnout_point(t, leg):
+    """Where leg A, B, C or D of a <layoutturnout> meets its track, in export px. The export gives the centre and
+    B and C; A is B (C on a crossover) mirrored through the centre, D is B mirrored."""
+    cx, cy = number(t, "xcen"), number(t, "ycen")
+    if leg == "B":
+        return number(t, "xb"), number(t, "yb")
+    if leg == "C":
+        return number(t, "xc"), number(t, "yc")
+    o = turnout_point(t, "B" if (leg == "A" and "XOVER" not in (t.get("type") or "")) else ("C" if leg == "A" else "B"))
+    return 2 * cx - o[0], 2 * cy - o[1]
+
+
 def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     """The track graph of an AnyRail export; `parts` is the parts list (see above), not a file name."""
     panel = ET.parse(path).getroot().find("LayoutEditor")
@@ -93,15 +117,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     segs = {s.get("ident"): s for s in panel.iter("tracksegment")}
     pps = {p.get("ident"): p for p in panel.iter("positionablepoint")}
     nodes, portmap, edges = {}, {}, []
-
-    def pt(t, leg):
-        cx, cy = float(t.get("xcen")), float(t.get("ycen"))
-        if leg == "B":
-            return float(t.get("xb")), float(t.get("yb"))
-        if leg == "C":
-            return float(t.get("xc")), float(t.get("yc"))
-        o = pt(t, "B" if (leg == "A" and "XOVER" not in t.get("type")) else ("C" if leg == "A" else "B"))
-        return 2 * cx - o[0], 2 * cy - o[1]
+    pt = turnout_point
 
     for ident, t in tos.items():
         ty = t.get("type")
