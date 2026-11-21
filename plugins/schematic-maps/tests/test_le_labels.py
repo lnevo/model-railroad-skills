@@ -168,6 +168,24 @@ class Options(unittest.TestCase):
             with self.subTest(v=v), self.assertRaisesRegex(SchematicError, "station_gap must be whole px"):
                 le_labels.options(with_opts({"station_gap": v}), None)
 
+    def test_a_station_name_keeps_the_larger_gap_of_the_two(self):
+        """Bands with different station_gap: a name with the default gap still keeps the other name's larger gap from
+        it when placed, as verify holds the pair to the larger (review, 2026-11-21)."""
+        stations_ = {"Throat": ["1"], "Yard": ["11", "12", "13"], "Junction": ["2", "6", "3"]}
+        b = [(t, band, dict(o, stations=stations_)) for t, band, o in bands()]
+        P = le.panel(b)
+        L = le_labels.Layer(P, b, le_labels.options(b, None))
+        yard = next(lb for lb in P.labels if lb["kind"] == "station" and lb["text"] == "YARD")
+        L.boxes = L.boxes.without({(f"label {yard['text']!r}", "a label", None)})
+        box = le_labels.box_of(*yard["box"])
+        item = L.item(le_labels.STATION_KIND, "Lower: station name YARD", "YARD", yard["size"], True)
+        self.assertIsNone(L.fault(box, item))
+        other = (box[2] + 5, box[1], box[2] + 45, box[3])          # another band's name, 5 px to the right
+        L.boxes.add(other, ("Upper: station name FAR", le_labels.STATION_KIND, None))
+        self.assertIsNone(L.fault(box, item))                     # both at the default gap: 5 px is clean
+        L.station_gaps["Upper: station name FAR"] = 20
+        self.assertEqual(L.fault(box, item)[0], "too near a station name")
+
     def test_a_band_overrides_the_page(self):
         b = with_opts({"switch_prefix": "B-"})
         page = dict(b[-1][2], le_labels={"switch_prefix": "P-", "block_contents": False})

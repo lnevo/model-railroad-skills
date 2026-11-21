@@ -31,6 +31,8 @@ before it (and the mast icons, band titles, helix and connector labels and circl
                    bold at `station_size` (10 by default, the size the drawing keeps their room at; a larger one
                    is placed and checked at its own size like every item, and the room stays as drawn), each
                    `station_gap` px (PAD by default) from every other station name, so two neighbours read as two
+                   (two names of bands with different gaps: the larger). The drawing keeps no more room for a
+                   larger size, so a name on the panel's outermost band may then find no spot and stop
 
 Sizes. A label's box is the one JMRI gives it (PositionableLabel: FontMetrics stringWidth x getHeight), its stored
 whole-pixel x, y the top left: jmri_text holds the Dialog font's sizes, and every label is written in Dialog so the
@@ -410,6 +412,7 @@ class Layer:
         self.P, self.bands, self.opts = P, bands, opts
         self.kept = None            # what earlier bands placed, standing (place by band); None: nothing yet
         self.reserved = []          # the caller's lamp boxes (lamp_columns): {band, track, box}
+        self.station_gaps = {}      # a station name's what -> its band's station_gap (each pair: the larger)
         self.margin, self.name_size = MARGIN, LABEL_SIZE
         view = le_masts.PanelView(P)
         self.world = world = le_masts.World(view)
@@ -495,9 +498,11 @@ class Layer:
         for other, thing in self.boxes.near(box, PAD):
             if thing not in past and boxes_overlap(box, other, PAD):
                 return f"over {thing[1]}", f"over {thing[0]}"
-        gap = item.get("gap", PAD)          # a station name: station_gap px from every other station name
-        if gap > PAD:
-            for other, thing in self.boxes.near(box, gap):
+        if item["kind"] == STATION_KIND:   # station_gap px from every other station name: the larger of the two
+            own = item.get("gap", PAD)
+            reach = max([own, *self.station_gaps.values()])
+            for other, thing in (self.boxes.near(box, reach) if reach > PAD else ()):
+                gap = max(own, self.station_gaps.get(thing[0], PAD))
                 if thing[1] == STATION_KIND and thing not in past and boxes_overlap(box, other, gap):
                     return f"too near {STATION_KIND}", f"within {gap} px of {thing[0]}"
         why = None if on else self.reads_other(box, item)
@@ -1547,7 +1552,7 @@ def _stations(P, L, bi, title, bopts, size, gap):
             if short is True:
                 return None
             it = L.item(STATION_KIND, f"{title}: station name {text}", text, size, True)
-            it["gap"] = gap
+            it["gap"] = L.station_gaps[it["what"]] = gap
             spots = ((mid - it["w"] / 2 + d, min(ys) - g - it["h"] if top else max(ys) + g)
                      for g in STATION_GAPS for d in slide)
             return it, spots, lambda box: _station_dict(it, box, bi, gap)
