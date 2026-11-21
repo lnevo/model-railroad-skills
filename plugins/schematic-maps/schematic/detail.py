@@ -12,7 +12,7 @@ import copy
 
 from . import capacity, columns, draw
 from . import stations as stn
-from .core import JUNCTION, SchematicError
+from .core import JUNCTION, SchematicError, shown_name
 
 DETAIL_REACH = 2.0          # cells of a leaving track that stay on the sheet
 DETAIL_SCALE = 2.0          # the most a detail sheet is enlarged beyond the overall sheet's drawing size
@@ -98,7 +98,8 @@ def cut(band, members, opts, name, owner, reach=DETAIL_REACH):
             cid = f"CUT:{sid}"
             kept_is_src = u not in end_ids
             dest = destination(nodes, far, owner, name, s["name"])
-            room = (max(reach, columns.name_cells((s["name"] + " (00)").upper(), opts) + 1) if s["name"] else reach) + pad
+            room = (max(reach, columns.name_cells((shown_name(s["name"], opts) + " (00)").upper(), opts) + 1)
+                    if s["name"] else reach) + pad
             if sid in R["diag"]:             # a slope is cut like a level track: along its columns, the row following
                 (xa, xb), (ra, rb) = (x[u], x[v]), (R["nrow"][u], R["nrow"][v])
                 frac = min(1.0, room / (xb - xa)) if xb > xa else 1.0

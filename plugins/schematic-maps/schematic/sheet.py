@@ -15,7 +15,7 @@ import pickle
 from pathlib import Path
 
 from . import cache, columns, direction, draw, edits, layers, layout, mileposts, stations
-from .core import SchematicError
+from .core import SchematicError, helix_order
 from .draw import DEFAULTS
 
 ROOM_ROUNDS = 3     # how many times labels may claim more room before the sheet is drawn as it stands
@@ -152,10 +152,46 @@ def check_turnbacks(prepared, optlist, names):
             raise SchematicError(f"{name}: turnbacks names {', '.join(lost)}, which no track of the sheet has")
 
 
+def track_labels(optlist, names):
+    """The sheet-wide `track_labels` preference ({track name: the label drawn for it}): every input's, merged, and
+    given to every input's options, as helix_style is, so a track drawn on several inputs (a helix track) shows one
+    label on each. Stops on a value that is not an object of non-empty strings, two inputs giving one track two
+    labels, or a key that is no track name of the sheet (an input's `names`, its section name in the messages)."""
+    merged, where = {}, {}
+    for o, name in zip(optlist, names):
+        got = o.get("track_labels")
+        if got is None:
+            continue
+        if not isinstance(got, dict) or not all(isinstance(k, str) and k.strip() and isinstance(v, str) and v.strip()
+                                                for k, v in got.items()):
+            raise SchematicError(f"{name}: track_labels is an object of track name to label, both non-empty "
+                                 f"strings, not {got!r}")
+        for track, label in got.items():
+            if merged.setdefault(track, label) != label:
+                raise SchematicError(f"track_labels gives {track} the label {merged[track]!r} in {where[track]} and "
+                                     f"{label!r} in {name}")
+            where.setdefault(track, name)
+    for o in optlist:
+        if merged:
+            o["track_labels"] = merged
+    return merged
+
+
+def check_track_labels(prepared, labels):
+    """Stop when `track_labels` names a track that no input of the sheet has."""
+    have = {n for g in prepared for e in g["edges"] for n in e["names"]}
+    lost = sorted(set(labels) - have)
+    if lost:
+        raise SchematicError(f"track_labels names {', '.join(lost)}, which no track of the sheet has")
+
+
 def build_bands(inputs, optlist, log):
     """The drawn bands, top to bottom: [(title, band, options)]."""
-    tracks = sorted({v for o in optlist for v in o.get("helix", {}).values()})
-    check_turnbacks([prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)], optlist, [n for _, n in inputs])
+    labels = track_labels(optlist, [n for _, n in inputs])
+    tracks = helix_order([v for o in optlist for v in o.get("helix", {}).values()], optlist[-1])
+    prepared = [prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)]
+    check_turnbacks(prepared, optlist, [n for _, n in inputs])
+    check_track_labels(prepared, labels)
     return in_order([build_input(g, name, o, tracks, log) for (g, name), o in zip(inputs, optlist)], optlist)
 
 
@@ -212,7 +248,8 @@ def solve(inputs, data, preferences=True, hints=False):
     for o in optlist[:-1]:
         o["helix_style"] = optlist[-1].get("helix_style", "box")
     optlist[-1].setdefault("helix_style", "box")
-    tracks = sorted({v for o in optlist for v in o.get("helix", {}).values()})
+    labels = track_labels(optlist, [n for _, n in inputs])          # one set for the sheet, as helix_style
+    tracks = helix_order([v for o in optlist for v in o.get("helix", {}).values()], optlist[-1])
     logs = [[] for _ in inputs]
     pref = next((o["mileposts"] for o in reversed(optlist) if mileposts.preference(o) is not None), None)
     for o in optlist:                   # one switch for the sheet, set in any input's preferences
@@ -221,6 +258,7 @@ def solve(inputs, data, preferences=True, hints=False):
     posts = [None] * len(inputs)
     prepared = [prepare(g, o, tracks) for (g, _), o in zip(inputs, optlist)]
     check_turnbacks(prepared, optlist, [n for _, n in inputs])
+    check_track_labels(prepared, labels)
     if pref is not None:
         posts = mileposts.compute(prepared, optlist)
     per = [build_input(g, name, o, tracks, logs[i], posts[i], prepared[i])

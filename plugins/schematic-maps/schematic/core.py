@@ -12,6 +12,23 @@ JUNCTION = ("switch", "dx")
 TURN_SIGN = 1
 
 
+def shown_name(name, opts):
+    """The name drawn for a track named `name`: its label in the sheet-wide `track_labels` preference ({track name:
+    label}, sheet.track_labels), else `name` itself. A strand that carries two names ("A / B") is shown part by part.
+    With no `track_labels` the name is unchanged."""
+    labels = opts.get("track_labels")
+    if not labels or not name:
+        return name
+    return " / ".join(labels.get(part, part) for part in name.split(" / "))
+
+
+def helix_order(names, opts):
+    """The helix track names in letter order (H1, H2, ...): by the name drawn for each (shown_name), then by the
+    name itself, so a label puts its track where its drawn name sorts, and with no labels the order is the names'
+    own sorted order."""
+    return sorted(set(names), key=lambda n: (shown_name(n, opts), n))
+
+
 def tidy(names):
     """Block names to track names: drop "Track ", and "S-4 East" when "S-4" is there too."""
     short = [n[6:] if n.startswith("Track ") else n for n in names]

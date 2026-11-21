@@ -5,7 +5,7 @@ import math
 from xml.sax.saxutils import escape
 
 from . import capacity, direction, fold, labels, mileposts, stations
-from .core import SchematicError, dedupe, dx_tracks, legs, other_end  # noqa: F401
+from .core import SchematicError, dedupe, dx_tracks, helix_order, legs, other_end, shown_name  # noqa: F401
 from .layout import paths
 
 
@@ -225,7 +225,8 @@ def draw_band(band, title, opts, top, left):
         for (c1, r1), (c2, r2) in zip(pts, pts[1:]):
             P.line((X(c1), Y(r1)), (X(c2), Y(r2)), wd)
         if s and (s["name"] or k in cars) and k not in diag:
-            shown = " ".join(t for t in (s["name"].upper(), f"({cars[k]})" if k in cars else "") if t)
+            shown = " ".join(t for t in (shown_name(s["name"], opts).upper(), f"({cars[k]})" if k in cars else "")
+                             if t)
             su, sv, _ = band["need"][k]
             xa, xb, yr = X(x[s["src"][0]] + su), X(x[s["dst"][0]] - sv), Y(srow[k])
             mid, q = (xa + xb) / 2, (xb - xa) / 4
@@ -293,9 +294,9 @@ def draw_band(band, title, opts, top, left):
             style = opts.get("helix_style", "box")
             tag = ""
             if d.get("sub") == "helix":         # the same letter for the same track on every level
-                tracks = opts.get("helix_tracks") or sorted(
+                tracks = opts.get("helix_tracks") or helix_order(
                     {strands[q]["name"] for q in strands for e_ in (strands[q]["src"][0], strands[q]["dst"][0])
-                     if nodes[e_].get("sub") == "helix"})
+                     if nodes[e_].get("sub") == "helix"}, opts)
                 mine = next(strands[q]["name"] for q in strands if n in (strands[q]["src"][0], strands[q]["dst"][0]))
                 if mine not in tracks:          # a helix end added by an `end` edit, after the declared ones
                     tracks = list(tracks) + [mine]
