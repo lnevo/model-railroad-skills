@@ -2,6 +2,7 @@
 
     python3 -m schematic plan EXPORT.xml OUT.json [--section +Name] [--parts parts.json] [--z-range LO HI]
     python3 -m schematic pieces EXPORT.xml [--px-per-cm X] [--json OUT.json]   every track piece by its geometry
+    python3 -m schematic anyplan PLAN.any [--report] [--parts parts.json] [--cut Z --stubs GRAPH.json ...]   the .any read directly
     python3 -m schematic panel TABLES.xml OUT.json [--numbers numbers.csv] [--lengths lengths.csv]
     python3 -m schematic signals TABLES.xml GRAPH.json NAME OUT.json --data DIR [--numbers ..] [--lengths ..]
     python3 -m schematic draw OUT.svg --data DIR GRAPH.json:NAME [GRAPH.json:NAME ...] [--no-preferences]
@@ -20,7 +21,8 @@ import re
 import sys
 from pathlib import Path
 
-from . import cats, detail, le, fingerprint, label_check, layers, panel_reader, pieces, plan_reader, report, sheet, signal_reader
+from . import (anyplan, cats, detail, le, fingerprint, label_check, layers, panel_reader, pieces, plan_reader, report,
+               sheet, signal_reader)
 from .core import SchematicError
 from .plan_reader import PlanError
 
@@ -62,6 +64,15 @@ def run(argv=None):
     p.add_argument("--px-per-cm", type=float, default=plan_reader.PX_PER_CM,
                    help=f"the export's scale (default {plan_reader.PX_PER_CM:.4f}, AnyRail's 12 px per inch)")
     p.add_argument("--json", metavar="OUT", help="also write every piece, with its measures, to this JSON file")
+
+    p = sub.add_parser("anyplan", help="an AnyRail .any plan read directly: report, parts list, level cut stubs")
+    p.add_argument("plan", help="the AnyRail .any file")
+    p.add_argument("--parts", help="write the parts list `plan --parts` reads (JSON) here")
+    p.add_argument("--report", action="store_true", help="print levels, track ends, grades and likely faults")
+    p.add_argument("--cut", type=float, metavar="Z",
+                   help="the height (cm) that parts two levels' graphs; with --stubs, give each the track up to it")
+    p.add_argument("--stubs", nargs="+", metavar="GRAPH",
+                   help="plan graphs (`plan` output) to give a stub up to the --cut height, in place")
 
     p = sub.add_parser("panel", help="a Layout Editor panel to a track graph")
     p.add_argument("tables")
@@ -158,6 +169,26 @@ def run(argv=None):
                 except OSError as e:
                     raise SchematicError(f"{a.json}: cannot write the pieces ({e.strerror})") from None
             print("\n".join(pieces.report(res)))
+        elif a.cmd == "anyplan":
+            if (a.cut is None) != (not a.stubs):
+                raise SchematicError("--cut and --stubs go together")
+            plan = anyplan.read(a.plan)
+            graphs = {}
+            for g in a.stubs or ():                 # every graph read and given its stubs before any file is written
+                try:
+                    graphs[g] = json.loads(Path(g).read_text())
+                except (OSError, ValueError) as e:  # ValueError: a graph that is not JSON
+                    raise SchematicError(f"{g}: cannot read the graph ({e})") from None
+            if graphs:
+                anyplan.stub_graphs(plan, a.cut, list(graphs.values()))
+            if a.parts:
+                Path(a.parts).write_text(json.dumps(anyplan.parts_list(plan), separators=(",", ":")))
+                print(f"wrote {a.parts}: {len(plan)} parts")
+            for g, graph in graphs.items():
+                Path(g).write_text(json.dumps(graph, indent=1))
+                print(f"wrote {g}: stubs up to {a.cut} cm")
+            if a.report or not (a.parts or a.stubs):
+                print("\n".join(anyplan.report(plan)))
         elif a.cmd == "panel":
             numbers, lengths = csv_args(a)
             g = panel_reader.read(a.tables, numbers, lengths, a.panel)

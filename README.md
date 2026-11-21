@@ -71,7 +71,7 @@ claude plugin install car-cards@model-railroad-skills
 
 ## Schematic maps (separate plugin)
 
-`schematic-maps` draws a layout's track as one clean schematic sheet from the track plan's JMRI export: a band for each level, the main line level through every switch, yard ladders, loops, helix tracks and signal masts read from a Layout Editor panel, checked for crossings and overlapping labels. Its `anyrail-track-plans` skill and `schematic pieces` command read an AnyRail plan's JMRI export and name every piece by its geometry (radius, angle, hand, frog number), not by a maker's part number. It runs a Python command and writes files you choose, which is why it is a separate install. See [`plugins/schematic-maps/README.md`](plugins/schematic-maps/README.md).
+`schematic-maps` draws a layout's track as one clean schematic sheet from the track plan's JMRI export: a band for each level, the main line level through every switch, yard ladders, loops, helix tracks and signal masts read from a Layout Editor panel, checked for crossings and overlapping labels. Its `anyrail-track-plans` skill, `schematic pieces` and `schematic anyplan` commands read an AnyRail plan (its JMRI export, or the .any file directly) and name every piece by its geometry (radius, angle, hand, frog number), not by a maker's part number. It runs a Python command and writes files you choose, which is why it is a separate install. See [`plugins/schematic-maps/README.md`](plugins/schematic-maps/README.md).
 
 ```
 claude plugin install schematic-maps@model-railroad-skills

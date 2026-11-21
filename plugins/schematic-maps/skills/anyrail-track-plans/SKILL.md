@@ -1,6 +1,6 @@
 ---
 name: anyrail-track-plans
-description: Reads an AnyRail track plan through AnyRail's own exports and names every piece by its geometry, never by a maker's part number. Curves by radius and angle, flex by length and tightest radius, turnouts by hand, shape (straight, curved, wye), route lengths, diverging angle and frog number, double crossovers by length and track spacing. Covers which AnyRail feature gives which fact (the JMRI export, the endpoint and connection tabs, track details, the lists of materials, sections and labels), the export's scale and coordinates, and the pieces command that lists every piece in the JMRI export. Use when someone asks what track a plan holds, how long a run or a yard track is, which turnouts or curves a plan uses, whether two plans or two libraries use the same parts, or how to get geometry out of AnyRail for another tool. Not for drawing a schematic (use schematic-maps) or for editing a Layout Editor panel.
+description: Reads an AnyRail track plan through AnyRail's JMRI export, or the .any file directly, and names every piece by its geometry, never by a maker's part number. Curves by radius and angle, flex by length and tightest radius, turnouts by hand, shape (straight, curved, wye), route lengths, diverging angle and frog number, double crossovers by length and track spacing. Covers which AnyRail feature gives which fact (the JMRI export, the endpoint and connection tabs, track details, the lists of materials, sections and labels), the export's scale and coordinates, and the pieces command that lists every piece in the JMRI export. Use when someone asks what track a plan holds, how long a run or a yard track is, which turnouts or curves a plan uses, whether two plans or two libraries use the same parts, or how to get geometry out of AnyRail for another tool. Not for drawing a schematic (use schematic-maps) or for editing a Layout Editor panel.
 ---
 
 # Reading AnyRail track plans by geometry
@@ -25,7 +25,7 @@ The JMRI export is the only one that holds every piece's geometry in a documente
 
 AnyRail's coordinates: by default the origin is at the top left and y points down. The Settings tab can flip y and move the origin, and sets the measurement system (metric by default, or inches as fractions or decimals). Check those settings before comparing numbers from the Endpoint tab with anything else.
 
-The `.any` plan file itself is an undocumented binary format. It can be read directly with a reader built for it; this plugin does not include one.
+The JMRI export is the first route. The second is the `.any` plan file itself, read directly with `schematic anyplan` (below). Its format is not published: the reader was worked out on real plans and checked against AnyRail's JMRI export of the same plans, so a new AnyRail version may break it. It gives what the export lacks: every part's own end points with heights and headings, flex curves, joins, grades, and a parts list for `schematic plan --parts`.
 
 ## What the JMRI export holds
 
@@ -72,6 +72,17 @@ Where nothing plain or flex joins beyond a leg (a buffer stop, a curve, another 
 3. Check the scale against one piece in AnyRail (two end points' x and y in the Endpoint tab).
 4. Read the `note` and `skipped` lines. A note names turnouts whose shape could not be read. Skipped elements (level crossings, slips, turntables, elliptical arcs, other turnout types) are listed with the reason; nothing is dropped unseen.
 5. Look at flex lines with a small tightest radius: a short flex piece with a kink in it shows up there.
+
+## The .any file, read directly
+
+`schematic anyplan PLAN.any` prints a report: how many track parts, ends and joins, how many connected pieces, the kinds of switch, ends and switches by height, switches that are not level, the steepest sloped flex pieces, and free ends that nearly meet another end (likely gaps in the plan).
+
+- A part is track when its library starts with a track system code that end points use; scenery and buildings are left out without a list of makers. Its type comes from its number of ends, as in the table above, and a turnout's hand, curved or straight, from the ends' positions and headings.
+- Ends join where they meet within 0.15 cm and 0.5 cm in height. More than two ends on one spot stops the report.
+- `--parts parts.json` writes each part's name and end points (x, y, z in cm) in file order: the parts list `schematic plan --parts` matches against the export for switch numbers T<index> and heights.
+- `--cut Z --stubs lower.json upper.json` gives each level's plan graph its share of a run that climbs through height Z (a helix between levels), in proportion to the grade of the flex piece the cut falls in. Every side of every run through the cut must land in exactly one graph, or nothing is written.
+
+Read the report against the plan before trusting the counts. The part names in the file are the libraries' names: tell pieces apart by the geometry, as for the export.
 
 ## Pitfalls
 
