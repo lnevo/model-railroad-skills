@@ -140,6 +140,34 @@ class Options(unittest.TestCase):
         xml = {lb.get("text"): lb.get("size") for lb in le.to_xml(big, "G").iter("positionablelabel")}
         self.assertEqual({xml[lb["text"]] for lb in names(big)}, {"14"})
 
+    def test_station_gap_keeps_station_names_apart_and_is_checked(self):
+        """station_gap: each station name that many px from every other (Junction and Yard stand 10 px apart at 14);
+        unset, the label dicts are as before (no gap key); verify stops on two nearer than their gap."""
+        stations_ = {"Throat": ["1"], "Yard": ["11", "12", "13"], "Junction": ["2", "6", "3"]}
+
+        def built(opts):
+            return le.panel([(t, band, dict(o, stations=stations_, le_labels=opts)) for t, band, o in bands()])
+
+        def gaps(P):
+            named = [lb for lb in P.labels if lb["kind"] == "station"]
+            return {(a["text"], b["text"]): max(b["box"][0] - (a["box"][0] + a["box"][2]),
+                                                a["box"][0] - (b["box"][0] + b["box"][2]))
+                    for i, a in enumerate(named) for b in named[i + 1:] if abs(a["box"][1] - b["box"][1]) < 20}
+        tight = built({"station_size": 14})
+        self.assertLess(min(gaps(tight).values()), 20)
+        self.assertTrue(all("gap" not in lb for lb in tight.labels))
+        apart = built({"station_size": 14, "station_gap": 20})
+        self.assertGreaterEqual(min(gaps(apart).values()), 20)
+        self.assertEqual({lb["gap"] for lb in apart.labels if lb["kind"] == "station"}, {20})
+        bad = copy.deepcopy(apart)
+        a, b = sorted((lb for lb in bad.labels if lb["kind"] == "station"), key=lambda lb: lb["box"][0])[-2:]
+        b["box"] = (a["box"][0] + a["box"][2] + 5,) + tuple(b["box"][1:])
+        with self.assertRaisesRegex(SchematicError, "nearer than their station_gap, 20 px"):
+            le_labels.verify(bad)
+        for v in (1, 101, True, "10", 2.5):
+            with self.subTest(v=v), self.assertRaisesRegex(SchematicError, "station_gap must be whole px"):
+                le_labels.options(with_opts({"station_gap": v}), None)
+
     def test_a_band_overrides_the_page(self):
         b = with_opts({"switch_prefix": "B-"})
         page = dict(b[-1][2], le_labels={"switch_prefix": "P-", "block_contents": False})
