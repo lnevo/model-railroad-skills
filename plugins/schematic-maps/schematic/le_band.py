@@ -7,7 +7,7 @@ import math
 from collections import defaultdict
 
 from . import le_labels, stations
-from .core import SchematicError, crossover_halves, crossover_name, crossover_notes, through_leg, tidy
+from .core import SchematicError, crossover_halves, crossover_name, crossover_notes, shown_name, through_leg, tidy
 from .draw import band_key
 from .layout import paths
 from .le import (  # le's own names (le imports this module last)
@@ -733,7 +733,7 @@ class Band:
                 P.no_name[(self.bi, sid)] = "no level run to keep room for its name on"
                 continue
             a, b = max(runs, key=lambda r: (abs(r[1][0] - r[0][0]), -min(r[0][0], r[1][0])))
-            text = tidy([s["name"]])[0]
+            text = tidy([shown_name(s["name"], self.opts)])[0]
             if room_width(text, LABEL_SIZE) > abs(b[0] - a[0]) * 1.6:
                 P.no_name[(self.bi, sid)] = "its longest level run is too short for its name"
                 continue

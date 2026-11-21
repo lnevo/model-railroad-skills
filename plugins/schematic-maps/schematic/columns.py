@@ -4,7 +4,7 @@ import itertools
 import math
 
 from . import rules
-from .core import JUNCTION, SchematicError, descend, dx_tracks  # noqa: F401
+from .core import JUNCTION, SchematicError, descend, dx_tracks, shown_name  # noqa: F401
 
 
 
@@ -96,7 +96,7 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
             continue
         su = abs(srow[sid] - nrow[u]) if u in nrow else 0
         sv = abs(srow[sid] - nrow[v]) if v in nrow else 0
-        h = max(name_cells(s["name"], opts), min(4, int(s["cm"] // 120)))   # a long track shows as a level run
+        h = max(name_cells(shown_name(s["name"], opts), opts), min(4, int(s["cm"] // 120)))   # a long track shows as a level run
         tight = any(hint_applies("shorten", h_, sid, s, nodes) for h_ in opts.get("shorten", ()))   # owner's hint: draw short
         if tight:
             h = 0

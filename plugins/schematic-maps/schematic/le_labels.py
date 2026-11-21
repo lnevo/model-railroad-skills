@@ -134,7 +134,7 @@ import math
 from collections import defaultdict
 
 from . import jmri_text, le_prefs, stations
-from .core import SchematicError, crossover_name, tidy
+from .core import SchematicError, crossover_name, shown_name, tidy
 from .label_check import _pt_seg as pt_seg, boxes_overlap
 
 CLEAR = 3           # px from a track line's middle to a box (a main line is 4 px wide)
@@ -1118,7 +1118,7 @@ def specs(P, bands, opts, L, extras=()):
     named = []
     for (bi, sid), idents in sorted(P.strand_segments.items()):
         st = bands[bi][1]["strands"][sid]
-        name = st["name"]
+        name = shown_name(st["name"], bands[bi][2])         # the track_labels label, as the sheet draws it
         mine = [i for i in idents if i in L.world.track]
         if not name or not mine or st.get(HIDDEN):     # hidden_names: no name drawn, nothing logged
             continue

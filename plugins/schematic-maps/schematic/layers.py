@@ -27,12 +27,17 @@ from .core import SchematicError
 APPEND = {"edits", "min_cells", "keep_close", "shorten", "main_route", "signals_planned", "track_directions"}
 
 
+WHOLE = ("track_labels",)       # objects keyed by track names, which may start with _: read whole, never as notes
+
+
 def merge(a, b):
     out = dict(a)
     for k, v in b.items():
         if k.startswith("_"):
             continue
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
+        if k in WHOLE and isinstance(v, dict):
+            out[k] = dict(out[k], **v) if isinstance(out.get(k), dict) else dict(v)
+        elif isinstance(v, dict) and isinstance(out.get(k), dict):
             out[k] = merge(out[k], v)
         elif k in APPEND and isinstance(v, list) and isinstance(out.get(k), list):
             out[k] = out[k] + v
