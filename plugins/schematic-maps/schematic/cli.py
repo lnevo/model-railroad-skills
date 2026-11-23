@@ -161,6 +161,8 @@ def run(argv=None):
             g = plan_reader.read(a.export, a.section, parts, tuple(a.z_range) if a.z_range else None, a.main_section)
             json.dump(g, open(a.out, "w"), indent=1)
             print("\n".join(g["notes"]))
+            for c in g.get("cuts", []):
+                print(f"warning: track cut at {c['part']}: {c['reason']}", file=sys.stderr)
         elif a.cmd == "pieces":
             res = pieces.read(a.export, a.px_per_cm)
             if a.json:

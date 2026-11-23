@@ -116,7 +116,8 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     tos = {t.get("ident"): t for t in panel.iter("layoutturnout")}
     segs = {s.get("ident"): s for s in panel.iter("tracksegment")}
     pps = {p.get("ident"): p for p in panel.iter("positionablepoint")}
-    nodes, portmap, edges = {}, {}, []
+    others = {el.get("ident"): el for tag in ("levelxing", "layoutSlip", "layoutturntable") for el in panel.iter(tag)}
+    nodes, portmap, edges, cuts, cut_ends = {}, {}, [], {}, {}
     pt = turnout_point
 
     for ident, t in tos.items():
@@ -138,14 +139,58 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                                 dirs={k: unit(p[0] - mid[0], p[1] - mid[1]) for k, p in zip("ABCD", (a, b, c, d))})
             for leg in "ABCD":
                 portmap[(ident, leg)] = (ident, leg)
+        elif ty in ("LH_XOVER", "RH_XOVER"):     # a single crossover: two turnouts joined by a short link
+            a, b, c, d = (pt(t, leg) for leg in "ABCD")
+            m1, m2 = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), ((c[0] + d[0]) / 2, (c[1] + d[1]) / 2)
+            for k, (m, p, q, far) in enumerate(((m1, a, b, m2), (m2, c, d, m1)), 1):    # points at A, and at C
+                nodes[f"{ident}.{k}"] = dict(
+                    kind="switch", label="", xy=list(m), district=district, xover=ident,
+                    hand=1 if cross((q[0] - p[0], q[1] - p[1]), (far[0] - p[0], far[1] - p[1])) > 0 else -1,
+                    dirs={"A": unit(p[0] - m[0], p[1] - m[1]), "B": unit(q[0] - m[0], q[1] - m[1]),
+                          "C": unit(far[0] - m[0], far[1] - m[1])})
+            for leg, to in zip("ABCD", ((1, "A"), (1, "B"), (2, "A"), (2, "B"))):
+                portmap[(ident, leg)] = (f"{ident}.{to[0]}", to[1])
+            edges.append(dict(u=f"{ident}.1", up="C", v=f"{ident}.2", vp="C", names=[], cm=math.dist(m1, m2), link=False,
+                              main=False, district=district, hidden=False))
         else:
             raise PlanError(f"unsupported turnout type {ty} at {ident}")
 
+    def cut_reason(name):
+        el = others.get(name)
+        if el is None:
+            return "part not read"
+        if el.tag == "levelxing":
+            return "level crossing (diamond) not read"
+        if el.tag == "layoutturntable":
+            return "turntable not read"
+        return f"{(el.get('slipType') or 'slip').lower().replace('_', ' ')} not read"
+
+    def cut_point(name, ty):
+        """Where a leg of a part that is not read meets its track, in export px: the part's own leg point."""
+        el = others.get(name)
+        if el is None:
+            return None
+        cx, cy = float(el.get("xcen")), float(el.get("ycen"))
+        if el.tag == "layoutturntable":
+            ang = next((float(r.get("angle")) for r in el.iter("raytrack") if r.get("index") == ty.rsplit("_", 1)[-1]), 0.0)
+            r = float(el.get("radius") or 0)
+            return cx + r * math.sin(math.radians(ang)), cy - r * math.cos(math.radians(ang))
+        try:
+            a = (float(el.get("xa")), float(el.get("ya")))
+            b = (float(el.get("xb")), float(el.get("yb")))
+        except (TypeError, ValueError):
+            return cx, cy
+        return {"A": a, "B": b, "C": (2 * cx - a[0], 2 * cy - a[1]), "D": (2 * cx - b[0], 2 * cy - b[1])}.get(ty[-1], (cx, cy))
+
     def where(name, ty):
-        if ty.startswith("TURNOUT"):
+        if ty.startswith("TURNOUT") and (name, ty[-1]) in portmap:
             return pt(tos[name], ty[-1])
-        p = pps[name]
-        return float(p.get("x")), float(p.get("y"))
+        if name in pps:
+            p = pps[name]
+            return float(p.get("x")), float(p.get("y"))
+        if name in tos:
+            return pt(tos[name], ty[-1])
+        return cut_point(name, ty) or (0.0, 0.0)
 
     def seg_px(s):
         pts = [where(s.get("connect1name"), s.get("type1"))]
@@ -162,9 +207,14 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
         px, blocks, dashed = seg_px(seg), [seg.get("blockname")], seg.get("dashed") == "yes"
         while True:
             n, ty = next(e for e in ends_of(seg) if e[0] != frm)
-            if ty.startswith("TURNOUT"):
+            if ty.startswith("TURNOUT") and (n, ty[-1]) in portmap:
                 return portmap[(n, ty[-1])], px, blocks, dashed
-            pp = pps[n]
+            pp = pps.get(n)
+            if pp is None:          # a crossing, slip, turntable or odd turnout: the track is cut here
+                cuts.setdefault(n, cut_reason(n))
+                key = f"END:{n}:{ty}"
+                cut_ends[key] = list(cut_point(n, ty) or where(n, ty))
+                return (key, "E"), px, blocks, dashed
             nxt = [x for x in (pp.get("connect1name"), pp.get("connect2name")) if x and x != seg.get("ident")]
             if pp.get("type") == "END_BUMPER" or not nxt:
                 return ("END:" + n, "E"), px, blocks, dashed
@@ -177,12 +227,14 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     seen = set()
     for s in segs.values():
         for n, ty in ends_of(s):
-            if not ty.startswith("TURNOUT") or portmap[(n, ty[-1])] in seen:
+            if not ty.startswith("TURNOUT") or (n, ty[-1]) not in portmap or portmap[(n, ty[-1])] in seen:
                 continue
             start = portmap[(n, ty[-1])]
             (v, vp), px, blocks, dashed = follow(s, n)
             seen.update((start, (v, vp)))
-            if v.startswith("END:"):
+            if v in cut_ends:
+                nodes[v] = dict(kind="end", sub="cut", label="", xy=cut_ends[v])
+            elif v.startswith("END:"):
                 ex, ey = float(pps[v[4:]].get("x")), float(pps[v[4:]].get("y"))
                 nodes[v] = dict(kind="end", sub="bumper", label="", xy=[ex, ey])
             district = collections.Counter(b for b in blocks if b).most_common(1)
@@ -191,7 +243,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                               main=main_section in district, district=district, hidden=dashed))
 
     # two track ends on the same spot are one track drawn in two pieces: join them
-    ends = [n for n, d in nodes.items() if d["kind"] == "end"]
+    ends = [n for n, d in nodes.items() if d["kind"] == "end" and d.get("sub") != "cut"]
     joined = 0
     for i, a in enumerate(ends):
         for b in ends[i + 1:]:
@@ -294,4 +346,8 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     kinds = collections.Counter(d["kind"] for d in nodes.values())
     notes.append(f"{dict(kinds)} {len(edges)} edges; districts: "
                  f"{dict(collections.Counter(e['district'] for e in edges).most_common())}")
-    return dict(nodes=nodes, edges=edges, notes=notes)
+    cut_list = [dict(part=n, reason=r, ends=sum(k.startswith(f"END:{n}:") and k in nodes for k in cut_ends))
+                for n, r in sorted(cuts.items())]
+    for c in cut_list:
+        notes.append(f"track cut at {c['part']}: {c['reason']} ({c['ends']} track ends left)")
+    return dict(nodes=nodes, edges=edges, notes=notes, cuts=cut_list)
