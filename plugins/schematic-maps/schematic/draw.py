@@ -331,7 +331,7 @@ def draw_band(band, title, opts, top, left):
                                             (cx_ + 11 * dirx, ye - 12, "start" if dirx == 1 else "end"),
                                             (cx_ - 11 * dirx, ye - 12, "end" if dirx == 1 else "start")],
                       emit=lambda xy, t=txt: label(xy[0], xy[1], t, 6, anchor=xy[2]))
-            elif d.get("sub") == "open":
+            elif d.get("sub") in ("open", "cut"):       # a cut end (a part not drawn) shows the track goes on
                 if opts.get("show_limits"):        # a limit bracket must not land on the arrowhead
                     ab = (min(xe, xe - 6 * dirx) - 5, ye - 5, max(xe, xe - 6 * dirx) + 5, ye + 5)
                     P.box(ab)

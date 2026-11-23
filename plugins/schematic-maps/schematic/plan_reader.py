@@ -117,7 +117,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     segs = {s.get("ident"): s for s in panel.iter("tracksegment")}
     pps = {p.get("ident"): p for p in panel.iter("positionablepoint")}
     others = {el.get("ident"): el for tag in ("levelxing", "layoutSlip", "layoutturntable") for el in panel.iter(tag)}
-    nodes, portmap, edges, cuts, cut_ends, dangling = {}, {}, [], {}, {}, set()
+    nodes, portmap, edges, cuts, cut_ends, dangling, unplaced = {}, {}, [], {}, {}, set(), set()
     pt = turnout_point
 
     for ident, t in tos.items():
@@ -142,14 +142,19 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
         elif ty in ("LH_XOVER", "RH_XOVER"):     # a single crossover: two turnouts joined by a short link
             a, b, c, d = (pt(t, leg) for leg in "ABCD")
             m1, m2 = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), ((c[0] + d[0]) / 2, (c[1] + d[1]) / 2)
-            for k, (m, p, q, far) in enumerate(((m1, a, b, m2), (m2, c, d, m1)), 1):    # points at A, and at C
+            # The crossing route is A-C on a right-handed crossover and B-D on a left-handed one (the diagonal JMRI
+            # draws slants that way on the default shape, and on a left-handed export). Each turnout has its points at
+            # the leg that route starts from, goes straight to the other leg of its track, and the link joins the two.
+            pa, pb = ((a, b), (c, d)) if ty == "RH_XOVER" else ((b, a), (d, c))      # (points leg, straight leg) per track
+            legs = ("AB", "CD") if ty == "RH_XOVER" else ("BA", "DC")
+            for k, (m, (p, q), far) in enumerate(((m1, pa, m2), (m2, pb, m1)), 1):
                 nodes[f"{ident}.{k}"] = dict(
                     kind="switch", label="", xy=list(m), district=district, xover=ident,
                     hand=1 if cross((q[0] - p[0], q[1] - p[1]), (far[0] - p[0], far[1] - p[1])) > 0 else -1,
                     dirs={"A": unit(p[0] - m[0], p[1] - m[1]), "B": unit(q[0] - m[0], q[1] - m[1]),
                           "C": unit(far[0] - m[0], far[1] - m[1])})
-            for leg, to in zip("ABCD", ((1, "A"), (1, "B"), (2, "A"), (2, "B"))):
-                portmap[(ident, leg)] = (f"{ident}.{to[0]}", to[1])
+                portmap[(ident, legs[k - 1][0])] = (f"{ident}.{k}", "A")
+                portmap[(ident, legs[k - 1][1])] = (f"{ident}.{k}", "B")
             edges.append(dict(u=f"{ident}.1", up="C", v=f"{ident}.2", vp="C", names=[], cm=math.dist(m1, m2), link=False,
                               main=False, district=district, hidden=False))
         else:
@@ -165,40 +170,58 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
             return "turntable not read"
         return f"{(el.get('slipType') or 'slip').lower().replace('_', ' ')} not read"
 
+    def num(el, attr):
+        try:
+            return number(el, attr)
+        except PlanError:
+            return None
+
     def cut_point(name, ty):
-        """Where a leg of a part that is not read meets its track, in export px: the part's own leg point."""
+        """Where a leg of a part that is not read meets its track, in export px: the part's own leg point, or None
+        when the export does not give it."""
         el = others.get(name)
         if el is None:
             return None
-        cx, cy = float(el.get("xcen")), float(el.get("ycen"))
+        cx, cy = num(el, "xcen"), num(el, "ycen")
+        if cx is None or cy is None:
+            return None
         if el.tag == "layoutturntable":
-            ang = next((float(r.get("angle")) for r in el.iter("raytrack") if r.get("index") == ty.rsplit("_", 1)[-1]), 0.0)
-            r = float(el.get("radius") or 0)
+            ray = next((r for r in el.iter("raytrack") if r.get("index") == ty.rsplit("_", 1)[-1]), None)
+            ang, r = (num(ray, "angle") if ray is not None else None), num(el, "radius")
+            if ang is None or r is None:
+                return cx, cy
             return cx + r * math.sin(math.radians(ang)), cy - r * math.cos(math.radians(ang))
-        try:
-            a = (float(el.get("xa")), float(el.get("ya")))
-            b = (float(el.get("xb")), float(el.get("yb")))
-        except (TypeError, ValueError):
+        xa, ya, xb, yb = (num(el, k) for k in ("xa", "ya", "xb", "yb"))
+        if None in (xa, ya, xb, yb):
             return cx, cy
-        return {"A": a, "B": b, "C": (2 * cx - a[0], 2 * cy - a[1]), "D": (2 * cx - b[0], 2 * cy - b[1])}.get(ty[-1], (cx, cy))
+        return {"A": (xa, ya), "B": (xb, yb), "C": (2 * cx - xa, 2 * cy - ya),
+                "D": (2 * cx - xb, 2 * cy - yb)}.get(ty[-1], (cx, cy))
 
     def where(name, ty):
+        """The leg's point in export px, or None when the export does not place it."""
         if ty.startswith("TURNOUT") and (name, ty[-1]) in portmap:
             return pt(tos[name], ty[-1])
         if name in pps:
             p = pps[name]
-            return float(p.get("x")), float(p.get("y"))
+            return number(p, "x"), number(p, "y")
         if name in tos:
             return pt(tos[name], ty[-1])
-        return cut_point(name, ty) or (0.0, 0.0)
+        return cut_point(name, ty)
+
+    def seg_pts(s):
+        """The segment's known points in order (an end the export does not place is left out)."""
+        ends = [where(s.get("connect1name"), s.get("type1")), where(s.get("connect2name"), s.get("type2"))]
+        if None in ends:
+            unplaced.add(next(s.get(f"connect{i + 1}name") for i, e in enumerate(ends) if e is None))
+        mid = [(float(c.get("x")), float(c.get("y"))) for c in s.iter("controlpoint")]
+        return [p for p in [ends[0]] + mid + [ends[1]] if p is not None], None in ends
 
     def seg_px(s):
-        pts = [where(s.get("connect1name"), s.get("type1"))]
-        pts += [(float(c.get("x")), float(c.get("y"))) for c in s.iter("controlpoint")]
-        pts.append(where(s.get("connect2name"), s.get("type2")))
-        chord = math.dist(pts[0], pts[-1])
+        pts, partial = seg_pts(s)
+        chord = math.dist(pts[0], pts[-1]) if pts else 0.0
         poly = sum(math.dist(p, q) for p, q in zip(pts, pts[1:]))
-        return (chord + poly) / 2      # a Bezier lies between its chord and its control polygon
+        px = (chord + poly) / 2      # a Bezier lies between its chord and its control polygon
+        return max(px, PX_PER_CM) if partial else px     # a missing end leaves a stub of about a centimetre at least
 
     def ends_of(s):
         return [(s.get("connect1name"), s.get("type1")), (s.get("connect2name"), s.get("type2"))]
@@ -213,7 +236,8 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
             if pp is None:          # a crossing, slip, turntable or odd turnout: the track is cut here
                 cuts.setdefault(n, cut_reason(n))
                 key = f"END:{n}:{ty}"
-                cut_ends[key] = list(cut_point(n, ty) or where(n, ty))
+                known = seg_pts(seg)[0]        # a part with no position: the end sits where its track last was known
+                cut_ends[key] = list(cut_point(n, ty) or (known[-1] if known else (0.0, 0.0)))
                 return (key, "E"), px, blocks, dashed
             nxt = [x for x in (pp.get("connect1name"), pp.get("connect2name")) if x and x != seg.get("ident")]
             if nxt and nxt[0] not in segs:      # the export names a track piece it does not hold: the track ends here
@@ -292,9 +316,10 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 plan.append((i, sum(q["x"] for q in e) / len(e), sum(q["y"] for q in e) / len(e), max(q["z"] for q in e)))
         if not plan:
             raise PlanError("no switch parts in parts.json" + (f" within heights {z_range}" if z_range else ""))
-        seed = spread([nodes[n]["xy"] for n in order]) / spread([(u, v) for _, u, v, _ in plan]) / PX_PER_CM
+        seed = spread([nodes[n]["xy"] for n in order if "xover" not in nodes[n]]) / spread([(u, v) for _, u, v, _ in plan]) / PX_PER_CM
         seed = 1.0 if abs(seed - 1) < SCALE_SEARCH_LIMIT else seed
-        mine = [(n, nodes[n]["xy"][0] / PX_PER_CM / seed, nodes[n]["xy"][1] / PX_PER_CM / seed) for n in order]
+        mine = [(n, nodes[n]["xy"][0] / PX_PER_CM / seed, nodes[n]["xy"][1] / PX_PER_CM / seed)
+                for n in order if "xover" not in nodes[n]]      # a single crossover is two nodes but one part: not matched
         best = (-1, 0, 0)
         for _, x, y in mine[:6]:
             for _, u, v, _ in plan:
@@ -353,6 +378,9 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 for n, r in sorted(cuts.items())]
     for c in cut_list:
         notes.append(f"track cut at {c['part']}: {c['reason']} ({c['ends']} track ends left)")
+    if unplaced:
+        notes.append(f"position unknown for {len(unplaced)} track parts the export does not place; "
+                     "their track ends where it was last known")
     if dangling:
         notes.append(f"{len(dangling)} track points name a track piece the export does not hold; the track ends there")
     return dict(nodes=nodes, edges=edges, notes=notes, cuts=cut_list)

@@ -46,6 +46,16 @@ class TurnbackCap(unittest.TestCase):
         self.assertNotIn("max_turnbacks", str(cm.exception))
         self.assertIn("no orientation", str(cm.exception))
 
+    def test_the_error_names_the_real_reason(self):
+        with mock.patch.object(orient, "colour", return_value=None):
+            with mock.patch.object(orient, "RAISE_BUDGET", 0):
+                with self.assertRaisesRegex(SchematicError, "over the budget"):
+                    orient.orient(triangle(), max_turnbacks=0)
+            with self.assertRaisesRegex(SchematicError, "after 0 seconds"):
+                orient.orient(triangle(), max_turnbacks=0, seconds=0)
+            with self.assertRaisesRegex(SchematicError, "plan's loops plus 2"):
+                orient.orient(triangle(), max_turnbacks=0)
+
 
 class Unsettled(unittest.TestCase):
     def test_the_next_orientation_is_tried_when_one_does_not_settle(self):
