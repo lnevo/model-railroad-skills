@@ -25,26 +25,40 @@ def wanted_turnbacks(g, opts):
     return {e["id"] for e in g["edges"] if any(n in e["names"] for n in names)}
 
 
+def describe_fault(f):
+    """One drawing fault from `faults`, as text: what it is and the two strands (or nodes) involved."""
+    return f"{f[0]}: {f[1]} / {f[3]}"
+
+
 def layout(g, opts, warnings):
     """Try the cheapest few orientations and keep the drawing with the fewest faults. Tracks named in the
     `turnbacks` preference are turnbacks in every orientation tried."""
     best = None
     need = wanted_turnbacks(g, opts)
-    found = orient(g, require=need)
+    found = orient(g, require=need, log=warnings.append)
     if need:
         found = [(sig, T) for sig, T in found if need <= set(T)]      # a track to an end is never a turnback
         if not found:
             names = sorted({n for e in g["edges"] if e["id"] in need for n in e["names"]})
             raise SchematicError(f"no orientation draws {', '.join(names)} as turnbacks (preference turnbacks)")
+    unsettled = 0
     for sig, T in found:
         w = []
-        band = layout_one(g, sig, T, opts, w)
+        try:
+            band = layout_one(g, sig, T, opts, w)
+        except Unsettled as e:      # this way of facing the switches gives columns that cannot hold: try the next
+            unsettled += 1
+            warnings.append(f"orientation {unsettled} of {len(found)} dropped: {e}")
+            continue
         pos = band["x"]
         score = (end_violations(band["nodes"], pos, g, opts), len(faults(band)) + 3 * len(w), len(T))
         if best is None or score < best[0]:
             best = (score, band, w)
         if score[0] == 0 and score[1] == 0:
             break
+    if best is None:
+        raise SchematicError(f"no drawing found: the column placement did not settle in any of the {len(found)} "
+                             "orientations tried")
     warnings.extend(best[2])
     return best[1]
 

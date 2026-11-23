@@ -1,6 +1,7 @@
 """Orient: which way each switch faces, and which runs are drawn as turnbacks."""
 import collections
 import itertools
+import math
 
 from .core import JUNCTION, TAU, SchematicError, tidy
 
@@ -98,17 +99,27 @@ def udot(g, e):
     return du[0] * dv[0] + du[1] * dv[1] if du and dv else 0.0
 
 
-def orient(g, max_turnbacks=3, keep=10, require=()):
-    """The cheapest ways to face every switch, best first: (facing, turnback edges). `require`: edge ids that are
-    turnbacks in every way tried (the `turnbacks` preference), on top of up to max_turnbacks others."""
-    sw = [e for e in g["edges"] if all(g["nodes"][n]["kind"] in JUNCTION for n in (e["u"], e["v"]))]
-    must = [e for e in sw if e["id"] in set(require)]
-    cand = [e for e in sw if not e["link"] and e["id"] not in set(require)]
-    if len(cand) > 40:      # big plan: only runs that bend back on the layout may be turnbacks
-        cand = [e for e in cand if udot(g, e) > -0.5]
-        max_turnbacks = 5
-    best, found = None, []
-    for k in range(max_turnbacks + 1):
+RAISE_BUDGET = 3_000_000    # most combinations tried in all the raised steps together, after the first cap finds nothing
+
+
+def loops_of(g):
+    """The plan's independent loops: edges - nodes + components."""
+    parent = {n: n for n in g["nodes"]}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for e in g["edges"]:
+        parent[find(e["u"])] = find(e["v"])
+    return len(g["edges"]) - len(g["nodes"]) + len({find(n) for n in g["nodes"]})
+
+
+def search(g, sw, must, cand, ks, found, best):
+    """Try every set of k candidate runs as turnbacks, for k in `ks`; adds to `found` and returns the cheapest so far."""
+    for k in ks:
         for T in (tuple(must) + c for c in itertools.combinations(cand, k)):
             ids = {e["id"] for e in T}
             sig = colour(g, sw, ids)
@@ -127,9 +138,36 @@ def orient(g, max_turnbacks=3, keep=10, require=()):
                 best = (cost, sig, ids)
         if best is not None and k + len(must) > len(best[2]):
             break
+    return best
+
+
+def orient(g, max_turnbacks=3, keep=10, require=(), log=None):
+    """The cheapest ways to face every switch, best first: (facing, turnback edges). `require`: edge ids that are
+    turnbacks in every way tried (the `turnbacks` preference), on top of up to max_turnbacks others. When nothing is
+    found at that cap, it rises one at a time up to the plan's independent loops plus 2 (each step passed to `log`)."""
+    sw = [e for e in g["edges"] if all(g["nodes"][n]["kind"] in JUNCTION for n in (e["u"], e["v"]))]
+    must = [e for e in sw if e["id"] in set(require)]
+    cand = [e for e in sw if not e["link"] and e["id"] not in set(require)]
+    if len(cand) > 40:      # big plan: only runs that bend back on the layout may be turnbacks
+        cand = [e for e in cand if udot(g, e) > -0.5]
+        max_turnbacks = 5
+    found = []
+    best = search(g, sw, must, cand, range(max_turnbacks + 1), found, None)
     if best is None:
-        raise SchematicError("no orientation found; raise max_turnbacks")
+        limit, spent = loops_of(g) + 2, 0
+        for k in range(max_turnbacks + 1, limit + 1):
+            n = math.comb(len(cand), k)
+            if spent + n > RAISE_BUDGET:
+                if log:
+                    log(f"turnbacks: stopped at {k - 1}; {n} more combinations is over the budget of {RAISE_BUDGET}")
+                break
+            spent += n
+            if log:
+                log(f"turnbacks: nothing with {k - 1} or fewer; trying {k} ({n} combinations of {len(cand)} runs)")
+            best = search(g, sw, must, cand, (k,), found, best)
+            if best is not None:
+                break
+    if best is None:
+        raise SchematicError("no orientation found, even with every run that could turn back tried as one")
     found.sort(key=lambda f: (f[0], f[1]))
     return [(sig, ids) for _, _, sig, ids in found[:keep]]
-
-
