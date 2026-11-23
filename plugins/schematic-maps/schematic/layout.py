@@ -46,14 +46,22 @@ def layout(g, opts, warnings):
     unsettled = 0
     for sig, T in found:
         w = []
+        band = None
         try:
             band = layout_one(g, sig, T, opts, w)
-        except Unsettled as e:      # this way of facing the switches gives columns that cannot hold: try the next
+        except Unsettled as e:      # this way of facing the switches gives columns that cannot hold: relax once
+            first = e
+            w = []
+            try:
+                band = layout_one(g, sig, T, opts, w, relax=True)
+            except Unsettled:
+                pass
+        if band is None:            # still not: try the next orientation
             unsettled += 1
-            warnings.append(f"orientation {unsettled} of {len(found)} dropped: {e}")
+            warnings.append(f"orientation {unsettled} of {len(found)} dropped: {first}")
             continue
         pos = band["x"]
-        score = (end_violations(band["nodes"], pos, g, opts), len(faults(band)) + 3 * len(w), len(T))
+        score = (end_violations(band["nodes"], pos, g, opts), len(faults(band)) + len(band.get("relaxed", ())) + 3 * len(w), len(T))
         if best is None or score < best[0]:
             best = (score, band, w)
         if score[0] == 0 and score[1] == 0:
@@ -105,7 +113,7 @@ def mirrored(g, sig, T, opts):
     return nodes, columns(nodes, strands), g, opts
 
 
-def layout_one(g, sig, T, opts, warnings):
+def layout_one(g, sig, T, opts, warnings, relax=False):
     nodes, strands = build(g, sig, T)
     col = columns(nodes, strands)
     if end_violations(nodes, col, g, opts) and end_violations(*mirrored(g, sig, T, opts)) < end_violations(nodes, col, g, opts):
@@ -114,6 +122,7 @@ def layout_one(g, sig, T, opts, warnings):
         col = columns(nodes, strands)
     order, snaps, enclosed, free, ev = sweep(nodes, strands, col, warnings.append)
     rule_pins = rules.level_legs(nodes, strands, opts) if opts.get("rules", True) else {}
+    relaxed = [] if relax else None         # each relaxation made, listed as a fault on the band
 
     def settle(span_filter):
         """Rows and columns, repeated until no two runs clash on a row. Returns (band, rows)."""
@@ -123,19 +132,21 @@ def layout_one(g, sig, T, opts, warnings):
         xcons, refused = set(), set()
         for _ in range(12):
             R = rows.optimise()
+            if relax:
+                R = relax_rows(R, nodes, strands, relaxed)
             try:
-                x, need = place(nodes, strands, R, enclosed, opts, xcons)
+                x, need = place(nodes, strands, R, enclosed, opts, xcons, relaxed)
             except Unsettled:               # a clearance rule that cannot hold with the new rows: keep the ones that can
                 kept = set()
                 for rule in sorted(xcons):
                     try:
-                        place(nodes, strands, R, enclosed, opts, kept | {rule})
+                        place(nodes, strands, R, enclosed, opts, kept | {rule}, relaxed)
                         kept.add(rule)
                     except Unsettled:
                         refused.add(rule)
                 xcons = kept
-                x, need = place(nodes, strands, R, enclosed, opts, xcons)
-            band = dict(nodes=nodes, strands=strands, R=R, x=x, need=need, turnbacks=T)
+                x, need = place(nodes, strands, R, enclosed, opts, xcons, relaxed)
+            band = dict(nodes=nodes, strands=strands, R=R, x=x, need=need, turnbacks=T, relaxed=relaxed or [])
             clash, apart = set(), set()
             for a, b in overlaps(nodes, strands, R, x, need, order) - rows.extra:
                 (sa, da), (sb, db) = ((strands[k]["src"][0], strands[k]["dst"][0]) for k in (a, b))
@@ -163,6 +174,24 @@ def layout_one(g, sig, T, opts, warnings):
     if rows.dropped:
         warnings.append(f"{rows.dropped} above/below rules dropped where the layout is not flat")
     return band
+
+
+def relax_rows(R, nodes, strands, relaxed):
+    """The rows with each diagonal whose two ends are on one row made a level track; the others keep their slope but
+    take a least span in columns, not an exact one (columns.place). Each change is noted in `relaxed`."""
+    R = dict(R, srow=dict(R["srow"]), diag=set(R["diag"]))
+    label = lambda n: nodes[n].get("label") or "end"
+    for sid in sorted(R["diag"]):
+        u, v = strands[sid]["src"][0], strands[sid]["dst"][0]
+        if R["nrow"][u] == R["nrow"][v]:
+            R["diag"].discard(sid)
+            R["srow"][sid] = R["nrow"][u]
+            note = f"relaxed: the short track {label(u)} to {label(v)} is drawn level, not as a diagonal"
+        else:
+            note = f"relaxed: the diagonal {label(u)} to {label(v)} may span more columns than it has rows"
+        if note not in relaxed:
+            relaxed.append(note)
+    return R
 
 
 def extent(band, rows):
@@ -269,7 +298,7 @@ def check(band):
         s = strands[k]
         return (s["name"] or "track") + " " + "-".join(nodes[n].get("label") or "end" for n in (s["src"][0], s["dst"][0]))
 
-    return sorted({f"{kind}: {name(k1)} and {name(k2)} near column {a[0]:.0f}, row {a[1]:.0f}"
+    return sorted(band.get("relaxed", ())) + sorted({f"{kind}: {name(k1)} and {name(k2)} near column {a[0]:.0f}, row {a[1]:.0f}"
                    for kind, k1, (a, _), k2, _ in faults(band)})
 
 

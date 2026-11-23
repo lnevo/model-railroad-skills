@@ -63,7 +63,7 @@ class Unsettled(unittest.TestCase):
 
         def flaky(*a, **kw):
             calls["n"] += 1
-            if calls["n"] == 1:
+            if calls["n"] <= 2:        # the orientation and its relaxed retry
                 raise layout.Unsettled("columns: constraints do not settle")
             return real(*a, **kw)
 

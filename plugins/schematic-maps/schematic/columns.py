@@ -83,7 +83,9 @@ def points_on_straight(nodes, srow, nrow, end):
     return b in srow and srow[b] == nrow.get(n)
 
 
-def place(nodes, strands, R, enclosed, opts, extra=()):
+def place(nodes, strands, R, enclosed, opts, extra=(), relaxed=None):
+    """`relaxed`: None normally; a list when the first try did not settle, and then each diagonal's span is a least,
+    not an exact count, and a turnback that is enclosed by the one it encloses is let go (each noted in the list)."""
     srow, nrow, diag = R["srow"], R["nrow"], R["diag"]
     ladder = set(rules.ladder_switches(nodes, opts, strands))
     cons, need, weight = [], {}, []
@@ -91,7 +93,7 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
         u, v = s["src"][0], s["dst"][0]
         if sid in diag:
             w = abs(nrow[u] - nrow[v])
-            cons += [(u, v, w), (v, u, -w)]
+            cons += [(u, v, w)] if relaxed is not None else [(u, v, w), (v, u, -w)]
             need[sid] = (0, 0, w)
             continue
         su = abs(srow[sid] - nrow[u]) if u in nrow else 0
@@ -118,9 +120,15 @@ def place(nodes, strands, R, enclosed, opts, extra=()):
         cons.append((u, v, w))
         cm = s["cm"] / (2 if "." in sid else 1)
         weight.append((u, v, 20.0 if tight else 100.0 / (cm + 25.0), w))  # long tracks take up the slack
+    pairs = {(strands[sid]["dst"][0], t) for t, inside in enclosed.items() for sid in inside}
     for t, inside in enclosed.items():
         for sid in inside:
             n = strands[sid]["dst"][0]
+            if relaxed is not None and (t, n) in pairs:     # each encloses the other: no column can hold both
+                note = f"relaxed: two turnbacks ({t} and {n}) enclose each other, so neither is drawn around the other"
+                if note not in relaxed:
+                    relaxed.append(note)
+                continue
             cons.append((n, t, 4 if nodes[n].get("sub") == "helix" else 1))     # room for the helix box
     cons += list(extra)
     fwd, back = collections.defaultdict(list), collections.defaultdict(list)
