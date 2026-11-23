@@ -66,6 +66,16 @@ class Cuts(unittest.TestCase):
             self.assertIn("track cut at SL1", r.stdout)
             self.assertEqual(json.loads((Path(tmp) / "g.json").read_text())["cuts"][0]["part"], "SL1")
 
+    def test_a_track_point_naming_a_missing_piece_ends_the_track(self):
+        anchor = ('<positionablepoint ident="A1" type="ANCHOR" x="70" y="100" connect1name="s1" '
+                  'connect2name="NOPE"/>')
+        text = panel(SWITCH, anchor, bumper("EB2", 200, 100), bumper("EB3", 200, 110),
+                     seg("s1", "TO1", "TURNOUT_A", "A1", "POS_POINT"),
+                     seg("s2", "TO1", "TURNOUT_B", "EB2", "POS_POINT"), seg("s3", "TO1", "TURNOUT_C", "EB3", "POS_POINT"))
+        g, _ = self.read(text)
+        self.assertEqual(sum(d["kind"] == "end" for d in g["nodes"].values()), 3)
+        self.assertTrue(any("does not hold" in n for n in g["notes"]), g["notes"])
+
     def test_a_single_crossover_is_two_turnouts_and_a_link(self):
         xover = ('<layoutturnout ident="XO1" type="RH_XOVER" blockname="B_1_Mainline" xcen="100" ycen="100" '
                  'xa="80" ya="90" xb="120" yb="95" xc="120" yc="110" xd="80" yd="105"/>')

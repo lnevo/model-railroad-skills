@@ -117,7 +117,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     segs = {s.get("ident"): s for s in panel.iter("tracksegment")}
     pps = {p.get("ident"): p for p in panel.iter("positionablepoint")}
     others = {el.get("ident"): el for tag in ("levelxing", "layoutSlip", "layoutturntable") for el in panel.iter(tag)}
-    nodes, portmap, edges, cuts, cut_ends = {}, {}, [], {}, {}
+    nodes, portmap, edges, cuts, cut_ends, dangling = {}, {}, [], {}, {}, set()
     pt = turnout_point
 
     for ident, t in tos.items():
@@ -216,6 +216,9 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 cut_ends[key] = list(cut_point(n, ty) or where(n, ty))
                 return (key, "E"), px, blocks, dashed
             nxt = [x for x in (pp.get("connect1name"), pp.get("connect2name")) if x and x != seg.get("ident")]
+            if nxt and nxt[0] not in segs:      # the export names a track piece it does not hold: the track ends here
+                dangling.add(n)
+                nxt = []
             if pp.get("type") == "END_BUMPER" or not nxt:
                 return ("END:" + n, "E"), px, blocks, dashed
             frm, seg = n, segs[nxt[0]]
@@ -350,4 +353,6 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 for n, r in sorted(cuts.items())]
     for c in cut_list:
         notes.append(f"track cut at {c['part']}: {c['reason']} ({c['ends']} track ends left)")
+    if dangling:
+        notes.append(f"{len(dangling)} track points name a track piece the export does not hold; the track ends there")
     return dict(nodes=nodes, edges=edges, notes=notes, cuts=cut_list)
