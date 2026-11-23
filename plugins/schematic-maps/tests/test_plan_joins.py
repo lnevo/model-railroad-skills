@@ -1,6 +1,7 @@
 """Plan reader: track ends that nearly meet are joined (with a warning), every piece with a switch is kept and drawn,
 and a piece with no switch is listed rather than dropped."""
 import json
+import math
 import re
 import tempfile
 import unittest
@@ -8,7 +9,7 @@ from pathlib import Path
 
 import helpers  # noqa: F401  (puts the plugin on the path)
 from plan_cuts_helpers import bumper, panel, seg
-from schematic import plan_reader
+from schematic import edits, plan_reader
 from test_cli import run
 
 CM = plan_reader.PX_PER_CM
@@ -63,7 +64,7 @@ class Gaps(unittest.TestCase):
     def test_ends_past_five_cm_are_not_joined(self):
         g = read(self.two(6 * CM))
         self.assertNotIn("joins", g)
-        self.assertEqual(len(g["pieces"]) if "pieces" in g else 2, 2)
+        self.assertEqual(len(edits.split_pieces(dict(nodes=g["nodes"], edges=g["edges"]))), 2)
 
     def test_ends_of_tracks_side_by_side_are_not_joined(self):
         # both B legs run east and stop 2.5 cm apart, one above the other
@@ -110,6 +111,21 @@ class Pieces(unittest.TestCase):
         self.assertAlmostEqual(g["left_out"][0]["cm"], 100, delta=1)
         self.assertTrue(any(n.startswith("left out: a piece with no switches, ") for n in g["notes"]), g["notes"])
 
+    def test_bare_track_with_unnamed_ends_is_not_merged_into_one_piece(self):
+        bare = [bumper("LB1", 300, 300), bumper("LB2", 400, 300),
+                '<tracksegment ident="ls1" type1="POS_POINT" connect2name="LB1" type2="POS_POINT" blockname="B_1_Mainline" dashed="no"/>',
+                '<tracksegment ident="ls2" type1="POS_POINT" connect2name="LB2" type2="POS_POINT" blockname="B_1_Mainline" dashed="no"/>']
+        g = read(panel(*single("T1", 100, 100, 200, 100, 150, 160, 60), *bare))
+        self.assertEqual(len(g["left_out"]), 2)
+
+    def test_a_section_filter_does_not_list_the_track_it_removed_as_left_out(self):
+        loop = [bumper("LB1", 300, 300), bumper("LB2", 800, 300), seg("ls", "LB1", "POS_POINT", "LB2", "POS_POINT")]
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "plan.xml"
+            f.write_text(panel(*single("T1", 100, 100, 200, 100, 150, 160, 60), *loop))
+            g = plan_reader.read(str(f), "+Mainline")
+        self.assertNotIn("left_out", g)
+
     def test_the_cli_lists_the_left_out_piece_on_stderr(self):
         loop = [bumper("LB1", 300, 300), bumper("LB2", 800, 300), seg("ls", "LB1", "POS_POINT", "LB2", "POS_POINT")]
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,6 +155,82 @@ class Pieces(unittest.TestCase):
 
 
 
+
+
+def joined(specs, links):
+    """Switches (ident, x, y, section) each with a bumper at every leg; `links` are (ident, leg, ident, leg) tracks that
+    replace the two bumpers at their ends."""
+    gone = {(a, la) for a, la, _, _ in links} | {(b, lb) for _, _, b, lb in links}
+    parts = []
+    for ident, x, y, name in specs:
+        for part in single(ident, x, y, x + 100, y, x + 50, y + 60, x - 40):
+            if not any(f'ident="{a}{leg.lower()}"' in part or f'ident="{a}s{leg.lower()}"' in part for a, leg in gone):
+                parts.append(part.replace("B_1_Mainline", name))
+    parts += [seg(f"link{i}", a, f"TURNOUT_{la}", b, f"TURNOUT_{lb}") for i, (a, la, b, lb) in enumerate(links)]
+    return panel(*parts)
+
+
+class Filters(unittest.TestCase):
+    def text(self):
+        """Mainline holds a piece of three switches and a piece of one; another section holds a fourth piece."""
+        return joined([("T1", 100, 100, "B_1_Mainline"), ("T2", 300, 130, "B_1_Mainline"), ("T5", 500, 160, "B_1_Mainline"),
+                       ("T3", 700, 500, "B_1_Mainline"), ("T4", 100, 700, "B_1_Yard")],
+                      [("T1", "B", "T2", "A"), ("T2", "B", "T5", "A")])
+
+    def test_a_plain_read_keeps_every_piece(self):
+        g = read(self.text())
+        self.assertEqual(sum(d["kind"] == "switch" for d in g["nodes"].values()), 5)
+        self.assertNotIn("dropped", g)
+
+    def test_a_section_filter_keeps_the_largest_piece_and_lists_the_rest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "plan.xml"
+            f.write_text(self.text())
+            g = plan_reader.read(str(f), "+Mainline")
+            self.assertEqual(sum(d["kind"] == "switch" for d in g["nodes"].values()), 3)
+            self.assertEqual(g["dropped"], [dict(switches=1)])
+            self.assertIn("left out: piece of 1 switches, cut off by the section filter", g["notes"])
+            self.assertNotIn("left_out", g)       # the filter's own cut is not a piece with no switches
+            r = run("plan", f, Path(tmp) / "g.json", "--section", "+Mainline")
+            self.assertIn("warning: left out: piece of 1 switches, cut off by the section filter", r.stderr)
+
+    def test_a_height_filter_keeps_the_largest_piece_and_lists_the_rest(self):
+        k = CM
+        g0 = read(self.text())
+        sw = [d for d in g0["nodes"].values() if d["kind"] == "switch"]
+        # one plan part per switch of the large piece, three end points each, all at height 0
+        parts = []
+        for d in (d for d in sw if d["xy"][1] < 300):
+            x, y = d["xy"][0] / k, d["xy"][1] / k
+            parts.append(dict(eps=[dict(x=x - 2, y=y, z=0), dict(x=x + 2, y=y, z=0), dict(x=x + 2, y=y + 2, z=0)]))
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "plan.xml"
+            f.write_text(self.text())
+            g = plan_reader.read(str(f), None, parts, (-1, 1))
+        self.assertEqual(g["dropped"], [dict(switches=1), dict(switches=1)])
+        self.assertTrue(any(n.startswith("left out: piece of ") and n.endswith("outside the heights") for n in g["notes"]),
+                        g["notes"])
+
+
+class Arcs(unittest.TestCase):
+    def test_an_arc_end_faces_along_its_tangent_not_its_chord(self):
+        t = math.radians(40)
+        eb2 = (220, 100)
+        eb4 = (eb2[0] + 14 * math.cos(t), eb2[1] + 14 * math.sin(t))        # 3 cm out along the arc's end tangent
+        b2 = (eb4[0] + 60 * math.cos(t), eb4[1] + 60 * math.sin(t))
+        c2 = (b2[0], b2[1] + 10)
+        cen = (b2[0] + 20 * math.cos(t), b2[1] + 20 * math.sin(t))
+        t2 = (f'<layoutturnout ident="T2" type="RH_TURNOUT" blockname="B_1_Mainline" xcen="{cen[0]}" ycen="{cen[1]}" '
+              f'xb="{b2[0]}" yb="{b2[1]}" xc="{c2[0]}" yc="{c2[1]}"/>')
+        arc = seg("arc", "T1", "TURNOUT_B", "EB2", "POS_POINT").replace(
+            'dashed="no"', 'dashed="no" arc="yes" circle="yes" angle="80" flip="no"')
+        text = panel(switch("T1", 100, 100), bumper("T1a", 60, 100), bumper("T1c", 150, 160), bumper("EB2", *eb2),
+                     seg("t1a", "T1", "TURNOUT_A", "T1a", "POS_POINT"), seg("t1c", "T1", "TURNOUT_C", "T1c", "POS_POINT"),
+                     arc, t2, bumper("EB4", *eb4), bumper("T2a", cen[0] + 40, cen[1]), bumper("T2c", c2[0] + 30, c2[1] + 50),
+                     seg("t2b", "T2", "TURNOUT_B", "EB4", "POS_POINT"), seg("t2a", "T2", "TURNOUT_A", "T2a", "POS_POINT"),
+                     seg("t2c", "T2", "TURNOUT_C", "T2c", "POS_POINT"))
+        g = read(text)
+        self.assertEqual([j["gap_cm"] for j in g.get("joins", [])], [3.0])
 
 
 class Order(unittest.TestCase):
@@ -177,6 +269,57 @@ class Undrawable(unittest.TestCase):
                 s = sheet.build([(str(tmp / "g.json"), "sample")], str(tmp), preferences=False)
         self.assertEqual(len(s.bands), 1)
         self.assertTrue(any("piece 2: not drawn, no orientation found" in line for line in s.log), s.log)
+
+    def test_checks_do_not_misfire_on_names_in_a_skipped_piece_and_draw_warns_on_stderr(self):
+        from unittest import mock
+
+        from schematic import cli, layout, sheet
+        from schematic.core import SchematicError
+        real = layout.layout
+
+        def fussy(sub, opts, w):
+            if sub.get("piece"):
+                raise SchematicError("no orientation found: made up")
+            return real(sub, opts, w)
+
+        text = panel(*single("T1", 100, 100, 200, 100, 150, 160, 60), *single("T2", 600, 400, 700, 400, 650, 460, 560))
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            f = tmp / "plan.xml"
+            f.write_text(text)
+            g = plan_reader.read(str(f))
+            (tmp / "g.json").write_text(json.dumps(g))
+            labels = {n: d["label"] for n, d in g["nodes"].items() if d["kind"] == "switch"}
+            mine, other = labels["T1"], labels["T2"]
+            (tmp / "sample.plan_overrides.json").write_text(json.dumps(dict(
+                control_points={"CP": {"switches": [mine, other]}}, shorten=[[mine, other]], min_cells=[[other, mine, 3]])))
+            with mock.patch.object(layout, "layout", fussy):
+                s = sheet.build([(str(tmp / "g.json"), "sample")], str(tmp), preferences=False)
+                self.assertTrue(any("control point CP: not checked" in line for line in s.log), s.log)
+                import contextlib
+                import io
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                    cli.run(["draw", str(tmp / "o.svg"), "--data", str(tmp), "--no-preferences", f"{tmp / 'g.json'}:sample"])
+            self.assertIn("warning: ", err.getvalue())
+            self.assertIn("piece 2: not drawn, no orientation found", err.getvalue())
+
+    def test_two_pieces_on_one_level_get_distinct_titles(self):
+        from schematic import sheet
+        g = dict(nodes={}, edges=[])
+        text = panel(*single("T1", 100, 100, 200, 100, 150, 160, 60), *single("T2", 600, 400, 700, 400, 650, 460, 560))
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "plan.xml"
+            f.write_text(text)
+            g = plan_reader.read(str(f))
+        z = {n: 0 for n in g["nodes"]}
+        for n, d in g["nodes"].items():
+            d["z"] = 0
+        opts = dict(levels=dict(bands=[dict(name="Main level, x", below=100)]))
+        titles = [t for t, _ in sheet.level_bands(g, opts, "sample")]
+        self.assertEqual(len(titles), 2)
+        self.assertEqual(len(set(titles)), 2)
+        self.assertTrue(titles[1].endswith(", piece 2"))
 
 
 if __name__ == "__main__":

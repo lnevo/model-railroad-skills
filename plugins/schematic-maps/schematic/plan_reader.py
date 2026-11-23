@@ -202,6 +202,8 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
 
     def where(name, ty):
         """The leg's point in export px, or None when the export does not place it."""
+        if not name or not ty:
+            return None
         if ty.startswith("TURNOUT") and (name, ty[-1]) in portmap:
             return pt(tos[name], ty[-1])
         if name in pps:
@@ -234,9 +236,14 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
         pts, partial = seg_pts(seg)
         if partial or len(pts) < 2:
             return None
-        if seg.get("connect2name") == n:
-            return unit(pts[-1][0] - pts[-2][0], pts[-1][1] - pts[-2][1])
-        return unit(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1])
+        end2 = seg.get("connect2name") == n
+        (x1, y1), (x0, y0) = (pts[-1], pts[-2]) if end2 else (pts[0], pts[1])
+        dx, dy = x1 - x0, y1 - y0
+        if len(pts) == 2 and seg.get("arc") == "yes" and seg.get("circle") == "yes" and num(seg, "angle"):
+            # a circular arc leaves each end half its angle off its chord, to the side the arc bulges (flip says which)
+            turn = math.radians(num(seg, "angle")) / 2 * (-1 if seg.get("flip") == "yes" else 1) * (1 if end2 else -1)
+            dx, dy = dx * math.cos(turn) - dy * math.sin(turn), dx * math.sin(turn) + dy * math.cos(turn)
+        return unit(dx, dy)
 
     def follow(seg, frm):
         px, blocks, dashed = seg_px(seg), [seg.get("blockname")], seg.get("dashed") == "yes"
@@ -300,7 +307,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     joins = []
     free = [n for n, d in nodes.items() if d["kind"] == "end" and d.get("sub") != "cut" and end_dir.get(n)]
     near = sorted((math.dist(nodes[a]["xy"], nodes[b]["xy"]), a, b) for i, a in enumerate(free) for b in free[i + 1:]
-                  if math.dist(nodes[a]["xy"], nodes[b]["xy"]) <= NEAR_CM * PX_PER_CM)
+                  if math.dist(nodes[a]["xy"], nodes[b]["xy"]) <= NEAR_CM * PX_PER_CM)      # at the usual export size
 
     def toward(n, m):
         """Does the track at end n head at end m, within NEAR_ANGLE degrees?"""
@@ -313,7 +320,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
             eb = next(e for e in edges if e["v"] == b)
             edges.remove(eb)
             ea.update(v=eb["u"], vp=eb["up"], cm=ea["cm"] + eb["cm"] + gap, hidden=ea["hidden"] or eb["hidden"])
-            joins.append(dict(gap_cm=round(gap / PX_PER_CM, 1), xy=[round(c, 1) for c in nodes[a]["xy"]]))
+            joins.append(dict(gap_px=gap, xy=[round(c, 1) for c in nodes[a]["xy"]]))
             del nodes[a], nodes[b]
     only = bool(skip) and skip.startswith("+")       # "+Name" keeps only those sections; "Name" leaves them out
     if skip:
@@ -335,13 +342,17 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     if not size:
         raise PlanError(f"no switches left after the section filter {skip!r}" if skip else "the export has no switches")
     keep = {g for g in size if any(find(e["u"]) == g for e in edges)}       # every piece with a switch and some track
+    dropped = []
+    if (skip or z_range) and len(keep) > 1:     # a filtered read keeps the largest piece: the rest is the filter's cut
+        big = max(keep, key=lambda g: size[g])
+        dropped = sorted((size[g] for g in keep if g != big), reverse=True)
+        keep = {big}
     nodes = {n: d for n, d in nodes.items() if find(n) in keep}
     edges = [e for e in edges if e["u"] in nodes]
     order = sorted((n for n, d in nodes.items() if d["kind"] != "end"), key=lambda n: (nodes[n]["xy"][1], nodes[n]["xy"][0]))
     for i, n in enumerate(order, 1):
         nodes[n]["label"] = str(i)
     notes = [f"joined {joined} pairs of track ends that met"]
-    notes += [f"joined two track ends {j['gap_cm']} cm apart that face each other" for j in joins]
     px_per_cm = PX_PER_CM
     if parts:           # label junctions with the plan's part numbers and heights
         plan = []
@@ -402,6 +413,11 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                      (f" (export searched at {seed:.3f} times the usual size)" if seed != 1.0 else ""))
     else:
         notes.append(f"lengths at {px_per_cm:.4f} px per cm, the usual export size (no parts to fit it to)")
+    for j in joins:
+        j["gap_cm"] = round(j.pop("gap_px") / px_per_cm, 1)
+        notes.append(f"joined two track ends {j['gap_cm']} cm apart that face each other")
+    why = "cut off by the section filter" if skip else "outside the heights"
+    notes += [f"left out: piece of {k} switches, {why}" for k in dropped]
     for e in edges:     # `cm` held export pixels until the scale was known
         e["cm"] = round(e["cm"] / px_per_cm, 1)
     for i, e in enumerate(edges):
@@ -421,7 +437,10 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     def bare_pieces():
         """Track no switch's track runs over, grouped into pieces by the points they share: [{cm, segments}]."""
         rest = [s for i, s in segs.items() if i not in walked]
-        parent = {}
+        parent, fresh = {}, iter(range(10 ** 9))
+
+        def end(s, i):      # an end the export does not name is its own point
+            return s.get(f"connect{i}name") or f"?{next(fresh)}"
 
         def root(x):
             while parent.setdefault(x, x) != x:
@@ -429,19 +448,22 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 x = parent[x]
             return x
 
+        ends = {id(s): (end(s, 1), end(s, 2)) for s in rest}
         for s in rest:
-            parent[root(s.get("connect1name"))] = root(s.get("connect2name"))
+            parent[root(ends[id(s)][0])] = root(ends[id(s)][1])
         pieces = {}
         for s in rest:
-            p = pieces.setdefault(root(s.get("connect1name")), dict(cm=0.0, segments=0))
-            p["cm"] += seg_px(s) / PX_PER_CM
+            p = pieces.setdefault(root(ends[id(s)][0]), dict(cm=0.0, segments=0))
+            p["cm"] += seg_px(s) / px_per_cm
             p["segments"] += 1
         return [dict(cm=round(p["cm"], 1), segments=p["segments"]) for p in sorted(pieces.values(), key=lambda p: -p["cm"])]
 
     out = dict(nodes=nodes, edges=edges, notes=notes, cuts=cut_list)
     if joins:
         out["joins"] = joins
-    left = bare_pieces()
+    if dropped:
+        out["dropped"] = [dict(switches=k) for k in dropped]
+    left = [] if (skip or z_range) else bare_pieces()      # a filtered read leaves track out on purpose
     if left:
         out["left_out"] = left
         notes += [f"left out: a piece with no switches, {p['cm']} cm of track" for p in left]
