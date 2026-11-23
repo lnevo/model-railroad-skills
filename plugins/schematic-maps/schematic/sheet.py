@@ -83,10 +83,12 @@ def mark_ways(g, specs):
 
 
 def level_bands(g, opts, level_name):
-    """[(title, subgraph)] for one input: cut into levels when layer 1 says how, else one band."""
+    """[(title, subgraph)] for one input: cut into levels when layer 1 says how, else one band for each piece of track."""
     if opts.get("levels") and opts["levels"].get("bands"):
         return edits.split_levels(g, opts["levels"])
-    return [(opts.get("level_title", level_name.replace("_", " ").capitalize() + " level"), g)]
+    title = opts.get("level_title", level_name.replace("_", " ").capitalize() + " level")
+    pieces = edits.split_pieces(g)      # pieces of track that do not join are one band each, the largest first
+    return [(title if i == 0 else f"{title}, piece {i + 1}", sub) for i, sub in enumerate(pieces)]
 
 
 def prepare(graph, opts, tracks):
@@ -120,7 +122,13 @@ def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
     layout.turnback_names(opts)         # its shape; check_turnbacks says whether some input has each track
     for title, sub in level_bands(g, opts, name):
         w = []
-        band = layout.layout(sub, opts, w)
+        try:
+            band = layout.layout(sub, opts, w)
+        except SchematicError as e:
+            if not sub.get("piece"):        # the largest piece (or the only one) must draw; a smaller piece that cannot
+                raise                       # be laid out is said in the log, and the other pieces still draw
+            log.append(f"{title}: not drawn, {e}")
+            continue
         if milepost:
             band["mp"], band["mp_origin"] = milepost["edges"], milepost["origin"]
         mine = {n: v for n, v in rail.items() if n in band["nodes"]}

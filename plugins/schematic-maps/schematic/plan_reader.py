@@ -30,6 +30,8 @@ import math
 import xml.etree.ElementTree as ET
 
 PX_PER_CM = 12 / 2.54     # the exports read so far: 12 px per inch of plan (within 0.5 % of the fitted scale)
+NEAR_CM = 5.0           # two free track ends this close that face each other are one track the plan did not snap
+NEAR_ANGLE = 30         # degrees: each end's direction of travel must point at the other end within this
 SCALE_AXES_TOLERANCE = 0.03     # largest relative difference between the x and y scale fitted against the parts
 SCALE_SEARCH_LIMIT = 0.10       # an export whose spread is this far from PX_PER_CM is searched at its own scale
 
@@ -118,6 +120,7 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     pps = {p.get("ident"): p for p in panel.iter("positionablepoint")}
     others = {el.get("ident"): el for tag in ("levelxing", "layoutSlip", "layoutturntable") for el in panel.iter(tag)}
     nodes, portmap, edges, cuts, cut_ends, dangling, unplaced = {}, {}, [], {}, {}, set(), set()
+    walked, end_dir = set(), {}      # track pieces a switch's track runs over; the way each free end faces (out of the track)
     pt = turnout_point
 
     for ident, t in tos.items():
@@ -226,8 +229,18 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     def ends_of(s):
         return [(s.get("connect1name"), s.get("type1")), (s.get("connect2name"), s.get("type2"))]
 
+    def facing(seg, n):
+        """The unit direction the track leaves `seg` at its end `n`, or None when the export does not place enough of it."""
+        pts, partial = seg_pts(seg)
+        if partial or len(pts) < 2:
+            return None
+        if seg.get("connect2name") == n:
+            return unit(pts[-1][0] - pts[-2][0], pts[-1][1] - pts[-2][1])
+        return unit(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1])
+
     def follow(seg, frm):
         px, blocks, dashed = seg_px(seg), [seg.get("blockname")], seg.get("dashed") == "yes"
+        walked.add(seg.get("ident"))
         while True:
             n, ty = next(e for e in ends_of(seg) if e[0] != frm)
             if ty.startswith("TURNOUT") and (n, ty[-1]) in portmap:
@@ -244,8 +257,10 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 dangling.add(n)
                 nxt = []
             if pp.get("type") == "END_BUMPER" or not nxt:
+                end_dir["END:" + n] = facing(seg, n)
                 return ("END:" + n, "E"), px, blocks, dashed
             frm, seg = n, segs[nxt[0]]
+            walked.add(seg.get("ident"))
             px += seg_px(seg)
             dashed = dashed or seg.get("dashed") == "yes"
             if seg.get("blockname") != blocks[-1]:
@@ -281,6 +296,25 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                 ea.update(v=eb["u"], vp=eb["up"], cm=ea["cm"] + eb["cm"], hidden=ea["hidden"] or eb["hidden"])
                 del nodes[a], nodes[b]
                 joined += 1
+    # two free ends that face each other across a small gap are one track the plan did not quite snap: join them too
+    joins = []
+    free = [n for n, d in nodes.items() if d["kind"] == "end" and d.get("sub") != "cut" and end_dir.get(n)]
+    near = sorted((math.dist(nodes[a]["xy"], nodes[b]["xy"]), a, b) for i, a in enumerate(free) for b in free[i + 1:]
+                  if math.dist(nodes[a]["xy"], nodes[b]["xy"]) <= NEAR_CM * PX_PER_CM)
+
+    def toward(n, m):
+        """Does the track at end n head at end m, within NEAR_ANGLE degrees?"""
+        d = unit(nodes[m]["xy"][0] - nodes[n]["xy"][0], nodes[m]["xy"][1] - nodes[n]["xy"][1])
+        return end_dir[n][0] * d[0] + end_dir[n][1] * d[1] >= math.cos(math.radians(NEAR_ANGLE))
+
+    for gap, a, b in near:
+        if a in nodes and b in nodes and toward(a, b) and toward(b, a):
+            ea = next(e for e in edges if e["v"] == a)
+            eb = next(e for e in edges if e["v"] == b)
+            edges.remove(eb)
+            ea.update(v=eb["u"], vp=eb["up"], cm=ea["cm"] + eb["cm"] + gap, hidden=ea["hidden"] or eb["hidden"])
+            joins.append(dict(gap_cm=round(gap / PX_PER_CM, 1), xy=[round(c, 1) for c in nodes[a]["xy"]]))
+            del nodes[a], nodes[b]
     only = bool(skip) and skip.startswith("+")       # "+Name" keeps only those sections; "Name" leaves them out
     if skip:
         text = skip.lstrip("+")
@@ -300,13 +334,14 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
     size = collections.Counter(find(n) for n, d in nodes.items() if d["kind"] != "end")
     if not size:
         raise PlanError(f"no switches left after the section filter {skip!r}" if skip else "the export has no switches")
-    keep = size.most_common(1)[0][0]
-    nodes = {n: d for n, d in nodes.items() if find(n) == keep}
+    keep = {g for g in size if any(find(e["u"]) == g for e in edges)}       # every piece with a switch and some track
+    nodes = {n: d for n, d in nodes.items() if find(n) in keep}
     edges = [e for e in edges if e["u"] in nodes]
     order = sorted((n for n, d in nodes.items() if d["kind"] != "end"), key=lambda n: (nodes[n]["xy"][1], nodes[n]["xy"][0]))
     for i, n in enumerate(order, 1):
         nodes[n]["label"] = str(i)
     notes = [f"joined {joined} pairs of track ends that met"]
+    notes += [f"joined two track ends {j['gap_cm']} cm apart that face each other" for j in joins]
     px_per_cm = PX_PER_CM
     if parts:           # label junctions with the plan's part numbers and heights
         plan = []
@@ -383,4 +418,31 @@ def read(path, skip=None, parts=None, z_range=None, main_section="Mainline"):
                      "their track ends where it was last known")
     if dangling:
         notes.append(f"{len(dangling)} track points name a track piece the export does not hold; the track ends there")
-    return dict(nodes=nodes, edges=edges, notes=notes, cuts=cut_list)
+    def bare_pieces():
+        """Track no switch's track runs over, grouped into pieces by the points they share: [{cm, segments}]."""
+        rest = [s for i, s in segs.items() if i not in walked]
+        parent = {}
+
+        def root(x):
+            while parent.setdefault(x, x) != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        for s in rest:
+            parent[root(s.get("connect1name"))] = root(s.get("connect2name"))
+        pieces = {}
+        for s in rest:
+            p = pieces.setdefault(root(s.get("connect1name")), dict(cm=0.0, segments=0))
+            p["cm"] += seg_px(s) / PX_PER_CM
+            p["segments"] += 1
+        return [dict(cm=round(p["cm"], 1), segments=p["segments"]) for p in sorted(pieces.values(), key=lambda p: -p["cm"])]
+
+    out = dict(nodes=nodes, edges=edges, notes=notes, cuts=cut_list)
+    if joins:
+        out["joins"] = joins
+    left = bare_pieces()
+    if left:
+        out["left_out"] = left
+        notes += [f"left out: a piece with no switches, {p['cm']} cm of track" for p in left]
+    return out
