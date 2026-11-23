@@ -113,7 +113,9 @@ def split_through_loops(g):
             d = g["nodes"][e["u"]].get("dirs", {}).get(port) or (0, 0)
             end = f"{e['id']}.end{k}"
             nodes[end] = dict(kind="end", sub="bumper", label="", xy=[x + 20 * d[0], y + 20 * d[1]])
-            edges.append(dict(e, id=f"{e['id']}.{k}", u=e["u"], up=port, v=end, vp="E"))
+            # ids ending in .0 or .1 are fold halves (rules.is_fold): the stubs take x and y, and half the length each
+            edges.append(dict(e, id=f"{e['id']}{'xy'[k]}", u=e["u"], up=port, v=end, vp="E",
+                              cm=round(e["cm"] / 2, 1), split=True))
         notes.append(f"switch {g['nodes'][e['u']].get('label') or e['u']}: a balloon loop on its through route, "
                      "drawn as a reversing loop (two stubs beside the switch)")
     return dict(g, nodes=nodes, edges=edges), notes
@@ -196,6 +198,12 @@ SECOND_MORE = 4         # restarts tried after the first one that finds a drawin
 
 
 def second_pass(g, sw, must, seconds, keep):
+    """The answer depends only on the seeded steps taken. `seconds` is a limit that gives up: when it runs out
+    before the search ends, the result is empty, never a shorter search's answer."""
+    return _second_pass(g, sw, must, time.monotonic() + seconds, keep)
+
+
+def _second_pass(g, sw, must, deadline, keep):
     """A seeded, deterministic local search over the east/west colouring of the switches, for plans the first pass
     cannot solve (any non-link run may turn back). It minimises the runs that must be turnbacks plus a penalty for
     each node the columns cannot order, and keeps the acyclic colourings found, cheapest first."""
@@ -204,7 +212,6 @@ def second_pass(g, sw, must, seconds, keep):
         return []
     musts = {e["id"] for e in must}
     rng = random.Random(1)
-    deadline = time.monotonic() + seconds
     found, seen = [], set()
 
     def turned(sig):
@@ -227,7 +234,7 @@ def second_pass(g, sw, must, seconds, keep):
         temp = 3.0
         for _ in range(SECOND_STEPS):
             if time.monotonic() > deadline:
-                break
+                return []
             n = rng.choice(junctions)
             sig[n] = -sig[n]
             cost2, T2, bad2 = score(sig)
@@ -250,7 +257,7 @@ def second_pass(g, sw, must, seconds, keep):
                 sig[n] = -sig[n]
             temp = max(0.2, temp * 0.999)
         if time.monotonic() > deadline:
-            break
+            return []
     found.sort(key=lambda f: (f[0], f[1]))
     return found[:keep]
 
@@ -269,8 +276,9 @@ def orient(g, max_turnbacks=3, keep=10, require=(), log=None, seconds=RAISE_SECO
     found = []
     best = search(g, sw, must, cand, range(max_turnbacks + 1), found, None)
     why = ""
+    deadline = time.monotonic() + seconds       # one limit for the raised steps and the second pass together
     if best is None:
-        limit, spent, deadline = loops_of(g) + 2, 0, time.monotonic() + seconds
+        limit, spent = loops_of(g) + 2, 0
         why = f"turnback counts up to {limit} (the plan's loops plus 2) were all tried"
         if max_turnbacks + 1 > limit:
             why = f"up to {max_turnbacks} turnbacks were tried, and the plan has {limit - 2} independent loops"
@@ -298,9 +306,11 @@ def orient(g, max_turnbacks=3, keep=10, require=(), log=None, seconds=RAISE_SECO
     if best is None:
         if log:
             log("turnbacks: nothing found by counting runs; second pass: a seeded search over every run that may turn back")
-        found = second_pass(g, sw, must, seconds, keep)
+        found = _second_pass(g, sw, must, deadline, keep)
         if found:
             return [(sig, ids) for _, _, sig, ids in found]
+        if time.monotonic() > deadline:
+            why += ("; " if why else "") + f"the second pass ran out of its {seconds:g} seconds"
         raise SchematicError(f"no orientation found: {why}")
     found.sort(key=lambda f: (f[0], f[1]))
     return [(sig, ids) for _, _, sig, ids in found[:keep]]

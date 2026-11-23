@@ -1,9 +1,11 @@
 """Plans the first orient pass cannot solve: a balloon loop closed on a switch's through route, and plans that need
 turnbacks on straight runs."""
 import unittest
+import unittest.mock
 
 import helpers  # noqa: F401  (puts the plugin on the path)
-from schematic import layout, orient
+from schematic import layout, orient, rules
+from schematic.draw import DEFAULTS
 
 
 class Graph:
@@ -67,6 +69,26 @@ class BalloonOnThroughRoute(unittest.TestCase):
         self.assertTrue(band["strands"])
         self.assertTrue(any("balloon loop on its through route" in w and "s1" in w for w in warnings), warnings)
 
+    def test_the_stubs_are_not_fold_halves_and_share_the_length(self):
+        g = loop_through()
+        before = next(e for e in g["edges"] if e["id"] == "e0")
+        split, _ = orient.split_through_loops(g)
+        stubs = [e for e in split["edges"] if e.get("split")]
+        self.assertEqual(len(stubs), 2)
+        for e in stubs:
+            self.assertFalse(rules.is_fold(e["id"]), e["id"])
+            self.assertAlmostEqual(e["cm"], before["cm"] / 2, delta=0.1)
+
+    def test_a_turnbacks_preference_naming_the_loop_warns_instead_of_failing(self):
+        g = loop_through()
+        for e in g["edges"]:
+            if e["id"] == "e0":
+                e["names"] = ["LOOP"]
+        warnings = []
+        band = layout.layout(g, dict(DEFAULTS, turnbacks=["LOOP"]), warnings)
+        self.assertTrue(band["strands"])
+        self.assertTrue(any("LOOP" in w and "balloon loop" in w and "turnbacks" in w for w in warnings), warnings)
+
     def test_a_loop_on_the_lead_leg_is_not_touched(self):
         g = Graph()
         g.switch("s1", 100, 100)
@@ -90,6 +112,26 @@ class StraightTurnbacks(unittest.TestCase):
         a = orient.orient(straight_digon(), seconds=40)
         b = orient.orient(straight_digon(), seconds=40)
         self.assertEqual([sorted(T) for _, T in a], [sorted(T) for _, T in b])
+
+    def test_the_second_pass_out_of_time_gives_nothing_not_a_shorter_answer(self):
+        g = straight_digon()
+        sw = [e for e in g["edges"] if all(g["nodes"][n]["kind"] in orient.JUNCTION for n in (e["u"], e["v"]))]
+        self.assertEqual(orient.second_pass(g, sw, [], -1.0, 10), [])
+        self.assertTrue(orient.second_pass(g, sw, [], 60.0, 10))
+
+    def test_the_second_pass_shares_the_deadline_of_the_raised_steps(self):
+        seen = []
+        real = orient._second_pass
+        t0 = orient.time.monotonic()
+
+        def spy(g, sw, must, deadline, keep):
+            seen.append(deadline - t0)
+            return real(g, sw, must, deadline, keep)
+
+        with unittest.mock.patch.object(orient, "_second_pass", spy):
+            orient.orient(straight_digon(), seconds=40)
+        self.assertEqual(len(seen), 1)
+        self.assertLessEqual(seen[0], 40.5)
 
     def test_a_plan_the_first_pass_solves_does_not_run_it(self):
         notes = []

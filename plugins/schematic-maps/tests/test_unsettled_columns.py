@@ -39,15 +39,26 @@ class Relaxed(unittest.TestCase):
         real = columns.place
 
         def spy(*a, **k):
+            calls.append("relaxed" in k and k["relaxed"] is not None)
             try:
                 return real(*a, **k)
             except columns.Unsettled:
-                calls.append(k.get("relaxed"))
+                calls.append("raised")
                 raise
 
         with unittest.mock.patch.object(layout, "place", spy):
-            build("min11.json")
-        self.assertIn(None, calls)
+            s = build("min11.json")
+        self.assertTrue(s.bands[0][1]["relaxed"])      # the relaxed try drew it: it did not raise
+        first_raise = calls.index("raised")
+        self.assertNotIn(True, calls[:first_raise])         # not relaxed until a plain try failed
+        self.assertIn(True, calls[first_raise:])            # and then the relaxed try is the one that is passed by keyword
+
+    def test_notes_are_fresh_for_each_settling_round(self):
+        for name in ("min11.json", "min24.json", "min38.json"):
+            notes = self.faults(name)
+            relaxed = [f for f in notes if f.startswith("relaxed")]
+            self.assertEqual(len(relaxed), len(set(relaxed)), relaxed)
+            self.assertFalse(any("turn:" in f for f in relaxed), relaxed)
 
     def test_no_relaxed_try_when_another_orientation_settles(self):
         from test_solve_limits import triangle

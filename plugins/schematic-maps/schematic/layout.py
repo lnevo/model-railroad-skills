@@ -2,7 +2,7 @@
 import collections  # noqa: F401
 import itertools
 
-from .columns import Unsettled, overlaps, place, spans
+from .columns import Unsettled, node_text, overlaps, place, spans
 from .core import JUNCTION, SchematicError, dedupe  # noqa: F401
 from . import rules
 from .orient import build, columns, orient, split_through_loops
@@ -37,6 +37,12 @@ def layout(g, opts, warnings):
     g, notes = split_through_loops(g)
     warnings.extend(notes)
     need = wanted_turnbacks(g, opts)
+    cut = {e["id"] for e in g["edges"] if e.get("split")} & need
+    if cut:         # a balloon loop on a through route was cut in two stubs, each to a bumper: never a turnback
+        need -= cut
+        names = sorted({n for e in g["edges"] if e["id"] in cut for n in e["names"]})
+        warnings.append(f"turnbacks: {', '.join(names)} is a balloon loop on a through route, drawn as two stubs "
+                        "to bumpers, so it cannot be a turnback and the preference is ignored for it")
     found = orient(g, require=need, log=warnings.append)
     if need:
         found = [(sig, T) for sig, T in found if need <= set(T)]      # a track to an end is never a turnback
@@ -119,7 +125,6 @@ def layout_one(g, sig, T, opts, warnings, relax=False):
         col = columns(nodes, strands)
     order, snaps, enclosed, free, ev = sweep(nodes, strands, col, warnings.append)
     rule_pins = rules.level_legs(nodes, strands, opts) if opts.get("rules", True) else {}
-    relaxed = [] if relax else None         # each relaxation made, listed as a fault on the band
 
     def settle(span_filter):
         """Rows and columns, repeated until no two runs clash on a row. Returns (band, rows)."""
@@ -129,21 +134,25 @@ def layout_one(g, sig, T, opts, warnings, relax=False):
         xcons, refused = set(), set()
         for _ in range(12):
             R = rows.optimise()
+            rel = [] if relax else None     # each relaxation made in this round, listed as a fault on the band
             if relax:
-                R = relax_rows(R, nodes, strands, relaxed)
+                R = relax_rows(R, nodes, strands, rel)
             try:
-                x, need = place(nodes, strands, R, enclosed, opts, xcons, relaxed)
+                tried = list(rel) if relax else None        # a try that fails leaves no notes behind
+                x, need = place(nodes, strands, R, enclosed, opts, xcons, relaxed=tried)
+                if relax:
+                    rel[:] = tried
             except Unsettled:               # a clearance rule that cannot hold with the new rows: keep the ones that can
                 kept = set()
                 for rule in sorted(xcons):
                     try:
-                        place(nodes, strands, R, enclosed, opts, kept | {rule}, relaxed)
+                        place(nodes, strands, R, enclosed, opts, kept | {rule}, relaxed=[] if relax else None)
                         kept.add(rule)
                     except Unsettled:
                         refused.add(rule)
                 xcons = kept
-                x, need = place(nodes, strands, R, enclosed, opts, xcons, relaxed)
-            band = dict(nodes=nodes, strands=strands, R=R, x=x, need=need, turnbacks=T, relaxed=relaxed or [])
+                x, need = place(nodes, strands, R, enclosed, opts, xcons, relaxed=rel)
+            band = dict(nodes=nodes, strands=strands, R=R, x=x, need=need, turnbacks=T, relaxed=list(rel or []))
             clash, apart = set(), set()
             for a, b in overlaps(nodes, strands, R, x, need, order) - rows.extra:
                 (sa, da), (sb, db) = ((strands[k]["src"][0], strands[k]["dst"][0]) for k in (a, b))
@@ -177,15 +186,16 @@ def relax_rows(R, nodes, strands, relaxed):
     """The rows with each diagonal whose two ends are on one row made a level track; the others keep their slope but
     take a least span in columns, not an exact one (columns.place). Each change is noted in `relaxed`."""
     R = dict(R, srow=dict(R["srow"]), diag=set(R["diag"]))
-    label = lambda n: nodes[n].get("label") or "end"
+    label = lambda n: node_text(nodes, strands, n)
     for sid in sorted(R["diag"]):
         u, v = strands[sid]["src"][0], strands[sid]["dst"][0]
+        named = f" ({strands[sid]['name']})" if strands[sid]["name"] else ""
         if R["nrow"][u] == R["nrow"][v]:
             R["diag"].discard(sid)
             R["srow"][sid] = R["nrow"][u]
-            note = f"relaxed: the short track {label(u)} to {label(v)} is drawn level, not as a diagonal"
+            note = f"relaxed: the short track {label(u)} to {label(v)}{named} is drawn level, not as a diagonal"
         else:
-            note = f"relaxed: the diagonal {label(u)} to {label(v)} may span more columns than it has rows"
+            note = f"relaxed: the diagonal {label(u)} to {label(v)}{named} may span more columns than it has rows"
         if note not in relaxed:
             relaxed.append(note)
     return R

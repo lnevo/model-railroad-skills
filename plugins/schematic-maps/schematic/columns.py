@@ -16,6 +16,23 @@ class Unsettled(Exception):
     pass
 
 
+def node_text(nodes, strands, n):
+    """A node as a note may call it: its label; else a track end by the track it closes, a turnback by the switches
+    its two runs leave; else its kind."""
+    d = nodes[n]
+    if d.get("label"):
+        return d["label"]
+    sids = list(d["ins"].values()) + list(d["outs"].values())
+    far = sorted(nodes[o].get("label") or "" for sid in sids for o in (strands[sid]["src"][0], strands[sid]["dst"][0]) if o != n)
+    far = [f for f in far if f]
+    if d["kind"].startswith("turn"):
+        return "the turnback at " + " and ".join(dict.fromkeys(far)) if far else f"a turnback ({n})"
+    if d["kind"] == "end":
+        names = [strands[sid]["name"] for sid in sids if strands[sid]["name"]]
+        return f"the end of {names[0]}" if names else ("the end beside " + far[0] if far else f"a track end ({n})")
+    return f"{d['kind']} {n}"
+
+
 def refs(nodes, n):
     """What a hint may call a junction: its plan part number, its label, and its label without a move star."""
     d = nodes[n]
@@ -125,7 +142,8 @@ def place(nodes, strands, R, enclosed, opts, extra=(), relaxed=None):
         for sid in inside:
             n = strands[sid]["dst"][0]
             if relaxed is not None and (t, n) in pairs:     # each encloses the other: no column can hold both
-                note = f"relaxed: two turnbacks ({t} and {n}) enclose each other, so neither is drawn around the other"
+                a, b = sorted((node_text(nodes, strands, t), node_text(nodes, strands, n)))
+                note = f"relaxed: two turnbacks ({a} and {b}) enclose each other, so neither is drawn around the other"
                 if note not in relaxed:
                     relaxed.append(note)
                 continue
