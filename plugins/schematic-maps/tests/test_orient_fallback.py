@@ -1,0 +1,101 @@
+"""Plans the first orient pass cannot solve: a balloon loop closed on a switch's through route, and plans that need
+turnbacks on straight runs."""
+import unittest
+
+import helpers  # noqa: F401  (puts the plugin on the path)
+from schematic import layout, orient
+
+
+class Graph:
+    def __init__(self):
+        self.nodes, self.edges = {}, []
+
+    def switch(self, n, x, y, hand=1):
+        self.nodes[n] = dict(kind="switch", label=str(n), xy=[x, y], district="Main", hand=hand,
+                             dirs=dict(A=[-1, 0], B=[1, 0], C=[1, 0.4]))
+
+    def end(self, n, x, y):
+        self.nodes[n] = dict(kind="end", sub="bumper", label="", xy=[x, y])
+
+    def edge(self, u, up, v, vp):
+        self.edges.append(dict(u=u, up=up, v=v, vp=vp, names=[], cm=50.0, link=False, main=False,
+                               district="Main", hidden=False, id=f"e{len(self.edges)}"))
+
+    def graph(self):
+        return dict(nodes=self.nodes, edges=self.edges, notes=[], cuts=[])
+
+
+def loop_through():
+    g = Graph()
+    g.switch("s1", 100, 100)
+    g.end("b1", 300, 100)
+    g.edge("s1", "A", "s1", "B")
+    g.edge("s1", "C", "b1", "E")
+    return g.graph()
+
+
+def straight_digon(n=42):
+    """A chain of n switches, each with a stub, closed by two parallel runs between two switches whose legs
+    point the same way: both must be turnbacks, and they are straight."""
+    g = Graph()
+    for i in range(n):
+        g.switch(f"c{i}", 100 + 60 * i, 300)
+        g.end(f"x{i}", 100 + 60 * i, 330)
+        g.edge(f"c{i}", "C", f"x{i}", "E")
+    for i in range(n - 1):
+        g.edge(f"c{i}", "B", f"c{i + 1}", "A")
+    g.switch("u", 100, 100)
+    g.switch("v", 900, 100)
+    g.nodes["u"]["dirs"] = dict(A=[-1, 0], B=[-1, 0], C=[1, 0.4])
+    g.nodes["v"]["dirs"] = dict(A=[1, 0], B=[1, 0], C=[1, 0.4])
+    g.edge("u", "C", "c0", "A")
+    g.edge(f"c{n - 1}", "B", "v", "C")
+    g.edge("u", "A", "v", "A")
+    g.edge("u", "B", "v", "B")
+    return g.graph()
+
+
+class BalloonOnThroughRoute(unittest.TestCase):
+    def test_orient_finds_a_way_and_leaves_the_loop_out_of_the_turnbacks(self):
+        found = orient.orient(loop_through())
+        self.assertTrue(found)
+        self.assertTrue(all("e0" not in T for _, T in found))
+
+    def test_layout_draws_it_and_says_so(self):
+        warnings = []
+        band = layout.layout(loop_through(), {}, warnings)
+        self.assertTrue(band["strands"])
+        self.assertTrue(any("balloon loop on its through route" in w and "s1" in w for w in warnings), warnings)
+
+    def test_a_loop_on_the_lead_leg_is_not_touched(self):
+        g = Graph()
+        g.switch("s1", 100, 100)
+        g.end("b1", 300, 100)
+        g.edge("s1", "B", "s1", "C")
+        g.edge("s1", "A", "b1", "E")
+        self.assertEqual(orient.split_through_loops(g.graph())[1], [])
+
+
+class StraightTurnbacks(unittest.TestCase):
+    def test_the_second_pass_finds_turnbacks_on_straight_runs(self):
+        g = straight_digon()
+        notes = []
+        found = orient.orient(g, seconds=40, log=notes.append)
+        self.assertTrue(found)
+        sig, T = found[0]
+        self.assertLessEqual(len(T), 3)
+        self.assertTrue(any("second pass" in n for n in notes), notes)
+
+    def test_the_second_pass_gives_the_same_answer_twice(self):
+        a = orient.orient(straight_digon(), seconds=40)
+        b = orient.orient(straight_digon(), seconds=40)
+        self.assertEqual([sorted(T) for _, T in a], [sorted(T) for _, T in b])
+
+    def test_a_plan_the_first_pass_solves_does_not_run_it(self):
+        notes = []
+        orient.orient(loop_through(), log=notes.append)
+        self.assertFalse(any("second pass" in n for n in notes), notes)
+
+
+if __name__ == "__main__":
+    unittest.main()

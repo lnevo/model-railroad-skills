@@ -5,7 +5,7 @@ import itertools
 from .columns import Unsettled, overlaps, place, spans
 from .core import JUNCTION, SchematicError, dedupe  # noqa: F401
 from . import rules
-from .orient import build, columns, orient
+from .orient import build, columns, orient, split_through_loops
 from .rows import Rows
 from .sweep import sweep
 
@@ -34,6 +34,8 @@ def layout(g, opts, warnings):
     """Try the cheapest few orientations and keep the drawing with the fewest faults. Tracks named in the
     `turnbacks` preference are turnbacks in every orientation tried."""
     best = None
+    g, notes = split_through_loops(g)
+    warnings.extend(notes)
     need = wanted_turnbacks(g, opts)
     found = orient(g, require=need, log=warnings.append)
     if need:
