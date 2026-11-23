@@ -83,10 +83,16 @@ def mark_ways(g, specs):
 
 
 def level_bands(g, opts, level_name):
-    """[(title, subgraph)] for one input: cut into levels when layer 1 says how, else one band."""
+    """[(title, subgraph)] for one input: cut into levels when layer 1 says how, else one band for each piece of track."""
     if opts.get("levels") and opts["levels"].get("bands"):
-        return edits.split_levels(g, opts["levels"])
-    return [(opts.get("level_title", level_name.replace("_", " ").capitalize() + " level"), g)]
+        out, seen = [], {}
+        for title, sub in edits.split_levels(g, opts["levels"]):      # two pieces on one level keep their titles apart
+            seen[title] = seen.get(title, 0) + 1
+            out.append((title if seen[title] == 1 else f"{title}, piece {seen[title]}", sub))
+        return out
+    title = opts.get("level_title", level_name.replace("_", " ").capitalize() + " level")
+    pieces = edits.split_pieces(g)      # pieces of track that do not join are one band each, the largest first
+    return [(title if i == 0 else f"{title}, piece {i + 1}", sub) for i, sub in enumerate(pieces)]
 
 
 def prepare(graph, opts, tracks):
@@ -116,11 +122,18 @@ def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
                 ", ".join(sorted(g["nodes"][n].get("label") or n for n in conflicts)))
         if conflicts and line not in log:   # build_input runs again in each room round: say it once
             log.append(line)
-    out = []
+    out, skipped = [], set()
     layout.turnback_names(opts)         # its shape; check_turnbacks says whether some input has each track
     for title, sub in level_bands(g, opts, name):
         w = []
-        band = layout.layout(sub, opts, w)
+        try:
+            band = layout.layout(sub, opts, w)
+        except SchematicError as e:
+            if not sub.get("piece"):        # the largest piece (or the only one) must draw; a smaller piece that cannot
+                raise                       # be laid out is said in the log, and the other pieces still draw
+            log.append(f"{title}: not drawn, {e}")
+            skipped |= {str(d.get("label")) for d in sub["nodes"].values() if d["kind"] != "end" and d.get("label")}
+            continue
         if milepost:
             band["mp"], band["mp_origin"] = milepost["edges"], milepost["origin"]
         mine = {n: v for n, v in rail.items() if n in band["nodes"]}
@@ -133,9 +146,30 @@ def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
         found = layout.faults(band)
         log.append(f"{title}: {len(found)} drawing faults {[layout.describe_fault(f) for f in found]}"
                    + (f"; {len(w)} warnings {w}" if w else ""))
+    if skipped:         # a switch in a piece that was not drawn cannot be asked of the checks below: leave it out, say so
+        opts = without_switches(opts, skipped, log)
     draw.check_control_points(opts, out, name)
     columns.check_run_hints([b for _, b, _ in out], opts)
     return out
+
+
+def without_switches(opts, labels, log):
+    """The options as the sheet-wide checks should see them when the pieces holding `labels` were not drawn: control
+    points and run hints that name such a switch are left out of the check (each said in the log)."""
+    opts = dict(opts)
+    cps = {}
+    for cp_name, cp in opts.get("control_points", {}).items():
+        keep = [r for r in cp["switches"] if draw.cp_ref(r) not in labels]
+        if len(keep) != len(cp["switches"]):
+            log.append(f"control point {cp_name}: not checked for switches in a piece that was not drawn")
+        if keep:
+            cps[cp_name] = dict(cp, switches=keep)
+    if "control_points" in opts:
+        opts["control_points"] = cps
+    for kind in ("min_cells", "shorten"):
+        if kind in opts:
+            opts[kind] = [h for h in opts[kind] if not ({str(h[0]), str(h[1])} & labels)]
+    return opts
 
 
 def in_order(per_input, optlist):

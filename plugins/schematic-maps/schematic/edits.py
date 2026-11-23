@@ -269,6 +269,35 @@ def mark_main(g, routes):
             e["main"] = True
 
 
+def split_pieces(g):
+    """The graph's connected pieces of track, each as a subgraph, most switches first (ties keep their order of
+    appearance): a graph that is one piece comes back as [g] itself."""
+    N = g["nodes"]
+    parent = {n: n for n in N}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for e in g["edges"]:
+        if e["u"] in N and e["v"] in N:
+            parent[find(e["u"])] = find(e["v"])
+    groups = collections.defaultdict(list)
+    for n in N:
+        groups[find(n)].append(n)
+    if len(groups) < 2:
+        return [g]
+    size = {r: sum(N[n]["kind"] != "end" for n in m) for r, m in groups.items()}
+    out = []
+    for r in sorted(groups, key=lambda r: -size[r]):
+        keep = set(groups[r])
+        out.append(dict(g, nodes={n: N[n] for n in groups[r]}, edges=[e for e in g["edges"] if e["u"] in keep],
+                        **({"piece": len(out) + 1} if out else {})))
+    return out
+
+
 def split_levels(g, spec):
     """Cut every run that joins two levels; each cut end becomes a lettered connector."""
     N = g["nodes"]

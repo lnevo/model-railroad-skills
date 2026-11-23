@@ -163,6 +163,14 @@ def run(argv=None):
             print("\n".join(g["notes"]))
             for c in g.get("cuts", []):
                 print(f"warning: track cut at {c['part']}: {c['reason']}", file=sys.stderr)
+            for j in g.get("joins", []):
+                print(f"warning: joined track ends {j['gap_cm']} cm apart that face each other, near x {j['xy'][0]}, "
+                      f"y {j['xy'][1]} in the export", file=sys.stderr)
+            for p in g.get("dropped", []):
+                why = "cut off by the section filter" if a.section else "outside the heights"
+                print(f"warning: left out: piece of {p['switches']} switches, {why}", file=sys.stderr)
+            for p in g.get("left_out", []):
+                print(f"warning: left out: a piece with no switches, {p['cm']} cm of track", file=sys.stderr)
         elif a.cmd == "pieces":
             res = pieces.read(a.export, a.px_per_cm)
             if a.json:
@@ -220,6 +228,9 @@ def run(argv=None):
             s = build(a)
             s.write(a.out)
             print("\n".join(s.log))
+            for line in s.log:
+                if ": not drawn, " in line:
+                    print(f"warning: {line}", file=sys.stderr)
             faults, text = label_check.report(a.out)
             print(text)
         elif a.cmd == "detail":
