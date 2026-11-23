@@ -130,7 +130,9 @@ def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
             for n, letter in direction.letters(band["nodes"], band["rail"]).items():
                 band["nodes"][n]["facing"] = letter
         out.append((title, band, opts))
-        log.append(f"{title}: {len(layout.faults(band))} drawing faults {w}")
+        found = layout.faults(band)
+        log.append(f"{title}: {len(found)} drawing faults {[layout.describe_fault(f) for f in found]}"
+                   + (f"; {len(w)} warnings {w}" if w else ""))
     draw.check_control_points(opts, out, name)
     columns.check_run_hints([b for _, b, _ in out], opts)
     return out
