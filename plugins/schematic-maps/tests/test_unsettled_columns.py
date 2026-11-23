@@ -49,6 +49,20 @@ class Relaxed(unittest.TestCase):
             build("min11.json")
         self.assertIn(None, calls)
 
+    def test_no_relaxed_try_when_another_orientation_settles(self):
+        from test_solve_limits import triangle
+        real, seen = layout.layout_one, []
+
+        def flaky(*a, **kw):
+            seen.append(kw.get("relax", False))
+            if len(seen) == 1:
+                raise layout.Unsettled("columns: constraints do not settle")
+            return real(*a, **kw)
+
+        with unittest.mock.patch.object(layout, "layout_one", flaky):
+            layout.layout(triangle(), {}, [])
+        self.assertNotIn(True, seen)
+
 
 if __name__ == "__main__":
     unittest.main()

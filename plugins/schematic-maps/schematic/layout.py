@@ -43,29 +43,26 @@ def layout(g, opts, warnings):
         if not found:
             names = sorted({n for e in g["edges"] if e["id"] in need for n in e["names"]})
             raise SchematicError(f"no orientation draws {', '.join(names)} as turnbacks (preference turnbacks)")
-    unsettled = 0
-    for sig, T in found:
-        w = []
-        band = None
-        try:
-            band = layout_one(g, sig, T, opts, w)
-        except Unsettled as e:      # this way of facing the switches gives columns that cannot hold: relax once
-            first = e
+    for relax in (False, True):     # the relaxed pass runs only when no orientation settles as it is
+        if best is not None:
+            break
+        unsettled = 0
+        for sig, T in found:
             w = []
             try:
-                band = layout_one(g, sig, T, opts, w, relax=True)
-            except Unsettled:
-                pass
-        if band is None:            # still not: try the next orientation
-            unsettled += 1
-            warnings.append(f"orientation {unsettled} of {len(found)} dropped: {first}")
-            continue
-        pos = band["x"]
-        score = (end_violations(band["nodes"], pos, g, opts), len(faults(band)) + len(band.get("relaxed", ())) + 3 * len(w), len(T))
-        if best is None or score < best[0]:
-            best = (score, band, w)
-        if score[0] == 0 and score[1] == 0:
-            break
+                band = layout_one(g, sig, T, opts, w, relax=relax)
+            except Unsettled as e:      # this way of facing the switches gives columns that cannot hold: try the next
+                if not relax:
+                    unsettled += 1
+                    warnings.append(f"orientation {unsettled} of {len(found)} dropped: {e}")
+                continue
+            pos = band["x"]
+            score = (end_violations(band["nodes"], pos, g, opts),
+                     len(faults(band)) + len(band.get("relaxed", ())) + 3 * len(w), len(T))
+            if best is None or score < best[0]:
+                best = (score, band, w)
+            if score[0] == 0 and score[1] == 0:
+                break
     if best is None:
         raise SchematicError(f"no drawing found: the column placement did not settle in any of the {len(found)} "
                              "orientations tried")
