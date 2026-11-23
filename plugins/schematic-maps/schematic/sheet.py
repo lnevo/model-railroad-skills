@@ -145,6 +145,7 @@ def build_input(graph, name, opts, tracks, log, milepost=None, prepared=None):
         out.append((title, band, opts))
         found = layout.faults(band)
         log.append(f"{title}: {len(found)} drawing faults {[layout.describe_fault(f) for f in found]}"
+                   + (f"; {len(band['relaxed'])} relaxed {band['relaxed']}" if band.get("relaxed") else "")
                    + (f"; {len(w)} warnings {w}" if w else ""))
     if skipped:         # a switch in a piece that was not drawn cannot be asked of the checks below: leave it out, say so
         opts = without_switches(opts, skipped, log)
