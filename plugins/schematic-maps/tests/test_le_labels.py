@@ -208,6 +208,27 @@ class Options(unittest.TestCase):
             le.panel(with_opts({"colour": 1}))
 
 
+class FixedFaults(unittest.TestCase):
+    def test_kept_verdicts_place_every_label_as_checking_each_time_does(self):
+        fault = le_labels.Layer.fault
+
+        def fresh(self, *a, **kw):                  # without the kept verdicts: each one worked out again
+            self.fixed.clear()
+            return fault(self, *a, **kw)
+
+        with mock.patch.dict("os.environ", {"SCHEMATIC_CACHE": ""}):
+            with mock.patch.object(le_labels.Layer, "fixed_fault", autospec=True,
+                                   side_effect=le_labels.Layer.fixed_fault) as kept:
+                P = le.panel(with_opts(None))
+            with mock.patch.object(le_labels.Layer, "fault", fresh), \
+                    mock.patch.object(le_labels.Layer, "fixed_fault", autospec=True,
+                                      side_effect=le_labels.Layer.fixed_fault) as each:
+                Q = le.panel(with_opts(None))
+        self.assertLess(kept.call_count, each.call_count)
+        self.assertEqual(ET.tostring(le.to_xml(P, "p")), ET.tostring(le.to_xml(Q, "p")))
+        self.assertEqual(P.log, Q.log)
+
+
 class Errors(unittest.TestCase):
     def test_no_clean_spot_stops_naming_the_item(self):
         with self.assertRaisesRegex(SchematicError, r"block contents of .*: no clean spot for it among \d+ tried \("):
