@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1056 816" width="1056" height="816" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif">
+<rect width="1056" height="816" fill="#fff"/>
+<rect x="24" y="24" width="1008" height="768" fill="none" stroke="#000" stroke-width="1.5"/>
+<g transform="translate(300.0,224.0) scale(1.0000)" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+<path d="M124.0,88.0 L264.0,88.0" stroke-width="1.4"/>
+<path d="M264.0,88.0 L292.0,88.0" stroke-width="1.4"/>
+<path d="M264.0,88.0 L292.0,60.0 L348.0,60.0" stroke-width="1.4"/>
+<path d="M292.0,88.0 L348.0,88.0" stroke-width="1.4"/>
+<path d="M236.0,144.0 L292.0,88.0" stroke-width="1.4"/>
+<path d="M124.0,144.0 L236.0,144.0" stroke-width="1.4"/>
+<path d="M236.0,144.0 L264.0,144.0" stroke-width="1.4"/>
+<path d="M96.0,144.0 L124.0,144.0" stroke-width="1.4"/>
+<path d="M96.0,200.0 L320.0,200.0 L348.0,172.0" stroke-width="1.4"/>
+<path d="M40.0,116.0 L96.0,116.0 L124.0,144.0" stroke-width="1.4"/>
+<path d="M264.0,144.0 L320.0,144.0" stroke-width="1.4"/>
+<path d="M264.0,144.0 L292.0,116.0 L376.0,116.0" stroke-width="1.4"/>
+<path d="M348.0,172.0 L376.0,172.0" stroke-width="1.4"/>
+<path d="M292.0,172.0 L348.0,172.0" stroke-width="1.4"/>
+<path d="M96.0,144.0 L82.0,158.0 L82.0,186.0 L96.0,200.0" stroke-width="1.4"/>
+<path d="M376.0,116.0 L390.0,130.0 L390.0,158.0 L376.0,172.0" stroke-width="1.4"/>
+<path d="M124.0,88.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<path d="M348.0,60.0 m-6,-5 l6,5 l-6,5" stroke-width="1.6"/>
+<path d="M348.0,88.0 m-6,-5 l6,5 l-6,5" stroke-width="1.6"/>
+<path d="M40.0,116.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<path d="M320.0,144.0 m-6,-5 l6,5 l-6,5" stroke-width="1.6"/>
+<path d="M292.0,167.0 L292.0,177.0" stroke-width="2.4"/>
+<text x="40.0" y="34.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D29 LEVEL</text>
+<text x="257.0" y="101.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >1</text>
+<text x="229.0" y="157.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >3</text>
+<text x="131.0" y="157.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >4</text>
+<text x="257.0" y="157.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >6</text>
+<text x="299.0" y="81.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >2</text>
+<text x="355.0" y="165.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >5</text>
+<path d="M138.0,350.0 L194.0,350.0" stroke-width="1.4"/>
+<path d="M194.0,350.0 L250.0,350.0" stroke-width="1.4"/>
+<path d="M194.0,350.0 L222.0,322.0 L278.0,322.0" stroke-width="1.4"/>
+<path d="M138.0,350.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<path d="M250.0,345.0 L250.0,355.0" stroke-width="2.4"/>
+<path d="M278.0,317.0 L278.0,327.0" stroke-width="2.4"/>
+<text x="138.0" y="296.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D29 LEVEL, PIECE 2</text>
+<text x="187.0" y="363.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >7</text>
+</g>
+<text x="508.0" y="62" font-size="15" text-anchor="end" font-weight="bold" letter-spacing="2">&#8592; WEST</text>
+<text x="548.0" y="62" font-size="15" text-anchor="start" font-weight="bold" letter-spacing="2">EAST &#8594;</text>
+<rect x="24" y="728" width="330" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="34" y="748" font-size="14" font-weight="bold" letter-spacing="1">SCHEMATIC DIAGRAM</text>
+</svg>

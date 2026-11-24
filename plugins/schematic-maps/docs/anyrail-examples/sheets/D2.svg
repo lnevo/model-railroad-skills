@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1056 816" width="1056" height="816" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif">
+<rect width="1056" height="816" fill="#fff"/>
+<rect x="24" y="24" width="1008" height="768" fill="none" stroke="#000" stroke-width="1.5"/>
+<g transform="translate(342.0,280.0) scale(1.0000)" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+<path d="M180.0,88.0 L208.0,88.0" stroke-width="1.4"/>
+<path d="M208.0,88.0 L264.0,88.0" stroke-width="1.4" stroke-dasharray="7 5"/>
+<path d="M208.0,88.0 L236.0,60.0 L292.0,60.0" stroke-width="1.4"/>
+<path d="M124.0,60.0 L152.0,60.0 L180.0,88.0" stroke-width="1.4"/>
+<path d="M68.0,60.0 L124.0,60.0" stroke-width="1.4" stroke-dasharray="7 5"/>
+<path d="M96.0,88.0 L124.0,60.0" stroke-width="1.4"/>
+<path d="M40.0,88.0 L96.0,88.0" stroke-width="1.4" stroke-dasharray="7 5"/>
+<path d="M96.0,88.0 L180.0,88.0" stroke-width="1.4"/>
+<path d="M264.0,83.0 L264.0,93.0" stroke-width="2.4"/>
+<path d="M292.0,55.0 L292.0,65.0" stroke-width="2.4"/>
+<path d="M68.0,60.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<path d="M40.0,88.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<text x="40.0" y="34.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D2 LEVEL</text>
+<text x="201.0" y="101.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >8</text>
+<text x="187.0" y="101.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >7</text>
+<text x="131.0" y="53.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >5</text>
+<text x="89.0" y="101.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >6</text>
+<path d="M68.0,238.0 L152.0,238.0" stroke-width="1.4" stroke-dasharray="7 5"/>
+<path d="M152.0,238.0 L180.0,238.0" stroke-width="1.4"/>
+<path d="M152.0,238.0 L180.0,210.0" stroke-width="1.4"/>
+<path d="M180.0,210.0 L208.0,210.0" stroke-width="1.4"/>
+<path d="M124.0,210.0 L180.0,210.0" stroke-width="1.4" stroke-dasharray="7 5"/>
+<path d="M180.0,238.0 L236.0,238.0" stroke-width="1.4" stroke-dasharray="7 5"/>
+<path d="M180.0,238.0 L208.0,210.0" stroke-width="1.4"/>
+<path d="M208.0,210.0 L264.0,210.0" stroke-width="1.4" stroke-dasharray="7 5"/>
+<path d="M68.0,233.0 L68.0,243.0" stroke-width="2.4"/>
+<path d="M124.0,205.0 L124.0,215.0" stroke-width="2.4"/>
+<path d="M236.0,238.0 m-6,-5 l6,5 l-6,5" stroke-width="1.6"/>
+<path d="M264.0,210.0 m-6,-5 l6,5 l-6,5" stroke-width="1.6"/>
+<text x="68.0" y="184.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D2 LEVEL, PIECE 2</text>
+<text x="145.0" y="251.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >2</text>
+<text x="187.0" y="203.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >4</text>
+<text x="173.0" y="251.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >1</text>
+<text x="215.0" y="203.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >3</text>
+</g>
+<text x="508.0" y="62" font-size="15" text-anchor="end" font-weight="bold" letter-spacing="2">&#8592; WEST</text>
+<text x="548.0" y="62" font-size="15" text-anchor="start" font-weight="bold" letter-spacing="2">EAST &#8594;</text>
+<rect x="24" y="728" width="330" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="34" y="748" font-size="14" font-weight="bold" letter-spacing="1">SCHEMATIC DIAGRAM</text>
+</svg>
