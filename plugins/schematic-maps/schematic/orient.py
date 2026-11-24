@@ -404,7 +404,7 @@ def orient(g, max_turnbacks=3, keep=10, require=(), log=None, seconds=RAISE_SECO
     found, frame, parity = [], Frame(g), Parity(g, sw)
     best = search(g, sw, must, cand, range(max_turnbacks + 1), found, None, frame=frame, parity=parity)
     why = ""
-    deadline = time.monotonic() + seconds       # one limit for the raised steps and the second pass together
+    deadline = time.monotonic() + seconds       # the raised steps' limit; the second pass gets one of its own
     if best is None:
         limit, spent = loops_of(g) + 2, 0
         why = f"turnback counts up to {limit} (the plan's loops plus 2) were all tried"

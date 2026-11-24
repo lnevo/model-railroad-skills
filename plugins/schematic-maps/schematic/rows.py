@@ -243,17 +243,17 @@ class Rows:
         if self.memo is None or not self.tolerant:
             return self.solve_now()
         key = tuple(self.flat.items())
-        if key not in self.memo:
-            p = self.prepare()
-            self.memo[key] = [None, self.dropped, p]
-        entry = self.memo[key]
-        r, self.dropped, p = entry
-        if r is None and p is not None:
-            if best_score is not None and (self.dropped > best_score[0] or (
-                    self.dropped == best_score[0] and self.least_cost(p) + self.broken() >= best_score[1] - 1e-9)):
-                return None
-            r = entry[0] = self.finish(p)
-            entry[2] = None
+        entry = self.memo.get(key)
+        if entry is not None and entry[0] is not None:
+            r, self.dropped = entry
+            return r
+        p = self.prepare()          # sets dropped; worked out again (it is quick) rather than kept for a skipped flip
+        if best_score is not None and (self.dropped > best_score[0] or (
+                self.dropped == best_score[0] and self.least_cost(p) + self.broken() >= best_score[1] - 1e-9)):
+            return None
+        r = self.finish(p)
+        if not self.local:          # a local search depends on the rows kept and the switches flipped, not the legs
+            self.memo[key] = (r, self.dropped)
         return r
 
     def solve_now(self):

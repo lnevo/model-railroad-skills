@@ -59,15 +59,16 @@ def layout(g, opts, warnings):
     big = junctions >= BIG_BAND or loops >= BIG_LOOPS
     if big:         # the full search takes many minutes a band this size: say what is left out
         warnings.append(f"big band ({junctions} switches, {loops} loops; {BIG_BAND} switches or {BIG_LOOPS} loops is "
-                        f"big): a lighter search. Only the {min(BIG_ORIENTATIONS, len(found))} cheapest of {len(found)} "
-                        "orientations are laid out; the row search tries its other starts in the first round of each "
+                        f"big): a lighter search. Only the {BIG_ORIENTATIONS} cheapest orientations that settle, of the "
+                        f"{len(found)} kept, are laid out; the row search tries its other starts in the first round of each "
                         "only; and a switch tried with its other leg level re-solves only the rows next to it")
-        found = found[:BIG_ORIENTATIONS]
     for relax in (False, True):     # the relaxed pass runs only when no orientation settles as it is
         if best is not None:
             break
-        unsettled = 0
+        unsettled = drawn = 0
         for sig, T in found:
+            if big and drawn >= BIG_ORIENTATIONS:     # a big band: enough orientations have settled
+                break
             w = []
             try:
                 band = layout_one(g, sig, T, opts, w, relax=relax, big=big)
@@ -76,6 +77,7 @@ def layout(g, opts, warnings):
                     unsettled += 1
                     warnings.append(f"orientation {unsettled} of {len(found)} dropped: {e}")
                 continue
+            drawn += 1
             pos = band["x"]
             score = (end_violations(band["nodes"], pos, g, opts),
                      len(faults(band)) + len(band.get("relaxed", ())) + 3 * len(w), len(T))

@@ -121,6 +121,25 @@ class BigBand(unittest.TestCase):
         self.assertTrue(any(w.startswith("big band") for w in warnings), warnings)
         self.assertTrue(all(not every for _, every in starts))
 
+    def test_an_orientation_that_does_not_settle_does_not_count(self):
+        g, real, calls = helpers.graph(), layout.layout_one, []
+
+        def first_two_fail(*a, **kw):
+            calls.append(1)
+            if len(calls) <= 2:
+                raise columns.Unsettled("columns: constraints do not settle")
+            return real(*a, **kw)
+
+        found = orient.orient(orient.split_through_loops(g)[0])
+        if len(found) < 4:
+            self.skipTest("the example has too few orientations")
+        with mock.patch.object(layout, "BIG_BAND", 1), mock.patch.object(layout, "layout_one", first_two_fail), \
+                mock.patch.object(layout, "faults", return_value=[("cross", "a", ((0, 0), (1, 1)), "b", ((0, 1), (1, 0)))]):
+            band = layout.layout(g, {}, [])
+        self.assertIn("nodes", band)
+        self.assertFalse(band.get("relaxed"))          # drawn as it is, from the orientations after the two dropped
+        self.assertEqual(len(calls), min(len(found), 2 + layout.BIG_ORIENTATIONS))
+
     def test_the_local_row_search_keeps_every_rule(self):
         lower = next(b for t, b, _ in helpers.build(False).bands if t == "Lower level")
         nodes, strands = copy.deepcopy(lower["nodes"]), copy.deepcopy(lower["strands"])
