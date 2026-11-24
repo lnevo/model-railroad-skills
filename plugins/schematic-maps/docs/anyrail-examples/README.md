@@ -127,7 +127,7 @@ Each picture links to the full-size file.
 
 **H0: Zoltán Rigó, Big Station**, designer: Zoltán Rigó. 48 switches.
 
-<table><tr><td valign="top"><a href="plans/D12.jpg"><img src="plans/D12.jpg" width="200" alt="AnyRail drawing of H0: Zoltán Rigó, Big Station"></a></td><td valign="top"><a href="sheets/D12.svg"><img src="sheets/D12.svg" width="560" alt="schematic sheet of sample 12"></a></td></tr></table>
+<table><tr><td valign="top">No AnyRail drawing exported for this plan.</td><td valign="top"><a href="sheets/D12.svg"><img src="sheets/D12.svg" width="560" alt="schematic sheet of sample 12"></a></td></tr></table>
 
 ### D13
 
