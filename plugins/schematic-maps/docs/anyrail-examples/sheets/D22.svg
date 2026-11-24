@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1056 816" width="1056" height="816" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif">
+<rect width="1056" height="816" fill="#fff"/>
+<rect x="24" y="24" width="1008" height="768" fill="none" stroke="#000" stroke-width="1.5"/>
+<g transform="translate(415.0,96.0) scale(0.3468)" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+<path d="M96.0,172.0 L124.0,200.0" stroke-width="1.4"/>
+<path d="M124.0,200.0 L152.0,228.0" stroke-width="1.4"/>
+<path d="M124.0,200.0 L236.0,200.0" stroke-width="1.4"/>
+<path d="M40.0,172.0 L96.0,172.0" stroke-width="1.4"/>
+<path d="M40.0,60.0 L68.0,60.0" stroke-width="1.4"/>
+<path d="M96.0,172.0 L208.0,172.0" stroke-width="1.4"/>
+<path d="M460.0,88.0 L488.0,88.0" stroke-width="1.4"/>
+<path d="M488.0,88.0 L516.0,60.0" stroke-width="1.4"/>
+<path d="M488.0,88.0 L544.0,88.0" stroke-width="1.4"/>
+<path d="M516.0,60.0 L572.0,60.0" stroke-width="1.4"/>
+<path d="M68.0,60.0 L516.0,60.0" stroke-width="1.4"/>
+<path d="M68.0,60.0 L96.0,88.0 L460.0,88.0" stroke-width="1.4"/>
+<path d="M376.0,144.0 L404.0,144.0 L460.0,88.0" stroke-width="1.4"/>
+<path d="M208.0,172.0 L236.0,200.0" stroke-width="1.4"/>
+<path d="M180.0,144.0 L208.0,172.0" stroke-width="1.4"/>
+<path d="M348.0,172.0 L376.0,144.0" stroke-width="1.4"/>
+<path d="M264.0,116.0 L320.0,116.0 L348.0,144.0" stroke-width="1.4"/>
+<path d="M292.0,144.0 L348.0,144.0" stroke-width="1.4"/>
+<path d="M348.0,144.0 L376.0,144.0" stroke-width="1.4"/>
+<path d="M236.0,200.0 L292.0,200.0" stroke-width="1.4"/>
+<path d="M320.0,172.0 L348.0,200.0 L376.0,200.0" stroke-width="1.4"/>
+<path d="M376.0,200.0 L432.0,200.0" stroke-width="1.4"/>
+<path d="M376.0,200.0 L404.0,228.0 L460.0,228.0" stroke-width="1.4"/>
+<path d="M96.0,116.0 L152.0,116.0 L180.0,144.0" stroke-width="1.4"/>
+<path d="M124.0,144.0 L180.0,144.0" stroke-width="1.4"/>
+<path d="M264.0,172.0 L320.0,172.0" stroke-width="1.4"/>
+<path d="M320.0,172.0 L348.0,172.0" stroke-width="1.4"/>
+<path d="M152.0,228.0 L180.0,256.0 L208.0,256.0" stroke-width="1.4"/>
+<path d="M152.0,228.0 L208.0,228.0" stroke-width="1.4"/>
+<path d="M348.0,172.0 L404.0,172.0" stroke-width="1.4"/>
+<path d="M208.0,256.0 L264.0,256.0" stroke-width="1.4"/>
+<path d="M208.0,256.0 L236.0,284.0 L292.0,284.0" stroke-width="1.4"/>
+<path d="M40.0,60.0 L26.0,74.0 L26.0,158.0 L40.0,172.0" stroke-width="1.4"/>
+<path d="M544.0,83.0 L544.0,93.0" stroke-width="2.4"/>
+<path d="M572.0,60.0 m-6,-5 l6,5 l-6,5" stroke-width="1.6"/>
+<path d="M264.0,111.0 L264.0,121.0" stroke-width="2.4"/>
+<path d="M292.0,139.0 L292.0,149.0" stroke-width="2.4"/>
+<path d="M292.0,200.0 m-6,-5 l6,5 l-6,5" stroke-width="1.6"/>
+<path d="M432.0,195.0 L432.0,205.0" stroke-width="2.4"/>
+<path d="M460.0,223.0 L460.0,233.0" stroke-width="2.4"/>
+<path d="M96.0,116.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<path d="M124.0,139.0 L124.0,149.0" stroke-width="2.4"/>
+<path d="M264.0,167.0 L264.0,177.0" stroke-width="2.4"/>
+<path d="M208.0,223.0 L208.0,233.0" stroke-width="2.4"/>
+<path d="M404.0,167.0 L404.0,177.0" stroke-width="2.4"/>
+<path d="M264.0,251.0 L264.0,261.0" stroke-width="2.4"/>
+<path d="M292.0,279.0 L292.0,289.0" stroke-width="2.4"/>
+<text x="40.0" y="34.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL</text>
+<text x="355.0" y="157.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >27</text>
+<text x="341.0" y="185.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >22</text>
+<text x="481.0" y="101.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >31</text>
+<text x="523.0" y="53.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >30</text>
+<text x="208.0" y="185.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >6</text>
+<text x="383.0" y="137.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >28</text>
+<text x="243.0" y="213.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >9</text>
+<text x="180.0" y="157.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >8</text>
+<text x="124.0" y="193.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >2</text>
+<text x="152.0" y="221.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >1</text>
+<text x="89.0" y="165.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >3</text>
+<text x="467.0" y="81.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >32</text>
+<text x="369.0" y="193.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >21</text>
+<text x="61.0" y="53.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >29</text>
+<text x="313.0" y="165.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >20</text>
+<text x="201.0" y="249.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >4</text>
+<path d="M138.0,406.0 L194.0,406.0" stroke-width="1.4"/>
+<path d="M194.0,406.0 L222.0,406.0" stroke-width="1.4"/>
+<path d="M194.0,406.0 L250.0,462.0 L418.0,462.0" stroke-width="1.4"/>
+<path d="M418.0,462.0 L474.0,462.0" stroke-width="1.4"/>
+<path d="M362.0,434.0 L390.0,434.0 L418.0,462.0" stroke-width="1.4"/>
+<path d="M222.0,406.0 L250.0,434.0 L362.0,434.0" stroke-width="1.4"/>
+<path d="M222.0,406.0 L334.0,406.0 L362.0,434.0" stroke-width="1.4"/>
+<path d="M138.0,406.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<path d="M474.0,457.0 L474.0,467.0" stroke-width="2.4"/>
+<text x="138.0" y="380.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 2</text>
+<text x="425.0" y="475.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >15</text>
+<text x="369.0" y="447.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >18</text>
+<text x="215.0" y="399.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >19</text>
+<text x="187.0" y="399.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >14</text>
+<path d="M236.0,640.0 L264.0,640.0" stroke-width="1.4"/>
+<path d="M264.0,640.0 L292.0,668.0 L432.0,668.0" stroke-width="1.4"/>
+<path d="M292.0,612.0 L320.0,584.0 L432.0,584.0" stroke-width="1.4"/>
+<path d="M264.0,640.0 L404.0,640.0" stroke-width="1.4"/>
+<path d="M292.0,612.0 L404.0,612.0" stroke-width="1.4"/>
+<path d="M236.0,640.0 L264.0,612.0 L292.0,612.0" stroke-width="1.4"/>
+<path d="M180.0,640.0 L236.0,640.0" stroke-width="1.4"/>
+<path d="M432.0,584.0 L446.0,598.0 L446.0,654.0 L432.0,668.0" stroke-width="1.4"/>
+<path d="M404.0,612.0 L418.0,626.0 L418.0,626.0 L404.0,640.0" stroke-width="1.4"/>
+<path d="M180.0,635.0 L180.0,645.0" stroke-width="2.4"/>
+<text x="180.0" y="558.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 3</text>
+<text x="285.0" y="625.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >11</text>
+<text x="229.0" y="653.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >12</text>
+<text x="257.0" y="633.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >10</text>
+<path d="M222.0,818.0 L278.0,818.0" stroke-width="1.4"/>
+<path d="M278.0,818.0 L306.0,790.0 L362.0,790.0" stroke-width="1.4"/>
+<path d="M306.0,818.0 L334.0,846.0 L390.0,846.0" stroke-width="1.4"/>
+<path d="M306.0,818.0 L362.0,818.0" stroke-width="1.4"/>
+<path d="M278.0,818.0 L306.0,818.0" stroke-width="1.4"/>
+<path d="M222.0,813.0 L222.0,823.0" stroke-width="2.4"/>
+<path d="M362.0,785.0 L362.0,795.0" stroke-width="2.4"/>
+<path d="M390.0,841.0 L390.0,851.0" stroke-width="2.4"/>
+<path d="M362.0,813.0 L362.0,823.0" stroke-width="2.4"/>
+<text x="222.0" y="764.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 4</text>
+<text x="271.0" y="831.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >24</text>
+<text x="299.0" y="811.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >23</text>
+<path d="M222.0,996.0 L278.0,996.0" stroke-width="1.4"/>
+<path d="M278.0,996.0 L306.0,968.0 L362.0,968.0" stroke-width="1.4"/>
+<path d="M306.0,996.0 L334.0,1024.0 L390.0,1024.0" stroke-width="1.4"/>
+<path d="M306.0,996.0 L362.0,996.0" stroke-width="1.4"/>
+<path d="M278.0,996.0 L306.0,996.0" stroke-width="1.4"/>
+<path d="M222.0,991.0 L222.0,1001.0" stroke-width="2.4"/>
+<path d="M362.0,963.0 L362.0,973.0" stroke-width="2.4"/>
+<path d="M390.0,1019.0 L390.0,1029.0" stroke-width="2.4"/>
+<path d="M362.0,991.0 L362.0,1001.0" stroke-width="2.4"/>
+<text x="222.0" y="942.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 5</text>
+<text x="271.0" y="1009.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >26</text>
+<text x="299.0" y="989.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >25</text>
+<path d="M236.0,1174.0 L292.0,1174.0" stroke-width="1.4"/>
+<path d="M292.0,1174.0 L348.0,1174.0" stroke-width="1.4"/>
+<path d="M292.0,1174.0 L320.0,1146.0 L376.0,1146.0" stroke-width="1.4"/>
+<path d="M236.0,1169.0 L236.0,1179.0" stroke-width="2.4"/>
+<path d="M348.0,1169.0 L348.0,1179.0" stroke-width="2.4"/>
+<path d="M376.0,1141.0 L376.0,1151.0" stroke-width="2.4"/>
+<text x="236.0" y="1120.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 6</text>
+<text x="285.0" y="1187.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >16</text>
+<path d="M236.0,1296.0 L292.0,1296.0" stroke-width="1.4"/>
+<path d="M292.0,1296.0 L348.0,1296.0" stroke-width="1.4"/>
+<path d="M292.0,1296.0 L320.0,1324.0 L376.0,1324.0" stroke-width="1.4"/>
+<path d="M236.0,1296.0 m6,-5 l-6,5 l6,5" stroke-width="1.6"/>
+<path d="M348.0,1291.0 L348.0,1301.0" stroke-width="2.4"/>
+<path d="M376.0,1319.0 L376.0,1329.0" stroke-width="2.4"/>
+<text x="236.0" y="1270.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 7</text>
+<text x="285.0" y="1289.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >5</text>
+<path d="M236.0,1474.0 L292.0,1474.0" stroke-width="1.4"/>
+<path d="M292.0,1474.0 L348.0,1474.0" stroke-width="1.4"/>
+<path d="M292.0,1474.0 L320.0,1446.0 L376.0,1446.0" stroke-width="1.4"/>
+<path d="M236.0,1469.0 L236.0,1479.0" stroke-width="2.4"/>
+<path d="M348.0,1469.0 L348.0,1479.0" stroke-width="2.4"/>
+<path d="M376.0,1441.0 L376.0,1451.0" stroke-width="2.4"/>
+<text x="236.0" y="1420.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 8</text>
+<text x="285.0" y="1487.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >17</text>
+<path d="M208.0,1624.0 L264.0,1624.0" stroke-width="1.4"/>
+<path d="M264.0,1624.0 L404.0,1624.0" stroke-width="1.4"/>
+<path d="M264.0,1624.0 L292.0,1596.0 L404.0,1596.0" stroke-width="1.4"/>
+<path d="M404.0,1596.0 L418.0,1610.0 L418.0,1610.0 L404.0,1624.0" stroke-width="1.4"/>
+<path d="M208.0,1619.0 L208.0,1629.0" stroke-width="2.4"/>
+<text x="208.0" y="1570.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 9</text>
+<text x="257.0" y="1637.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >13</text>
+<path d="M236.0,1774.0 L292.0,1774.0" stroke-width="1.4"/>
+<path d="M292.0,1774.0 L348.0,1774.0" stroke-width="1.4"/>
+<path d="M292.0,1774.0 L320.0,1746.0 L376.0,1746.0" stroke-width="1.4"/>
+<path d="M236.0,1769.0 L236.0,1779.0" stroke-width="2.4"/>
+<path d="M348.0,1769.0 L348.0,1779.0" stroke-width="2.4"/>
+<path d="M376.0,1741.0 L376.0,1751.0" stroke-width="2.4"/>
+<text x="236.0" y="1720.0" font-size="12" text-anchor="start" font-weight="bold" fill="#000" stroke="none" letter-spacing="1.5">D22 LEVEL, PIECE 10</text>
+<text x="285.0" y="1787.0" font-size="8" text-anchor="middle" font-weight="bold" fill="#000" stroke="none" >7</text>
+</g>
+<text x="508.0" y="62" font-size="15" text-anchor="end" font-weight="bold" letter-spacing="2">&#8592; WEST</text>
+<text x="548.0" y="62" font-size="15" text-anchor="start" font-weight="bold" letter-spacing="2">EAST &#8594;</text>
+<rect x="24" y="728" width="330" height="64" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="34" y="748" font-size="14" font-weight="bold" letter-spacing="1">SCHEMATIC DIAGRAM</text>
+</svg>
