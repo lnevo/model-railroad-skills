@@ -434,6 +434,8 @@ class Layer:
                 self.marks.add(box_of(p[0], p[1], 0, 0), (t["ident"], key))
                 if key:         # a single crossover's half: kept clear as a circle too (its OS block's lamp)
                     self.circles.add(box_of(p[0], p[1], 0, 0), t["ident"])
+        self.fixed = {}                     # (item's fixed key, box, on) -> fixed_fault's verdict
+        self.fixed_keys = {}                # (owners, block_owners, marks) -> a small number, an item's fixed key
         self.track_of = {}                  # segment ident -> the segments of its whole track (strand or turnback)
         for idents in list(P.strand_segments.values()) + list(P.turnbacks.values()):
             for i in idents:
@@ -484,17 +486,15 @@ class Layer:
     def fault(self, box, item, on=False, past=()):
         """(kind, in full) of why a box is not a clean spot for item, or None. `on`: a block contents icon on its own
         block's track, whose lines are then no obstacle (and it reads as that block's by standing on it). `past`:
-        boxes (their (what, kind, key)) that are no obstacle (in_way)."""
-        if box[0] < self.margin or box[1] < self.margin or box[2] > self.P.size[0] or box[3] > self.P.size[1]:
-            return ("outside the panel",) * 2
-        for _b, ((a, b), owner) in self.ink.near(box, CLEAR):
-            if on and owner in item["block_owners"]:    # on its own block's line, which it stands on
-                continue
-            if within(a, b, box, CLEAR):
-                return ("on a turnout's legs",) * 2 if owner[0] == "to" else ("on a track",) * 2
-        for bx, _tid in self.circles.near(box, TURNOUT_R):
-            if point_gap(box, bx[:2]) < TURNOUT_R:
-                return ("on a turnout's control circle",) * 2
+        boxes (their (what, kind, key)) that are no obstacle (in_way). The checks against what the drawing holds
+        (fixed_fault) are worked out once per box, item and `on`; the placed boxes are checked each time."""
+        k = (item["fixed"], box, on)
+        got = self.fixed.get(k, self)
+        if got is self:
+            got = self.fixed[k] = self.fixed_fault(box, item, on)
+        before, after = got
+        if before:
+            return before
         for other, thing in self.boxes.near(box, PAD):
             if thing not in past and boxes_overlap(box, other, PAD):
                 return f"over {thing[1]}", f"over {thing[0]}"
@@ -505,8 +505,24 @@ class Layer:
                 gap = max(own, self.station_gaps.get(thing[0], PAD))
                 if thing[1] == STATION_KIND and thing not in past and boxes_overlap(box, other, gap):
                     return f"too near {STATION_KIND}", f"within {gap} px of {thing[0]}"
+        return after
+
+    def fixed_fault(self, box, item, on):
+        """(before, after): fault's checks of the box against the drawing, which do not change while labels are
+        placed: before the placed boxes, the panel's edge, the lines and the control circles; after them, whether
+        it reads as another's (reads_other). Each is (kind, in full) or None."""
+        if box[0] < self.margin or box[1] < self.margin or box[2] > self.P.size[0] or box[3] > self.P.size[1]:
+            return ("outside the panel",) * 2, None
+        for _b, ((a, b), owner) in self.ink.near(box, CLEAR):
+            if on and owner in item["block_owners"]:    # on its own block's line, which it stands on
+                continue
+            if within(a, b, box, CLEAR):
+                return (("on a turnout's legs",) * 2 if owner[0] == "to" else ("on a track",) * 2), None
+        for bx, _tid in self.circles.near(box, TURNOUT_R):
+            if point_gap(box, bx[:2]) < TURNOUT_R:
+                return ("on a turnout's control circle",) * 2, None
         why = None if on else self.reads_other(box, item)
-        return (why, why) if why else None
+        return None, ((why, why) if why else None)
 
     def reads_other(self, box, item):
         """Why the box reads as another track's or turnout's, or None. A station's name reads by its band."""
@@ -595,9 +611,12 @@ class Layer:
         own_marks = [p for (tid, key) in marks for k, p in self.halves(self.turnouts[tid]).items() if k == key]
         if owners and not own_lines:
             raise SchematicError(f"{what}: nothing of it is drawn to place it by")
+        # what fixed_fault reads of an item: its lines and marks follow from these on this Layer
+        fixed = (frozenset(owners), frozenset(block_owners), frozenset(marks))
         return dict(kind=kind, what=what, text=text, size=size, bold=bold, owners=set(owners), own_lines=own_lines,
                     block_owners=set(block_owners),
                     marks=set(marks), own_marks=own_marks,
+                    fixed=self.fixed_keys.setdefault(fixed, len(self.fixed_keys)),
                     w=jmri_text.width(text, size, bold) if w is None else w,
                     h=jmri_text.height(size, bold) if h is None else h)
 
