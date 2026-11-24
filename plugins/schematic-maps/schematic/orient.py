@@ -95,6 +95,123 @@ def columns(nodes, strands):
     return col if seen == len(nodes) else None
 
 
+class Frame:
+    """The plan reduced to what build and columns decide from a facing: per edge its two end nodes and, at a
+    junction, the sign of the port. dag(sig) gives what build + columns (or cyclic_nodes) would, without building."""
+
+    def __init__(self, g):
+        names = list(g["nodes"])
+        idx = {n: i for i, n in enumerate(names)}
+        self.n = len(names)
+        self.junc = [g["nodes"][n]["kind"] in JUNCTION for n in names]
+        self.names = names
+        self.edges = []
+        for e in g["edges"]:
+            u, v = idx[e["u"]], idx[e["v"]]
+            tu = TAU[e["up"]] if self.junc[u] else None
+            tv = TAU[e["vp"]] if self.junc[v] else None
+            if tu is None and tv is None:
+                raise SchematicError("edge between two track ends")
+            self.edges.append((u, tu, v, tv))
+
+    def dag(self, sig):
+        """(nodes the left-to-right graph cannot order, its width in columns or None when it has a cycle): the same
+        counts as cyclic_nodes and max(columns) over build(g, sig, T), turnback nodes included."""
+        s = [sig.get(n, 0) for n in self.names]
+        n = self.n
+        outs = [[] for _ in range(n)]
+        indeg = [0] * n
+        for u, tu, v, tv in self.edges:
+            su = s[u] * tu if tu is not None else None
+            sv = s[v] * tv if tv is not None else None
+            if su is None:
+                su = -sv
+            if sv is None:
+                sv = -su
+            if su != sv:
+                a, b = (u, v) if su == 1 else (v, u)
+                outs[a].append(b)
+                indeg[b] += 1
+            else:           # a turnback: a node of its own, both runs into it (su 1) or out of it
+                t = n
+                n += 1
+                outs.append([])
+                indeg.append(0)
+                if su == 1:
+                    outs[u].append(t)
+                    outs[v].append(t)
+                    indeg[t] += 2
+                else:
+                    outs[t] += [u, v]
+                    indeg[u] += 1
+                    indeg[v] += 1
+        col = [0] * n
+        todo = [i for i in range(n) if indeg[i] == 0]
+        seen = 0
+        while todo:
+            i = todo.pop()
+            seen += 1
+            for j in outs[i]:
+                if col[j] < col[i] + 1:
+                    col[j] = col[i] + 1
+                indeg[j] -= 1
+                if indeg[j] == 0:
+                    todo.append(j)
+        return n - seen, (max(col) if seen == n else None)
+
+
+class Parity:
+    """Which sets of runs `colour` can face, as a test on bits. Each independent loop of the runs between junctions
+    is a bit; a run's mask holds the loops it lies on. `colour` finds a facing exactly when, round every loop, an
+    even number of runs face against the run before them; a turnback turns one run round. So a set of turnbacks
+    can be faced exactly when the XOR of its masks is `target`."""
+
+    def __init__(self, g, sw):
+        adj = collections.defaultdict(list)
+        for e in sw:
+            adj[e["u"]].append(e)
+            adj[e["v"]].append(e)
+        up, depth, tree = {}, {}, set()        # BFS forest: each node's parent edge and depth
+        for root in sorted(adj):
+            if root in depth:
+                continue
+            depth[root], up[root] = 0, None
+            todo = [root]
+            while todo:
+                n = todo.pop(0)
+                for e in adj[n]:
+                    m = e["v"] if e["u"] == n else e["u"]
+                    if m not in depth:
+                        depth[m], up[m] = depth[n] + 1, e
+                        tree.add(e["id"])
+                        todo.append(m)
+        self.mask = {e["id"]: 0 for e in sw}
+        bit = 0
+        for e in sw:
+            if e["id"] in tree:
+                continue
+            b = 1 << bit
+            bit += 1
+            self.mask[e["id"]] ^= b
+            a, c = e["u"], e["v"]           # the tree path between its ends closes the loop
+            while a != c:
+                if depth[a] < depth[c]:
+                    a, c = c, a
+                t = up[a]
+                self.mask[t["id"]] ^= b
+                a = t["v"] if t["u"] == a else t["u"]
+        self.target = 0
+        for e in sw:
+            if TAU[e["up"]] * TAU[e["vp"]] == 1:        # faced as a through run, these ends point the same way
+                self.target ^= self.mask[e["id"]]
+
+    def fits(self, ids):
+        x = 0
+        for i in ids:
+            x ^= self.mask[i]
+        return x == self.target
+
+
 def split_through_loops(g):
     """A switch whose points (A) and straight (B) legs are joined by one run is a balloon loop closed on the through
     route: no left-to-right form holds it. Returns (graph, notes) where each such run becomes two short runs, A and B
@@ -127,7 +244,7 @@ def udot(g, e):
     return du[0] * dv[0] + du[1] * dv[1] if du and dv else 0.0
 
 
-RAISE_SECONDS = 60.0        # longest the raised steps run in all, so the whole solve can stay in a 2 minute budget
+RAISE_SECONDS = 60.0        # longest the raised steps run in all, and the second pass after them
 RAISE_BUDGET = 3_000_000    # most combinations tried in all the raised steps together, after the first cap finds nothing
 
 
@@ -150,21 +267,33 @@ class OutOfTime(Exception):
     pass
 
 
-def search(g, sw, must, cand, ks, found, best, deadline=None):
-    """Try every set of k candidate runs as turnbacks, for k in `ks`; adds to `found` and returns the cheapest so far."""
+def search(g, sw, must, cand, ks, found, best, deadline=None, frame=None, parity=None):
+    """Try every set of k candidate runs as turnbacks, for k in `ks`; adds to `found` and returns the cheapest so far.
+    A set that fails the parity test is one colour would turn down, so it is passed over before colour runs."""
+    frame = frame or Frame(g)
+    parity = parity or Parity(g, sw)
+    mask, target = parity.mask, parity.target
+    base = 0
+    for e in must:
+        base ^= mask[e["id"]]
+    cm = [mask[e["id"]] for e in cand]
     for k in ks:
-        for T in (tuple(must) + c for c in itertools.combinations(cand, k)):
+        for idx in itertools.combinations(range(len(cand)), k):
             if deadline is not None and time.monotonic() > deadline:
                 raise OutOfTime()
+            x = base
+            for j in idx:
+                x ^= cm[j]
+            if x != target:
+                continue
+            T = tuple(must) + tuple(cand[j] for j in idx)
             ids = {e["id"] for e in T}
             sig = colour(g, sw, ids)
             if sig is None:
                 continue
-            nodes, strands = build(g, sig, ids)
-            col = columns(nodes, strands)
-            if col is None:
+            _, width = frame.dag(sig)
+            if width is None:
                 continue
-            width = max(col.values())
             cost = 10 * k + 0.2 * width
             for e in T:
                 cost += 6 * (1 - udot(g, e))   # a turnback should be a U-turn on the layout too
@@ -213,6 +342,7 @@ def _second_pass(g, sw, must, deadline, keep):
     musts = {e["id"] for e in must}
     rng = random.Random(1)
     found, seen = [], set()
+    frame = Frame(g)
 
     def turned(sig):
         return {e["id"] for e in sw if sig[e["u"]] * sig[e["v"]] != -TAU[e["up"]] * TAU[e["vp"]]}
@@ -220,8 +350,7 @@ def _second_pass(g, sw, must, deadline, keep):
     def score(sig):
         T = turned(sig)
         bad = sum(1 for e in sw if e["link"] and e["id"] in T) + len(musts - T)
-        nodes, strands = build(g, sig, T)
-        return len(T) + 8 * bad + 5 * cyclic_nodes(nodes, strands), T, bad
+        return len(T) + 8 * bad + 5 * frame.dag(sig)[0], T, bad
 
     after = 0
     for _ in range(SECOND_RESTARTS):
@@ -246,11 +375,10 @@ def _second_pass(g, sw, must, deadline, keep):
                         ids = set(T)
                         edges = [e for e in sw if e["id"] in ids]
                         full = colour(g, sw, ids)        # the same colouring test as the first pass
-                        nodes, strands = build(g, full, ids) if full is not None else (None, None)
-                        col = columns(nodes, strands) if full is not None else None
-                        if col is not None:
+                        width = frame.dag(full)[1] if full is not None else None
+                        if width is not None:
                             seen.add(key)
-                            c = 10 * len(ids) + 0.2 * max(col.values())
+                            c = 10 * len(ids) + 0.2 * width
                             c += sum(6 * (1 - udot(g, e)) for e in edges)
                             found.append((c, sorted(ids), full, ids))
             else:
@@ -273,10 +401,10 @@ def orient(g, max_turnbacks=3, keep=10, require=(), log=None, seconds=RAISE_SECO
     if len(cand) > 40:      # big plan: only runs that bend back on the layout may be turnbacks
         cand = [e for e in cand if udot(g, e) > -0.5]
         max_turnbacks = 5
-    found = []
-    best = search(g, sw, must, cand, range(max_turnbacks + 1), found, None)
+    found, frame, parity = [], Frame(g), Parity(g, sw)
+    best = search(g, sw, must, cand, range(max_turnbacks + 1), found, None, frame=frame, parity=parity)
     why = ""
-    deadline = time.monotonic() + seconds       # one limit for the raised steps and the second pass together
+    deadline = time.monotonic() + seconds       # the raised steps' limit; the second pass gets one of its own
     if best is None:
         limit, spent = loops_of(g) + 2, 0
         why = f"turnback counts up to {limit} (the plan's loops plus 2) were all tried"
@@ -293,7 +421,7 @@ def orient(g, max_turnbacks=3, keep=10, require=(), log=None, seconds=RAISE_SECO
             if log:
                 log(f"turnbacks: nothing with {k - 1} or fewer; trying {k} ({n} combinations of {len(cand)} runs)")
             try:
-                best = search(g, sw, must, cand, (k,), found, best, deadline)
+                best = search(g, sw, must, cand, (k,), found, best, deadline, frame=frame, parity=parity)
             except OutOfTime:
                 why = f"the search stopped at {k} turnbacks after {seconds:g} seconds"
                 if log:
@@ -306,6 +434,8 @@ def orient(g, max_turnbacks=3, keep=10, require=(), log=None, seconds=RAISE_SECO
     if best is None:
         if log:
             log("turnbacks: nothing found by counting runs; second pass: a seeded search over every run that may turn back")
+        # its own limit: the raised steps may have used all of theirs, and its answer depends only on its seeded steps
+        deadline = time.monotonic() + seconds
         found = _second_pass(g, sw, must, deadline, keep)
         if found:
             return [(sig, ids) for _, _, sig, ids in found]

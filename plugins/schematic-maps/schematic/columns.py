@@ -100,9 +100,11 @@ def points_on_straight(nodes, srow, nrow, end):
     return b in srow and srow[b] == nrow.get(n)
 
 
-def place(nodes, strands, R, enclosed, opts, extra=(), relaxed=None):
+def place(nodes, strands, R, enclosed, opts, extra=(), relaxed=None, check=False):
     """`relaxed`: None normally; a list when the first try did not settle, and then each diagonal's span is a least,
-    not an exact count, and a turnback that is enclosed by the one it encloses is let go (each noted in the list)."""
+    not an exact count, and a turnback that is enclosed by the one it encloses is let go (each noted in the list).
+    `check`: only test that the column rules can all hold (Unsettled when not) and return None, without spreading
+    the slack; the test is the same one a full placement makes first."""
     srow, nrow, diag = R["srow"], R["nrow"], R["diag"]
     ladder = set(rules.ladder_switches(nodes, opts, strands))
     cons, need, weight = [], {}, []
@@ -163,6 +165,8 @@ def place(nodes, strands, R, enclosed, opts, extra=(), relaxed=None):
             break
     else:
         raise Unsettled("columns: constraints do not settle")
+    if check:
+        return None
 
     def cost(xs):
         # spare length is shared in proportion to the real length of each track (squared stretch), and a
@@ -202,26 +206,66 @@ def place(nodes, strands, R, enclosed, opts, extra=(), relaxed=None):
     blocks = sorted({tuple(sorted(set(b) | {h for n in b for h in hangers[n]})) for b in blocks})
 
     def push(xs, n, step):
-        new = dict(xs)
+        """The columns that change when node or block n moves one step, pushing what must stay apart: {node: x}."""
+        new = {}
         todo = list(n) if isinstance(n, tuple) else [n]
         for m in todo:
-            new[m] += step
+            new[m] = xs[m] + step
         while todo:
             k = todo.pop()
             if step > 0:
                 for v, w in fwd[k]:
-                    if new[v] < new[k] + w:
+                    if new.get(v, xs[v]) < new[k] + w:
                         new[v] = new[k] + w
                         todo.append(v)
             else:
                 for u, w in back[k]:
-                    if new[u] > new[k] - w:
+                    if new.get(u, xs[u]) > new[k] - w:
                         new[u] = new[k] - w
                         todo.append(u)
         return new
 
-    x, _ = descend(x, sorted(nodes) + blocks, push, cost)
+    x, _ = descend_columns(x, sorted(nodes) + blocks, push, cost, weight)
     return x, need
+
+
+SURE = 1e-6        # a change in cost worked out term by term is this close to the full sum's change, or closer
+
+
+def descend_columns(start, items, push, cost, weight):
+    """core.descend for columns, with each move priced first from the terms of the nodes it moves only.
+
+    A move whose change in cost is clearly not a gain (not below -1e-9 by more than SURE) is dropped untried; any
+    other is priced in full and kept on the same test as core.descend (`c < best - 1e-9`), so the same moves are
+    kept in the same order and the result is the same. `push` returns only the nodes that move."""
+    terms = collections.defaultdict(list)
+    for t, (u, v, w, least) in enumerate(weight):
+        terms[u].append(t)
+        terms[v].append(t)
+
+    def part(xs, moved, t):
+        u, v, w, least = weight[t]
+        d = moved.get(v, xs[v]) - moved.get(u, xs[u])
+        return w * (d - least) ** 2 + 0.02 * d
+
+    cur, best = dict(start), cost(start)
+    moves = [(it, step) for it in items for step in (1, -1)]
+    i, idle = 0, 0          # stop once every move in a row is turned down, as rows.descend_rows does
+    while moves and idle < len(moves):
+        it, step = moves[i]
+        i = (i + 1) % len(moves)
+        idle += 1
+        moved = push(cur, it, step)
+        ts = {t for m in moved for t in terms.get(m, ())}
+        change = sum(part(cur, moved, t) - part(cur, {}, t) for t in ts)
+        if change >= -1e-9 + SURE:
+            continue
+        new = dict(cur)
+        new.update(moved)
+        c = cost(new)
+        if c < best - 1e-9:
+            cur, best, idle = new, c, 0
+    return cur, best
 
 
 def spans(nodes, strands, R, x, need):

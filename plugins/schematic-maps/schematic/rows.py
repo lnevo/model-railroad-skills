@@ -115,40 +115,77 @@ def descend_rows(start, classes, above, below, terms, bias):
         return row_price(total * 0.5, bias, lo, hi)
 
     best = price(total, lo, hi)
-    no_links = ()
-    improved = True
-    while improved:
-        improved = False
-        for it in classes:
-            for step in (1, -1):
-                moved = push_rows(cur, it, step, above, below)
-                twice = 0           # the change in half rows, twice over: a slope between two moved classes is seen
-                for k, nk in moved.items():                 # from both ends, one to an unmoved class from one end
-                    ok = cur[k]
-                    for o, h in links.get(k, no_links):
-                        oo = cur[o]
-                        no = moved.get(o)
-                        if no is None:
-                            twice += 2 * h * (abs(nk - oo) - abs(ok - oo))
-                        else:
-                            twice += h * (abs(nk - no) - abs(ok - oo))
+    moves = [(it, step) for it in classes for step in (1, -1)]
+    if not moves:
+        return cur, best
+    up_of = {c: tuple(ds) for c, ds in above.items() if ds}
+    down_of = {c: tuple(ds) for c, ds in below.items() if ds}
+    link_of = {c: tuple(ls) for c, ls in links.items()}
+    none = ()
+    # A move is kept when its cost is lower by more than 1e-9. The cost is (total / 2 + bias) + SPREAD * height with
+    # SPREAD = 0.3, so a change is (5 * d_total + 3 * d_height) / 10: a whole number of tenths, never inside 1e-9 of
+    # zero unless it is zero. The test is made on that whole number, which keeps the same moves.
+    assert SPREAD == 0.3
+    # core.descend sweeps the moves in order until a whole sweep keeps none. Each move it tries after the last kept
+    # one is tried on the same rows, so once every move in a row has been turned down the rows cannot change any
+    # more: stopping there gives the same rows and cost, without the sweeps that only confirm it.
+    i, idle, n_moves = 0, 0, len(moves)
+    while idle < n_moves:
+        it, step = moves[i]
+        i += 1
+        if i == n_moves:
+            i = 0
+        idle += 1
+        moved = {it: cur[it] + step}        # push_rows, inline
+        nxt = up_of if step > 0 else down_of
+        if it in nxt:
+            todo = [it]
+            while todo:
+                k = todo.pop()
+                need = moved[k] + step
+                for d in nxt.get(k, none):
+                    if (moved[d] if d in moved else cur[d]) * step < need * step:
+                        moved[d] = need
+                        todo.append(d)
+        twice = 0           # the change in half rows, twice over: a slope between two moved classes is seen
+        for k, nk in moved.items():                 # from both ends, one to an unmoved class from one end
+            ok = cur[k]
+            for o, h in link_of.get(k, none):
+                oo = cur[o]
+                if o in moved:
+                    twice += h * (abs(nk - moved[o]) - abs(ok - oo))
+                else:
+                    twice += 2 * h * (abs(nk - oo) - abs(ok - oo))
+        edge = False
+        for k, v in moved.items():
+            ok = cur[k]
+            if ok == lo or ok == hi or v < lo or v > hi:
+                edge = True
+                break
+        if edge:
+            for k, v in moved.items():
+                count[cur[k]] -= 1
+                count[v] += 1
+            vals = moved.values()
+            nlo, nhi = min(lo, min(vals)), max(hi, max(vals))
+            while not count[nlo]:
+                nlo += 1
+            while not count[nhi]:
+                nhi -= 1
+        else:
+            nlo, nhi = lo, hi
+        if 5 * (twice // 2) + 3 * ((nhi - nlo) - (hi - lo)) < 0:
+            if not edge:
                 for k, v in moved.items():
                     count[cur[k]] -= 1
                     count[v] += 1
-                vals = moved.values()
-                nlo, nhi = min(lo, min(vals)), max(hi, max(vals))
-                while not count[nlo]:
-                    nlo += 1
-                while not count[nhi]:
-                    nhi -= 1
-                c = price(total + twice // 2, nlo, nhi)
-                if c < best - 1e-9:
-                    cur.update(moved)
-                    total, lo, hi, best, improved = total + twice // 2, nlo, nhi, c, True
-                else:
-                    for k, v in moved.items():
-                        count[v] -= 1
-                        count[cur[k]] += 1
+            cur.update(moved)
+            total, lo, hi, idle = total + twice // 2, nlo, nhi, 0
+        elif edge:
+            for k, v in moved.items():
+                count[v] -= 1
+                count[cur[k]] += 1
+    best = price(total, lo, hi)
     return cur, best
 
 class Rows:
@@ -174,6 +211,11 @@ class Rows:
         self.dropped = 0
         self.memo = None        # while optimise runs: {level legs: (solve result, dropped)}
         self.memo_keep = (None, {})     # the memo kept between optimise calls, and the inputs it was made from
+        self.optimised = False          # optimise has run once: later calls start from its legs alone
+        self.local = False              # a big band: a flip re-solves only the rows next to it, from the kept rows
+        self.warm = None                # local: the arrangement kept so far
+        self.near = None                # local: the switches just flipped
+        self.restart_every_round = True     # False: only the first optimise call tries the other starts
 
     def frog(self, n):
         d = self.nodes[n]
@@ -192,15 +234,35 @@ class Rows:
         before is read back, with the count of dropped rules it set. The key holds the level legs in their order (it
         decides the class names, and so the order of the search); optimise drops the memo when anything else solve
         reads has changed (optimise's ctx)."""
+        return self.solve_if_better(None)
+
+    def solve_if_better(self, best_score):
+        """solve(), but None when the arrangement cannot beat `best_score` ((dropped, cost) as optimise_from_here
+        scores it): its dropped count is higher, or its least_cost already is not lower. The row search, most of the
+        time a flip takes, is then skipped; the memo keeps what was worked out, to finish if it is asked again."""
         if self.memo is None or not self.tolerant:
             return self.solve_now()
         key = tuple(self.flat.items())
-        if key not in self.memo:
-            self.memo[key] = (self.solve_now(), self.dropped)
-        r, self.dropped = self.memo[key]
+        entry = self.memo.get(key)
+        if entry is not None and entry[0] is not None:
+            r, self.dropped = entry
+            return r
+        p = self.prepare()          # sets dropped; worked out again (it is quick) rather than kept for a skipped flip
+        if best_score is not None and (self.dropped > best_score[0] or (
+                self.dropped == best_score[0] and self.least_cost(p) + self.broken() >= best_score[1] - 1e-9)):
+            return None
+        r = self.finish(p)
+        if not self.local:          # a local search depends on the rows kept and the switches flipped, not the legs
+            self.memo[key] = (r, self.dropped)
         return r
 
     def solve_now(self):
+        p = self.prepare()
+        return None if p is None else self.finish(p)
+
+    def prepare(self):
+        """Everything solve_now works out before the row search: the classes, the rules between them, the slope terms
+        and the starting rows. Sets `dropped`. None where solve_now returns None."""
         st = self.strands
         parent = {s: s for s in st}
 
@@ -289,7 +351,69 @@ class Rows:
             other = st[self.frog(n)["C" if f == "B" else "B"]]["cm"]
             bias += (0.2 if other > 2 * level + 20 else 0.0) + (0.01 if f == "C" else 0.0)
 
-        row, c = search_rows(row, classes, above, below, terms, bias)
+        return dict(find=find, classes=classes, above=above, below=below, terms=terms, bias=bias, row=row,
+                    diag=diag)
+
+    @staticmethod
+    def least_cost(p):
+        """A cost no arrangement of p's classes can go under: the bias and a band at least as tall as its longest
+        above/below chain. row_price is monotone in each part, so the float is a true floor of what finish gives."""
+        start = p["row"]
+        return row_price(0, p["bias"], 0, max(start.values()) - min(start.values()) if start else 0)
+
+    def warm_start(self, p, near):
+        """Big bands (`local`): the rows of the last arrangement kept, as a start for p's classes, and the classes the
+        search may move: those of the switches in `near` and their neighbours, or all of them when `near` is None.
+        Each class starts on the highest row its tracks had, then is raised where it must stay above another."""
+        find, above, classes = p["find"], p["above"], p["classes"]
+        srow = self.warm["srow"]
+        start = {}
+        for s, r in srow.items():
+            if s in self.strands:
+                c = find(s)
+                if c in p["row"] and (c not in start or r > start[c]):
+                    start[c] = r
+        for c in classes:
+            start.setdefault(c, p["row"][c])
+        indeg = {c: 0 for c in classes}
+        for c in classes:
+            for d in above.get(c, ()):
+                indeg[d] += 1
+        todo = [c for c in classes if indeg[c] == 0]
+        while todo:
+            c = todo.pop()
+            for d in above.get(c, ()):
+                if start[d] < start[c] + 1:
+                    start[d] = start[c] + 1
+                indeg[d] -= 1
+                if indeg[d] == 0:
+                    todo.append(d)
+        if near is None:
+            return start, classes
+        touched = set()
+        for n in near:
+            for s in (self.a_strand(n), self.frog(n)["B"], self.frog(n)["C"]):
+                if s in self.strands and find(s) in start:
+                    touched.add(find(s))
+        moves = set(touched)
+        for a, b, _ in p["terms"]:
+            if a in touched or b in touched:
+                moves.update((a, b))
+        for c in touched:
+            moves.update(above.get(c, ()))
+            moves.update(p["below"].get(c, ()))
+        return start, [c for c in classes if c in moves]
+
+    def finish(self, p):
+        """The row search from prepare's start, and the rows of every strand and node. A big band (`local`) with an
+        arrangement kept (`warm`) searches from that instead, moving only the classes next to the switches in
+        `near` (all classes when `near` is None)."""
+        st, find, diag = self.strands, p["find"], p["diag"]
+        if self.local and self.warm is not None:
+            start, moves = self.warm_start(p, self.near)
+        else:
+            start, moves = p["row"], p["classes"]
+        row, c = search_rows(start, moves, p["above"], p["below"], p["terms"], p["bias"])
         lo = min(row.values())
         srow = {s: row[find(s)] - lo for s in st if s not in diag}
         nrow = {}
@@ -307,6 +431,10 @@ class Rows:
         keys = sorted(self.flat)
         starts = [dict(self.flat), {n: "B" for n in keys}, {n: "C" for n in keys}]
         starts += [{n: rng.choice("BC") for n in keys} for _ in range(5)]
+        if self.optimised and not self.restart_every_round:
+            starts = starts[:1]     # a later round starts from the legs the last one chose: the other starts
+            #                         almost never win there (D13: 6 of 131 calls), and they are most of the time
+        self.optimised = True
         for st_ in starts:
             st_.update(self.soft)
             st_.update(self.pins)
@@ -345,8 +473,11 @@ class Rows:
         def score(r):
             return (self.dropped, r["cost"] + self.broken())
 
+        self.warm = self.near = None
         best = self.solve()
         best_score = score(best)
+        if self.local:
+            self.warm = best
         improved = True
         while improved:
             improved = False
@@ -354,10 +485,13 @@ class Rows:
                 if n in self.pins:
                     continue
                 self.flat[n] = "C" if self.flat[n] == "B" else "B"
-                r = self.solve()
-                sc = score(r)
+                self.near = (n,)
+                r = self.solve_if_better(best_score)
+                sc = score(r) if r is not None else best_score     # None: it cannot win
                 if sc[0] < best_score[0] or (sc[0] == best_score[0] and sc[1] < best_score[1] - 1e-9):
                     best, best_score, improved = r, sc, True
+                    if self.local:
+                        self.warm = best
                 else:
                     self.flat[n] = "C" if self.flat[n] == "B" else "B"
             if improved:
@@ -370,13 +504,23 @@ class Rows:
                     continue
                 for n in (a, b):
                     self.flat[n] = "C" if self.flat[n] == "B" else "B"
-                r = self.solve()
-                sc = score(r)
+                self.near = (a, b)
+                r = self.solve_if_better(best_score)
+                sc = score(r) if r is not None else best_score     # None: it cannot win
                 if sc[0] < best_score[0] or (sc[0] == best_score[0] and sc[1] < best_score[1] - 1e-9):
                     best, best_score, improved = r, sc, True
+                    if self.local:
+                        self.warm = best
                     break
                 for n in (a, b):
                     self.flat[n] = "C" if self.flat[n] == "B" else "B"
+        if self.local:          # the legs are chosen: one search over every class, from the rows kept
+            self.near = None
+            p = self.prepare()
+            polished = self.finish(p)
+            if (self.dropped, polished["cost"] + self.broken()) <= best_score:
+                best, best_score = polished, (self.dropped, polished["cost"] + self.broken())
+            self.warm = None
         self.dropped = best_score[0]
         return best
 

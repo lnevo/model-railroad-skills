@@ -101,8 +101,9 @@ class RowsMemo(unittest.TestCase):
         nodes, strands = copy.deepcopy(lower["nodes"]), copy.deepcopy(lower["strands"])   # the tests edit them
         snaps = [sorted(strands)[i:i + 4] for i in range(0, len(strands), 3)]     # overlapping runs of four tracks
         r = Rows(nodes, strands, snaps, rule_pins=rules.level_legs(nodes, strands, {}))
-        if not memo:
+        if not memo:            # no memo, and so no skipped row searches: every flip searched in full
             r.solve = r.solve_now
+            r.solve_if_better = lambda best_score: r.solve_now()
         return r
 
     def test_memo_changes_nothing_across_repeated_optimise_calls(self):

@@ -5,10 +5,15 @@ import itertools
 from .columns import Unsettled, node_text, overlaps, place, spans
 from .core import JUNCTION, SchematicError, dedupe  # noqa: F401
 from . import rules
-from .orient import build, columns, orient, split_through_loops
+from .orient import build, columns, loops_of, orient, split_through_loops
 from .rows import Rows
 from .sweep import sweep
 
+
+
+BIG_BAND = 100              # a band with this many switches or more gets the lighter search below,
+BIG_LOOPS = 20              # and so does one with this many independent loops (HART's bands have 14 at most)
+BIG_ORIENTATIONS = 3        # a big band lays out only its cheapest few orientations
 
 
 def turnback_names(opts):
@@ -49,19 +54,30 @@ def layout(g, opts, warnings):
         if not found:
             names = sorted({n for e in g["edges"] if e["id"] in need for n in e["names"]})
             raise SchematicError(f"no orientation draws {', '.join(names)} as turnbacks (preference turnbacks)")
+    junctions = sum(d["kind"] in JUNCTION for d in g["nodes"].values())
+    loops = loops_of(g)
+    big = junctions >= BIG_BAND or loops >= BIG_LOOPS
+    if big:         # the full search takes many minutes a band this size: say what is left out
+        warnings.append(f"big band ({junctions} switches, {loops} loops; {BIG_BAND} switches or {BIG_LOOPS} loops is "
+                        f"big): a lighter search. Only the {BIG_ORIENTATIONS} cheapest orientations that settle, of the "
+                        f"{len(found)} kept, are laid out; the row search tries its other starts in the first round of each "
+                        "only; and a switch tried with its other leg level re-solves only the rows next to it")
     for relax in (False, True):     # the relaxed pass runs only when no orientation settles as it is
         if best is not None:
             break
-        unsettled = 0
+        unsettled = drawn = 0
         for sig, T in found:
+            if big and drawn >= BIG_ORIENTATIONS:     # a big band: enough orientations have settled
+                break
             w = []
             try:
-                band = layout_one(g, sig, T, opts, w, relax=relax)
+                band = layout_one(g, sig, T, opts, w, relax=relax, big=big)
             except Unsettled as e:      # this way of facing the switches gives columns that cannot hold: try the next
                 if not relax:
                     unsettled += 1
                     warnings.append(f"orientation {unsettled} of {len(found)} dropped: {e}")
                 continue
+            drawn += 1
             pos = band["x"]
             score = (end_violations(band["nodes"], pos, g, opts),
                      len(faults(band)) + len(band.get("relaxed", ())) + 3 * len(w), len(T))
@@ -116,7 +132,7 @@ def mirrored(g, sig, T, opts):
     return nodes, columns(nodes, strands), g, opts
 
 
-def layout_one(g, sig, T, opts, warnings, relax=False):
+def layout_one(g, sig, T, opts, warnings, relax=False, big=False):
     nodes, strands = build(g, sig, T)
     col = columns(nodes, strands)
     if end_violations(nodes, col, g, opts) and end_violations(*mirrored(g, sig, T, opts)) < end_violations(nodes, col, g, opts):
@@ -130,6 +146,8 @@ def layout_one(g, sig, T, opts, warnings, relax=False):
         """Rows and columns, repeated until no two runs clash on a row. Returns (band, rows)."""
         rows = Rows(nodes, strands, snaps, free, opts.get("level_leg"), opts.get("keep_close", ()), rule_pins)
         rows.rule_weight = rules.setting(opts, "rule_weight")
+        rows.restart_every_round = not big       # a big band: the other starts in the first round only
+        rows.local = big                         # and a flip re-solves only the rows next to it
         rows.spans = span_filter
         xcons, refused = set(), set()
         for _ in range(12):
@@ -146,7 +164,7 @@ def layout_one(g, sig, T, opts, warnings, relax=False):
                 kept = set()
                 for rule in sorted(xcons):
                     try:
-                        place(nodes, strands, R, enclosed, opts, kept | {rule}, relaxed=[] if relax else None)
+                        place(nodes, strands, R, enclosed, opts, kept | {rule}, relaxed=[] if relax else None, check=True)
                         kept.add(rule)
                     except Unsettled:
                         refused.add(rule)
