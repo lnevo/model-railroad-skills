@@ -11,11 +11,11 @@ cd "$(dirname "$0")/.."
 PY="${PYTHON:-python3}"
 SHARD="${SHARD:-1/1}"
 
-# Seconds per file on a CI runner (2026-11-25, 4 at once); a file not listed counts 1.
-WEIGHTS="test_le_labels:73 test_le:32 test_unsettled_columns:31 test_cache:28 test_le_prefs:25
-test_slots:20 test_orient_fallback:13 test_solve_limits:12 test_le_masts:10 test_cats:9
-test_drawing:8 test_rows:4 test_solver_speed:4 test_turnbacks:4 test_detail:3 test_track_labels:3
-test_fold:2 test_xover_slide:2"
+# Seconds per file on a CI runner, run alone one after another (2026-11-25);
+# a file not listed counts 1.
+WEIGHTS="test_le_labels:41 test_le:21 test_unsettled_columns:18 test_le_prefs:16 test_cache:15
+test_slots:12 test_orient_fallback:8 test_solve_limits:6 test_cats:6 test_le_masts:5 test_drawing:5
+test_solver_speed:3 test_xover_slide:2 test_turnbacks:2 test_rows:2 test_detail:2"
 
 exec "$PY" - "$SHARD" "$WEIGHTS" <<'EOF'
 import pathlib, sys, time, unittest
