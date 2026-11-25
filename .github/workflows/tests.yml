@@ -5,9 +5,10 @@ on:
   push:
     branches: [main]
 
+# A new push to a pull request cancels its older run; runs on main always finish.
 concurrency:
   group: tests-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Each suite runs in its own job so the slowest one sets the wall time.
@@ -32,7 +33,7 @@ jobs:
             run: python -m unittest discover -s tests
           - suite: schematic-maps
             dir: plugins/schematic-maps
-            run: python -m unittest discover -s tests
+            run: python -m unittest discover -s tests --durations 40
           - suite: operations-pro
             dir: plugins/operations-pro
             run: python tests/run.py fast
