@@ -5,7 +5,8 @@ on:
   push:
     branches: [main]
 
-# A new push to a pull request cancels its older run; runs on main always finish.
+# A new push to a pull request cancels its older run; a run in progress on main is
+# not cancelled (a queued one can still be replaced by a newer push).
 concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

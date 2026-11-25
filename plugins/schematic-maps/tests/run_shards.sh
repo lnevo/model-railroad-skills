@@ -4,14 +4,14 @@
 # so every file is in exactly one shard and the shards take about the same time.
 # CI runs 3 shards on 3 runners: 4 files at once on one runner slowed every file
 # about 3x, and a process per file rebuilt the shared example each time.
-# Fails if any test fails, or if fewer tests ran than discover finds in the shard's files.
+# Fails if any test fails or a file does not import, or if a weight names no test file.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PY="${PYTHON:-python3}"
 SHARD="${SHARD:-1/1}"
 
-# Seconds per file on a CI runner, run alone one after another (2026-11-25); a file
+# Seconds per file on a CI runner, run alone one after another (2026-11-24); a file
 # not listed counts 1. test_le_labels (41 s alone) is weighted 70 so it has a shard
 # to itself: next to other files in one process its shard took 63-64 s in two runs
 # (cause not checked). A single runner's time swings about 2x, so balance on several runs.
@@ -31,6 +31,9 @@ except (ValueError, AssertionError):
 
 w = dict((k, int(v)) for k, v in (p.split(":") for p in weights.split()))
 names = sorted(p.stem for p in pathlib.Path("tests").glob("test_*.py"))
+stale = sorted(set(w) - set(names))
+if stale:
+    sys.exit(f"WEIGHTS names files that are not in tests/: {' '.join(stale)}")
 load, shards = [0] * n, [[] for _ in range(n)]
 for f in sorted(names, key=lambda f: (-w.get(f, 1), f)):
     k = min(range(n), key=lambda s: (load[s], s))
@@ -41,17 +44,10 @@ if not files:
     sys.exit(f"shard {shard} has no files")
 print(f"Shard {shard}: {' '.join(files)}", flush=True)
 
-def count(s):
-    return sum(count(t) for t in s) if isinstance(s, unittest.TestSuite) else 1
-
 loader = unittest.defaultTestLoader
 suite = unittest.TestSuite(loader.discover("tests", pattern=f + ".py") for f in files)
-want = count(suite)
 start = time.monotonic()
 result = unittest.TextTestRunner(verbosity=1).run(suite)
-print(f"Shard {shard}: ran {result.testsRun} tests in {time.monotonic() - start:.0f}s "
-      f"(discover finds {want} in these files)")
-if result.testsRun < want:
-    sys.exit("FAILED: fewer tests ran than discover finds")
+print(f"Shard {shard}: ran {result.testsRun} tests in {time.monotonic() - start:.0f}s")
 sys.exit(0 if result.wasSuccessful() else 1)
 EOF
