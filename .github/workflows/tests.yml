@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Each suite runs in its own job so the slowest one sets the wall time.
+  # Each suite runs in its own job so the slowest one sets the wall time;
+  # schematic-maps runs its test files on the runner's 4 cores (tests/run_parallel.sh).
   # operations-pro runs in fast mode: CI has no JMRI, so the tests that need
   # real JMRI skip. Run the full suite (python3 tests/run.py) before merging.
   test:
@@ -33,7 +34,7 @@ jobs:
             run: python -m unittest discover -s tests
           - suite: schematic-maps
             dir: plugins/schematic-maps
-            run: python -m unittest discover -s tests --durations 40
+            run: JOBS=4 PYTHON=python bash tests/run_parallel.sh
           - suite: operations-pro
             dir: plugins/operations-pro
             run: python tests/run.py fast
