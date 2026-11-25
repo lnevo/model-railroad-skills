@@ -11,8 +11,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Each suite runs in its own job so the slowest one sets the wall time;
-  # schematic-maps runs its test files on the runner's 4 cores (tests/run_parallel.sh).
+  # Each suite runs in its own job so the slowest one sets the wall time.
+  # schematic-maps, the longest, is split across 3 runners by tests/run_shards.sh;
+  # 4 files at once on one runner slowed every file about 3x.
   # operations-pro runs in fast mode: CI has no JMRI, so the tests that need
   # real JMRI skip. Run the full suite (python3 tests/run.py) before merging.
   test:
@@ -32,9 +33,15 @@ jobs:
             apt: tesseract-ocr
             pip: -r requirements.txt
             run: python -m unittest discover -s tests
-          - suite: schematic-maps
+          - suite: schematic-maps 1/3
             dir: plugins/schematic-maps
-            run: JOBS=4 PYTHON=python bash tests/run_parallel.sh
+            run: SHARD=1/3 PYTHON=python bash tests/run_shards.sh
+          - suite: schematic-maps 2/3
+            dir: plugins/schematic-maps
+            run: SHARD=2/3 PYTHON=python bash tests/run_shards.sh
+          - suite: schematic-maps 3/3
+            dir: plugins/schematic-maps
+            run: SHARD=3/3 PYTHON=python bash tests/run_shards.sh
           - suite: operations-pro
             dir: plugins/operations-pro
             run: python tests/run.py fast
