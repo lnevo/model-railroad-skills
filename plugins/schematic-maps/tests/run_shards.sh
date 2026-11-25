@@ -11,10 +11,10 @@ cd "$(dirname "$0")/.."
 PY="${PYTHON:-python3}"
 SHARD="${SHARD:-1/1}"
 
-# Seconds per file on a CI runner, run alone one after another (2026-11-25);
-# test_le_labels (41 s alone) is weighted 70 so it has a shard to itself: next to
-# other files in one process its shard took 63-64 s in two runs (cause not checked).
-# a file not listed counts 1.
+# Seconds per file on a CI runner, run alone one after another (2026-11-25); a file
+# not listed counts 1. test_le_labels (41 s alone) is weighted 70 so it has a shard
+# to itself: next to other files in one process its shard took 63-64 s in two runs
+# (cause not checked). A single runner's time swings about 2x, so balance on several runs.
 WEIGHTS="test_le_labels:70 test_le:21 test_unsettled_columns:18 test_le_prefs:16 test_cache:15
 test_slots:12 test_orient_fallback:8 test_solve_limits:6 test_cats:6 test_le_masts:5 test_drawing:5
 test_solver_speed:3 test_xover_slide:2 test_turnbacks:2 test_rows:2 test_detail:2"
