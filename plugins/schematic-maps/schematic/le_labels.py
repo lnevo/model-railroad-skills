@@ -122,10 +122,10 @@ track's level run, half the shortest such run in the group, and tries only spots
 track, and stops if it has none. A name is in name_columns or name_steps, not both.
 `names_first` (a band's): track names that `names_last` leaves in their usual place, before the block contents
 icons, and that must be placed: for a track whose name matters more than the icons near it, which then take the
-next clean spots. In every round, a retry included, each stands right after the switch numbers of the turnouts at
+next clean spots; only a band with names_last takes it. In every round, a retry included, each stands right after the switch numbers of the turnouts at
 its track's ends and before anything else the round puts first, so an icon retried first cannot take the spot by
 its track. Making room for an item with no spot (make_room) may move it to another clean spot beside its own
-track. A name on no track of the band stops.
+track. A name on no track of the band, one hidden_names hides, and two entries naming one track stop.
 `names_last` (a band's): that band's track names are placed after every other item of the panel (block contents
 icons and caller's items included), and a name with no clean spot then is left out and logged (P.names_skipped)
 instead of stopping: for a crowded band where every block's icon matters more than its name. It is the band's own
@@ -304,18 +304,30 @@ def strands_by_name(band):
 def first_names(bands, opts):
     """{(band index, strand id)} of each band's `names_first` tracks: under names_last, their names keep their
     place before the block contents icons and must be placed. A name matches as hide_names matches it (as given or
-    tidied, strands_by_name); one on no track of its band stops."""
+    tidied, strands_by_name). Stops on a band that lists names_first without names_last, on a name on no track of
+    its band, on one that hidden_names hides, and on two entries naming one track."""
     out = set()
     for bi, ((title, band, _o), o) in enumerate(zip(bands, opts)):
         want = o["names_first"]
         if not want:
             continue
+        if not o["names_last"]:
+            raise SchematicError(f"{title}: le_labels: names_first is for a names_last band: its names already "
+                                 "come before the icons")
         named = strands_by_name(band)
         missing = [n for n in want if n not in named]
         if missing:
             raise SchematicError(f"{title}: le_labels: names_first {', '.join(missing)}: no track of the band "
                                  "has that name")
-        out |= {(bi, sid) for n in want for sid in named[n]}
+        hidden = {sid for n in o["hidden_names"] for sid in named.get(n, ())}
+        seen = {}
+        for n in want:
+            for sid in named[n]:
+                if sid in hidden:
+                    raise SchematicError(f"{title}: le_labels: names_first {n}: hidden_names hides that track")
+                if seen.setdefault(sid, n) != n:
+                    raise SchematicError(f"{title}: le_labels: names_first names a track twice: {seen[sid]}, {n}")
+                out.add((bi, sid))
     return out
 
 

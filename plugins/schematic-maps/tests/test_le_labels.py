@@ -1340,11 +1340,11 @@ class NamesFirst(unittest.TestCase):
             with self.assertRaisesRegex(SchematicError, "^Lower level: track name Yard Lead: no clean spot"):
                 le.panel(b, page=page)
 
-    def test_without_names_first_the_panel_is_as_before(self):
+    def test_without_names_first_nothing_is_pinned(self):
         b, page = shared(le_band_labels={"Lower": {"names_last": True}})
-        b2, page2 = shared(le_band_labels={"Lower": {"names_last": True, "names_first": []}})
-        self.assertEqual(ET.tostring(le.to_xml(le.panel(b, page=page), "G")),
-                         ET.tostring(le.to_xml(le.panel(b2, page=page2), "G")))
+        self.assertEqual(le_labels.first_names(b, le_labels.options(b, page)), set())
+        P = le.panel(b, page=page)
+        self.assertEqual(le_labels.pinned_first(P, [(("switch", t["ident"]), None) for t in P.turnouts], set()), [])
 
     def test_a_pinned_name_keeps_its_spot_when_a_retry_puts_an_icon_first(self):
         """An icon with no spot after the name is retried first and takes the name's nearest spot; pinned
@@ -1358,13 +1358,23 @@ class NamesFirst(unittest.TestCase):
         self.assertEqual((failed, [k for k, _w in skipped]), ([], [icon]))
 
     def test_a_name_on_no_track_or_a_bad_list_stops(self):
-        cases = [({"Lower": {"names_first": ["Nowhere"]}}, "names_first Nowhere: no track of the band"),
+        cases = [({"Lower": {"names_last": True, "names_first": ["Nowhere"]}},
+                  "names_first Nowhere: no track of the band"),
                  ({"Lower": {"names_first": "Main"}}, "names_first must be a list of track names"),
-                 ({"Lower": {"names_first": ["Main", "Main"]}}, "names_first names a track twice")]
+                 ({"Lower": {"names_first": ["Main", "Main"]}}, "names_first names a track twice"),
+                 ({"Lower": {"names_first": ["Yard Lead"]}}, "names_first is for a names_last band"),
+                 ({"Lower": {"names_last": True, "names_first": ["Yard Lead"], "hidden_names": ["Yard Lead"]}},
+                  "names_first Yard Lead: hidden_names hides that track")]
         for value, msg in cases:
             b, page = shared(le_band_labels=value)
             with self.subTest(value=value), self.assertRaisesRegex(SchematicError, msg):
                 le.panel(b, page=page)
+        b, page = shared(le_band_labels={"Lower": {"names_last": True, "names_first": ["Y-1", "Track Y-1"]}})
+        t, band, o = b[1]
+        b[1] = (t, dict(band, strands={sid: dict(st, name="Track Y-1") if st["name"] == "Y-1" else st
+                                       for sid, st in band["strands"].items()}), o)      # one track, two spellings
+        with self.assertRaisesRegex(SchematicError, "names_first names a track twice: Y-1, Track Y-1"):
+            le_labels.first_names(b, le_labels.options(b, page))
         with self.assertRaisesRegex(SchematicError, "names_first is a band's own option"):
             le_labels.options(with_opts(None), {"le_labels": {"names_first": ["Main"]}})
 
