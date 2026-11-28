@@ -1319,5 +1319,65 @@ class HiddenNames(unittest.TestCase):
         self.assertNotIn("Yard Lead", [lb["text"] for lb in P.labels])
 
 
+class NamesFirst(unittest.TestCase):
+    """names_first: under names_last, a band's track names placed before the block contents icons, and never left
+    out."""
+
+    def test_a_first_name_is_placed_before_the_icons_and_the_panel_checks(self):
+        b, page = shared(le_band_labels={"Lower": {"names_last": True, "names_first": ["Yard Lead"]}})
+        P = le.panel(b, page=page)
+        self.assertIn("Yard Lead", [lb["text"] for lb in P.labels if lb["kind"] == "name"])
+        self.assertEqual(sorted(m["block"] for m in P.bcis), sorted(P.blocks))
+        le_labels.verify(P)
+        first = le_labels.first_names(b, le_labels.options(b, page))
+        self.assertTrue(first)
+        self.assertTrue(all(b[bi][1]["strands"][sid]["name"] == "Yard Lead" for bi, sid in first))
+
+    def test_a_first_name_with_no_room_stops_while_the_rest_are_left_out(self):
+        b, page = shared(le_band_labels={"Lower": {"names_last": True, "names_first": ["Yard Lead"]},
+                                         "Upper": {"names_last": True}})
+        with mock.patch.object(le_labels, "_track_name", no_room_for_names):
+            with self.assertRaisesRegex(SchematicError, "^Lower level: track name Yard Lead: no clean spot"):
+                le.panel(b, page=page)
+
+    def test_without_names_first_nothing_is_pinned(self):
+        b, page = shared(le_band_labels={"Lower": {"names_last": True}})
+        self.assertEqual(le_labels.first_names(b, le_labels.options(b, page)), set())
+        P = le.panel(b, page=page)
+        self.assertEqual(le_labels.pinned_first(P, [(("switch", t["ident"]), None) for t in P.turnouts], set()), [])
+
+    def test_a_pinned_name_keeps_its_spot_when_a_retry_puts_an_icon_first(self):
+        """An icon with no spot after the name is retried first and takes the name's nearest spot; pinned
+        (names_first), the name keeps it in every round and the optional icon is left out instead."""
+        name, icon = ("name", 1, "s1"), ("bci", "Block A")
+        items = spot_items([(name, ["S", "T"]), (icon, ["S"])])
+        done, _failed, _skipped = le_labels.place_items(Spots(), items, set(), {icon})
+        self.assertEqual(sorted((d["key"], d["box"]) for _k, d in done), [(icon, "S"), (name, "T")])
+        done, failed, skipped = le_labels.place_items(Spots(), items, set(), {icon}, [name])
+        self.assertEqual([(d["key"], d["box"]) for _k, d in done], [(name, "S")])
+        self.assertEqual((failed, [k for k, _w in skipped]), ([], [icon]))
+
+    def test_a_name_on_no_track_or_a_bad_list_stops(self):
+        cases = [({"Lower": {"names_last": True, "names_first": ["Nowhere"]}},
+                  "names_first Nowhere: no track of the band"),
+                 ({"Lower": {"names_first": "Main"}}, "names_first must be a list of track names"),
+                 ({"Lower": {"names_first": ["Main", "Main"]}}, "names_first names a track twice"),
+                 ({"Lower": {"names_first": ["Yard Lead"]}}, "names_first is for a names_last band"),
+                 ({"Lower": {"names_last": True, "names_first": ["Yard Lead"], "hidden_names": ["Yard Lead"]}},
+                  "names_first Yard Lead: hidden_names hides that track")]
+        for value, msg in cases:
+            b, page = shared(le_band_labels=value)
+            with self.subTest(value=value), self.assertRaisesRegex(SchematicError, msg):
+                le.panel(b, page=page)
+        b, page = shared(le_band_labels={"Lower": {"names_last": True, "names_first": ["Y-1", "Track Y-1"]}})
+        t, band, o = b[1]
+        b[1] = (t, dict(band, strands={sid: dict(st, name="Track Y-1") if st["name"] == "Y-1" else st
+                                       for sid, st in band["strands"].items()}), o)      # one track, two spellings
+        with self.assertRaisesRegex(SchematicError, "names_first names a track twice: Y-1, Track Y-1"):
+            le_labels.first_names(b, le_labels.options(b, page))
+        with self.assertRaisesRegex(SchematicError, "names_first is a band's own option"):
+            le_labels.options(with_opts(None), {"le_labels": {"names_first": ["Main"]}})
+
+
 if __name__ == "__main__":
     unittest.main()

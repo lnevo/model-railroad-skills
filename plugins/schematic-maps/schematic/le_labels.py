@@ -92,7 +92,7 @@ Options, a band's `le_labels` over the page's (all optional; unknown keys stop):
      "block_contents": true, "block_contents_size": 13, "block_contents_text": "OCS-1234",
      "block_contents_short": "OCS-1", "names_last": false, "name_columns": [], "name_steps": [], "lamp_columns": [],
      "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "crowded_block_contents": [], "extra_steps": [],
-     "extra_follow": [], "hidden_names": []}
+     "extra_follow": [], "hidden_names": [], "names_first": []}
 A band's options, each over the one before: DEFAULTS, the page's `le_labels`, the band's own `le_labels`, and its
 entry of the band preference `le_band_labels` ({band key: le_labels object}, le_prefs: for one preferences file that
 sets the page and several bands, where a flat le_labels reaches them all); a key in both of the band's own stops.
@@ -120,6 +120,12 @@ that x, above then below its track, and stops if it has none.
 ending one after another, an engine house's): each name is centred the same distance in from the west end of its
 track's level run, half the shortest such run in the group, and tries only spots at that x, above then below its
 track, and stops if it has none. A name is in name_columns or name_steps, not both.
+`names_first` (a band's): track names that `names_last` leaves in their usual place, before the block contents
+icons, and that must be placed: for a track whose name matters more than the icons near it, which then take the
+next clean spots; only a band with names_last takes it. In every round, a retry included, each stands right after the switch numbers of the turnouts at
+its track's ends and before anything else the round puts first, so an icon retried first cannot take the spot by
+its track. Making room for an item with no spot (make_room) may move it to another clean spot beside its own
+track. A name on no track of the band, one hidden_names hides, and two entries naming one track stop.
 `names_last` (a band's): that band's track names are placed after every other item of the panel (block contents
 icons and caller's items included), and a name with no clean spot then is left out and logged (P.names_skipped)
 instead of stopping: for a crowded band where every block's icon matters more than its name. It is the band's own
@@ -164,9 +170,10 @@ DEFAULTS = {"switch_prefix": "", "switch_size": 9, "switch_bold": True, "station
             "block_contents_short": "OCS-1", "names_last": False, "name_columns": [], "name_steps": [],
             "lamp_columns": [],
             "lamp_size": [10, 10], "numbers_below": [], "optional_block_contents": [], "crowded_block_contents": [], "extra_steps": [],
-            "extra_follow": [], "hidden_names": []}
+            "extra_follow": [], "hidden_names": [], "names_first": []}
 # a band's own le_labels keys: the page's may not set them
-BAND_ONLY = ("names_last", "extra_steps", "extra_follow", "hidden_names")
+BAND_ONLY = ("names_last", "extra_steps", "extra_follow", "hidden_names",
+             "names_first")
 BCI_CLASS = "jmri.jmrit.display.configurexml.BlockContentsIconXml"
 ICON_KIND = "a block contents icon"     # a block contents icon's kind among the reasons a spot is not clean
 STATION_KIND = "a station name"         # a station name's kind (station_gap keeps them apart)
@@ -221,13 +228,15 @@ def _check(where, o):
             if moving:
                 raise SchematicError(f"{where}: le_labels: extra_follow's leader {', '.join(moving)} is itself "
                                      "stepped or follows; a leader must stand where the label layer puts it")
-        elif k in ("numbers_below", "optional_block_contents", "crowded_block_contents", "hidden_names"):
+        elif k in ("numbers_below", "optional_block_contents", "crowded_block_contents", "hidden_names",
+                   "names_first"):
             what = {"numbers_below": "switch numbers", "optional_block_contents": "block names",
-                    "crowded_block_contents": "block names", "hidden_names": "track names"}[k]
+                    "crowded_block_contents": "block names", "hidden_names": "track names",
+                    "names_first": "track names"}[k]
             if not isinstance(v, list) or not all(isinstance(n, str) and n.strip() for n in v):
                 raise SchematicError(f"{where}: le_labels: {k} must be a list of {what}, not {v!r}")
-            if k == "hidden_names" and len(set(v)) != len(v):
-                raise SchematicError(f"{where}: le_labels: hidden_names names a track twice: {v!r}")
+            if k in ("hidden_names", "names_first") and len(set(v)) != len(v):
+                raise SchematicError(f"{where}: le_labels: {k} names a track twice: {v!r}")
         elif k == "station_gap":
             if isinstance(v, bool) or not isinstance(v, int) or not PAD <= v <= 100:
                 raise SchematicError(f"{where}: le_labels: station_gap must be whole px from {PAD} to 100, not {v!r}")
@@ -281,6 +290,47 @@ def options(bands, page):
     return out
 
 
+def strands_by_name(band):
+    """{name: {strand id}} of a band's named tracks, each under its name as given and as the panel writes it (tidy:
+    "Track Y-1" as "Y-1"), so an option may name a track either way."""
+    named = defaultdict(set)
+    for sid, s in band["strands"].items():
+        if s.get("name"):
+            named[s["name"]].add(sid)
+            named[tidy([s["name"]])[0]].add(sid)
+    return named
+
+
+def first_names(bands, opts):
+    """{(band index, strand id)} of each band's `names_first` tracks: under names_last, their names keep their
+    place before the block contents icons and must be placed. A name matches as hide_names matches it (as given or
+    tidied, strands_by_name). Stops on a band that lists names_first without names_last, on a name on no track of
+    its band, on one that hidden_names hides, and on two entries naming one track."""
+    out = set()
+    for bi, ((title, band, _o), o) in enumerate(zip(bands, opts)):
+        want = o["names_first"]
+        if not want:
+            continue
+        if not o["names_last"]:
+            raise SchematicError(f"{title}: le_labels: names_first is for a names_last band: its names already "
+                                 "come before the icons")
+        named = strands_by_name(band)
+        missing = [n for n in want if n not in named]
+        if missing:
+            raise SchematicError(f"{title}: le_labels: names_first {', '.join(missing)}: no track of the band "
+                                 "has that name")
+        hidden = {sid for n in o["hidden_names"] for sid in named.get(n, ())}
+        seen = {}
+        for n in want:
+            for sid in named[n]:
+                if sid in hidden:
+                    raise SchematicError(f"{title}: le_labels: names_first {n}: hidden_names hides that track")
+                if seen.setdefault(sid, n) != n:
+                    raise SchematicError(f"{title}: le_labels: names_first names a track twice: {seen[sid]}, {n}")
+                out.add((bi, sid))
+    return out
+
+
 HIDDEN = "le_name_hidden"     # set on a strand whose name the Layout Editor panel leaves off (hide_names)
 
 
@@ -298,11 +348,7 @@ def hide_names(bands, page):
             out.append((title, band, o))
             continue
         strands = band["strands"]
-        named = defaultdict(set)
-        for sid, s in strands.items():
-            if s.get("name"):
-                named[s["name"]].add(sid)
-                named[tidy([s["name"]])[0]].add(sid)
+        named = strands_by_name(band)
         missing = [n for n in hidden if n not in named]
         if missing:
             raise SchematicError(f"{title}: le_labels: hidden_names {', '.join(missing)}: no track of the band "
@@ -814,8 +860,10 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
     L = Layer(P, bands, opts)
     extras = check_extras(extras, P.blocks)
     items = keyed(specs(P, bands, opts, L, extras))
-    # a band's names_last: its track names go after everything else and may be left out
-    skip_names = {k for k, _m in items if k[0] == "name" and opts[k[1]]["names_last"]}
+    # a band's names_last: its track names go after everything else and may be left out, but for its names_first
+    first = first_names(bands, opts)
+    skip_names = {k for k, _m in items
+                  if k[0] == "name" and opts[k[1]]["names_last"] and (k[1], k[2]) not in first}
     items = [it for it in items if it[0] not in skip_names] + [it for it in items if it[0] in skip_names]
     skip_bcis = optional_icons(P, L, bands, opts)
     if by_band:
@@ -825,7 +873,7 @@ def place(P, bands, opts, strict=True, extras=None, by_band=False):
         groups = [items]
     done, failed, skipped, notes = [], [], [], []
     for group in groups:
-        g_done, g_failed, g_skipped = place_items(L, group, skip_names, skip_bcis)
+        g_done, g_failed, g_skipped = place_items(L, group, skip_names, skip_bcis, pinned_first(P, group, first))
         done += g_done
         failed += g_failed
         skipped += g_skipped
@@ -907,14 +955,31 @@ def item_bands(P, L, items, extras):
     return out
 
 
-def place_items(L, items, skip_names, skip_bcis):
+def pinned_first(P, items, first):
+    """names_first: the keys that lead every round of `items`, in order: the switch numbers of the turnouts at the
+    ends of each listed name's track (by turnout name, so a split crossover's one number counts), then the name.
+    Only those switch numbers come before it, so the rest of the band's order is as before."""
+    seg_ends = {s["ident"]: [e for e, kind in s["ends"] if kind.startswith("TURNOUT_")] for s in P.segments}
+    name_of = {t["ident"]: t["name"] for t in P.turnouts}
+    switches = [k for k, _m in items if k[0] == "switch"]
+    out = []
+    for k, _m in items:
+        if k[0] != "name" or (k[1], k[2]) not in first:
+            continue
+        at = {name_of[i] for seg in P.strand_segments.get((k[1], k[2]), ()) for i in seg_ends.get(seg, ())}
+        out += [s for s in switches if name_of.get(s[1]) in at and s not in out] + [k]
+    return out
+
+
+def place_items(L, items, skip_names, skip_bcis, pinned=()):
     """(done, failed, skipped) of placing `items` in rounds (place_rounds); then each item left out (skipped) tried
     again first, one at a time (module text, names_last): it leads when every item that must be placed still finds a
     spot, room made for any that found none (make_room, names=False), and fewer are left out. An item with no clean
     spot even with nothing else placed (against the drawing, the mast icons and what stands already) is not tried.
     Each name still left out then makes room where it can (make_room). The panel's labels stand as in the outcome
-    returned."""
-    got = place_rounds(L, items, skip_names, skip_bcis, [])
+    returned. `pinned` (pinned_first: names_first names after their tracks' switch numbers) lead every round."""
+    pinned = list(pinned)
+    got = place_rounds(L, items, skip_names, skip_bcis, pinned)
     if got[1] or not got[2]:
         return got[:3]
     makers = dict(items)
@@ -930,8 +995,8 @@ def place_items(L, items, skip_names, skip_bcis):
         done, failed, skipped, state = place_rounds(L, items, skip_names, skip_bcis, lead)
         return (*make_room(L, items, done, failed, skipped, state, names=False), state)
 
-    lead, last = [], None
-    for key in [k for k, _why in got[2] if free(k)][:LEAD_TRIES]:
+    lead, last = pinned, None
+    for key in [k for k, _why in got[2] if free(k) and k not in pinned][:LEAD_TRIES]:
         trial = led(lead + [key])
         last = lead + [key]
         if not trial[1] and len(trial[2]) < len(got[2]):
