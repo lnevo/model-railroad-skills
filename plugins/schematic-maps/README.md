@@ -71,6 +71,8 @@ Results on AnyRail's 38 example layouts, with credits and every sheet: [`docs/an
 
 Since 0.1.53 the solve draws the same sheets faster than 0.1.52 did: the column search prices a move from the tracks it moves, a clearance rule is tested without spreading the columns, the row search stops one sweep after its last gain and skips a leg it cannot win with, and the turnback search drops a set of runs that cannot face round its loops before trying it. A big band (100 switches or more, or 20 or more independent loops) gets a lighter search, logged as a warning: only its 3 cheapest orientations that settle are laid out, the row search tries its other starts in the first round only, and a switch tried with its other leg level re-solves only the rows next to it. Smaller bands are drawn as before.
 
+Since 0.1.55 a band's label options take `names_first`: track names that `names_last` leaves in their usual place, before the block contents icons, and that must be placed. Each sits next to its own track and the icons near it take the next clean spots. A name on no track of the band stops. Panels drawn without it come out as before.
+
 Since 0.1.54 a cold Layout Editor panel is drawn faster, the same panel as before: the label layer works out once whether a spot clears the track, the control circles and the panel's edge for an item, and checks only the labels placed so far each time it tries that spot again.
 
 ## Detail sheets
